@@ -1,9 +1,7 @@
-import { createClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/auth'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Download } from 'lucide-react'
-import { exportIncidentsCSV, exportActionsCSV } from '@/app/actions/reports'
 
 export default async function ReportsPage() {
   await requireAuth()
@@ -24,12 +22,12 @@ export default async function ReportsPage() {
             <p className="text-sm text-muted-foreground">
               Export incidents data as CSV file. You can filter by date range after clicking export.
             </p>
-            <form action={exportIncidentsCSV}>
-              <Button type="submit">
+            <Button asChild>
+              <a href="/api/reports/incidents">
                 <Download className="h-4 w-4 mr-2" />
                 Export Incidents (CSV)
-              </Button>
-            </form>
+              </a>
+            </Button>
           </CardContent>
         </Card>
 
@@ -41,12 +39,12 @@ export default async function ReportsPage() {
             <p className="text-sm text-muted-foreground">
               Export actions data as CSV file. You can filter by date range after clicking export.
             </p>
-            <form action={exportActionsCSV}>
-              <Button type="submit">
+            <Button asChild>
+              <a href="/api/reports/actions">
                 <Download className="h-4 w-4 mr-2" />
                 Export Actions (CSV)
-              </Button>
-            </form>
+              </a>
+            </Button>
           </CardContent>
         </Card>
       </div>

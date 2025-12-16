@@ -3,6 +3,7 @@ import { requireAuth } from '@/lib/auth'
 import { notFound } from 'next/navigation'
 import { format } from 'date-fns'
 import { StatusBadge } from '@/components/shared/status-badge'
+import { PrintButton } from '@/components/incidents/print-button'
 
 async function getIncident(id: string) {
   const supabase = createClient()
@@ -71,19 +72,7 @@ export default async function IncidentPrintPage({
 
   return (
     <div className="p-8 max-w-4xl mx-auto print:p-4">
-      <style jsx>{`
-        @media print {
-          .no-print {
-            display: none;
-          }
-        }
-      `}</style>
-      
-      <div className="mb-6 no-print">
-        <button onClick={() => window.print()} className="px-4 py-2 bg-primary text-primary-foreground rounded">
-          Print
-        </button>
-      </div>
+      <PrintButton />
 
       <div className="space-y-6">
         <div className="border-b pb-4">
