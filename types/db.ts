@@ -1,0 +1,336 @@
+// Placeholder for generated Supabase types
+// Run: npx supabase gen types typescript --project-id fwnzpafwfaiynrclwtnh > types/db.ts
+
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[]
+
+export type FaUserRole = 'admin' | 'ops' | 'readonly'
+export type FaIncidentCategory = 'accident' | 'near_miss' | 'security' | 'fire' | 'health_safety' | 'other'
+export type FaSeverity = 'low' | 'medium' | 'high' | 'critical'
+export type FaIncidentStatus = 'open' | 'under_investigation' | 'actions_in_progress' | 'closed' | 'cancelled'
+export type FaInvestigationType = 'light_touch' | 'formal'
+export type FaInvestigationStatus = 'not_started' | 'in_progress' | 'awaiting_actions' | 'complete'
+export type FaActionPriority = 'low' | 'medium' | 'high' | 'urgent'
+export type FaActionStatus = 'open' | 'in_progress' | 'blocked' | 'complete' | 'cancelled'
+export type FaEntityType = 'incident' | 'investigation' | 'action' | 'store'
+
+export interface Database {
+  public: {
+    Tables: {
+      fa_profiles: {
+        Row: {
+          id: string
+          full_name: string | null
+          role: FaUserRole
+          created_at: string
+        }
+        Insert: {
+          id: string
+          full_name?: string | null
+          role?: FaUserRole
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          full_name?: string | null
+          role?: FaUserRole
+          created_at?: string
+        }
+      }
+      fa_stores: {
+        Row: {
+          id: string
+          store_code: string | null
+          store_name: string
+          address_line_1: string | null
+          city: string | null
+          postcode: string | null
+          region: string | null
+          is_active: boolean
+          compliance_audit_1_date: string | null
+          compliance_audit_1_overall_pct: number | null
+          action_plan_1_sent: boolean | null
+          compliance_audit_1_pdf_path: string | null
+          compliance_audit_2_date: string | null
+          compliance_audit_2_overall_pct: number | null
+          action_plan_2_sent: boolean | null
+          compliance_audit_2_pdf_path: string | null
+          compliance_audit_2_assigned_manager_user_id: string | null
+          compliance_audit_2_planned_date: string | null
+          compliance_audit_3_date: string | null
+          compliance_audit_3_overall_pct: number | null
+          action_plan_3_sent: boolean | null
+          area_average_pct: number | null
+          total_audits_to_date: number | null
+        }
+        Insert: {
+          id?: string
+          store_code?: string | null
+          store_name: string
+          address_line_1?: string | null
+          city?: string | null
+          postcode?: string | null
+          region?: string | null
+          is_active?: boolean
+          compliance_audit_1_date?: string | null
+          compliance_audit_1_overall_pct?: number | null
+          action_plan_1_sent?: boolean | null
+          compliance_audit_1_pdf_path?: string | null
+          compliance_audit_2_date?: string | null
+          compliance_audit_2_overall_pct?: number | null
+          action_plan_2_sent?: boolean | null
+          compliance_audit_2_pdf_path?: string | null
+          compliance_audit_2_assigned_manager_user_id?: string | null
+          compliance_audit_2_planned_date?: string | null
+          compliance_audit_3_date?: string | null
+          compliance_audit_3_overall_pct?: number | null
+          action_plan_3_sent?: boolean | null
+          area_average_pct?: number | null
+          total_audits_to_date?: number | null
+        }
+        Update: {
+          id?: string
+          store_code?: string | null
+          store_name?: string
+          address_line_1?: string | null
+          city?: string | null
+          postcode?: string | null
+          region?: string | null
+          is_active?: boolean
+          compliance_audit_1_date?: string | null
+          compliance_audit_1_overall_pct?: number | null
+          action_plan_1_sent?: boolean | null
+          compliance_audit_1_pdf_path?: string | null
+          compliance_audit_2_date?: string | null
+          compliance_audit_2_overall_pct?: number | null
+          action_plan_2_sent?: boolean | null
+          compliance_audit_2_pdf_path?: string | null
+          compliance_audit_2_assigned_manager_user_id?: string | null
+          compliance_audit_2_planned_date?: string | null
+          compliance_audit_3_date?: string | null
+          compliance_audit_3_overall_pct?: number | null
+          action_plan_3_sent?: boolean | null
+          area_average_pct?: number | null
+          total_audits_to_date?: number | null
+        }
+      }
+      fa_incidents: {
+        Row: {
+          id: string
+          reference_no: string
+          store_id: string
+          reported_by_user_id: string
+          incident_category: FaIncidentCategory
+          severity: FaSeverity
+          summary: string
+          description: string | null
+          occurred_at: string
+          reported_at: string
+          persons_involved: Json | null
+          injury_details: Json | null
+          witnesses: Json | null
+          riddor_reportable: boolean
+          status: FaIncidentStatus
+          assigned_investigator_user_id: string | null
+          target_close_date: string | null
+          closed_at: string | null
+          closure_summary: string | null
+        }
+        Insert: {
+          id?: string
+          reference_no: string
+          store_id: string
+          reported_by_user_id: string
+          incident_category: FaIncidentCategory
+          severity: FaSeverity
+          summary: string
+          description?: string | null
+          occurred_at: string
+          reported_at: string
+          persons_involved?: Json | null
+          injury_details?: Json | null
+          witnesses?: Json | null
+          riddor_reportable?: boolean
+          status?: FaIncidentStatus
+          assigned_investigator_user_id?: string | null
+          target_close_date?: string | null
+          closed_at?: string | null
+          closure_summary?: string | null
+        }
+        Update: {
+          id?: string
+          reference_no?: string
+          store_id?: string
+          reported_by_user_id?: string
+          incident_category?: FaIncidentCategory
+          severity?: FaSeverity
+          summary?: string
+          description?: string | null
+          occurred_at?: string
+          reported_at?: string
+          persons_involved?: Json | null
+          injury_details?: Json | null
+          witnesses?: Json | null
+          riddor_reportable?: boolean
+          status?: FaIncidentStatus
+          assigned_investigator_user_id?: string | null
+          target_close_date?: string | null
+          closed_at?: string | null
+          closure_summary?: string | null
+        }
+      }
+      fa_investigations: {
+        Row: {
+          id: string
+          incident_id: string
+          investigation_type: FaInvestigationType
+          status: FaInvestigationStatus
+          lead_investigator_user_id: string
+          root_cause: string | null
+          contributing_factors: string | null
+          findings: string | null
+          recommendations: string | null
+          started_at: string | null
+          completed_at: string | null
+        }
+        Insert: {
+          id?: string
+          incident_id: string
+          investigation_type: FaInvestigationType
+          status?: FaInvestigationStatus
+          lead_investigator_user_id: string
+          root_cause?: string | null
+          contributing_factors?: string | null
+          findings?: string | null
+          recommendations?: string | null
+          started_at?: string | null
+          completed_at?: string | null
+        }
+        Update: {
+          id?: string
+          incident_id?: string
+          investigation_type?: FaInvestigationType
+          status?: FaInvestigationStatus
+          lead_investigator_user_id?: string
+          root_cause?: string | null
+          contributing_factors?: string | null
+          findings?: string | null
+          recommendations?: string | null
+          started_at?: string | null
+          completed_at?: string | null
+        }
+      }
+      fa_actions: {
+        Row: {
+          id: string
+          incident_id: string
+          investigation_id: string | null
+          title: string
+          description: string | null
+          priority: FaActionPriority
+          assigned_to_user_id: string
+          due_date: string
+          status: FaActionStatus
+          evidence_required: boolean
+          completed_at: string | null
+          completion_notes: string | null
+        }
+        Insert: {
+          id?: string
+          incident_id: string
+          investigation_id?: string | null
+          title: string
+          description?: string | null
+          priority: FaActionPriority
+          assigned_to_user_id: string
+          due_date: string
+          status?: FaActionStatus
+          evidence_required?: boolean
+          completed_at?: string | null
+          completion_notes?: string | null
+        }
+        Update: {
+          id?: string
+          incident_id?: string
+          investigation_id?: string | null
+          title?: string
+          description?: string | null
+          priority?: FaActionPriority
+          assigned_to_user_id?: string
+          due_date?: string
+          status?: FaActionStatus
+          evidence_required?: boolean
+          completed_at?: string | null
+          completion_notes?: string | null
+        }
+      }
+      fa_attachments: {
+        Row: {
+          id: string
+          entity_type: FaEntityType
+          entity_id: string
+          file_name: string
+          file_path: string
+          file_type: string
+          file_size: number
+          uploaded_by_user_id: string
+        }
+        Insert: {
+          id?: string
+          entity_type: FaEntityType
+          entity_id: string
+          file_name: string
+          file_path: string
+          file_type: string
+          file_size: number
+          uploaded_by_user_id: string
+        }
+        Update: {
+          id?: string
+          entity_type?: FaEntityType
+          entity_id?: string
+          file_name?: string
+          file_path?: string
+          file_type?: string
+          file_size?: number
+          uploaded_by_user_id?: string
+        }
+      }
+      fa_activity_log: {
+        Row: {
+          id: string
+          entity_type: FaEntityType
+          entity_id: string
+          action: string
+          performed_by_user_id: string
+          details: Json | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          entity_type: FaEntityType
+          entity_id: string
+          action: string
+          performed_by_user_id: string
+          details?: Json | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          entity_type?: FaEntityType
+          entity_id?: string
+          action?: string
+          performed_by_user_id?: string
+          details?: Json | null
+          created_at?: string
+        }
+      }
+    }
+  }
+}
+
