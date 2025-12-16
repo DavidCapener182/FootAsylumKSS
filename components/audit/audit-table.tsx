@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { UserRole } from '@/lib/auth'
 import { uploadAuditPDF } from '@/app/actions/audit-pdfs'
 import { Upload, FileText } from 'lucide-react'
 import { 
@@ -32,7 +31,7 @@ interface EditState {
   pdfFile: File | null
 }
 
-export function AuditTable({ rows, userRole }: { rows: AuditRow[]; userRole: UserRole }) {
+export function AuditTable({ rows }: { rows: AuditRow[] }) {
   const [search, setSearch] = useState('')
   const [area, setArea] = useState<string>('all')
   const [editing, setEditing] = useState<EditState | null>(null)

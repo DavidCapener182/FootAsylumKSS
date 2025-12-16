@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import { requireRole } from '@/lib/auth'
+import { requireAuth } from '@/lib/auth'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
@@ -22,7 +22,7 @@ async function getStores() {
 }
 
 export default async function StoresPage() {
-  const { profile } = await requireRole(['admin', 'ops', 'readonly'])
+  await requireAuth()
   const stores = await getStores()
 
   return (
@@ -32,14 +32,12 @@ export default async function StoresPage() {
           <h1 className="text-3xl font-bold">Stores</h1>
           <p className="text-muted-foreground mt-1">Manage store locations</p>
         </div>
-        {profile.role === 'admin' && (
-          <Link href="/stores/new">
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              New Store
-            </Button>
-          </Link>
-        )}
+        <Link href="/stores/new">
+          <Button>
+            <Plus className="h-4 w-4 mr-2" />
+            New Store
+          </Button>
+        </Link>
       </div>
 
       <Card>

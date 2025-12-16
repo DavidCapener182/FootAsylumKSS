@@ -1,6 +1,6 @@
 import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { requireRole } from '@/lib/auth'
+import { requireAuth } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { AuditTable, AuditRow } from '@/components/audit/audit-table'
 import { AuditLeagueTable } from '@/components/audit/audit-league-table'
@@ -24,7 +24,7 @@ async function getStoreAudits() {
 }
 
 export default async function AuditTrackerPage() {
-  const { profile } = await requireRole(['admin', 'ops', 'readonly'])
+  await requireAuth()
   const stores = await getStoreAudits()
 
   return (
@@ -43,7 +43,7 @@ export default async function AuditTrackerPage() {
             </TabsList>
 
             <TabsContent value="by-area" className="space-y-4">
-              <AuditTable rows={stores as AuditRow[]} userRole={profile.role} />
+              <AuditTable rows={stores as AuditRow[]} />
             </TabsContent>
 
             <TabsContent value="league" className="space-y-4">

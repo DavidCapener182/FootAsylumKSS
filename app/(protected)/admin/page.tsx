@@ -1,8 +1,8 @@
-import { requireRole } from '@/lib/auth'
+import { requireAuth } from '@/lib/auth'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 export default async function AdminPage() {
-  await requireRole(['admin'])
+  await requireAuth()
 
   return (
     <div className="space-y-6">

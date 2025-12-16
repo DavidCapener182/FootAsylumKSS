@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { LayoutDashboard, AlertTriangle, CheckSquare, Store, FileText, Settings, User, ClipboardList } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { UserRole, UserProfile } from '@/lib/auth'
+import { UserProfile } from '@/lib/auth'
 
 const navItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -13,20 +13,15 @@ const navItems = [
   { href: '/stores', label: 'Stores', icon: Store },
   { href: '/audit-tracker', label: 'Audit Tracker', icon: ClipboardList },
   { href: '/reports', label: 'Reports', icon: FileText },
-  { href: '/admin', label: 'Admin', icon: Settings, adminOnly: true },
+  { href: '/admin', label: 'Admin', icon: Settings },
 ]
 
 interface SidebarClientProps {
-  userRole?: UserRole | null
   userProfile?: UserProfile | null
 }
 
-export function SidebarClient({ userRole, userProfile }: SidebarClientProps) {
+export function SidebarClient({ userProfile }: SidebarClientProps) {
   const pathname = usePathname()
-
-  const filteredItems = userRole === 'admin' 
-    ? navItems 
-    : navItems.filter(item => !item.adminOnly)
 
   return (
     <aside className="w-64 flex flex-col h-screen bg-gradient-to-b from-gray-50 to-purple-50/30 border-r border-gray-200/50">
@@ -35,7 +30,7 @@ export function SidebarClient({ userRole, userProfile }: SidebarClientProps) {
       </div>
       <nav className="flex-1 p-4 overflow-y-auto">
         <ul className="space-y-2">
-          {filteredItems.map((item) => {
+          {navItems.map((item) => {
             const Icon = item.icon
             const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href))
             return (
@@ -65,9 +60,6 @@ export function SidebarClient({ userRole, userProfile }: SidebarClientProps) {
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-gray-900 truncate">
               {userProfile?.full_name || 'User'}
-            </p>
-            <p className="text-xs text-gray-500 capitalize">
-              {userProfile?.role || 'readonly'}
             </p>
           </div>
         </div>
