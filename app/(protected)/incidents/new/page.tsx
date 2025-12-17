@@ -203,7 +203,7 @@ export default function NewIncidentPage() {
                 )}
               />
 
-              <div className="flex items-center space-x-2">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                 <Button type="submit">Create Incident</Button>
                 <Button type="button" variant="outline" onClick={() => router.back()}>
                   Cancel

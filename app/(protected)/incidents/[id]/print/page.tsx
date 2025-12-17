@@ -80,7 +80,7 @@ export default async function IncidentPrintPage({
           <p className="text-lg mt-2">{incident.summary}</p>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <div className="text-sm font-medium text-muted-foreground">Status</div>
             <div className="mt-1">

@@ -2,19 +2,10 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, AlertTriangle, CheckSquare, Store, FileText, Settings, User, ClipboardList } from 'lucide-react'
+import { User } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { UserProfile } from '@/lib/auth'
-
-const navItems = [
-  { href: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/incidents', label: 'Incidents', icon: AlertTriangle },
-  { href: '/actions', label: 'Actions', icon: CheckSquare },
-  { href: '/stores', label: 'Stores', icon: Store },
-  { href: '/audit-tracker', label: 'Audit Tracker', icon: ClipboardList },
-  { href: '/reports', label: 'Reports', icon: FileText },
-  { href: '/admin', label: 'Admin', icon: Settings },
-]
+import { navItems } from '@/components/layout/nav-items'
 
 interface SidebarClientProps {
   userProfile?: UserProfile | null
@@ -24,7 +15,7 @@ export function SidebarClient({ userProfile }: SidebarClientProps) {
   const pathname = usePathname()
 
   return (
-    <aside className="w-64 flex flex-col h-screen bg-gradient-to-b from-gray-50 to-purple-50/30 border-r border-gray-200/50">
+    <aside className="hidden md:flex w-64 flex-col h-screen bg-gradient-to-b from-gray-50 to-purple-50/30 border-r border-gray-200/50">
       <div className="flex h-16 items-center px-6 border-b border-gray-200/50">
         <h1 className="text-lg font-semibold text-gray-900">KSS Assurance</h1>
       </div>
