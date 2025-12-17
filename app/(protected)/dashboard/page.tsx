@@ -183,17 +183,19 @@ export default async function DashboardPage() {
             <CardContent className="px-6 pb-6">
               <Tabs defaultValue="first" className="w-full">
                 {/* Reduced margin-bottom here to bring tabs closer to header */}
-                <TabsList className="grid w-full grid-cols-3 mb-4 bg-slate-100/80">
-                  <TabsTrigger value="first" className="text-xs">First Audits</TabsTrigger>
-                  <TabsTrigger value="second" className="text-xs">Second Audits</TabsTrigger>
-                  <TabsTrigger value="total" className="text-xs">Total Complete</TabsTrigger>
+                <TabsList className="grid w-full grid-cols-3 mb-4 bg-slate-100/80 min-w-0">
+                  <TabsTrigger value="first" className="min-w-0 truncate px-2 text-[11px] sm:text-xs">First Audits</TabsTrigger>
+                  <TabsTrigger value="second" className="min-w-0 truncate px-2 text-[11px] sm:text-xs">Second Audits</TabsTrigger>
+                  <TabsTrigger value="total" className="min-w-0 truncate px-2 text-[11px] sm:text-xs">Total Complete</TabsTrigger>
                 </TabsList>
                 
                 <TabsContent value="first" className="mt-0 space-y-4">
                   <div className="flex flex-col gap-2">
-                    <div className="flex items-end justify-between">
+                    <div className="flex items-end justify-between gap-3 min-w-0">
                       <span className="text-4xl font-bold text-emerald-600">{data.auditStats.firstAuditPercentage}%</span>
-                      <span className="text-sm text-slate-500 mb-1">{data.auditStats.firstAuditsComplete} of {data.auditStats.totalStores} stores</span>
+                      <span className="text-xs sm:text-sm text-slate-500 mb-1 text-right min-w-0">
+                        {data.auditStats.firstAuditsComplete} of {data.auditStats.totalStores} stores
+                      </span>
                     </div>
                     <ProgressBar value={data.auditStats.firstAuditPercentage} colorClass="bg-emerald-500" />
                   </div>
@@ -201,9 +203,11 @@ export default async function DashboardPage() {
 
                 <TabsContent value="second" className="mt-0 space-y-4">
                   <div className="flex flex-col gap-2">
-                    <div className="flex items-end justify-between">
+                    <div className="flex items-end justify-between gap-3 min-w-0">
                       <span className="text-4xl font-bold text-blue-600">{data.auditStats.secondAuditPercentage}%</span>
-                      <span className="text-sm text-slate-500 mb-1">{data.auditStats.secondAuditsComplete} of {data.auditStats.totalStores} stores</span>
+                      <span className="text-xs sm:text-sm text-slate-500 mb-1 text-right min-w-0">
+                        {data.auditStats.secondAuditsComplete} of {data.auditStats.totalStores} stores
+                      </span>
                     </div>
                     <ProgressBar value={data.auditStats.secondAuditPercentage} colorClass="bg-blue-500" />
                   </div>
@@ -211,9 +215,11 @@ export default async function DashboardPage() {
 
                 <TabsContent value="total" className="mt-0 space-y-4">
                    <div className="flex flex-col gap-2">
-                    <div className="flex items-end justify-between">
+                    <div className="flex items-end justify-between gap-3 min-w-0">
                       <span className="text-4xl font-bold text-purple-600">{data.auditStats.totalAuditPercentage}%</span>
-                      <span className="text-sm text-slate-500 mb-1">{data.auditStats.totalAuditsComplete} of {data.auditStats.totalStores} stores</span>
+                      <span className="text-xs sm:text-sm text-slate-500 mb-1 text-right min-w-0">
+                        {data.auditStats.totalAuditsComplete} of {data.auditStats.totalStores} stores
+                      </span>
                     </div>
                     <ProgressBar value={data.auditStats.totalAuditPercentage} colorClass="bg-purple-500" />
                   </div>
@@ -235,11 +241,11 @@ export default async function DashboardPage() {
               ) : (
                 <div className="space-y-3">
                   {Object.entries(data.statusCounts).map(([status, count]) => (
-                    <div key={status} className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-slate-700 capitalize truncate pr-2">
+                    <div key={status} className="flex items-center justify-between gap-2 min-w-0">
+                      <span className="text-sm font-medium text-slate-700 capitalize truncate pr-2 min-w-0">
                         {status.replace(/_/g, ' ')}
                       </span>
-                      <span className="text-xs font-bold bg-purple-100 text-purple-700 px-2 py-1 rounded-full min-w-[24px] text-center">
+                      <span className="text-xs font-bold bg-purple-100 text-purple-700 px-2 py-1 rounded-full min-w-[24px] text-center shrink-0">
                         {count as number}
                       </span>
                     </div>
@@ -261,11 +267,11 @@ export default async function DashboardPage() {
               ) : (
                 <div className="space-y-3">
                   {Object.entries(data.severityCounts).map(([severity, count]) => (
-                    <div key={severity} className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-slate-700 capitalize">
+                    <div key={severity} className="flex items-center justify-between gap-2 min-w-0">
+                      <span className="text-sm font-medium text-slate-700 capitalize truncate pr-2 min-w-0">
                         {severity}
                       </span>
-                      <span className="text-xs font-bold bg-orange-100 text-orange-700 px-2 py-1 rounded-full min-w-[24px] text-center">
+                      <span className="text-xs font-bold bg-orange-100 text-orange-700 px-2 py-1 rounded-full min-w-[24px] text-center shrink-0">
                         {count as number}
                       </span>
                     </div>
