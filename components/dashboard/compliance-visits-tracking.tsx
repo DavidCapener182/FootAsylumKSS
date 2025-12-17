@@ -108,7 +108,7 @@ export function ComplianceVisitsTracking({ stores, profiles }: ComplianceVisitsT
       </CardHeader>
       <CardContent>
         <div className="rounded-md border border-amber-200 bg-white max-w-full">
-          <div className="max-h-[320px] overflow-auto">
+          <div className="max-h-[320px] overflow-auto overscroll-x-contain touch-pan-x touch-pan-y">
             <Table className="min-w-[640px]">
               <TableHeader className="sticky top-0 bg-white z-10 shadow-sm">
                 <TableRow>
