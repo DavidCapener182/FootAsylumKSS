@@ -183,10 +183,16 @@ export default async function DashboardPage() {
             <CardContent className="px-6 pb-6">
               <Tabs defaultValue="first" className="w-full">
                 {/* Reduced margin-bottom here to bring tabs closer to header */}
-                <TabsList className="grid w-full grid-cols-3 mb-4 bg-slate-100/80 min-w-0">
-                  <TabsTrigger value="first" className="min-w-0 truncate px-2 text-[11px] sm:text-xs">First Audits</TabsTrigger>
-                  <TabsTrigger value="second" className="min-w-0 truncate px-2 text-[11px] sm:text-xs">Second Audits</TabsTrigger>
-                  <TabsTrigger value="total" className="min-w-0 truncate px-2 text-[11px] sm:text-xs">Total Complete</TabsTrigger>
+                <TabsList className="w-full mb-4 bg-slate-100/80 min-w-0 justify-start overflow-x-auto gap-1 sm:grid sm:grid-cols-3 sm:overflow-visible">
+                  <TabsTrigger value="first" className="shrink-0 sm:shrink min-w-0 truncate px-3 sm:px-2 text-[11px] sm:text-xs">
+                    First Audits
+                  </TabsTrigger>
+                  <TabsTrigger value="second" className="shrink-0 sm:shrink min-w-0 truncate px-3 sm:px-2 text-[11px] sm:text-xs">
+                    Second Audits
+                  </TabsTrigger>
+                  <TabsTrigger value="total" className="shrink-0 sm:shrink min-w-0 truncate px-3 sm:px-2 text-[11px] sm:text-xs">
+                    Total Complete
+                  </TabsTrigger>
                 </TabsList>
                 
                 <TabsContent value="first" className="mt-0 space-y-4">
