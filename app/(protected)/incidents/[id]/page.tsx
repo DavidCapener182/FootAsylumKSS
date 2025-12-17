@@ -117,12 +117,12 @@ export default async function IncidentDetailPage({
       </div>
 
       <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="investigation">Investigation</TabsTrigger>
-          <TabsTrigger value="actions">Actions</TabsTrigger>
-          <TabsTrigger value="attachments">Attachments</TabsTrigger>
-          <TabsTrigger value="activity">Activity</TabsTrigger>
+        <TabsList className="w-full justify-start overflow-x-auto max-w-full">
+          <TabsTrigger value="overview" className="shrink-0">Overview</TabsTrigger>
+          <TabsTrigger value="investigation" className="shrink-0">Investigation</TabsTrigger>
+          <TabsTrigger value="actions" className="shrink-0">Actions</TabsTrigger>
+          <TabsTrigger value="attachments" className="shrink-0">Attachments</TabsTrigger>
+          <TabsTrigger value="activity" className="shrink-0">Activity</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">
