@@ -107,9 +107,9 @@ export function ComplianceVisitsTracking({ stores, profiles }: ComplianceVisitsT
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="rounded-md border border-amber-200 bg-white overflow-hidden">
-          <div className="max-h-[320px] overflow-y-auto">
-            <Table>
+        <div className="rounded-md border border-amber-200 bg-white max-w-full">
+          <div className="max-h-[320px] overflow-auto">
+            <Table className="min-w-[640px]">
               <TableHeader className="sticky top-0 bg-white z-10 shadow-sm">
                 <TableRow>
                   <TableHead>Store Name</TableHead>
@@ -140,7 +140,7 @@ export function ComplianceVisitsTracking({ stores, profiles }: ComplianceVisitsT
                           onValueChange={(value) => handleManagerChange(store.id, value === 'unassigned' ? null : value)}
                           disabled={isStoreLoading}
                         >
-                          <SelectTrigger className="w-[200px]">
+                          <SelectTrigger className="w-full min-w-[200px] sm:w-[200px]">
                             <SelectValue placeholder="Select manager..." />
                           </SelectTrigger>
                           <SelectContent>
@@ -159,7 +159,7 @@ export function ComplianceVisitsTracking({ stores, profiles }: ComplianceVisitsT
                           value={store.compliance_audit_2_planned_date || ''}
                           onChange={(e) => handleDateChange(store.id, e.target.value)}
                           disabled={isStoreLoading}
-                          className="w-[180px]"
+                          className="w-full min-w-[180px] sm:w-[180px]"
                           min={new Date().toISOString().split('T')[0]}
                           max={`${new Date().getFullYear()}-12-31`}
                         />

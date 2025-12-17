@@ -53,8 +53,12 @@
   * {
     @apply border-border;
   }
+  html {
+    overflow-x: hidden;
+  }
   body {
     @apply bg-[#F6F6F8] text-foreground;
+    overflow-x: hidden;
   }
 }
 
