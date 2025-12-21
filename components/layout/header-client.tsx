@@ -1,30 +1,22 @@
 'use client'
 
-import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { LogOut, Menu } from 'lucide-react'
+import { useSidebar } from './sidebar-provider'
 
 interface HeaderClientProps {
   signOut: () => void
 }
 
 export function HeaderClient({ signOut }: HeaderClientProps) {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-
-  // Expose mobile menu state to parent via custom event or context
-  // For now, we'll use a simple approach with a callback
-  const toggleMobileMenu = () => {
-    setMobileMenuOpen(!mobileMenuOpen)
-    // Dispatch event for sidebar to listen
-    window.dispatchEvent(new CustomEvent('toggleMobileMenu', { detail: !mobileMenuOpen }))
-  }
+  const { toggle } = useSidebar()
 
   return (
     <header className="flex h-16 items-center justify-between border-b border-gray-200/50 bg-white/80 backdrop-blur-sm px-4 md:px-6 lg:px-8">
       <div className="flex items-center gap-3 md:gap-4 flex-1">
         {/* Mobile Menu Button */}
         <button
-          onClick={toggleMobileMenu}
+          onClick={toggle}
           className="md:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
           aria-label="Toggle menu"
         >

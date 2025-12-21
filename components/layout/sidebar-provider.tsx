@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { createContext, useContext, useState, ReactNode } from 'react'
 
 interface SidebarContextType {
   isOpen: boolean
@@ -12,17 +12,6 @@ const SidebarContext = createContext<SidebarContextType | undefined>(undefined)
 
 export function SidebarProvider({ children }: { children: ReactNode }) {
   const [isOpen, setIsOpen] = useState(false)
-
-  useEffect(() => {
-    const handleToggle = (event: CustomEvent) => {
-      setIsOpen(event.detail)
-    }
-
-    window.addEventListener('toggleMobileMenu', handleToggle as EventListener)
-    return () => {
-      window.removeEventListener('toggleMobileMenu', handleToggle as EventListener)
-    }
-  }, [])
 
   const toggle = () => setIsOpen(!isOpen)
 
