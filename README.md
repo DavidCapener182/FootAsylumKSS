@@ -32,10 +32,11 @@ npm install
 cp .env.local.example .env.local
 ```
 
-Edit `.env.local` and add your Supabase credentials:
+Edit `.env.local` and add your Supabase credentials and OpenAI API key:
 ```
 NEXT_PUBLIC_SUPABASE_URL=https://fwnzpafwfaiynrclwtnh.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key_here
+OPENAI_API_KEY=your_openai_api_key_here
 ```
 
 3. Run database migrations:
@@ -76,7 +77,7 @@ RLS is enabled on all tables with role-based access:
 - **Investigations**: Track investigations with root cause analysis
 - **Actions**: Assign and track action items with overdue detection
 - **Attachments**: Upload and manage file attachments
-- **Dashboard**: KPIs, charts, and activity feed
+- **Dashboard**: KPIs, charts, and activity feed with AI-powered compliance reports
 - **Reports**: CSV export for incidents and actions
 - **Print View**: Printable incident reports
 - **Audit Trail**: Complete activity logging for all changes
@@ -115,4 +116,5 @@ RLS is enabled on all tables with role-based access:
 - Storage bucket policies must be configured in Supabase Dashboard
 - User profiles are auto-created on first login with default 'readonly' role
 - Admin users must be manually assigned via database
+
 

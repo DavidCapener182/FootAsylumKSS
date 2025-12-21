@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { UserRole } from '@/lib/auth'
 import { uploadAuditPDF } from '@/app/actions/audit-pdfs'
 import { Upload, FileText } from 'lucide-react'
 import { 
@@ -31,7 +32,7 @@ interface EditState {
   pdfFile: File | null
 }
 
-export function AuditTable({ rows }: { rows: AuditRow[] }) {
+export function AuditTable({ rows, userRole }: { rows: AuditRow[]; userRole: UserRole }) {
   const [search, setSearch] = useState('')
   const [area, setArea] = useState<string>('all')
   const [editing, setEditing] = useState<EditState | null>(null)
@@ -307,15 +308,15 @@ export function AuditTable({ rows }: { rows: AuditRow[] }) {
     <div className="space-y-4">
       {/* Controls */}
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div className="flex gap-3 w-full md:w-auto">
+        <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
           <Input
             placeholder="Search store name or code"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="md:w-64 bg-white"
+            className="flex-1 md:w-64 bg-white min-h-[44px]"
           />
           <Select value={area} onValueChange={setArea}>
-            <SelectTrigger className="w-40 bg-white">
+            <SelectTrigger className="w-full sm:w-40 bg-white min-h-[44px]">
               <SelectValue placeholder="Area" />
             </SelectTrigger>
             <SelectContent>
@@ -333,8 +334,8 @@ export function AuditTable({ rows }: { rows: AuditRow[] }) {
 
       {/* Table Container */}
       <div className="rounded-xl border bg-white shadow-sm overflow-hidden flex flex-col">
-        {/* Fixed Header - OUTSIDE scroll container */}
-        <div className="border-b bg-white overflow-x-auto">
+        {/* Fixed Header - OUTSIDE scroll container on desktop, INSIDE on mobile */}
+        <div className="hidden md:block border-b bg-white overflow-x-auto">
           <Table className="w-full border-separate border-spacing-0" style={{ tableLayout: 'fixed' }}>
             <colgroup>
               <col style={{ width: '40px' }} />
@@ -369,9 +370,44 @@ export function AuditTable({ rows }: { rows: AuditRow[] }) {
           </Table>
         </div>
 
-        {/* Scrollable Body - INSIDE scroll container */}
-        <div className="h-[70vh] overflow-y-auto w-full overflow-x-auto">
-          <Table className="w-full border-separate border-spacing-0" style={{ tableLayout: 'fixed' }}>
+        {/* Scrollable Body - Headers inside on mobile, body only on desktop */}
+        <div className="h-[70vh] overflow-y-auto overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0 relative">
+          {/* Mobile Header - Inside scroll container, sticky */}
+          <div className="md:hidden sticky top-0 z-10 bg-white border-b">
+            <Table className="w-full border-separate border-spacing-0 min-w-[1000px]" style={{ tableLayout: 'fixed' }}>
+              <colgroup>
+                <col style={{ width: '40px' }} />
+                <col style={{ width: '60px' }} />
+                <col style={{ width: '80px' }} />
+                <col style={{ width: '140px' }} />
+                <col style={{ width: '100px' }} />
+                <col style={{ width: '80px' }} />
+                <col style={{ width: '70px' }} />
+                <col style={{ width: '100px' }} />
+                <col style={{ width: '80px' }} />
+                <col style={{ width: '70px' }} />
+                <col style={{ width: '70px' }} />
+                <col style={{ width: '140px' }} />
+              </colgroup>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="text-center bg-white">#</TableHead>
+                  <TableHead className="bg-white">Area</TableHead>
+                  <TableHead className="bg-white">Store Code</TableHead>
+                  <TableHead className="bg-white">Store Name</TableHead>
+                  <TableHead className="bg-white">Audit 1 Date</TableHead>
+                  <TableHead className="bg-white">Action Plan 1</TableHead>
+                  <TableHead className="bg-white">Audit 1 %</TableHead>
+                  <TableHead className="bg-white">Audit 2 Date</TableHead>
+                  <TableHead className="bg-white">Action Plan 2</TableHead>
+                  <TableHead className="bg-white">Audit 2 %</TableHead>
+                  <TableHead className="text-right pr-4 bg-white">Total Audits</TableHead>
+                  <TableHead className="bg-white">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+            </Table>
+          </div>
+          <Table className="w-full border-separate border-spacing-0 min-w-[1000px]" style={{ tableLayout: 'fixed' }}>
             <colgroup>
               <col style={{ width: '40px' }} />
               <col style={{ width: '60px' }} />

@@ -6,3 +6,4 @@ CREATE POLICY "Users can update store audit data"
   USING (fa_get_user_role(auth.uid()) IN ('admin', 'ops', 'readonly'))
   WITH CHECK (fa_get_user_role(auth.uid()) IN ('admin', 'ops', 'readonly'));
 
+

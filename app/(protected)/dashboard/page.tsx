@@ -1,22 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/auth'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { AlertTriangle, TrendingUp, Clock, AlertCircle, Activity, Store, CheckCircle2 } from 'lucide-react'
-import { format, subDays } from 'date-fns'
-import { ComplianceVisitsTracking } from '@/components/dashboard/compliance-visits-tracking'
+import { subDays } from 'date-fns'
+import { DashboardClient } from '@/components/dashboard/dashboard-client'
 
-// Simple Progress Bar Component to avoid extra dependencies
-function ProgressBar({ value, colorClass = "bg-blue-600" }: { value: number, colorClass?: string }) {
-  return (
-    <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
-      <div
-        className={`h-full ${colorClass} transition-all duration-500 ease-in-out`}
-        style={{ width: `${value}%` }}
-      />
-    </div>
-  )
-}
+// --- Data Fetching ---
 
 async function getDashboardData() {
   const supabase = createClient()
@@ -42,14 +29,14 @@ async function getDashboardData() {
     supabase.from('fa_incidents').select('*', { count: 'exact', head: true }).in('severity', ['high', 'critical']).gte('occurred_at', thirtyDaysAgo),
     supabase.from('fa_incidents').select('status'),
     supabase.from('fa_incidents').select('severity'),
-    supabase.from('fa_incidents').select(`store_id, fa_stores!inner(store_name, store_code), status`).in('status', ['open', 'under_investigation', 'actions_in_progress']),
+    supabase.from('fa_incidents').select(`store_id, fa_stores!inner(store_name, store_code)`).in('status', ['open', 'under_investigation', 'actions_in_progress']),
     supabase.from('fa_activity_log').select(`*, performed_by:fa_profiles!fa_activity_log_performed_by_user_id_fkey(full_name)`).order('created_at', { ascending: false }).limit(20),
     supabase.from('fa_stores').select(`id, store_name, store_code, compliance_audit_2_date, compliance_audit_2_assigned_manager_user_id, compliance_audit_2_planned_date, assigned_manager:fa_profiles!fa_stores_compliance_audit_2_assigned_manager_user_id_fkey(id, full_name)`).is('compliance_audit_2_date', null).eq('is_active', true).order('store_name', { ascending: true }),
     supabase.from('fa_profiles').select('id, full_name').order('full_name', { ascending: true }),
     supabase.from('fa_stores').select('id, compliance_audit_1_date, compliance_audit_1_overall_pct, compliance_audit_2_date, compliance_audit_2_overall_pct').eq('is_active', true)
   ])
 
-  // Data Processing (same as before)
+  // Data Processing
   const statusCounts = incidentsByStatus?.reduce((acc: Record<string, number>, incident) => {
     acc[incident.status] = (acc[incident.status] || 0) + 1
     return acc
@@ -77,6 +64,8 @@ async function getDashboardData() {
     .sort(([, a], [, b]) => b.count - a.count)
     .slice(0, 5)
     .map(([id, data]) => ({ id, ...data }))
+  
+  const maxStoreCount = topStores.length > 0 ? Math.max(...topStores.map(s => s.count)) : 0
 
   const storesNeedingSecondVisit = storesNeedingSecondVisitRaw?.map((store: any) => ({
     ...store,
@@ -99,8 +88,10 @@ async function getDashboardData() {
     overdueActions: overdueActions || 0,
     highCritical: highCritical || 0,
     statusCounts,
+    totalIncidents: incidentsByStatus?.length || 0,
     severityCounts,
     topStores,
+    maxStoreCount,
     recentActivity: recentActivity || [],
     storesNeedingSecondVisit,
     profiles: profiles || [],
@@ -116,12 +107,14 @@ async function getDashboardData() {
   }
 }
 
+// --- Main Page Component ---
+
 export default async function DashboardPage() {
   await requireAuth()
   const data = await getDashboardData()
 
-  return (
-    <div className="flex flex-col gap-6 p-4 md:p-8 bg-slate-50/50 min-h-screen">
+  return <DashboardClient initialData={data} />
+}
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-slate-900">Dashboard</h1>
@@ -376,4 +369,7 @@ export default async function DashboardPage() {
       </div>
     </div>
   )
+=======
+  return <DashboardClient initialData={data} />
+>>>>>>> 8306438 (Implement mobile responsiveness across entire application)
 }

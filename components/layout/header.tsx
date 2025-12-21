@@ -1,9 +1,9 @@
 import { getUserProfile } from '@/lib/auth'
 import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/server'
-import { LogOut } from 'lucide-react'
+import { LogOut, Menu, Search } from 'lucide-react'
 import { redirect } from 'next/navigation'
-import { MobileNav } from '@/components/layout/mobile-nav'
+import { HeaderClient } from './header-client'
 
 async function signOut() {
   'use server'
@@ -16,28 +16,6 @@ export async function Header() {
   const profile = await getUserProfile()
   const userName = profile?.full_name || 'User'
 
-  return (
-    <header className="flex h-16 items-center justify-between border-b border-gray-200/50 bg-white/80 backdrop-blur-sm px-4 sm:px-6 md:px-8">
-      <div className="flex items-center gap-3 min-w-0">
-        <MobileNav userName={userName} />
-        <div className="md:hidden min-w-0">
-          <span className="text-sm font-semibold text-gray-900 truncate">KSS Assurance</span>
-        </div>
-        <input
-          type="search"
-          placeholder="Search..."
-          className="hidden md:block h-9 w-64 rounded-full border border-gray-200 bg-white px-4 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-200"
-        />
-      </div>
-      <div className="flex items-center gap-3 sm:gap-4">
-        <span className="hidden sm:inline text-sm text-gray-600 font-medium">{userName}</span>
-        <form action={signOut}>
-          <Button type="submit" variant="ghost" size="icon" className="rounded-full">
-            <LogOut className="h-5 w-5" />
-          </Button>
-        </form>
-      </div>
-    </header>
-  )
+  return <HeaderClient signOut={signOut} />
 }
 

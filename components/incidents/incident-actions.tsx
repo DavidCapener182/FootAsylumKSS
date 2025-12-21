@@ -7,15 +7,56 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { StatusBadge } from '@/components/shared/status-badge'
 import { format } from 'date-fns'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { Plus } from 'lucide-react'
+import { Plus, Eye } from 'lucide-react'
 import { ActionForm } from './action-form'
+import { ViewActionModal } from '@/components/shared/view-action-modal'
 
 interface IncidentActionsProps {
   incidentId: string
   actions: any[]
+  profiles: Array<{ id: string; full_name: string | null }>
 }
 
-export function IncidentActions({ incidentId, actions }: IncidentActionsProps) {
+function ActionTableRow({ action, incidentId, isOverdue }: { action: any, incidentId: string, isOverdue: boolean }) {
+  const [modalOpen, setModalOpen] = useState(false)
+
+  return (
+    <>
+      <TableRow className={isOverdue ? 'bg-red-50' : ''}>
+        <TableCell className="font-medium">{action.title}</TableCell>
+        <TableCell>{action.assigned_to?.full_name || 'Unknown'}</TableCell>
+        <TableCell>
+          <StatusBadge status={action.priority} type="severity" />
+        </TableCell>
+        <TableCell className={isOverdue ? 'text-red-600 font-medium' : ''}>
+          {format(new Date(action.due_date), 'dd MMM yyyy')}
+          {isOverdue && ' (Overdue)'}
+        </TableCell>
+        <TableCell>
+          <StatusBadge status={action.status} type="action" />
+        </TableCell>
+        <TableCell>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 px-2 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50"
+            onClick={() => setModalOpen(true)}
+          >
+            <Eye className="h-3.5 w-3.5 mr-1.5" />
+            View Action
+          </Button>
+        </TableCell>
+      </TableRow>
+      <ViewActionModal 
+        action={action} 
+        open={modalOpen} 
+        onOpenChange={setModalOpen} 
+      />
+    </>
+  )
+}
+
+export function IncidentActions({ incidentId, actions, profiles }: IncidentActionsProps) {
   const [open, setOpen] = useState(false)
 
   return (
@@ -35,7 +76,7 @@ export function IncidentActions({ incidentId, actions }: IncidentActionsProps) {
                 <DialogHeader>
                   <DialogTitle>Create Action</DialogTitle>
                 </DialogHeader>
-                <ActionForm incidentId={incidentId} onSuccess={() => setOpen(false)} />
+                <ActionForm incidentId={incidentId} profiles={profiles} onSuccess={() => setOpen(false)} />
               </DialogContent>
             </Dialog>
           </div>
@@ -62,23 +103,12 @@ export function IncidentActions({ incidentId, actions }: IncidentActionsProps) {
                       !['complete', 'cancelled'].includes(action.status)
                     
                     return (
-                      <TableRow key={action.id} className={isOverdue ? 'bg-red-50' : ''}>
-                        <TableCell className="font-medium">{action.title}</TableCell>
-                        <TableCell>{action.assigned_to?.full_name || 'Unknown'}</TableCell>
-                        <TableCell>
-                          <StatusBadge status={action.priority} type="severity" />
-                        </TableCell>
-                        <TableCell className={isOverdue ? 'text-red-600 font-medium' : ''}>
-                          {format(new Date(action.due_date), 'dd MMM yyyy')}
-                          {isOverdue && ' (Overdue)'}
-                        </TableCell>
-                        <TableCell>
-                          <StatusBadge status={action.status} type="action" />
-                        </TableCell>
-                        <TableCell>
-                          <ActionForm action={action} incidentId={incidentId} />
-                        </TableCell>
-                      </TableRow>
+                      <ActionTableRow 
+                        key={action.id} 
+                        action={action} 
+                        incidentId={incidentId}
+                        isOverdue={isOverdue}
+                      />
                     )
                   })}
                 </TableBody>
@@ -90,4 +120,5 @@ export function IncidentActions({ incidentId, actions }: IncidentActionsProps) {
     </div>
   )
 }
+
 

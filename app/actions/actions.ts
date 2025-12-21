@@ -42,6 +42,20 @@ export async function createAction(incidentId: string, input: CreateActionInput)
     new: action,
   })
 
+  // Update incident status to 'actions_in_progress' if not already closed/cancelled
+  const { data: incident } = await supabase
+    .from('fa_incidents')
+    .select('status')
+    .eq('id', incidentId)
+    .single()
+
+  if (incident && !['closed', 'cancelled'].includes(incident.status)) {
+    await supabase
+      .from('fa_incidents')
+      .update({ status: 'actions_in_progress' })
+      .eq('id', incidentId)
+  }
+
   revalidatePath(`/incidents/${incidentId}`)
   revalidatePath('/actions')
   return action
@@ -84,8 +98,113 @@ export async function updateAction(id: string, updates: Partial<CreateActionInpu
     new: action,
   })
 
+  // Check if we need to update incident status based on action status
+  const { data: actions } = await supabase
+    .from('fa_actions')
+    .select('status')
+    .eq('incident_id', action.incident_id)
+
+  const hasOpenActions = actions?.some(a => 
+    ['open', 'in_progress', 'blocked'].includes(a.status)
+  ) ?? false
+
+  const { data: incident } = await supabase
+    .from('fa_incidents')
+    .select('status')
+    .eq('id', action.incident_id)
+    .single()
+
+  if (incident && !['closed', 'cancelled'].includes(incident.status)) {
+    if (hasOpenActions && incident.status !== 'actions_in_progress') {
+      // Update to actions_in_progress if there are open actions
+      await supabase
+        .from('fa_incidents')
+        .update({ status: 'actions_in_progress' })
+        .eq('id', action.incident_id)
+    } else if (!hasOpenActions && incident.status === 'actions_in_progress') {
+      // All actions complete, revert to under_investigation (if investigator assigned) or open
+      const { data: incidentData } = await supabase
+        .from('fa_incidents')
+        .select('assigned_investigator_user_id')
+        .eq('id', action.incident_id)
+        .single()
+      
+      const newStatus = incidentData?.assigned_investigator_user_id 
+        ? 'under_investigation' 
+        : 'open'
+      
+      await supabase
+        .from('fa_incidents')
+        .update({ status: newStatus })
+        .eq('id', action.incident_id)
+    }
+  }
+
   revalidatePath(`/incidents/${action.incident_id}`)
   revalidatePath('/actions')
   return action
 }
+
+export async function deleteAction(id: string) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) {
+    throw new Error('Unauthorized')
+  }
+
+  // Get current action for activity log (before deletion)
+  const { data: currentAction } = await supabase
+    .from('fa_actions')
+    .select('*')
+    .eq('id', id)
+    .single()
+
+  const { error } = await supabase
+    .from('fa_actions')
+    .delete()
+    .eq('id', id)
+
+  if (error) {
+    throw new Error(`Failed to delete action: ${error.message}`)
+  }
+
+  // Log activity (trigger will also log, but explicit log for clarity)
+  await logActivity('action', id, 'DELETED', {
+    old: currentAction,
+  })
+
+  if (currentAction?.incident_id) {
+    // Check if we need to update incident status after deleting action
+    const { data: remainingActions } = await supabase
+      .from('fa_actions')
+      .select('status')
+      .eq('incident_id', currentAction.incident_id)
+
+    const hasOpenActions = remainingActions?.some(a => 
+      ['open', 'in_progress', 'blocked'].includes(a.status)
+    ) ?? false
+
+    const { data: incident } = await supabase
+      .from('fa_incidents')
+      .select('status')
+      .eq('id', currentAction.incident_id)
+      .single()
+
+    if (incident && !['closed', 'cancelled'].includes(incident.status)) {
+      if (!hasOpenActions && incident.status === 'actions_in_progress') {
+        // No more open actions, revert status
+        await supabase
+          .from('fa_incidents')
+          .update({ status: 'under_investigation' })
+          .eq('id', currentAction.incident_id)
+      }
+    }
+
+    revalidatePath(`/incidents/${currentAction.incident_id}`)
+  }
+  revalidatePath('/actions')
+  revalidatePath('/dashboard')
+}
+
 

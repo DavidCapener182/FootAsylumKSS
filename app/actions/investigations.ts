@@ -94,3 +94,4 @@ export async function updateInvestigation(id: string, updates: Partial<CreateInv
   return investigation
 }
 
+

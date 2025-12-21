@@ -47,9 +47,14 @@ export async function createIncident(input: CreateIncidentInput) {
   }
 
   // Log activity (trigger will also log, but explicit log for clarity)
-  await logActivity('incident', incident.id, 'CREATED', {
-    new: incident,
-  })
+  try {
+    await logActivity('incident', incident.id, 'CREATED', {
+      new: incident,
+    })
+  } catch (logError) {
+    // Log error but don't fail the incident creation
+    console.error('Failed to log activity for incident creation:', logError)
+  }
 
   revalidatePath('/incidents')
   return incident
@@ -70,11 +75,82 @@ export async function updateIncident(id: string, updates: Partial<CreateIncident
     .eq('id', id)
     .single()
 
-  const updateData: Record<string, unknown> = { ...updates }
-  if (updates.status === 'closed' && !updateData.closed_at) {
-    updateData.closed_at = new Date().toISOString()
+  if (!currentIncident) {
+    throw new Error('Incident not found')
   }
 
+  // If closing the incident, move it to closed_incidents table
+  if (updates.status === 'closed' && currentIncident.status !== 'closed') {
+    const closedAt = new Date().toISOString()
+    
+    // Check if incident already exists in closed_incidents (shouldn't happen, but safety check)
+    const { data: existingClosed } = await supabase
+      .from('fa_closed_incidents')
+      .select('id')
+      .eq('id', id)
+      .single()
+
+    if (!existingClosed) {
+      // Copy incident to closed_incidents table
+      const { error: insertError } = await supabase
+        .from('fa_closed_incidents')
+        .insert({
+          id: currentIncident.id,
+          reference_no: currentIncident.reference_no,
+          store_id: currentIncident.store_id,
+          reported_by_user_id: currentIncident.reported_by_user_id,
+          incident_category: currentIncident.incident_category,
+          severity: currentIncident.severity,
+          summary: currentIncident.summary,
+          description: currentIncident.description,
+          occurred_at: currentIncident.occurred_at,
+          reported_at: currentIncident.reported_at,
+          persons_involved: currentIncident.persons_involved,
+          injury_details: currentIncident.injury_details,
+          witnesses: currentIncident.witnesses,
+          riddor_reportable: currentIncident.riddor_reportable,
+          status: 'closed' as FaIncidentStatus,
+          assigned_investigator_user_id: currentIncident.assigned_investigator_user_id,
+          target_close_date: currentIncident.target_close_date,
+          closed_at: closedAt,
+          closure_summary: updates.closure_summary || currentIncident.closure_summary,
+          created_at: currentIncident.created_at,
+          updated_at: closedAt,
+        })
+
+      if (insertError) {
+        throw new Error(`Failed to move incident to closed: ${insertError.message}`)
+      }
+    }
+
+    // Delete from open incidents table (this will cascade delete related actions, investigations, etc.)
+    const { error: deleteError } = await supabase
+      .from('fa_incidents')
+      .delete()
+      .eq('id', id)
+
+    if (deleteError) {
+      throw new Error(`Failed to delete incident: ${deleteError.message}`)
+    }
+
+    // Log activity (skip if no authenticated user, as per our updated trigger)
+    try {
+      await logActivity('incident', id, 'CLOSED', {
+        old: currentIncident,
+        new: { ...currentIncident, status: 'closed', closed_at: closedAt },
+      })
+    } catch (logError) {
+      // Log error but don't fail the close operation
+      console.error('Failed to log activity for incident closure:', logError)
+    }
+
+    revalidatePath('/incidents')
+    return { ...currentIncident, status: 'closed' as FaIncidentStatus, closed_at: closedAt }
+  }
+
+  // Regular update for non-closing status changes
+  const updateData: Record<string, unknown> = { ...updates }
+  
   const { data: incident, error } = await supabase
     .from('fa_incidents')
     .update(updateData)
@@ -105,12 +181,28 @@ export async function assignInvestigator(incidentId: string, investigatorId: str
     throw new Error('Unauthorized')
   }
 
+  // Handle unassigning (empty string or 'unassigned')
+  const updateData: any = {
+    assigned_investigator_user_id: investigatorId === 'unassigned' || !investigatorId ? null : investigatorId,
+  }
+
+  // Only update status if we're assigning (not unassigning)
+  if (investigatorId && investigatorId !== 'unassigned') {
+    const { data: currentIncident } = await supabase
+      .from('fa_incidents')
+      .select('status')
+      .eq('id', incidentId)
+      .single()
+
+    // Only change to under_investigation if currently open
+    if (currentIncident?.status === 'open') {
+      updateData.status = 'under_investigation'
+    }
+  }
+
   const { data: incident, error } = await supabase
     .from('fa_incidents')
-    .update({
-      assigned_investigator_user_id: investigatorId,
-      status: 'under_investigation',
-    })
+    .update(updateData)
     .eq('id', incidentId)
     .select()
     .single()
@@ -119,13 +211,47 @@ export async function assignInvestigator(incidentId: string, investigatorId: str
     throw new Error(`Failed to assign investigator: ${error.message}`)
   }
 
-  await logActivity('incident', incidentId, 'STATUS_CHANGED', {
-    action: 'Investigator assigned',
-    investigator_id: investigatorId,
+  await logActivity('incident', incidentId, 'UPDATED', {
+    action: investigatorId === 'unassigned' || !investigatorId ? 'Investigator unassigned' : 'Investigator assigned',
+    investigator_id: updateData.assigned_investigator_user_id,
   })
 
   revalidatePath('/incidents')
   revalidatePath(`/incidents/${incidentId}`)
   return incident
 }
+
+export async function deleteIncident(id: string) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) {
+    throw new Error('Unauthorized')
+  }
+
+  // Get current incident for activity log (before deletion)
+  const { data: currentIncident } = await supabase
+    .from('fa_incidents')
+    .select('*')
+    .eq('id', id)
+    .single()
+
+  const { error } = await supabase
+    .from('fa_incidents')
+    .delete()
+    .eq('id', id)
+
+  if (error) {
+    throw new Error(`Failed to delete incident: ${error.message}`)
+  }
+
+  // Log activity (trigger will also log, but explicit log for clarity)
+  await logActivity('incident', id, 'DELETED', {
+    old: currentIncident,
+  })
+
+  revalidatePath('/incidents')
+  revalidatePath('/dashboard')
+}
+
 

@@ -36,13 +36,13 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50">
+    <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
       <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>Foot Asylum Assurance Platform</CardTitle>
-          <CardDescription>KSS Internal - Sign in to your account</CardDescription>
+        <CardHeader className="px-4 sm:px-6 pt-4 sm:pt-6">
+          <CardTitle className="text-xl sm:text-2xl">Foot Asylum Assurance Platform</CardTitle>
+          <CardDescription className="text-sm sm:text-base">KSS Internal - Sign in to your account</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
@@ -77,4 +77,5 @@ export default function LoginPage() {
     </div>
   )
 }
+
 

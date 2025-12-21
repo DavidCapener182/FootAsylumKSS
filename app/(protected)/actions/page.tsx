@@ -1,10 +1,11 @@
 import { createClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/auth'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { StatusBadge } from '@/components/shared/status-badge'
-import Link from 'next/link'
-import { format } from 'date-fns'
+import { ActionsTableRow } from '@/components/shared/actions-table-row'
+import { ActionMobileCard } from '@/components/shared/action-mobile-card'
+import { Search, CheckSquare2, Filter, FileText, Clock, AlertCircle } from 'lucide-react'
 
 async function getActions(filters?: { assigned_to?: string; status?: string; overdue?: boolean }) {
   const supabase = createClient()
@@ -52,76 +53,144 @@ export default async function ActionsPage({
     overdue: searchParams.overdue === 'true',
   })
 
+  // Calculate stats
+  const totalActions = actions.length
   const overdueCount = actions.filter(action => {
     const isOverdue = new Date(action.due_date) < new Date() && 
       !['complete', 'cancelled'].includes(action.status)
     return isOverdue
   }).length
+  const activeActions = actions.filter(action => 
+    !['complete', 'cancelled'].includes(action.status)
+  ).length
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Actions</h1>
-        <p className="text-muted-foreground mt-1">Track and manage all actions</p>
+    <div className="flex flex-col gap-8 p-6 md:p-8 bg-slate-50/50 min-h-screen">
+      
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="space-y-1 flex-1 min-w-0">
+          <div className="flex items-center gap-2 text-slate-900">
+            <div className="p-2 bg-blue-600 rounded-lg shadow-sm flex-shrink-0">
+              <CheckSquare2 className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Actions</h1>
+          </div>
+          <p className="text-sm sm:text-base text-slate-500 max-w-2xl ml-9 sm:ml-11">
+            Track action items, monitor due dates, and manage completion status across all incidents.
+          </p>
+        </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>All Actions {overdueCount > 0 && `(${overdueCount} overdue)`}</CardTitle>
+      {/* Stats Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="bg-white shadow-sm border-slate-200">
+          <CardContent className="p-6 flex items-center justify-between">
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Actions</p>
+              <p className="text-2xl font-bold text-slate-900">{totalActions}</p>
+            </div>
+            <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center">
+              <FileText className="h-5 w-5 text-slate-600" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-white shadow-sm border-slate-200">
+          <CardContent className="p-6 flex items-center justify-between">
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Active</p>
+              <p className="text-2xl font-bold text-blue-600">{activeActions}</p>
+            </div>
+            <div className="h-10 w-10 rounded-full bg-blue-50 flex items-center justify-center">
+              <Clock className="h-5 w-5 text-blue-600" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-white shadow-sm border-slate-200">
+          <CardContent className="p-6 flex items-center justify-between">
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Overdue</p>
+              <p className="text-2xl font-bold text-rose-600">{overdueCount}</p>
+            </div>
+            <div className="h-10 w-10 rounded-full bg-rose-50 flex items-center justify-center">
+              <AlertCircle className="h-5 w-5 text-rose-600" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Main Table Card */}
+      <Card className="shadow-sm border-slate-200 bg-white overflow-hidden">
+        <CardHeader className="border-b bg-slate-50/40 px-6 py-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <CardTitle className="text-base font-semibold text-slate-800">
+              Action Items {overdueCount > 0 && <span className="text-rose-600">({overdueCount} overdue)</span>}
+            </CardTitle>
+            
+            <div className="flex items-center gap-2">
+              {/* Search - Placeholder for now */}
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
+                <div className="h-9 w-full rounded-md border border-slate-200 bg-white pl-9 pr-4 text-sm text-slate-500 flex items-center">
+                  Search actions, incidents...
+                </div>
+              </div>
+              <Button variant="outline" size="sm" className="h-9 px-3">
+                <Filter className="h-4 w-4 mr-2 text-slate-500" />
+                Filters
+              </Button>
+            </div>
+          </div>
         </CardHeader>
-        <CardContent>
-          <div className="rounded-md border">
+        <CardContent className="p-0">
+          {/* Mobile Card View */}
+          <div className="md:hidden p-4 space-y-4">
+            {actions.length === 0 ? (
+              <div className="flex flex-col items-center justify-center text-slate-500 py-12">
+                <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center mb-3">
+                  <FileText className="h-5 w-5 text-slate-400" />
+                </div>
+                <p className="font-medium text-slate-900">No actions found</p>
+                <p className="text-sm mt-1 text-center">Actions will appear here when created for incidents.</p>
+              </div>
+            ) : (
+              actions.map((action: any) => (
+                <ActionMobileCard key={action.id} action={action} />
+              ))
+            )}
+          </div>
+
+          {/* Desktop Table View */}
+          <div className="hidden md:block">
             <Table>
-              <TableHeader>
+              <TableHeader className="bg-slate-50">
                 <TableRow>
-                  <TableHead>Title</TableHead>
-                  <TableHead>Incident</TableHead>
-                  <TableHead>Assigned To</TableHead>
-                  <TableHead>Priority</TableHead>
-                  <TableHead>Due Date</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Actions</TableHead>
+                  <TableHead className="font-semibold text-slate-500">Title</TableHead>
+                  <TableHead className="font-semibold text-slate-500 w-[130px]">Incident</TableHead>
+                  <TableHead className="font-semibold text-slate-500">Assigned To</TableHead>
+                  <TableHead className="w-[100px] font-semibold text-slate-500">Priority</TableHead>
+                  <TableHead className="font-semibold text-slate-500 w-[130px]">Due Date</TableHead>
+                  <TableHead className="w-[120px] font-semibold text-slate-500">Status</TableHead>
+                  <TableHead className="w-[160px] text-right font-semibold text-slate-500">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {actions.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                      No actions found
+                    <TableCell colSpan={7} className="h-40 text-center">
+                      <div className="flex flex-col items-center justify-center text-slate-500">
+                        <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center mb-3">
+                          <FileText className="h-5 w-5 text-slate-400" />
+                        </div>
+                        <p className="font-medium text-slate-900">No actions found</p>
+                        <p className="text-sm mt-1">Actions will appear here when created for incidents.</p>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ) : (
-                  actions.map((action: any) => {
-                    const isOverdue = new Date(action.due_date) < new Date() && 
-                      !['complete', 'cancelled'].includes(action.status)
-                    
-                    return (
-                      <TableRow key={action.id} className={isOverdue ? 'bg-red-50' : ''}>
-                        <TableCell className="font-medium">{action.title}</TableCell>
-                        <TableCell>
-                          <Link href={`/incidents/${action.incident_id}`} className="hover:underline">
-                            {action.incident?.reference_no || 'Unknown'}
-                          </Link>
-                        </TableCell>
-                        <TableCell>{action.assigned_to?.full_name || 'Unknown'}</TableCell>
-                        <TableCell>
-                          <StatusBadge status={action.priority} type="severity" />
-                        </TableCell>
-                        <TableCell className={isOverdue ? 'text-red-600 font-medium' : ''}>
-                          {format(new Date(action.due_date), 'dd MMM yyyy')}
-                          {isOverdue && ' (Overdue)'}
-                        </TableCell>
-                        <TableCell>
-                          <StatusBadge status={action.status} type="action" />
-                        </TableCell>
-                        <TableCell>
-                          <Link href={`/incidents/${action.incident_id}`}>
-                            <button className="text-primary hover:underline">View</button>
-                          </Link>
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })
+                  actions.map((action: any) => (
+                    <ActionsTableRow key={action.id} action={action} />
+                  ))
                 )}
               </TableBody>
             </Table>
@@ -131,4 +200,5 @@ export default async function ActionsPage({
     </div>
   )
 }
+
 

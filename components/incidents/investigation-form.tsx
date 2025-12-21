@@ -175,3 +175,4 @@ export function InvestigationForm({ incidentId, investigation, onSuccess }: Inve
   )
 }
 
+

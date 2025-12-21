@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
@@ -26,10 +27,14 @@ type ActionFormValues = z.infer<typeof actionSchema>
 interface ActionFormProps {
   incidentId: string
   action?: any
+  profiles?: Array<{ id: string; full_name: string | null }>
   onSuccess?: () => void
 }
 
-export function ActionForm({ incidentId, action, onSuccess }: ActionFormProps) {
+export function ActionForm({ incidentId, action, profiles = [], onSuccess }: ActionFormProps) {
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
   const form = useForm<ActionFormValues>({
     resolver: zodResolver(actionSchema),
     defaultValues: action ? {
@@ -54,6 +59,8 @@ export function ActionForm({ incidentId, action, onSuccess }: ActionFormProps) {
   })
 
   const onSubmit = async (values: ActionFormValues) => {
+    setIsSubmitting(true)
+    setError(null)
     try {
       if (action) {
         await updateAction(action.id, values)
@@ -62,8 +69,10 @@ export function ActionForm({ incidentId, action, onSuccess }: ActionFormProps) {
       }
       onSuccess?.()
       window.location.reload()
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to save action:', error)
+      setError(error?.message || 'Failed to save action. Please try again.')
+      setIsSubmitting(false)
     }
   }
 
@@ -128,9 +137,20 @@ export function ActionForm({ incidentId, action, onSuccess }: ActionFormProps) {
           render={({ field }) => (
             <FormItem>
               <FormLabel>Assigned To</FormLabel>
-              <FormControl>
-                <Input {...field} placeholder="User ID (will be replaced with user selector)" />
-              </FormControl>
+              <Select onValueChange={field.onChange} value={field.value}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a user" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {profiles.map((profile) => (
+                    <SelectItem key={profile.id} value={profile.id}>
+                      {profile.full_name || profile.id}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <FormMessage />
             </FormItem>
           )}
@@ -191,11 +211,18 @@ export function ActionForm({ incidentId, action, onSuccess }: ActionFormProps) {
           />
         )}
 
-        <Button type="submit" className="w-full">
-          {action ? 'Update Action' : 'Create Action'}
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">
+            {error}
+          </div>
+        )}
+
+        <Button type="submit" className="w-full" disabled={isSubmitting}>
+          {isSubmitting ? 'Saving...' : (action ? 'Update Action' : 'Create Action')}
         </Button>
       </form>
     </Form>
   )
 }
+
 

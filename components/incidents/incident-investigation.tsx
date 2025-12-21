@@ -115,3 +115,4 @@ export function IncidentInvestigation({ incident, investigation }: IncidentInves
   )
 }
 
+
