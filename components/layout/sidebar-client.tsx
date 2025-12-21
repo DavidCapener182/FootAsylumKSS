@@ -42,7 +42,6 @@ export function SidebarClient({ userRole, userProfile }: SidebarClientProps) {
   const sidebarContent = (
     <>
       <div className="flex h-16 items-center justify-between px-6 border-b border-gray-200/50">
->>>>>>> 8306438 (Implement mobile responsiveness across entire application)
         <h1 className="text-lg font-semibold text-gray-900">KSS Assurance</h1>
         <button
           onClick={() => setIsOpen(false)}

@@ -102,12 +102,51 @@ export default async function IncidentDetailPage({
     notFound()
   }
 
+  // Fetch all profiles for user selection
+  const supabase = createClient()
+  const { data: profiles } = await supabase
+    .from('fa_profiles')
+    .select('id, full_name')
+    .order('full_name', { ascending: true })
+
   const [investigation, actions, attachments, activityLog] = await Promise.all([
     getInvestigation(params.id),
     getActions(params.id),
     getAttachments('incident', params.id),
     getActivityLog('incident', params.id),
   ])
+
+  // Build user map for activity log
+  const userIds = new Set<string>()
+  activityLog.forEach((activity: any) => {
+    if (activity.performed_by_user_id) userIds.add(activity.performed_by_user_id)
+    if (activity.details?.old) {
+      Object.entries(activity.details.old).forEach(([fieldName, val]: [string, any]) => {
+        if (fieldName.includes('_user_id') && typeof val === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val)) {
+          userIds.add(val)
+        }
+      })
+    }
+    if (activity.details?.new) {
+      Object.entries(activity.details.new).forEach(([fieldName, val]: [string, any]) => {
+        if (fieldName.includes('_user_id') && typeof val === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val)) {
+          userIds.add(val)
+        }
+      })
+    }
+  })
+  
+  const userMap = new Map<string, string | null>()
+  if (userIds.size > 0) {
+    const { data: userProfiles } = await supabase
+      .from('fa_profiles')
+      .select('id, full_name')
+      .in('id', Array.from(userIds))
+    
+    userProfiles?.forEach(profile => {
+      userMap.set(profile.id, profile.full_name)
+    })
+  }
 
   return (
     <div className="space-y-6">
@@ -134,7 +173,7 @@ export default async function IncidentDetailPage({
         </TabsContent>
 
         <TabsContent value="actions">
-          <IncidentActions incidentId={params.id} actions={actions} />
+          <IncidentActions incidentId={params.id} actions={actions} profiles={profiles || []} />
         </TabsContent>
 
         <TabsContent value="attachments">
@@ -142,7 +181,7 @@ export default async function IncidentDetailPage({
         </TabsContent>
 
         <TabsContent value="activity">
-          <IncidentActivity activityLog={activityLog} />
+          <IncidentActivity activityLog={activityLog} userMap={userMap} />
         </TabsContent>
       </Tabs>
     </div>

@@ -3,7 +3,6 @@ import { requireAuth } from '@/lib/auth'
 import { notFound } from 'next/navigation'
 import { format } from 'date-fns'
 import { StatusBadge } from '@/components/shared/status-badge'
-import { PrintButton } from '@/components/incidents/print-button'
 
 async function getIncident(id: string) {
   const supabase = createClient()
@@ -72,8 +71,6 @@ export default async function IncidentPrintPage({
 
   return (
     <div className="p-8 max-w-4xl mx-auto print:p-4">
-      <PrintButton />
-
       <div className="space-y-6">
         <div className="border-b pb-4">
           <h1 className="text-3xl font-bold">{incident.reference_no}</h1>
