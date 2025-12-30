@@ -4,8 +4,10 @@ import { useMemo, useState } from 'react'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { AuditRow, pctBadge, formatDate, getLatestPct } from './audit-table-helpers'
+import { Eye, EyeOff } from 'lucide-react'
 
 // Helper: Get the most recent audit date
 function getLatestDate(row: AuditRow): string | null {
@@ -17,12 +19,20 @@ function getLatestDate(row: AuditRow): string | null {
 export function AuditLeagueTable({ rows }: { rows: AuditRow[] }) {
   const [search, setSearch] = useState('')
   const [area, setArea] = useState<string>('all')
+  const [hideCompleted, setHideCompleted] = useState(false)
 
   const areaOptions = useMemo(() => {
     const set = new Set<string>()
     rows.forEach((r) => r.region && set.add(r.region))
     return Array.from(set).sort()
   }, [rows])
+
+  // Helper to check if both audits are complete
+  const areBothAuditsComplete = (row: AuditRow): boolean => {
+    const audit1Complete = !!(row.compliance_audit_1_date && row.compliance_audit_1_overall_pct !== null)
+    const audit2Complete = !!(row.compliance_audit_2_date && row.compliance_audit_2_overall_pct !== null)
+    return audit1Complete && audit2Complete
+  }
 
   // Rank all stores by their latest compliance percentage
   const rankedStores = useMemo(() => {
@@ -33,7 +43,8 @@ export function AuditLeagueTable({ rows }: { rows: AuditRow[] }) {
         term.length === 0 ||
         row.store_name.toLowerCase().includes(term) ||
         (row.store_code || '').toLowerCase().includes(term)
-      return matchesArea && matchesSearch
+      const matchesCompletedFilter = !hideCompleted || !areBothAuditsComplete(row)
+      return matchesArea && matchesSearch && matchesCompletedFilter
     })
 
     // Sort by latest percentage (descending), then by store name
@@ -58,7 +69,7 @@ export function AuditLeagueTable({ rows }: { rows: AuditRow[] }) {
         // Same percentage, sort by name
         return a.store_name.localeCompare(b.store_name)
       })
-  }, [rows, area, search])
+  }, [rows, area, search, hideCompleted])
 
   return (
     <div className="space-y-4">
@@ -82,6 +93,25 @@ export function AuditLeagueTable({ rows }: { rows: AuditRow[] }) {
               ))}
             </SelectContent>
           </Select>
+          <Button
+            variant={hideCompleted ? "default" : "outline"}
+            onClick={() => setHideCompleted(!hideCompleted)}
+            className="min-h-[44px]"
+          >
+            {hideCompleted ? (
+              <>
+                <EyeOff className="h-4 w-4 mr-2" />
+                <span className="hidden sm:inline">Show Completed</span>
+                <span className="sm:hidden">Show</span>
+              </>
+            ) : (
+              <>
+                <Eye className="h-4 w-4 mr-2" />
+                <span className="hidden sm:inline">Hide Completed</span>
+                <span className="sm:hidden">Hide</span>
+              </>
+            )}
+          </Button>
         </div>
         <div className="text-sm text-muted-foreground">
           Showing {rankedStores.length} of {rows.length} stores

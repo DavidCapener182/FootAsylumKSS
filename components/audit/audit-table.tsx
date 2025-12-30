@@ -10,7 +10,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { UserRole } from '@/lib/auth'
 import { uploadAuditPDF } from '@/app/actions/audit-pdfs'
-import { Upload, FileText } from 'lucide-react'
+import { Upload, FileText, Eye, EyeOff } from 'lucide-react'
 import { 
   AuditRow, 
   pctBadge, 
@@ -35,6 +35,7 @@ interface EditState {
 export function AuditTable({ rows, userRole }: { rows: AuditRow[]; userRole: UserRole }) {
   const [search, setSearch] = useState('')
   const [area, setArea] = useState<string>('all')
+  const [hideCompleted, setHideCompleted] = useState(false)
   const [editing, setEditing] = useState<EditState | null>(null)
   const [saving, setSaving] = useState(false)
   const [localRows, setLocalRows] = useState<AuditRow[]>(rows)
@@ -46,6 +47,13 @@ export function AuditTable({ rows, userRole }: { rows: AuditRow[]; userRole: Use
     return Array.from(set).sort()
   }, [rows])
 
+  // Helper to check if both audits are complete
+  const areBothAuditsComplete = (row: AuditRow): boolean => {
+    const audit1Complete = !!(row.compliance_audit_1_date && row.compliance_audit_1_overall_pct !== null)
+    const audit2Complete = !!(row.compliance_audit_2_date && row.compliance_audit_2_overall_pct !== null)
+    return audit1Complete && audit2Complete
+  }
+
   const filtered = useMemo(() => {
     return localRows.filter((row) => {
       const matchesArea = area === 'all' || row.region === area
@@ -54,9 +62,10 @@ export function AuditTable({ rows, userRole }: { rows: AuditRow[]; userRole: Use
         term.length === 0 ||
         row.store_name.toLowerCase().includes(term) ||
         (row.store_code || '').toLowerCase().includes(term)
-      return matchesArea && matchesSearch
+      const matchesCompletedFilter = !hideCompleted || !areBothAuditsComplete(row)
+      return matchesArea && matchesSearch && matchesCompletedFilter
     })
-  }, [localRows, area, search])
+  }, [localRows, area, search, hideCompleted])
 
   const grouped = useMemo(() => {
     const map = new Map<string, AuditRow[]>()
@@ -326,6 +335,25 @@ export function AuditTable({ rows, userRole }: { rows: AuditRow[]; userRole: Use
               ))}
             </SelectContent>
           </Select>
+          <Button
+            variant={hideCompleted ? "default" : "outline"}
+            onClick={() => setHideCompleted(!hideCompleted)}
+            className="min-h-[44px]"
+          >
+            {hideCompleted ? (
+              <>
+                <EyeOff className="h-4 w-4 mr-2" />
+                <span className="hidden sm:inline">Show Completed</span>
+                <span className="sm:hidden">Show</span>
+              </>
+            ) : (
+              <>
+                <Eye className="h-4 w-4 mr-2" />
+                <span className="hidden sm:inline">Hide Completed</span>
+                <span className="sm:hidden">Hide</span>
+              </>
+            )}
+          </Button>
         </div>
         <div className="text-sm text-muted-foreground">
           Showing {filtered.length} of {localRows.length} stores

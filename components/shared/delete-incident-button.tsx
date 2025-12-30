@@ -22,11 +22,16 @@ export function DeleteIncidentButton({ incidentId, referenceNo }: DeleteIncident
 
     setIsDeleting(true)
     try {
-      await deleteIncident(incidentId)
-      router.refresh()
+      const result = await deleteIncident(incidentId)
+      if (result?.success) {
+        // Force a full page refresh to ensure data is updated
+        window.location.reload()
+      } else {
+        router.refresh()
+      }
     } catch (error) {
       console.error('Failed to delete incident:', error)
-      alert('Failed to delete incident. Please try again.')
+      alert(`Failed to delete incident: ${error instanceof Error ? error.message : 'Please try again.'}`)
     } finally {
       setIsDeleting(false)
     }

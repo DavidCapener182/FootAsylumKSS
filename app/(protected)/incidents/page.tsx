@@ -412,12 +412,15 @@ export default async function IncidentsPage({
                         )}
                       </TableCell>
                       <TableCell className="text-right">
-                        <Link href={`/incidents/${incident.id}`}>
-                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50">
-                            <Eye className="h-4 w-4" />
-                            <span className="sr-only">View</span>
-                          </Button>
-                        </Link>
+                        <div className="flex items-center justify-end gap-1">
+                          <Link href={`/incidents/${incident.id}`}>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50">
+                              <Eye className="h-4 w-4" />
+                              <span className="sr-only">View</span>
+                            </Button>
+                          </Link>
+                          <DeleteIncidentButton incidentId={incident.id} referenceNo={incident.reference_no} />
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))

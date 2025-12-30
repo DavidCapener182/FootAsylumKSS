@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/auth'
 import { notFound } from 'next/navigation'
+import Link from 'next/link'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { StatusBadge } from '@/components/shared/status-badge'
@@ -10,6 +11,7 @@ import { IncidentInvestigation } from '@/components/incidents/incident-investiga
 import { IncidentActions } from '@/components/incidents/incident-actions'
 import { IncidentAttachments } from '@/components/incidents/incident-attachments'
 import { IncidentActivity } from '@/components/incidents/incident-activity'
+import { ChevronRight } from 'lucide-react'
 
 async function getIncident(id: string) {
   const supabase = createClient()
@@ -150,6 +152,16 @@ export default async function IncidentDetailPage({
 
   return (
     <div className="space-y-6">
+      <nav className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
+        <Link 
+          href="/incidents" 
+          className="hover:text-foreground transition-colors"
+        >
+          Incidents
+        </Link>
+        <ChevronRight className="h-4 w-4" />
+        <span className="text-foreground font-medium">{incident.reference_no}</span>
+      </nav>
       <div>
         <h1 className="text-3xl font-bold">{incident.reference_no}</h1>
         <p className="text-muted-foreground mt-1">{incident.summary}</p>

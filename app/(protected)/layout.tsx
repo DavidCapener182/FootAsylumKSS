@@ -36,8 +36,8 @@ export default async function ProtectedLayout({
         <Sidebar />
         <div className="flex flex-1 flex-col overflow-hidden md:ml-64">
           <Header />
-          <main className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 md:p-6 lg:p-8">
-            <div className="bg-white rounded-[20px] md:rounded-[30px] shadow-soft p-3 sm:p-4 md:p-6 lg:p-8 min-h-full max-w-full">
+          <main className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 md:p-0">
+            <div className="bg-white rounded-[20px] md:rounded-tl-[20px] md:rounded-tr-[0px] md:rounded-bl-[0px] md:rounded-br-[0px] shadow-soft p-3 sm:p-4 md:p-6 lg:p-8 min-h-full max-w-full">
               {children}
             </div>
           </main>

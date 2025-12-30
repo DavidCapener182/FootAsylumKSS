@@ -229,29 +229,62 @@ export async function deleteIncident(id: string) {
     throw new Error('Unauthorized')
   }
 
-  // Get current incident for activity log (before deletion)
-  const { data: currentIncident } = await supabase
-    .from('fa_incidents')
-    .select('*')
+  // Check if incident is in closed_incidents table first
+  const { data: closedIncident, error: closedError } = await supabase
+    .from('fa_closed_incidents')
+    .select('reference_no')
     .eq('id', id)
-    .single()
+    .maybeSingle()
 
-  const { error } = await supabase
-    .from('fa_incidents')
+  let currentIncident: any = null
+  let tableName = 'fa_incidents'
+
+  // If found in closed_incidents, use that table
+  if (closedIncident) {
+    currentIncident = closedIncident
+    tableName = 'fa_closed_incidents'
+  } else {
+    // If not in closed_incidents, check open incidents
+    const { data: openIncident, error: openError } = await supabase
+      .from('fa_incidents')
+      .select('reference_no')
+      .eq('id', id)
+      .maybeSingle()
+    
+    if (openIncident) {
+      currentIncident = openIncident
+      tableName = 'fa_incidents'
+    }
+  }
+
+  if (!currentIncident) {
+    throw new Error('Incident not found')
+  }
+
+  // Delete from the appropriate table
+  const { error: deleteError } = await supabase
+    .from(tableName)
     .delete()
     .eq('id', id)
 
-  if (error) {
-    throw new Error(`Failed to delete incident: ${error.message}`)
+  if (deleteError) {
+    throw new Error(`Failed to delete incident: ${deleteError.message}`)
   }
 
   // Log activity (trigger will also log, but explicit log for clarity)
-  await logActivity('incident', id, 'DELETED', {
-    old: currentIncident,
-  })
+  try {
+    await logActivity('incident', id, 'DELETED', {
+      old: currentIncident,
+      message: `Incident ${currentIncident.reference_no || id} deleted.`,
+    })
+  } catch (logError) {
+    // Log error but don't fail the deletion
+    console.error('Failed to log activity for incident deletion:', logError)
+  }
 
   revalidatePath('/incidents')
   revalidatePath('/dashboard')
+  return { success: true }
 }
 
 

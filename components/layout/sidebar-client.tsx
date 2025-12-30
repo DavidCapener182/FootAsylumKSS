@@ -41,14 +41,14 @@ export function SidebarClient({ userRole, userProfile }: SidebarClientProps) {
 
   const sidebarContent = (
     <>
-      <div className="flex h-16 items-center justify-between px-6 border-b border-gray-200/50">
-        <h1 className="text-lg font-semibold text-gray-900">KSS Assurance</h1>
+      <div className="flex h-16 items-center justify-between px-6">
+        <h1 className="text-lg font-semibold text-white">KSS Assurance</h1>
         <button
           onClick={() => setIsOpen(false)}
-          className="md:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+          className="md:hidden p-2 rounded-lg hover:bg-white/10 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
           aria-label="Close menu"
         >
-          <X className="h-5 w-5 text-gray-600" />
+          <X className="h-5 w-5 text-white" />
         </button>
       </div>
       <nav className="flex-1 p-4 overflow-y-auto">
@@ -61,13 +61,13 @@ export function SidebarClient({ userRole, userProfile }: SidebarClientProps) {
                 <Link
                   href={item.href}
                   className={cn(
-                    'flex items-center gap-3 px-4 py-3 text-sm font-medium transition-all min-h-[44px]',
+                    'flex items-center gap-3 px-4 py-3 text-sm font-medium transition-all min-h-[44px] rounded-lg',
                     isActive
-                      ? 'bg-white text-gray-900 rounded-full shadow-sm font-semibold'
-                      : 'text-gray-600 hover:text-gray-900 rounded-full'
+                      ? 'bg-white/20 text-white rounded-lg font-semibold'
+                      : 'text-white/80 hover:bg-white/10 hover:text-white rounded-lg'
                   )}
                 >
-                  <Icon className={cn('h-5 w-5 flex-shrink-0', isActive ? 'text-gray-900' : 'text-gray-500')} />
+                  <Icon className={cn('h-5 w-5 flex-shrink-0', isActive ? 'text-white' : 'text-white/70')} />
                   {item.label}
                 </Link>
               </li>
@@ -75,13 +75,13 @@ export function SidebarClient({ userRole, userProfile }: SidebarClientProps) {
           })}
         </ul>
       </nav>
-      <div className="p-4 border-t border-gray-200/50">
-        <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-white/50 backdrop-blur-sm">
-          <div className="h-10 w-10 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
-            <User className="h-5 w-5 text-purple-600" />
+      <div className="p-4">
+        <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-white/10 backdrop-blur-sm">
+          <div className="h-10 w-10 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
+            <User className="h-5 w-5 text-white" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-gray-900 truncate">
+            <p className="text-sm font-semibold text-white truncate">
               {userProfile?.full_name || 'User'}
             </p>
           </div>
@@ -94,7 +94,7 @@ export function SidebarClient({ userRole, userProfile }: SidebarClientProps) {
   return (
     <>
       {/* Desktop Sidebar */}
-      <aside className="hidden md:flex w-64 flex-col h-screen bg-gradient-to-b from-gray-50 to-purple-50/30 border-r border-gray-200/50 fixed left-0 top-0 z-30">
+      <aside className="hidden md:flex w-64 flex-col h-screen bg-[#0e1925] fixed left-0 top-0 z-30">
         {sidebarContent}
       </aside>
 
@@ -112,7 +112,7 @@ export function SidebarClient({ userRole, userProfile }: SidebarClientProps) {
         {/* Mobile Sidebar */}
         <aside
           className={cn(
-            'fixed top-0 left-0 z-50 w-64 h-screen bg-gradient-to-b from-gray-50 to-purple-50/30 border-r border-gray-200/50 flex flex-col transform transition-transform duration-300 ease-in-out md:hidden',
+            'fixed top-0 left-0 z-50 w-64 h-screen bg-[#0e1925] flex flex-col transform transition-transform duration-300 ease-in-out md:hidden',
             isOpen ? 'translate-x-0' : '-translate-x-full'
           )}
         >

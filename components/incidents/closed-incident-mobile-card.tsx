@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { StatusBadge } from '@/components/shared/status-badge'
+import { DeleteIncidentButton } from '@/components/shared/delete-incident-button'
 import { Eye, MapPin } from 'lucide-react'
 import { format } from 'date-fns'
 import { Card } from '@/components/ui/card'
@@ -43,6 +44,9 @@ export function ClosedIncidentMobileCard({ incident }: ClosedIncidentMobileCardP
                 <span className="sr-only">View</span>
               </Button>
             </Link>
+            <div className="scale-90">
+                <DeleteIncidentButton incidentId={incident.id} referenceNo={incident.reference_no} />
+            </div>
           </div>
         </div>
 
