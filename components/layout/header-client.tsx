@@ -15,7 +15,7 @@ export function HeaderClient({ signOut }: HeaderClientProps) {
   const handleMenuClick = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    setIsOpen(prev => !prev)
+    setIsOpen(!isOpen)
   }
 
   return (
