@@ -81,16 +81,16 @@ export function StoreDetailsModal({ store, incidents, actions, open, onOpenChang
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0 gap-0 bg-white [&>button]:z-20 [&>button]:top-3 [&>button]:right-3">
-        <DialogHeader className="p-6 bg-white border-b sticky top-0 z-10 relative">
+        <DialogHeader className="p-4 md:p-6 bg-white border-b sticky top-0 z-10 relative safe-top">
           <div className="flex items-start justify-between gap-4">
-            <div className="flex-1 min-w-0">
-              <DialogTitle className="text-2xl font-bold text-slate-900 text-center md:text-left">{store.store_name}</DialogTitle>
+            <div className="flex-1 min-w-0 pr-10 md:pr-0">
+              <DialogTitle className="text-xl md:text-2xl font-bold text-slate-900 text-center md:text-left break-words">{store.store_name}</DialogTitle>
               <DialogDescription className="mt-1 flex items-center justify-center md:justify-start gap-2 flex-wrap">
                 <Badge variant="outline" className="font-mono text-xs bg-slate-50">
                   {store.store_code || 'NO CODE'}
                 </Badge>
                 {store.region && (
-                  <span className="text-sm text-slate-500 flex items-center gap-1">
+                  <span className="text-xs md:text-sm text-slate-500 flex items-center gap-1">
                     • <MapPin className="h-3 w-3" /> {store.region}
                   </span>
                 )}
@@ -99,9 +99,9 @@ export function StoreDetailsModal({ store, incidents, actions, open, onOpenChang
           </div>
         </DialogHeader>
 
-        <div className="p-6 space-y-6">
+        <div className="p-4 md:p-6 space-y-4 md:space-y-6 safe-bottom">
           {/* Top Row: Info & Map */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
             {/* Store Information */}
             <Card className="shadow-sm border-slate-200">
               <CardHeader className="pb-3 border-b bg-slate-50/50">
@@ -169,14 +169,15 @@ export function StoreDetailsModal({ store, incidents, actions, open, onOpenChang
                   </div>
                 )}
                 {fullAddress && (
-                  <div className="absolute top-3 right-3 z-10">
+                  <div className="absolute top-2 right-2 md:top-3 md:right-3 z-10">
                     <Button
                       onClick={handleNavigate}
                       size="sm"
-                      className="bg-white hover:bg-slate-50 text-slate-900 shadow-md border border-slate-200"
+                      className="bg-white hover:bg-slate-50 text-slate-900 shadow-md border border-slate-200 text-xs md:text-sm min-h-[44px] md:min-h-0 px-2 md:px-3"
                     >
-                      <Navigation className="h-4 w-4 mr-2" />
-                      Navigate to Store
+                      <Navigation className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
+                      <span className="hidden sm:inline">Navigate to Store</span>
+                      <span className="sm:hidden">Navigate</span>
                     </Button>
                   </div>
                 )}
@@ -193,7 +194,7 @@ export function StoreDetailsModal({ store, incidents, actions, open, onOpenChang
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-4 md:pt-6">
-              <div className="grid grid-cols-3 md:grid-cols-4 gap-3 md:gap-6">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6">
                 {[1, 2, 3].map((num) => {
                   const score = store[`compliance_audit_${num}_overall_pct`]
                   const date = store[`compliance_audit_${num}_date`]
@@ -239,7 +240,7 @@ export function StoreDetailsModal({ store, incidents, actions, open, onOpenChang
 
           {/* Incidents and Actions Tabs */}
           <Tabs defaultValue="incidents" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 max-w-[400px] mx-auto">
+            <TabsList className="grid w-full grid-cols-2 max-w-[400px] mx-auto min-h-[44px]">
               <TabsTrigger value="incidents" className="flex items-center gap-2">
                 <AlertTriangle className="h-4 w-4" />
                 Incidents 

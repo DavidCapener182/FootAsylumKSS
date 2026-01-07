@@ -109,41 +109,41 @@ function ReportModal({ isOpen, onClose, content, isLoading }: { isOpen: boolean,
           font-weight: 600;
         }
       `}} />
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
-        <div className="p-5 border-b flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50">
-          <div className="flex items-center gap-2">
-            <div className="bg-blue-600 p-1.5 rounded-lg">
-                <Sparkles className="h-5 w-5 text-white" />
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-0 md:p-4 animate-in fade-in duration-200">
+        <div className="bg-white rounded-none md:rounded-2xl shadow-2xl w-full h-full md:h-auto md:w-full md:max-w-2xl md:max-h-[90vh] flex flex-col overflow-hidden">
+        <div className="p-4 md:p-5 border-b flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50 safe-top">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <div className="bg-blue-600 p-1.5 rounded-lg flex-shrink-0">
+                <Sparkles className="h-4 w-4 md:h-5 md:w-5 text-white" />
             </div>
-            <div>
-                <h3 className="font-bold text-lg text-slate-900">AI Intelligence Report</h3>
-                <p className="text-xs text-slate-500">Powered by OpenAI</p>
+            <div className="min-w-0 flex-1">
+                <h3 className="font-bold text-base md:text-lg text-slate-900 truncate">AI Intelligence Report</h3>
+                <p className="text-xs text-slate-500 hidden sm:block">Powered by OpenAI</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-500">
+          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-500 min-w-[44px] min-h-[44px] flex items-center justify-center flex-shrink-0 ml-2">
             <X className="h-5 w-5" />
           </button>
         </div>
         
-        <div className="p-8 overflow-y-auto">
+        <div className="p-4 md:p-8 overflow-y-auto flex-1">
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-12 space-y-4">
               <Loader2 className="h-10 w-10 text-blue-600 animate-spin" />
-              <p className="text-slate-500 font-medium">Analyzing dashboard metrics...</p>
+              <p className="text-slate-500 font-medium text-sm md:text-base">Analyzing dashboard metrics...</p>
             </div>
           ) : (
             <div 
-              className="space-y-6 ai-report-content"
+              className="space-y-4 md:space-y-6 ai-report-content"
               dangerouslySetInnerHTML={{ __html: content }} 
             />
           )}
         </div>
 
-        <div className="p-4 border-t bg-slate-50 flex justify-end">
+        <div className="p-4 border-t bg-slate-50 flex justify-end safe-bottom">
           <button 
             onClick={onClose}
-            className="px-4 py-2 bg-slate-900 text-white text-sm font-medium rounded-lg hover:bg-slate-800 transition-colors min-h-[44px] min-w-[120px]"
+            className="px-4 py-2 bg-slate-900 text-white text-sm font-medium rounded-lg hover:bg-slate-800 transition-colors min-h-[44px] min-w-[120px] w-full md:w-auto"
           >
             Close Report
           </button>
@@ -389,7 +389,7 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
           <CardHeader className="pb-3 border-b bg-slate-50/40 px-4 md:px-6 pt-4 md:pt-6">
             <CardTitle className="text-sm font-bold text-slate-800">Incident Breakdown</CardTitle>
           </CardHeader>
-          <CardContent className="pt-4 md:pt-5 space-y-4 md:space-y-6 px-4 md:px-6 pb-4 md:pb-6">
+          <CardContent className="pt-4 md:pt-5 space-y-4 md:space-y-6 px-3 md:px-6 pb-4 md:pb-6">
             
             {/* By Status */}
             <div className="space-y-3">

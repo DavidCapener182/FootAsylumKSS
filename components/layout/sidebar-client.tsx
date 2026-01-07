@@ -38,7 +38,20 @@ export function SidebarClient({ userRole, userProfile }: SidebarClientProps) {
     if (isOpen) {
       setIsOpen(false)
     }
-  }, [pathname, isOpen, setIsOpen])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname])
+
+  // Lock body scroll when mobile menu is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+    }
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [isOpen])
 
   const sidebarContent = (
     <>
@@ -104,7 +117,7 @@ export function SidebarClient({ userRole, userProfile }: SidebarClientProps) {
         {/* Overlay */}
         {isOpen && (
           <div
-            className="fixed inset-0 bg-black/50 z-40 md:hidden"
+            className="fixed inset-0 bg-black/50 z-[60] md:hidden backdrop-blur-sm"
             onClick={() => setIsOpen(false)}
             aria-hidden="true"
           />
@@ -113,9 +126,11 @@ export function SidebarClient({ userRole, userProfile }: SidebarClientProps) {
         {/* Mobile Sidebar */}
         <aside
           className={cn(
-            'fixed top-0 left-0 z-50 w-64 h-screen bg-[#0e1925] flex flex-col transform transition-transform duration-300 ease-in-out md:hidden',
+            'fixed top-0 left-0 z-[70] w-64 h-screen bg-[#0e1925] flex flex-col transition-transform duration-300 ease-in-out md:hidden shadow-2xl safe-top safe-bottom touch-pan-y',
             isOpen ? 'translate-x-0' : '-translate-x-full'
           )}
+          aria-hidden={!isOpen}
+          aria-label="Navigation menu"
         >
           {sidebarContent}
         </aside>

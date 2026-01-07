@@ -151,29 +151,29 @@ export default async function IncidentDetailPage({
   }
 
   return (
-    <div className="space-y-6">
-      <nav className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
+    <div className="space-y-4 md:space-y-6">
+      <nav className="flex items-center gap-2 text-xs md:text-sm text-muted-foreground mb-3 md:mb-4 overflow-x-auto">
         <Link 
           href="/incidents" 
-          className="hover:text-foreground transition-colors"
+          className="hover:text-foreground transition-colors whitespace-nowrap"
         >
           Incidents
         </Link>
-        <ChevronRight className="h-4 w-4" />
-        <span className="text-foreground font-medium">{incident.reference_no}</span>
+        <ChevronRight className="h-3 w-3 md:h-4 md:w-4 flex-shrink-0" />
+        <span className="text-foreground font-medium truncate">{incident.reference_no}</span>
       </nav>
       <div>
-        <h1 className="text-3xl font-bold">{incident.reference_no}</h1>
-        <p className="text-muted-foreground mt-1">{incident.summary}</p>
+        <h1 className="text-2xl md:text-3xl font-bold break-words">{incident.reference_no}</h1>
+        <p className="text-sm md:text-base text-muted-foreground mt-1 break-words">{incident.summary}</p>
       </div>
 
       <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList className="w-full justify-start overflow-x-auto max-w-full">
-          <TabsTrigger value="overview" className="shrink-0">Overview</TabsTrigger>
-          <TabsTrigger value="investigation" className="shrink-0">Investigation</TabsTrigger>
-          <TabsTrigger value="actions" className="shrink-0">Actions</TabsTrigger>
-          <TabsTrigger value="attachments" className="shrink-0">Attachments</TabsTrigger>
-          <TabsTrigger value="activity" className="shrink-0">Activity</TabsTrigger>
+        <TabsList className="w-full justify-start overflow-x-auto max-w-full -mx-1 px-1 md:mx-0 md:px-0">
+          <TabsTrigger value="overview" className="shrink-0 min-h-[44px] px-3 md:px-4">Overview</TabsTrigger>
+          <TabsTrigger value="investigation" className="shrink-0 min-h-[44px] px-3 md:px-4">Investigation</TabsTrigger>
+          <TabsTrigger value="actions" className="shrink-0 min-h-[44px] px-3 md:px-4">Actions</TabsTrigger>
+          <TabsTrigger value="attachments" className="shrink-0 min-h-[44px] px-3 md:px-4">Attachments</TabsTrigger>
+          <TabsTrigger value="activity" className="shrink-0 min-h-[44px] px-3 md:px-4">Activity</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">

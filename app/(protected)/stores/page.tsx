@@ -125,37 +125,37 @@ export default async function StoresPage() {
       </div>
 
       {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="hidden md:block bg-white shadow-sm border-slate-200">
-          <CardContent className="p-6 flex items-center justify-between">
-            <div className="space-y-1">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Stores</p>
-              <p className="text-2xl font-bold text-slate-900">{totalStores}</p>
+      <div className="grid grid-cols-3 md:grid-cols-3 gap-3 md:gap-4">
+        <Card className="bg-white shadow-sm border-slate-200">
+          <CardContent className="p-3 md:p-6 flex flex-col md:flex-row items-center md:items-center justify-between gap-2 md:gap-0">
+            <div className="space-y-1 text-center md:text-left flex-1 min-w-0">
+              <p className="text-[10px] md:text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Stores</p>
+              <p className="text-xl md:text-2xl font-bold text-slate-900">{totalStores}</p>
             </div>
-            <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center">
-              <Building2 className="h-5 w-5 text-slate-600" />
+            <div className="h-8 w-8 md:h-10 md:w-10 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
+              <Building2 className="h-4 w-4 md:h-5 md:w-5 text-slate-600" />
             </div>
           </CardContent>
         </Card>
         <Card className="bg-white shadow-sm border-slate-200">
-          <CardContent className="p-6 flex items-center justify-between">
-            <div className="space-y-1">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Active Locations</p>
-              <p className="text-2xl font-bold text-green-600">{activeStores}</p>
+          <CardContent className="p-3 md:p-6 flex flex-col md:flex-row items-center md:items-center justify-between gap-2 md:gap-0">
+            <div className="space-y-1 text-center md:text-left flex-1 min-w-0">
+              <p className="text-[10px] md:text-xs font-semibold text-slate-500 uppercase tracking-wider">Active Locations</p>
+              <p className="text-xl md:text-2xl font-bold text-green-600">{activeStores}</p>
             </div>
-            <div className="h-10 w-10 rounded-full bg-green-50 flex items-center justify-center">
-              <CheckCircle2 className="h-5 w-5 text-green-600" />
+            <div className="h-8 w-8 md:h-10 md:w-10 rounded-full bg-green-50 flex items-center justify-center flex-shrink-0">
+              <CheckCircle2 className="h-4 w-4 md:h-5 md:w-5 text-green-600" />
             </div>
           </CardContent>
         </Card>
-        <Card className="hidden md:block bg-white shadow-sm border-slate-200">
-          <CardContent className="p-6 flex items-center justify-between">
-            <div className="space-y-1">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Inactive Locations</p>
-              <p className="text-2xl font-bold text-slate-600">{inactiveStores}</p>
+        <Card className="bg-white shadow-sm border-slate-200">
+          <CardContent className="p-3 md:p-6 flex flex-col md:flex-row items-center md:items-center justify-between gap-2 md:gap-0">
+            <div className="space-y-1 text-center md:text-left flex-1 min-w-0">
+              <p className="text-[10px] md:text-xs font-semibold text-slate-500 uppercase tracking-wider">Inactive Locations</p>
+              <p className="text-xl md:text-2xl font-bold text-slate-600">{inactiveStores}</p>
             </div>
-            <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center">
-              <XCircle className="h-5 w-5 text-slate-600" />
+            <div className="h-8 w-8 md:h-10 md:w-10 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
+              <XCircle className="h-4 w-4 md:h-5 md:w-5 text-slate-600" />
             </div>
           </CardContent>
         </Card>

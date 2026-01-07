@@ -353,12 +353,12 @@ export function RouteDirectionsModal({
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader className="pr-12">
-          <DialogTitle className="flex items-center gap-2">
-            <MapPin className="h-5 w-5" />
-            Route Directions - {managerName}
+        <DialogHeader className="pr-12 md:pr-0">
+          <DialogTitle className="flex items-center gap-2 text-lg md:text-xl flex-wrap">
+            <MapPin className="h-4 w-4 md:h-5 md:w-5 flex-shrink-0" />
+            <span className="break-words">Route Directions - {managerName}</span>
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-xs md:text-sm">
             Planned for {format(new Date(plannedDate), 'EEEE, dd MMMM yyyy')}
           </DialogDescription>
           {schedule.length > 0 && (
@@ -371,11 +371,12 @@ export function RouteDirectionsModal({
                 }}
                 variant="outline"
                 size="sm"
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 min-h-[44px] md:min-h-0 w-full md:w-auto"
               >
                 <CalendarIcon className="h-4 w-4" />
                 <Download className="h-4 w-4" />
-                Download Calendar
+                <span className="hidden sm:inline">Download Calendar</span>
+                <span className="sm:hidden">Download</span>
               </Button>
             </div>
           )}
@@ -387,18 +388,18 @@ export function RouteDirectionsModal({
             <span className="ml-3 text-slate-600">Calculating route...</span>
           </div>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-4 md:space-y-6">
             {/* Schedule Timeline */}
             <div>
-              <h3 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
-                <Clock className="h-4 w-4" />
+              <h3 className="font-semibold text-sm md:text-base text-slate-900 mb-3 flex items-center gap-2">
+                <Clock className="h-4 w-4 flex-shrink-0" />
                 Schedule
               </h3>
               <div className="space-y-2">
                 {schedule.map((item, index) => (
                   <div
                     key={index}
-                    className={`flex items-start gap-3 p-3 rounded-lg ${
+                    className={`flex flex-col sm:flex-row items-start gap-2 sm:gap-3 p-3 rounded-lg ${
                       item.action.includes('Leave') || item.action.includes('Arrive home')
                         ? 'bg-blue-50 border border-blue-200'
                         : item.action === 'Visit'
@@ -408,13 +409,13 @@ export function RouteDirectionsModal({
                         : 'bg-slate-50 border border-slate-200'
                     }`}
                   >
-                    <div className="flex-shrink-0 w-28 text-sm font-medium text-slate-700">
+                    <div className="flex-shrink-0 w-full sm:w-28 text-xs sm:text-sm font-medium text-slate-700">
                       {item.endTime 
                         ? `${format(item.time, 'HH:mm')} - ${format(item.endTime, 'HH:mm')}`
                         : format(item.time, 'HH:mm')}
                     </div>
-                    <div className="flex-1">
-                      <div className="font-medium text-slate-900">
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-sm md:text-base text-slate-900 break-words">
                         {item.action === 'Visit' 
                           ? `${item.location} Visit`
                           : item.action === 'Travel'
@@ -422,13 +423,13 @@ export function RouteDirectionsModal({
                           : item.action}
                       </div>
                       {item.action !== 'Travel' && (
-                        <div className="text-sm text-slate-600 flex items-center gap-1 mt-1">
+                        <div className="text-xs sm:text-sm text-slate-600 flex items-center gap-1 mt-1 break-words">
                           {item.action.includes('home') ? (
-                            <Home className="h-3 w-3" />
+                            <Home className="h-3 w-3 flex-shrink-0" />
                           ) : (
-                            <MapPin className="h-3 w-3" />
+                            <MapPin className="h-3 w-3 flex-shrink-0" />
                           )}
-                          {item.location}
+                          <span className="break-words">{item.location}</span>
                         </div>
                       )}
                       {item.travelTime && (
@@ -444,11 +445,11 @@ export function RouteDirectionsModal({
 
             {/* Route Map */}
             <div>
-              <h3 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
-                <MapPin className="h-4 w-4" />
+              <h3 className="font-semibold text-sm md:text-base text-slate-900 mb-3 flex items-center gap-2">
+                <MapPin className="h-4 w-4 flex-shrink-0" />
                 Route Map
               </h3>
-              <div className="border border-slate-200 rounded-lg overflow-hidden">
+              <div className="border border-slate-200 rounded-lg overflow-hidden h-[300px] md:h-[400px]">
                 <RouteMapComponent stores={stores} managerHome={managerHome} />
               </div>
             </div>
@@ -487,8 +488,8 @@ export function RouteDirectionsModal({
           </div>
         )}
 
-        <DialogFooter>
-          <Button onClick={onClose}>Close</Button>
+        <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
+          <Button onClick={onClose} className="w-full sm:w-auto min-h-[44px] md:min-h-0">Close</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

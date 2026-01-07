@@ -83,37 +83,37 @@ export default async function ActionsPage({
       </div>
 
       {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
         <Card className="bg-white shadow-sm border-slate-200">
-          <CardContent className="p-6 flex items-center justify-between">
-            <div className="space-y-1">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Actions</p>
-              <p className="text-2xl font-bold text-slate-900">{totalActions}</p>
+          <CardContent className="p-4 md:p-6 flex items-center justify-between">
+            <div className="space-y-1 flex-1 min-w-0">
+              <p className="text-[10px] md:text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Actions</p>
+              <p className="text-xl md:text-2xl font-bold text-slate-900">{totalActions}</p>
             </div>
-            <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center">
-              <FileText className="h-5 w-5 text-slate-600" />
+            <div className="h-8 w-8 md:h-10 md:w-10 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0 ml-2">
+              <FileText className="h-4 w-4 md:h-5 md:w-5 text-slate-600" />
             </div>
           </CardContent>
         </Card>
         <Card className="bg-white shadow-sm border-slate-200">
-          <CardContent className="p-6 flex items-center justify-between">
-            <div className="space-y-1">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Active</p>
-              <p className="text-2xl font-bold text-blue-600">{activeActions}</p>
+          <CardContent className="p-4 md:p-6 flex items-center justify-between">
+            <div className="space-y-1 flex-1 min-w-0">
+              <p className="text-[10px] md:text-xs font-semibold text-slate-500 uppercase tracking-wider">Active</p>
+              <p className="text-xl md:text-2xl font-bold text-blue-600">{activeActions}</p>
             </div>
-            <div className="h-10 w-10 rounded-full bg-blue-50 flex items-center justify-center">
-              <Clock className="h-5 w-5 text-blue-600" />
+            <div className="h-8 w-8 md:h-10 md:w-10 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0 ml-2">
+              <Clock className="h-4 w-4 md:h-5 md:w-5 text-blue-600" />
             </div>
           </CardContent>
         </Card>
         <Card className="bg-white shadow-sm border-slate-200">
-          <CardContent className="p-6 flex items-center justify-between">
-            <div className="space-y-1">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Overdue</p>
-              <p className="text-2xl font-bold text-rose-600">{overdueCount}</p>
+          <CardContent className="p-4 md:p-6 flex items-center justify-between">
+            <div className="space-y-1 flex-1 min-w-0">
+              <p className="text-[10px] md:text-xs font-semibold text-slate-500 uppercase tracking-wider">Overdue</p>
+              <p className="text-xl md:text-2xl font-bold text-rose-600">{overdueCount}</p>
             </div>
-            <div className="h-10 w-10 rounded-full bg-rose-50 flex items-center justify-center">
-              <AlertCircle className="h-5 w-5 text-rose-600" />
+            <div className="h-8 w-8 md:h-10 md:w-10 rounded-full bg-rose-50 flex items-center justify-center flex-shrink-0 ml-2">
+              <AlertCircle className="h-4 w-4 md:h-5 md:w-5 text-rose-600" />
             </div>
           </CardContent>
         </Card>
@@ -135,9 +135,10 @@ export default async function ActionsPage({
                   Search actions, incidents...
                 </div>
               </div>
-              <Button variant="outline" size="sm" className="h-9 px-3">
+              <Button variant="outline" size="sm" className="h-9 md:h-9 px-3 min-h-[44px] md:min-h-0">
                 <Filter className="h-4 w-4 mr-2 text-slate-500" />
-                Filters
+                <span className="hidden sm:inline">Filters</span>
+                <span className="sm:hidden">Filter</span>
               </Button>
             </div>
           </div>

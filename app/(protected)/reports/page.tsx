@@ -57,7 +57,7 @@ export default function ReportsPage() {
           </CardHeader>
           <CardContent>
             <form action="/api/reports/incidents" method="GET">
-              <Button type="submit" className="w-full bg-white border-2 border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-blue-200 hover:text-blue-700 transition-all font-semibold shadow-sm">
+              <Button type="submit" className="w-full bg-white border-2 border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-blue-200 hover:text-blue-700 transition-all font-semibold shadow-sm min-h-[44px]">
                 <Download className="h-4 w-4 mr-2" />
                 Download CSV
               </Button>
@@ -82,7 +82,7 @@ export default function ReportsPage() {
           </CardHeader>
           <CardContent>
             <form action="/api/reports/actions" method="GET">
-              <Button type="submit" className="w-full bg-white border-2 border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-purple-200 hover:text-purple-700 transition-all font-semibold shadow-sm">
+              <Button type="submit" className="w-full bg-white border-2 border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-purple-200 hover:text-purple-700 transition-all font-semibold shadow-sm min-h-[44px]">
                 <Download className="h-4 w-4 mr-2" />
                 Download CSV
               </Button>
@@ -107,7 +107,7 @@ export default function ReportsPage() {
           </CardHeader>
           <CardContent>
             <form action="/api/reports/audit-summary" method="GET">
-              <Button type="submit" className="w-full bg-white border-2 border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-emerald-200 hover:text-emerald-700 transition-all font-semibold shadow-sm">
+              <Button type="submit" className="w-full bg-white border-2 border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-emerald-200 hover:text-emerald-700 transition-all font-semibold shadow-sm min-h-[44px]">
                 <Download className="h-4 w-4 mr-2" />
                 Download Summary
               </Button>
@@ -128,30 +128,31 @@ export default function ReportsPage() {
               Generate an on-demand executive summary using our advanced AI analysis engine.
             </CardDescription>
           </CardHeader>
-          <CardContent className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-            <div className="space-y-2 max-w-2xl">
-                <div className="flex gap-4 text-sm text-indigo-800/70">
+          <CardContent className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 md:gap-6">
+            <div className="space-y-2 max-w-2xl w-full">
+                <div className="flex flex-wrap gap-3 md:gap-4 text-xs md:text-sm text-indigo-800/70">
                     <div className="flex items-center gap-2">
-                        <BarChart3 className="h-4 w-4" />
+                        <BarChart3 className="h-3 w-3 md:h-4 md:w-4" />
                         <span>Trend Analysis</span>
                     </div>
                     <div className="flex items-center gap-2">
-                        <PieChart className="h-4 w-4" />
+                        <PieChart className="h-3 w-3 md:h-4 md:w-4" />
                         <span>Risk Distribution</span>
                     </div>
                     <div className="flex items-center gap-2">
-                        <FileText className="h-4 w-4" />
+                        <FileText className="h-3 w-3 md:h-4 md:w-4" />
                         <span>Executive Summary</span>
                     </div>
                 </div>
-                <p className="text-sm text-indigo-900/60 leading-relaxed">
+                <p className="text-xs md:text-sm text-indigo-900/60 leading-relaxed">
                 The AI Compliance Report analyzes your live dashboard data to identify patterns, highlight top risks, and provide strategic recommendations for your management team. This report is generated dynamically on the Dashboard.
                 </p>
             </div>
             
-            <Button asChild className="shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white shadow-md border-0">
-              <a href="/dashboard">
-                Go to Dashboard Analysis
+            <Button asChild className="shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white shadow-md border-0 w-full md:w-auto min-h-[44px] md:min-h-0">
+              <a href="/dashboard" className="flex items-center justify-center">
+                <span className="hidden sm:inline">Go to Dashboard Analysis</span>
+                <span className="sm:hidden">Dashboard Analysis</span>
                 <ChevronRight className="h-4 w-4 ml-2" />
               </a>
             </Button>

@@ -108,7 +108,7 @@ export function NewIncidentDialog({ open, onOpenChange }: NewIncidentDialogProps
                   <FormLabel>Store *</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
-                      <SelectTrigger>
+                      <SelectTrigger className="min-h-[44px] sm:min-h-0">
                         <SelectValue placeholder="Select a store" />
                       </SelectTrigger>
                     </FormControl>
@@ -125,7 +125,7 @@ export function NewIncidentDialog({ open, onOpenChange }: NewIncidentDialogProps
               )}
             />
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
                 name="incident_category"
@@ -134,7 +134,7 @@ export function NewIncidentDialog({ open, onOpenChange }: NewIncidentDialogProps
                     <FormLabel>Category *</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
-                        <SelectTrigger>
+                        <SelectTrigger className="min-h-[44px] sm:min-h-0">
                           <SelectValue />
                         </SelectTrigger>
                       </FormControl>
@@ -160,7 +160,7 @@ export function NewIncidentDialog({ open, onOpenChange }: NewIncidentDialogProps
                     <FormLabel>Severity *</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
-                        <SelectTrigger>
+                        <SelectTrigger className="min-h-[44px] sm:min-h-0">
                           <SelectValue />
                         </SelectTrigger>
                       </FormControl>
@@ -184,7 +184,7 @@ export function NewIncidentDialog({ open, onOpenChange }: NewIncidentDialogProps
                 <FormItem>
                   <FormLabel>Summary *</FormLabel>
                   <FormControl>
-                    <Input {...field} placeholder="Brief description of the incident" />
+                    <Input {...field} placeholder="Brief description of the incident" className="min-h-[44px] sm:min-h-0" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -198,7 +198,7 @@ export function NewIncidentDialog({ open, onOpenChange }: NewIncidentDialogProps
                 <FormItem>
                   <FormLabel>Description</FormLabel>
                   <FormControl>
-                    <Textarea {...field} rows={4} placeholder="Detailed description of what happened" />
+                    <Textarea {...field} rows={4} placeholder="Detailed description of what happened" className="min-h-[120px]" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -212,18 +212,18 @@ export function NewIncidentDialog({ open, onOpenChange }: NewIncidentDialogProps
                 <FormItem>
                   <FormLabel>Occurred At *</FormLabel>
                   <FormControl>
-                    <Input type="datetime-local" {...field} />
+                    <Input type="datetime-local" {...field} className="min-h-[44px] sm:min-h-0" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
 
-            <DialogFooter className="gap-2 sm:gap-0">
-              <Button type="button" variant="outline" onClick={handleCancel} disabled={isSubmitting}>
+            <DialogFooter className="gap-2 sm:gap-0 flex-col sm:flex-row">
+              <Button type="button" variant="outline" onClick={handleCancel} disabled={isSubmitting} className="w-full sm:w-auto min-h-[44px] sm:min-h-0">
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSubmitting} className="bg-indigo-600 hover:bg-indigo-700">
+              <Button type="submit" disabled={isSubmitting} className="bg-indigo-600 hover:bg-indigo-700 w-full sm:w-auto min-h-[44px] sm:min-h-0">
                 {isSubmitting ? 'Creating...' : 'Create Incident'}
               </Button>
             </DialogFooter>
