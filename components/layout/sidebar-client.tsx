@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, AlertTriangle, CheckSquare, Store, FileText, Settings, User, ClipboardList, Activity, X } from 'lucide-react'
+import { LayoutDashboard, AlertTriangle, CheckSquare, Store, FileText, Settings, User, ClipboardList, Activity, X, Route } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { UserRole, UserProfile } from '@/lib/auth'
 import { useSidebar } from './sidebar-provider'
@@ -14,6 +14,7 @@ const navItems = [
   { href: '/actions', label: 'Actions', icon: CheckSquare },
   { href: '/stores', label: 'Stores', icon: Store },
   { href: '/audit-tracker', label: 'Audit Tracker', icon: ClipboardList },
+  { href: '/route-planning', label: 'Route Planning', icon: Route },
   { href: '/reports', label: 'Reports', icon: FileText },
   { href: '/activity', label: 'Recent Activity', icon: Activity },
   { href: '/admin', label: 'Admin', icon: Settings, adminOnly: true },

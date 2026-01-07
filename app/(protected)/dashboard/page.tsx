@@ -21,7 +21,8 @@ async function getDashboardData() {
     { data: recentActivity },
     { data: storesNeedingSecondVisitRaw },
     { data: profiles },
-    { data: allStores }
+    { data: allStores },
+    { data: plannedRoutesRaw }
   ] = await Promise.all([
     supabase.from('fa_incidents').select('*', { count: 'exact', head: true }).in('status', ['open', 'under_investigation', 'actions_in_progress']),
     supabase.from('fa_incidents').select('*', { count: 'exact', head: true }).eq('status', 'under_investigation'),
@@ -31,9 +32,10 @@ async function getDashboardData() {
     supabase.from('fa_incidents').select('severity'),
     supabase.from('fa_incidents').select(`store_id, fa_stores!inner(store_name, store_code)`).in('status', ['open', 'under_investigation', 'actions_in_progress']),
     supabase.from('fa_activity_log').select(`*, performed_by:fa_profiles!fa_activity_log_performed_by_user_id_fkey(full_name)`).order('created_at', { ascending: false }).limit(20),
-    supabase.from('fa_stores').select(`id, store_name, store_code, compliance_audit_2_date, compliance_audit_2_assigned_manager_user_id, compliance_audit_2_planned_date, assigned_manager:fa_profiles!fa_stores_compliance_audit_2_assigned_manager_user_id_fkey(id, full_name)`).is('compliance_audit_2_date', null).eq('is_active', true).order('store_name', { ascending: true }),
+    supabase.from('fa_stores').select(`id, store_name, store_code, compliance_audit_1_date, compliance_audit_2_date, compliance_audit_2_assigned_manager_user_id, compliance_audit_2_planned_date, assigned_manager:fa_profiles!fa_stores_compliance_audit_2_assigned_manager_user_id_fkey(id, full_name)`).is('compliance_audit_2_date', null).eq('is_active', true).order('store_name', { ascending: true }),
     supabase.from('fa_profiles').select('id, full_name').order('full_name', { ascending: true }),
-    supabase.from('fa_stores').select('id, compliance_audit_1_date, compliance_audit_1_overall_pct, compliance_audit_2_date, compliance_audit_2_overall_pct').eq('is_active', true)
+    supabase.from('fa_stores').select('id, compliance_audit_1_date, compliance_audit_1_overall_pct, compliance_audit_2_date, compliance_audit_2_overall_pct').eq('is_active', true),
+        supabase.from('fa_stores').select(`id, store_name, store_code, region, postcode, latitude, longitude, compliance_audit_2_planned_date, compliance_audit_2_assigned_manager_user_id, route_sequence, assigned_manager:fa_profiles!fa_stores_compliance_audit_2_assigned_manager_user_id_fkey(id, full_name, home_address, home_latitude, home_longitude)`).not('compliance_audit_2_planned_date', 'is', null).eq('is_active', true).order('compliance_audit_2_planned_date', { ascending: true })
   ])
 
   // Data Processing
@@ -67,12 +69,110 @@ async function getDashboardData() {
   
   const maxStoreCount = topStores.length > 0 ? Math.max(...topStores.map(s => s.count)) : 0
 
-  const storesNeedingSecondVisit = storesNeedingSecondVisitRaw?.map((store: any) => ({
-    ...store,
-    assigned_manager: Array.isArray(store.assigned_manager) 
+  // Filter out stores that completed audit 1 today (2026) or within the last 6 months
+  // We're starting fresh for 2026, so hide stores that completed audit 1 recently
+  const sixMonthsAgo = new Date()
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
+  sixMonthsAgo.setHours(0, 0, 0, 0)
+  const todayDate = new Date()
+  todayDate.setHours(0, 0, 0, 0)
+
+  const storesNeedingSecondVisit = storesNeedingSecondVisitRaw
+    ?.filter((store: any) => {
+      // If store completed audit 1 today or within last 6 months (2026), hide it
+      if (store.compliance_audit_1_date) {
+        const audit1Date = new Date(store.compliance_audit_1_date)
+        audit1Date.setHours(0, 0, 0, 0)
+        
+        // Hide if audit 1 was completed today or within last 6 months
+        if (audit1Date >= sixMonthsAgo) {
+          return false
+        }
+      }
+      return true
+    })
+    ?.map((store: any) => ({
+      ...store,
+      assigned_manager: Array.isArray(store.assigned_manager) 
+        ? (store.assigned_manager[0] || null)
+        : store.assigned_manager || null
+    })) || []
+
+  // Process planned routes - group by manager, area, and date
+  const plannedRoutes = (plannedRoutesRaw || []).reduce((acc: any[], store: any) => {
+    const managerId = store.compliance_audit_2_assigned_manager_user_id
+    const region = store.region
+    const plannedDate = store.compliance_audit_2_planned_date
+    const manager = Array.isArray(store.assigned_manager) 
       ? (store.assigned_manager[0] || null)
       : store.assigned_manager || null
-  })) || []
+    
+    const key = `${managerId || 'unassigned'}-${region || 'unknown'}-${plannedDate}`
+    const existing = acc.find(r => r.key === key)
+    
+    if (existing) {
+      existing.storeCount++
+      // Store full store data with route_sequence for sorting later
+      existing.stores.push({
+        id: store.id,
+        name: store.store_name,
+        store_code: store.store_code,
+        postcode: store.postcode,
+        latitude: store.latitude,
+        longitude: store.longitude,
+        sequence: store.route_sequence ?? null
+      })
+    } else {
+      acc.push({
+        key,
+        managerId,
+        managerName: manager?.full_name || 'Unassigned',
+        area: region || 'Unknown',
+        plannedDate,
+        storeCount: 1,
+        managerHome: manager?.home_latitude && manager?.home_longitude ? {
+          latitude: typeof manager.home_latitude === 'string' 
+            ? parseFloat(manager.home_latitude) 
+            : manager.home_latitude,
+          longitude: typeof manager.home_longitude === 'string' 
+            ? parseFloat(manager.home_longitude) 
+            : manager.home_longitude,
+          address: manager.home_address || 'Manager Home',
+        } : null,
+        stores: [{
+          id: store.id,
+          name: store.store_name,
+          store_code: store.store_code,
+          postcode: store.postcode,
+          latitude: store.latitude,
+          longitude: store.longitude,
+          sequence: store.route_sequence ?? null
+        }]
+      })
+    }
+    
+    return acc
+  }, []).map(route => {
+    // Sort stores within each route by route_sequence
+    const sortedStores = [...route.stores].sort((a, b) => {
+      if (a.sequence !== null && b.sequence !== null) {
+        return a.sequence - b.sequence
+      }
+      if (a.sequence !== null) return -1
+      if (b.sequence !== null) return 1
+      return 0
+    })
+    // Return full store data
+    return {
+      ...route,
+      stores: sortedStores
+    }
+  }).sort((a, b) => {
+    // Sort by date, then by manager name
+    const dateCompare = (a.plannedDate || '').localeCompare(b.plannedDate || '')
+    if (dateCompare !== 0) return dateCompare
+    return a.managerName.localeCompare(b.managerName)
+  })
 
   const totalStores = allStores?.length || 0
   const firstAuditsComplete = allStores?.filter(s => s.compliance_audit_1_date && s.compliance_audit_1_overall_pct !== null).length || 0
@@ -95,6 +195,7 @@ async function getDashboardData() {
     recentActivity: recentActivity || [],
     storesNeedingSecondVisit,
     profiles: profiles || [],
+    plannedRoutes,
     auditStats: {
       totalStores,
       firstAuditsComplete,

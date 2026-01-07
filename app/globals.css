@@ -70,3 +70,11 @@
   }
 }
 
+/* Custom home icon for map */
+.custom-home-icon {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  border-radius: 50%;
+}
+

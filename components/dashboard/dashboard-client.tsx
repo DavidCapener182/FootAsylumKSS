@@ -2,9 +2,10 @@
 
 import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { AlertTriangle, TrendingUp, Clock, AlertCircle, Store, FileCheck, Sparkles, X, Loader2 } from 'lucide-react'
+import { AlertTriangle, TrendingUp, Clock, AlertCircle, Store, FileCheck, Sparkles, X, Loader2, Calendar } from 'lucide-react'
 import { format } from 'date-fns'
 import { ComplianceVisitsTracking } from '@/components/dashboard/compliance-visits-tracking'
+import { PlannedRounds } from '@/components/dashboard/planned-rounds'
 
 // --- Helper Components ---
 
@@ -259,156 +260,180 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
         />
       </div>
 
-      <div className="grid gap-6 md:grid-cols-12">
-        
-        {/* Left Column: Audits & Visits (8 span) */}
-        <div className="md:col-span-12 lg:col-span-8 space-y-6">
-          
-          {/* Audit Progress - Unified View */}
-          <Card className="shadow-sm border-slate-200 bg-white">
-            <CardHeader className="pb-3 md:pb-4 px-4 md:px-6 pt-4 md:pt-6">
-              <div className="flex items-center gap-2">
-                <FileCheck className="h-4 w-4 md:h-5 md:w-5 text-slate-500 flex-shrink-0" />
-                <CardTitle className="text-sm md:text-base font-semibold text-slate-800">Audit Completion Rates</CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent className="px-4 md:px-6 pb-4 md:pb-6">
-              <div className="grid gap-3 md:gap-6 grid-cols-1 md:grid-cols-3">
-                {/* First Audit */}
-                <div className="flex flex-col gap-2 p-3 md:p-4 rounded-xl bg-slate-50 border border-slate-100 hover:border-emerald-200 transition-colors">
-                  <span className="text-xs font-bold uppercase text-slate-500 tracking-wider">First Audit</span>
-                  <div className="flex items-end justify-between mt-1">
-                    <span className="text-2xl md:text-3xl font-bold text-slate-900">{data.auditStats.firstAuditPercentage}%</span>
-                    <span className="text-xs font-medium text-slate-400 mb-1.5">{data.auditStats.firstAuditsComplete}/{data.auditStats.totalStores}</span>
-                  </div>
-                  <ProgressBar value={data.auditStats.firstAuditPercentage} colorClass="bg-emerald-500" />
-                </div>
-
-                {/* Second Audit */}
-                <div className="flex flex-col gap-2 p-3 md:p-4 rounded-xl bg-slate-50 border border-slate-100 hover:border-blue-200 transition-colors">
-                   <span className="text-xs font-bold uppercase text-slate-500 tracking-wider">Second Audit</span>
-                   <div className="flex items-end justify-between mt-1">
-                    <span className="text-2xl md:text-3xl font-bold text-slate-900">{data.auditStats.secondAuditPercentage}%</span>
-                    <span className="text-xs font-medium text-slate-400 mb-1.5">{data.auditStats.secondAuditsComplete}/{data.auditStats.totalStores}</span>
-                  </div>
-                  <ProgressBar value={data.auditStats.secondAuditPercentage} colorClass="bg-blue-500" />
-                </div>
-
-                {/* Total Complete */}
-                <div className="flex flex-col gap-2 p-3 md:p-4 rounded-xl bg-slate-50 border border-slate-100 hover:border-purple-200 transition-colors">
-                   <span className="text-xs font-bold uppercase text-slate-500 tracking-wider">Fully Compliant</span>
-                   <div className="flex items-end justify-between mt-1">
-                    <span className="text-2xl md:text-3xl font-bold text-slate-900">{data.auditStats.totalAuditPercentage}%</span>
-                    <span className="text-xs font-medium text-slate-400 mb-1.5">{data.auditStats.totalAuditsComplete}/{data.auditStats.totalStores}</span>
-                  </div>
-                  <ProgressBar value={data.auditStats.totalAuditPercentage} colorClass="bg-purple-500" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Compliance Visits Tracking */}
-          <div className="h-full">
-             <ComplianceVisitsTracking 
-               stores={data.storesNeedingSecondVisit} 
-               profiles={data.profiles} 
-             />
+      {/* Bento Grid: Planned Visits, Audit Completion, Top Stores */}
+      <div className="grid gap-2 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
+        {/* Planned Visits - Small card */}
+        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl shadow-sm md:col-span-1 h-[170px]">
+          <div className="pb-1.5 px-3 pt-3">
+            <h3 className="text-emerald-900 flex items-center gap-2 text-sm font-semibold">
+              <Calendar className="h-4 w-4" />
+              Planned Visits
+            </h3>
+          </div>
+          <div className="px-3 pb-3">
+            <div className="flex flex-col gap-1.5">
+              <p className="text-3xl font-bold text-emerald-900">
+                {data.plannedRoutes?.reduce((total: number, route: any) => total + (route.stores?.length || route.storeCount || 0), 0) || 0}
+              </p>
+              <p className="text-xs text-emerald-700">
+                {data.plannedRoutes?.reduce((total: number, route: any) => total + (route.stores?.length || route.storeCount || 0), 0) === 1 ? 'store' : 'stores'} with planned visits
+              </p>
+              <p className="text-sm font-semibold text-emerald-700 mt-1">
+                {data.plannedRoutes?.length || 0} {data.plannedRoutes?.length === 1 ? 'route' : 'routes'} planned
+              </p>
+            </div>
           </div>
         </div>
 
-        {/* Right Column: Stats & Activity (4 span) */}
-        <div className="md:col-span-12 lg:col-span-4 flex flex-col gap-6">
-          
-          {/* Combined Status & Severity Stats */}
-          <Card className="shadow-sm border-slate-200 bg-white">
-            <CardHeader className="pb-3 border-b bg-slate-50/40 px-4 md:px-6 pt-4 md:pt-6">
-              <CardTitle className="text-sm font-bold text-slate-800">Incident Breakdown</CardTitle>
-            </CardHeader>
-            <CardContent className="pt-4 md:pt-5 space-y-4 md:space-y-6 px-4 md:px-6 pb-4 md:pb-6">
-              
-              {/* By Status */}
-              <div className="space-y-3">
-                <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">By Status</h4>
-                {Object.keys(data.statusCounts).length === 0 ? (
-                  <p className="text-slate-400 text-xs italic">No data available</p>
-                ) : (
-                  Object.entries(data.statusCounts).map(([status, count]) => (
-                    <LabeledProgressBar 
-                      key={status} 
-                      label={status} 
-                      value={count as number} 
-                      total={data.totalIncidents} 
-                      colorClass="bg-purple-500" 
-                    />
-                  ))
-                )}
-              </div>
-
-              <div className="border-t border-slate-100 my-4" />
-
-              {/* By Severity */}
-              <div className="space-y-3">
-                <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">By Severity</h4>
-                 {Object.keys(data.severityCounts).length === 0 ? (
-                  <p className="text-slate-400 text-xs italic">No data available</p>
-                ) : (
-                  Object.entries(data.severityCounts).map(([severity, count]) => (
-                    <LabeledProgressBar 
-                      key={severity} 
-                      label={severity} 
-                      value={count as number} 
-                      total={data.totalIncidents} 
-                      colorClass={
-                        severity === 'critical' ? 'bg-red-600' : 
-                        severity === 'high' ? 'bg-orange-500' : 'bg-slate-500'
-                      } 
-                    />
-                  ))
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Top Stores */}
-          <Card className="shadow-sm border-slate-200 bg-white">
-             <CardHeader className="pb-3 border-b bg-slate-50/40 px-4 md:px-6 pt-4 md:pt-6">
-              <div className="flex items-center gap-2">
-                <Store className="h-4 w-4 text-emerald-600 flex-shrink-0" />
-                <CardTitle className="text-sm font-bold text-slate-800">Top Stores (Open Incidents)</CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent className="pt-4 md:pt-5 px-4 md:px-6 pb-4 md:pb-6">
-              {data.topStores.length === 0 ? (
-                <p className="text-slate-400 text-sm py-2 italic">No data available</p>
-              ) : (
-                <div className="space-y-5">
-                  {data.topStores.map((store: any, idx: number) => (
-                    <div key={store.id} className="group">
-                      <div className="flex items-center justify-between text-sm mb-1.5">
-                        <span className="font-medium text-slate-700 truncate w-2/3 group-hover:text-emerald-700 transition-colors flex items-center gap-2">
-                          <span className="flex items-center justify-center w-5 h-5 rounded-full bg-slate-100 text-slate-500 text-[10px] font-bold group-hover:bg-emerald-100 group-hover:text-emerald-700 transition-colors">
-                            {idx + 1}
-                          </span>
-                          {store.name}
-                        </span>
-                        <span className="font-bold text-slate-800">{store.count}</span>
-                      </div>
-                      {/* Visual Bar relative to Max */}
-                      <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-emerald-500 rounded-full transition-all duration-500 ease-out" 
-                          style={{ width: `${(store.count / data.maxStoreCount) * 100}%` }}
-                        />
-                      </div>
-                    </div>
-                  ))}
+        {/* Audit Completion Rates - Large card spanning 2 columns */}
+        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm md:col-span-2 lg:col-span-2 h-[170px] flex flex-col">
+          <div className="pb-1.5 px-3 pt-3">
+            <div className="flex items-center gap-2">
+              <FileCheck className="h-4 w-4 text-slate-500 flex-shrink-0" />
+              <h3 className="text-sm font-semibold text-slate-800">Audit Completion Rates</h3>
+            </div>
+          </div>
+          <div className="px-3 pb-3 flex-1 overflow-y-auto">
+            <div className="grid gap-2 grid-cols-1 md:grid-cols-3">
+              {/* First Audit */}
+              <div className="flex flex-col gap-1 p-2.5 rounded-xl bg-slate-50 border border-slate-100 hover:border-emerald-200 transition-colors">
+                <span className="text-xs font-bold uppercase text-slate-500 tracking-wider">First Audit</span>
+                <div className="flex items-end justify-between">
+                  <span className="text-2xl font-bold text-slate-900">{data.auditStats.firstAuditPercentage}%</span>
+                  <span className="text-xs font-medium text-slate-400">{data.auditStats.firstAuditsComplete}/{data.auditStats.totalStores}</span>
                 </div>
-              )}
-            </CardContent>
-          </Card>
+                <ProgressBar value={data.auditStats.firstAuditPercentage} colorClass="bg-emerald-500" />
+              </div>
 
+              {/* Second Audit */}
+              <div className="flex flex-col gap-1 p-2.5 rounded-xl bg-slate-50 border border-slate-100 hover:border-blue-200 transition-colors">
+                 <span className="text-xs font-bold uppercase text-slate-500 tracking-wider">Second Audit</span>
+                 <div className="flex items-end justify-between">
+                  <span className="text-2xl font-bold text-slate-900">{data.auditStats.secondAuditPercentage}%</span>
+                  <span className="text-xs font-medium text-slate-400">{data.auditStats.secondAuditsComplete}/{data.auditStats.totalStores}</span>
+                </div>
+                <ProgressBar value={data.auditStats.secondAuditPercentage} colorClass="bg-blue-500" />
+              </div>
+
+              {/* Total Complete */}
+              <div className="flex flex-col gap-1 p-2.5 rounded-xl bg-slate-50 border border-slate-100 hover:border-purple-200 transition-colors">
+                 <span className="text-xs font-bold uppercase text-slate-500 tracking-wider">Fully Compliant</span>
+                 <div className="flex items-end justify-between">
+                  <span className="text-2xl font-bold text-slate-900">{data.auditStats.totalAuditPercentage}%</span>
+                  <span className="text-xs font-medium text-slate-400">{data.auditStats.totalAuditsComplete}/{data.auditStats.totalStores}</span>
+                </div>
+                <ProgressBar value={data.auditStats.totalAuditPercentage} colorClass="bg-purple-500" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Top Stores - Medium card */}
+        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm md:col-span-1 h-[170px] flex flex-col">
+          <div className="pb-1.5 border-b bg-slate-50/40 px-3 pt-3">
+            <div className="flex items-center gap-2">
+              <Store className="h-4 w-4 text-emerald-600 flex-shrink-0" />
+              <h3 className="text-sm font-bold text-slate-800">Top Stores (Open Incidents)</h3>
+            </div>
+          </div>
+          <div className="pt-2 px-3 pb-3 flex-1 overflow-y-auto">
+            {data.topStores.length === 0 ? (
+              <p className="text-slate-400 text-sm py-1 italic">No data available</p>
+            ) : (
+              <div className="space-y-2">
+                {data.topStores.map((store: any, idx: number) => (
+                  <div key={store.id} className="group">
+                    <div className="flex items-center justify-between text-sm mb-1.5">
+                      <span className="font-medium text-slate-700 truncate w-2/3 group-hover:text-emerald-700 transition-colors flex items-center gap-2">
+                        <span className="flex items-center justify-center w-5 h-5 rounded-full bg-slate-100 text-slate-500 text-[10px] font-bold group-hover:bg-emerald-100 group-hover:text-emerald-700 transition-colors">
+                          {idx + 1}
+                        </span>
+                        {store.name}
+                      </span>
+                      <span className="font-bold text-slate-800">{store.count}</span>
+                    </div>
+                    {/* Visual Bar relative to Max */}
+                    <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-emerald-500 rounded-full transition-all duration-500 ease-out" 
+                        style={{ width: `${(store.count / data.maxStoreCount) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+      </div>
+
+      {/* Compliance Visits Due & Planned Rounds row */}
+      <div className="grid gap-3 md:gap-4 grid-cols-1 lg:grid-cols-[10fr_3fr]">
+        <div className="h-full min-w-0">
+          <ComplianceVisitsTracking 
+            stores={data.storesNeedingSecondVisit} 
+            profiles={data.profiles} 
+          />
+        </div>
+        <div className="h-full min-w-0">
+          <PlannedRounds 
+            plannedRoutes={data.plannedRoutes || []} 
+          />
         </div>
       </div>
+
+      {/* Incident Breakdown - Full width below compliance visits */}
+      {data.totalIncidents > 0 && (
+        <Card className="shadow-sm border-slate-200 bg-white">
+          <CardHeader className="pb-3 border-b bg-slate-50/40 px-4 md:px-6 pt-4 md:pt-6">
+            <CardTitle className="text-sm font-bold text-slate-800">Incident Breakdown</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-4 md:pt-5 space-y-4 md:space-y-6 px-4 md:px-6 pb-4 md:pb-6">
+            
+            {/* By Status */}
+            <div className="space-y-3">
+              <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">By Status</h4>
+              {Object.keys(data.statusCounts).length === 0 ? (
+                <p className="text-slate-400 text-xs italic">No data available</p>
+              ) : (
+                Object.entries(data.statusCounts).map(([status, count]) => (
+                  <LabeledProgressBar 
+                    key={status} 
+                    label={status} 
+                    value={count as number} 
+                    total={data.totalIncidents} 
+                    colorClass="bg-purple-500" 
+                  />
+                ))
+              )}
+            </div>
+
+            <div className="border-t border-slate-100 my-4" />
+
+            {/* By Severity */}
+            <div className="space-y-3">
+              <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">By Severity</h4>
+               {Object.keys(data.severityCounts).length === 0 ? (
+                <p className="text-slate-400 text-xs italic">No data available</p>
+              ) : (
+                Object.entries(data.severityCounts).map(([severity, count]) => (
+                  <LabeledProgressBar 
+                    key={severity} 
+                    label={severity} 
+                    value={count as number} 
+                    total={data.totalIncidents} 
+                    colorClass={
+                      severity === 'critical' ? 'bg-red-600' : 
+                      severity === 'high' ? 'bg-orange-500' : 'bg-slate-500'
+                    } 
+                  />
+                ))
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

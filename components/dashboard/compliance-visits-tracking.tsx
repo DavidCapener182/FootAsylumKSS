@@ -1,18 +1,14 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Input } from '@/components/ui/input'
-import { updateComplianceAudit2Tracking } from '@/app/actions/stores'
 import { AlertCircle } from 'lucide-react'
 
 interface Store {
   id: string
   store_name: string
   store_code: string | null
+  compliance_audit_1_date: string | null
   compliance_audit_2_date: string | null
   compliance_audit_2_assigned_manager_user_id: string | null
   compliance_audit_2_planned_date: string | null
@@ -41,43 +37,7 @@ function calculateDaysUntilEndOfYear(): number {
 }
 
 export function ComplianceVisitsTracking({ stores, profiles }: ComplianceVisitsTrackingProps) {
-  const router = useRouter()
-  const [loading, setLoading] = useState<Record<string, boolean>>({})
   const daysRemaining = calculateDaysUntilEndOfYear()
-
-  const handleManagerChange = async (storeId: string, managerId: string | null) => {
-    setLoading({ ...loading, [storeId]: true })
-    try {
-      const store = stores.find(s => s.id === storeId)
-      await updateComplianceAudit2Tracking(
-        storeId,
-        managerId || null,
-        store?.compliance_audit_2_planned_date || null
-      )
-      router.refresh()
-    } catch (error) {
-      console.error('Error updating manager:', error)
-    } finally {
-      setLoading({ ...loading, [storeId]: false })
-    }
-  }
-
-  const handleDateChange = async (storeId: string, date: string) => {
-    setLoading({ ...loading, [storeId]: true })
-    try {
-      const store = stores.find(s => s.id === storeId)
-      await updateComplianceAudit2Tracking(
-        storeId,
-        store?.compliance_audit_2_assigned_manager_user_id || null,
-        date || null
-      )
-      router.refresh()
-    } catch (error) {
-      console.error('Error updating planned date:', error)
-    } finally {
-      setLoading({ ...loading, [storeId]: false })
-    }
-  }
 
   if (stores.length === 0) {
     return (
@@ -85,28 +45,28 @@ export function ComplianceVisitsTracking({ stores, profiles }: ComplianceVisitsT
         <CardHeader>
           <CardTitle className="text-amber-900 flex items-center gap-2">
             <AlertCircle className="h-5 w-5" />
-            Second Compliance Visits Due
+            Compliance Visits Due
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-gray-600">All stores have completed their second compliance visit for this year.</p>
+          <p className="text-gray-600">All stores have completed their compliance visits for this year.</p>
         </CardContent>
       </Card>
     )
   }
 
   return (
-    <Card className="bg-amber-50 border-0">
-      <CardHeader>
+    <Card className="bg-amber-50 border-0 h-full flex flex-col">
+      <CardHeader className="flex-shrink-0">
         <CardTitle className="text-amber-900 flex items-center gap-2">
           <AlertCircle className="h-5 w-5" />
-          Second Compliance Visits Due ({stores.length} stores)
+          Compliance Visits Due ({stores.length} stores)
           <span className="text-sm font-normal text-amber-700 ml-2">
             ({daysRemaining} days until end of year)
           </span>
         </CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex-1 flex flex-col min-h-0">
         <div className="rounded-md border border-amber-200 bg-white max-w-full">
           <div className="max-h-[320px] overflow-auto overscroll-x-contain touch-pan-x touch-pan-y">
             <Table className="min-w-[640px]">
@@ -120,7 +80,6 @@ export function ComplianceVisitsTracking({ stores, profiles }: ComplianceVisitsT
               </TableHeader>
               <TableBody>
                 {stores.map((store) => {
-                  const isStoreLoading = loading[store.id]
                   return (
                     <TableRow key={store.id}>
                       <TableCell className="font-medium">
@@ -135,34 +94,20 @@ export function ComplianceVisitsTracking({ stores, profiles }: ComplianceVisitsT
                         </span>
                       </TableCell>
                       <TableCell>
-                        <Select
-                          value={store.compliance_audit_2_assigned_manager_user_id || 'unassigned'}
-                          onValueChange={(value) => handleManagerChange(store.id, value === 'unassigned' ? null : value)}
-                          disabled={isStoreLoading}
-                        >
-                          <SelectTrigger className="w-full min-w-[200px] sm:w-[200px]">
-                            <SelectValue placeholder="Select manager..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="unassigned">Unassigned</SelectItem>
-                            {profiles.map((profile) => (
-                              <SelectItem key={profile.id} value={profile.id}>
-                                {profile.full_name || 'Unknown'}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <span className="text-slate-700">
+                          {store.assigned_manager?.full_name || 'Unassigned'}
+                        </span>
                       </TableCell>
                       <TableCell>
-                        <Input
-                          type="date"
-                          value={store.compliance_audit_2_planned_date || ''}
-                          onChange={(e) => handleDateChange(store.id, e.target.value)}
-                          disabled={isStoreLoading}
-                          className="w-full min-w-[180px] sm:w-[180px]"
-                          min={new Date().toISOString().split('T')[0]}
-                          max={`${new Date().getFullYear()}-12-31`}
-                        />
+                        <span className="text-slate-700">
+                          {store.compliance_audit_2_planned_date
+                            ? new Date(store.compliance_audit_2_planned_date).toLocaleDateString('en-GB', {
+                                day: '2-digit',
+                                month: '2-digit',
+                                year: 'numeric'
+                              })
+                            : 'Not planned'}
+                        </span>
                       </TableCell>
                     </TableRow>
                   )
