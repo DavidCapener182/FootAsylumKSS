@@ -87,20 +87,22 @@ export function AuditTable({ rows, userRole }: { rows: AuditRow[]; userRole: Use
   }, [filtered])
 
   const getNextAuditNumber = (row: AuditRow): 1 | 2 | null => {
-    // If audit 1 is incomplete, return 1
-    if ((row.compliance_audit_1_date && row.compliance_audit_1_overall_pct === null) ||
-        (!row.compliance_audit_1_date && row.compliance_audit_1_overall_pct !== null) ||
-        (!row.compliance_audit_1_date && row.compliance_audit_1_overall_pct === null)) {
+    // Check if audit 1 has been completed (has both date and percentage)
+    const audit1Complete = !!(row.compliance_audit_1_date && row.compliance_audit_1_overall_pct !== null)
+    
+    // Check if audit 2 has been completed (has both date and percentage)
+    const audit2Complete = !!(row.compliance_audit_2_date && row.compliance_audit_2_overall_pct !== null)
+    
+    // If audit 1 hasn't been done yet, add audit 1
+    if (!audit1Complete) {
       return 1
     }
-    // If audit 1 is complete but audit 2 is incomplete or missing, return 2
-    if (row.compliance_audit_1_date && row.compliance_audit_1_overall_pct !== null) {
-      if ((row.compliance_audit_2_date && row.compliance_audit_2_overall_pct === null) ||
-          (!row.compliance_audit_2_date && row.compliance_audit_2_overall_pct !== null) ||
-          (!row.compliance_audit_2_date && row.compliance_audit_2_overall_pct === null)) {
-        return 2
-      }
+    
+    // If audit 1 is complete but audit 2 hasn't been done, add audit 2
+    if (audit1Complete && !audit2Complete) {
+      return 2
     }
+    
     // Both audits are complete
     return null
   }
@@ -264,6 +266,12 @@ export function AuditTable({ rows, userRole }: { rows: AuditRow[]; userRole: Use
           className="h-8 text-xs"
         />
       )
+    }
+    
+    // Only show date if percentage is also present (audit is complete)
+    // For audit 2, don't show date unless the audit is actually complete
+    if (auditNum === 2 && pct === null) {
+      return <span className="text-sm text-muted-foreground">—</span>
     }
     
     return <span className="text-sm text-muted-foreground">{formatDate(date)}</span>
