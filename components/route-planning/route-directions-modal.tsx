@@ -37,7 +37,7 @@ interface RouteDirectionsModalProps {
 interface RouteSegment {
   from: string
   to: string
-  distance: number // in km
+  distance: number // in miles
   duration: number // in minutes
   type: 'travel' | 'visit'
 }
@@ -48,10 +48,15 @@ interface ScheduleItem {
   action: string
   location: string
   travelTime?: number // in minutes
-  travelDistance?: number // in km
+  travelDistance?: number // in miles
 }
 
-// Calculate distance using Haversine formula
+// Convert kilometers to miles
+function kmToMiles(km: number): number {
+  return km * 0.621371
+}
+
+// Calculate distance using Haversine formula (returns miles)
 function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371 // Earth's radius in km
   const dLat = ((lat2 - lat1) * Math.PI) / 180
@@ -63,14 +68,15 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
       Math.sin(dLon / 2) *
       Math.sin(dLon / 2)
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-  return R * c
+  const distanceKm = R * c
+  return kmToMiles(distanceKm)
 }
 
-// Estimate travel time based on distance (assuming average speed of 50 km/h in urban areas)
-function estimateTravelTime(distance: number): number {
-  // Average speed: 50 km/h = 0.833 km/min
+// Estimate travel time based on distance (assuming average speed of 31 mph in urban areas)
+function estimateTravelTime(distanceMiles: number): number {
+  // Average speed: 31 mph = 0.517 miles/min
   // Add 10 minutes buffer for traffic, parking, etc.
-  return Math.round((distance / 0.833) + 10)
+  return Math.round((distanceMiles / 0.517) + 10)
 }
 
 // Format date for ICS format (YYYYMMDDTHHMMSS)
@@ -135,7 +141,7 @@ function generateICS(schedule: ScheduleItem[], managerName: string, plannedDate:
     // Build description
     let description = summary
     if (item.travelTime && item.travelDistance) {
-      description += `\\nDistance: ${item.travelDistance.toFixed(1)} km\\nDuration: ${item.travelTime} minutes`
+      description += `\\nDistance: ${item.travelDistance.toFixed(1)} miles\\nDuration: ${item.travelTime} minutes`
     }
     if (item.action === 'Visit' && item.endTime) {
       description += `\\nVisit duration: 2 hours`
@@ -434,7 +440,7 @@ export function RouteDirectionsModal({
                       )}
                       {item.travelTime && (
                         <div className="text-xs text-slate-500 mt-1">
-                          {item.travelDistance?.toFixed(1)} km • {item.travelTime} minutes
+                          {item.travelDistance?.toFixed(1)} miles • {item.travelTime} minutes
                         </div>
                       )}
                     </div>
@@ -469,7 +475,7 @@ export function RouteDirectionsModal({
                           {segment.from} → {segment.to}
                         </div>
                         <div className="text-xs text-slate-500 mt-1">
-                          {segment.distance.toFixed(1)} km • {segment.duration} minutes
+                          {segment.distance.toFixed(1)} miles • {segment.duration} minutes
                         </div>
                       </div>
                     </div>
