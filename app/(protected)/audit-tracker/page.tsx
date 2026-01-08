@@ -38,10 +38,11 @@ function calculateStats(stores: any[]) {
     ? Math.round(scores.reduce((a: number, b: number) => a + b, 0) / scores.length) 
     : 0
 
+  // Only count COMPLETED audits (both date AND percentage)
   const auditsCompleted = stores.reduce((acc, store) => {
     let count = 0
-    if (store.compliance_audit_1_date) count++
-    if (store.compliance_audit_2_date) count++
+    if (store.compliance_audit_1_date && store.compliance_audit_1_overall_pct !== null) count++
+    if (store.compliance_audit_2_date && store.compliance_audit_2_overall_pct !== null) count++
     return acc + count
   }, 0)
 

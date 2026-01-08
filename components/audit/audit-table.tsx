@@ -528,7 +528,12 @@ export function AuditTable({ rows, userRole }: { rows: AuditRow[]; userRole: Use
                           <TableCell className="border-b bg-white group-hover:bg-slate-50">{renderPercentageCell(row.compliance_audit_2_overall_pct, row.id, 2)}</TableCell>
                           
                           <TableCell className="text-right pr-4 font-mono text-xs text-muted-foreground border-b bg-white group-hover:bg-slate-50">
-                            {row.total_audits_to_date ?? '0'}
+                            {(() => {
+                              let count = 0
+                              if (row.compliance_audit_1_date && row.compliance_audit_1_overall_pct !== null) count++
+                              if (row.compliance_audit_2_date && row.compliance_audit_2_overall_pct !== null) count++
+                              return count
+                            })()}
                           </TableCell>
                           
                           <TableCell className="border-b bg-white group-hover:bg-slate-50">
