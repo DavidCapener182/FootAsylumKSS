@@ -6,6 +6,7 @@ async function getRoutePlanningData() {
   const supabase = createClient()
   const sixMonthsAgo = new Date()
   sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
+  sixMonthsAgo.setHours(0, 0, 0, 0)
 
   // Get all active stores with their locations and audit status
   // Try to fetch route_sequence, but handle gracefully if column doesn't exist
@@ -26,6 +27,7 @@ async function getRoutePlanningData() {
         latitude,
         longitude,
         compliance_audit_1_date,
+        compliance_audit_1_overall_pct,
         compliance_audit_2_date,
         compliance_audit_2_planned_date,
         compliance_audit_2_assigned_manager_user_id,
@@ -59,6 +61,7 @@ async function getRoutePlanningData() {
           latitude,
           longitude,
           compliance_audit_1_date,
+          compliance_audit_1_overall_pct,
           compliance_audit_2_date,
           compliance_audit_2_planned_date,
           compliance_audit_2_assigned_manager_user_id,
@@ -95,8 +98,24 @@ async function getRoutePlanningData() {
     console.error('Error fetching profiles:', profilesError)
   }
 
-  // Process stores to handle assigned_manager array (keep ALL stores for the component)
-  const processedStores = (stores || []).map((store: any) => ({
+  // Filter out stores that have completed Audit 1 with score > 80% within the last 6 months
+  // These stores don't need a second audit for 6 months
+  const filteredStores = (stores || []).filter((store: any) => {
+    // If store has completed Audit 1 with score > 80%
+    if (store.compliance_audit_1_date && store.compliance_audit_1_overall_pct !== null && store.compliance_audit_1_overall_pct > 80) {
+      const audit1Date = new Date(store.compliance_audit_1_date)
+      audit1Date.setHours(0, 0, 0, 0)
+      
+      // Hide if Audit 1 was completed within the last 6 months (stores with >80% don't need second audit for 6 months)
+      if (audit1Date >= sixMonthsAgo) {
+        return false // Exclude this store from route planning
+      }
+    }
+    return true // Include this store
+  })
+
+  // Process stores to handle assigned_manager array
+  const processedStores = filteredStores.map((store: any) => ({
     ...store,
     route_sequence: store.route_sequence ?? null, // Default to null if column doesn't exist
     assigned_manager: Array.isArray(store.assigned_manager)

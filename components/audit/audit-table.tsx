@@ -32,9 +32,21 @@ interface EditState {
   pdfFile: File | null
 }
 
-export function AuditTable({ rows, userRole }: { rows: AuditRow[]; userRole: UserRole }) {
+export function AuditTable({ 
+  rows, 
+  userRole, 
+  areaFilter: externalAreaFilter, 
+  onAreaFilterChange 
+}: { 
+  rows: AuditRow[]
+  userRole: UserRole
+  areaFilter?: string
+  onAreaFilterChange?: (area: string) => void
+}) {
   const [search, setSearch] = useState('')
-  const [area, setArea] = useState<string>('all')
+  const [internalArea, setInternalArea] = useState<string>('all')
+  const area = externalAreaFilter !== undefined ? externalAreaFilter : internalArea
+  const setArea = onAreaFilterChange || setInternalArea
   const [hideCompleted, setHideCompleted] = useState(false)
   const [editing, setEditing] = useState<EditState | null>(null)
   const [saving, setSaving] = useState(false)

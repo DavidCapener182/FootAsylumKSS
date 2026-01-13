@@ -16,9 +16,19 @@ function getLatestDate(row: AuditRow): string | null {
   return null
 }
 
-export function AuditLeagueTable({ rows }: { rows: AuditRow[] }) {
+export function AuditLeagueTable({ 
+  rows, 
+  areaFilter: externalAreaFilter, 
+  onAreaFilterChange 
+}: { 
+  rows: AuditRow[]
+  areaFilter?: string
+  onAreaFilterChange?: (area: string) => void
+}) {
   const [search, setSearch] = useState('')
-  const [area, setArea] = useState<string>('all')
+  const [internalArea, setInternalArea] = useState<string>('all')
+  const area = externalAreaFilter !== undefined ? externalAreaFilter : internalArea
+  const setArea = onAreaFilterChange || setInternalArea
   const [hideCompleted, setHideCompleted] = useState(false)
 
   const areaOptions = useMemo(() => {

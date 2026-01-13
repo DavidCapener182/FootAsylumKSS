@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { MapPin, Route, Calendar, Home, Trash2, Filter, Plus, CheckCircle2, Sparkles, Loader2, Edit2, X, ChevronUp, ChevronDown } from 'lucide-react'
 import dynamic from 'next/dynamic'
-import { updateRoutePlannedDate, updateManagerHomeAddress } from '@/app/actions/route-planning'
+import { updateRoutePlannedDate, updateManagerHomeAddress, getRouteOperationalItems, deleteAllRouteVisitTimes, deleteAllRouteOperationalItems } from '@/app/actions/route-planning'
 import { format } from 'date-fns'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { RouteDirectionsModal } from './route-directions-modal'
@@ -47,6 +47,7 @@ interface Store {
   latitude: number | null
   longitude: number | null
   compliance_audit_1_date: string | null
+  compliance_audit_1_overall_pct: number | null
   compliance_audit_2_date: string | null
   compliance_audit_2_planned_date: string | null
   compliance_audit_2_assigned_manager_user_id: string | null
@@ -109,9 +110,13 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
     managerHome: { latitude: number; longitude: number; address: string } | null
     managerName: string
     plannedDate: string
+    managerUserId: string | null
+    region: string | null
   } | null>(null)
   // Track store order for each route group
   const [routeStoreOrder, setRouteStoreOrder] = useState<Record<string, string[]>>({})
+  // Track operational items for each route group
+  const [routeOperationalItems, setRouteOperationalItems] = useState<Record<string, Array<{ title: string; start_time: string }>>>({})
 
   // Get selected manager's home location
   const managerHome = useMemo(() => {
@@ -350,6 +355,34 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
     setRouteStoreOrder(initialOrder)
   }, [stores])
 
+  // Load operational items for each planned route
+  useEffect(() => {
+    const loadOperationalItems = async () => {
+      const itemsMap: Record<string, Array<{ title: string; start_time: string }>> = {}
+      
+      for (const group of plannedRoutes) {
+        if (!group.managerId || !group.plannedDate) continue
+        
+        const groupKey = (group as any)._groupKey || `${group.region || 'unknown'}-${group.plannedDate}-${group.managerId || 'unassigned'}`
+        
+        try {
+          const { data, error } = await getRouteOperationalItems(group.managerId, group.plannedDate, group.region)
+          if (!error && data) {
+            itemsMap[groupKey] = data.map(item => ({ title: item.title, start_time: item.start_time }))
+          }
+        } catch (error) {
+          console.error('Error loading operational items for route:', error)
+        }
+      }
+      
+      setRouteOperationalItems(itemsMap)
+    }
+    
+    if (plannedRoutes.length > 0) {
+      loadOperationalItems()
+    }
+  }, [plannedRoutes])
+
   const handleReorderStore = async (groupKey: string, storeId: string, direction: 'up' | 'down') => {
     const group = plannedRoutes.find((g) => {
       const key = (g as any)._groupKey || `${g.region || 'unknown'}-${g.plannedDate}-${g.managerId || 'unassigned'}`
@@ -420,6 +453,15 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
         await Promise.all(
           routeGroup.stores.map(store => updateRoutePlannedDate(store.id, null))
         )
+        
+        // Delete all saved visit times and operational items for this route
+        if (routeGroup.managerId && routeGroup.plannedDate) {
+          await Promise.all([
+            deleteAllRouteVisitTimes(routeGroup.managerId, routeGroup.plannedDate, routeGroup.region),
+            deleteAllRouteOperationalItems(routeGroup.managerId, routeGroup.plannedDate, routeGroup.region)
+          ])
+        }
+        
         setLoading({ ...loading, ...Object.fromEntries(routeGroup.stores.map(s => [s.id, false])) })
       } else {
         // Fallback: delete just the one store
@@ -818,7 +860,17 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
                         {isSelected && <CheckCircle2 className="h-4 w-4 text-white" />}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="font-medium text-slate-900">{store.store_name}</div>
+                        <div className="font-medium text-slate-900 flex items-center gap-2">
+                          {store.store_name}
+                          {/* Show (Revisit) flag if store has completed Audit 1 with score < 80% */}
+                          {store.compliance_audit_1_date && 
+                           store.compliance_audit_1_overall_pct !== null && 
+                           store.compliance_audit_1_overall_pct < 80 && (
+                            <span className="text-xs font-medium text-red-600 bg-red-50 px-2 py-0.5 rounded border border-red-200">
+                              (Revisit)
+                            </span>
+                          )}
+                        </div>
                         {store.store_code && (
                           <div className="text-xs text-slate-500">{store.store_code}</div>
                         )}
@@ -967,7 +1019,9 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
                               stores: orderedStores,
                               managerHome: routeManagerHome,
                               managerName: group.assignedManager?.full_name || 'Unassigned',
-                              plannedDate: group.plannedDate
+                              plannedDate: group.plannedDate,
+                              managerUserId: group.managerId,
+                              region: group.region
                             })
                           }}
                         >
@@ -1106,6 +1160,20 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
                             )}
                           </TableCell>
                           <TableCell>
+                            {routeOperationalItems[groupKey] && routeOperationalItems[groupKey].length > 0 ? (
+                              <div className="flex flex-col gap-1">
+                                {routeOperationalItems[groupKey].map((item, idx) => (
+                                  <div key={idx} className="text-xs text-slate-600 flex items-center gap-2">
+                                    <span className="text-purple-600 font-medium">{item.start_time}</span>
+                                    <span>{item.title}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-slate-400 text-sm">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
                             <div className="flex items-center gap-2">
                               {editingRouteGroup === groupKey ? (
                                 <Button
@@ -1160,6 +1228,8 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
           managerHome={selectedRouteForDirections.managerHome}
           managerName={selectedRouteForDirections.managerName}
           plannedDate={selectedRouteForDirections.plannedDate}
+          managerUserId={selectedRouteForDirections.managerUserId}
+          region={selectedRouteForDirections.region}
         />
       )}
 

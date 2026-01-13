@@ -278,6 +278,8 @@ export function PlannedRounds({ plannedRoutes }: PlannedRoundsProps) {
           managerHome={selectedRoute.managerHome}
           managerName={selectedRoute.managerName}
           plannedDate={selectedRoute.plannedDate}
+          managerUserId={selectedRoute.managerId}
+          region={selectedRoute.area}
         />
       )}
 

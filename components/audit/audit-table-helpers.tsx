@@ -6,6 +6,7 @@ export interface AuditRow {
   region: string | null
   store_code: string | null
   store_name: string
+  is_active: boolean
   compliance_audit_1_date: string | null
   compliance_audit_1_overall_pct: number | null
   action_plan_1_sent: boolean | null

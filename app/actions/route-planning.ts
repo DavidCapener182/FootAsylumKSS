@@ -179,3 +179,261 @@ export async function cleanupIncompleteAudit2Dates() {
   revalidatePath('/dashboard')
   return { success: true }
 }
+
+export interface OperationalItem {
+  id: string
+  title: string
+  location: string | null
+  start_time: string
+  duration_minutes: number
+}
+
+export async function getRouteOperationalItems(
+  managerUserId: string,
+  plannedDate: string,
+  region: string | null
+): Promise<{ data: OperationalItem[] | null; error: string | null }> {
+  const supabase = createClient()
+
+  const { data, error } = await supabase
+    .from('fa_route_operational_items')
+    .select('id, title, location, start_time, duration_minutes')
+    .eq('manager_user_id', managerUserId)
+    .eq('planned_date', plannedDate)
+    .eq('region', region)
+    .order('start_time')
+
+  if (error) {
+    console.error('Error fetching operational items:', error)
+    return { data: null, error: error.message }
+  }
+
+  return { data: data || [], error: null }
+}
+
+export async function saveRouteOperationalItem(
+  managerUserId: string,
+  plannedDate: string,
+  region: string | null,
+  title: string,
+  location: string | null,
+  startTime: string,
+  durationMinutes: number
+): Promise<{ data: OperationalItem | null; error: string | null }> {
+  const supabase = createClient()
+
+  const { data, error } = await supabase
+    .from('fa_route_operational_items')
+    .insert({
+      manager_user_id: managerUserId,
+      planned_date: plannedDate,
+      region: region,
+      title: title,
+      location: location,
+      start_time: startTime,
+      duration_minutes: durationMinutes,
+    })
+    .select('id, title, location, start_time, duration_minutes')
+    .single()
+
+  if (error) {
+    console.error('Error saving operational item:', error)
+    return { data: null, error: error.message }
+  }
+
+  revalidatePath('/route-planning')
+  return { data, error: null }
+}
+
+export async function updateRouteOperationalItem(
+  id: string,
+  title: string,
+  location: string | null,
+  startTime: string,
+  durationMinutes: number
+): Promise<{ data: OperationalItem | null; error: string | null }> {
+  const supabase = createClient()
+
+  const { data, error } = await supabase
+    .from('fa_route_operational_items')
+    .update({
+      title: title,
+      location: location,
+      start_time: startTime,
+      duration_minutes: durationMinutes,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', id)
+    .select('id, title, location, start_time, duration_minutes')
+    .single()
+
+  if (error) {
+    console.error('Error updating operational item:', error)
+    return { data: null, error: error.message }
+  }
+
+  revalidatePath('/route-planning')
+  return { data, error: null }
+}
+
+export async function deleteRouteOperationalItem(
+  id: string
+): Promise<{ error: string | null }> {
+  const supabase = createClient()
+
+  const { error } = await supabase
+    .from('fa_route_operational_items')
+    .delete()
+    .eq('id', id)
+
+  if (error) {
+    console.error('Error deleting operational item:', error)
+    return { error: error.message }
+  }
+
+  revalidatePath('/route-planning')
+  return { error: null }
+}
+
+export interface VisitTime {
+  id: string
+  store_id: string
+  start_time: string
+  end_time: string
+}
+
+export async function getRouteVisitTimes(
+  managerUserId: string,
+  plannedDate: string,
+  region: string | null
+): Promise<{ data: VisitTime[] | null; error: string | null }> {
+  const supabase = createClient()
+
+  const { data, error } = await supabase
+    .from('fa_route_visit_times')
+    .select('id, store_id, start_time, end_time')
+    .eq('manager_user_id', managerUserId)
+    .eq('planned_date', plannedDate)
+    .eq('region', region)
+
+  if (error) {
+    console.error('Error fetching visit times:', error)
+    return { data: null, error: error.message }
+  }
+
+  return { data: data || [], error: null }
+}
+
+export async function saveRouteVisitTime(
+  managerUserId: string,
+  plannedDate: string,
+  region: string | null,
+  storeId: string,
+  startTime: string,
+  endTime: string
+): Promise<{ data: VisitTime | null; error: string | null }> {
+  const supabase = createClient()
+
+  const { data, error } = await supabase
+    .from('fa_route_visit_times')
+    .upsert({
+      manager_user_id: managerUserId,
+      planned_date: plannedDate,
+      region: region,
+      store_id: storeId,
+      start_time: startTime,
+      end_time: endTime,
+      updated_at: new Date().toISOString(),
+    }, {
+      onConflict: 'manager_user_id,planned_date,region,store_id'
+    })
+    .select('id, store_id, start_time, end_time')
+    .single()
+
+  if (error) {
+    console.error('Error saving visit time:', error)
+    return { data: null, error: error.message }
+  }
+
+  revalidatePath('/route-planning')
+  return { data, error: null }
+}
+
+export async function deleteRouteVisitTime(
+  id: string
+): Promise<{ error: string | null }> {
+  const supabase = createClient()
+
+  const { error } = await supabase
+    .from('fa_route_visit_times')
+    .delete()
+    .eq('id', id)
+
+  if (error) {
+    console.error('Error deleting visit time:', error)
+    return { error: error.message }
+  }
+
+  revalidatePath('/route-planning')
+  return { error: null }
+}
+
+export async function deleteAllRouteVisitTimes(
+  managerUserId: string,
+  plannedDate: string,
+  region: string | null
+): Promise<{ error: string | null }> {
+  const supabase = createClient()
+
+  let query = supabase
+    .from('fa_route_visit_times')
+    .delete()
+    .eq('manager_user_id', managerUserId)
+    .eq('planned_date', plannedDate)
+  
+  if (region !== null) {
+    query = query.eq('region', region)
+  } else {
+    query = query.is('region', null)
+  }
+
+  const { error } = await query
+
+  if (error) {
+    console.error('Error deleting all visit times:', error)
+    return { error: error.message }
+  }
+
+  revalidatePath('/route-planning')
+  return { error: null }
+}
+
+export async function deleteAllRouteOperationalItems(
+  managerUserId: string,
+  plannedDate: string,
+  region: string | null
+): Promise<{ error: string | null }> {
+  const supabase = createClient()
+
+  let query = supabase
+    .from('fa_route_operational_items')
+    .delete()
+    .eq('manager_user_id', managerUserId)
+    .eq('planned_date', plannedDate)
+  
+  if (region !== null) {
+    query = query.eq('region', region)
+  } else {
+    query = query.is('region', null)
+  }
+
+  const { error } = await query
+
+  if (error) {
+    console.error('Error deleting all operational items:', error)
+    return { error: error.message }
+  }
+
+  revalidatePath('/route-planning')
+  return { error: null }
+}
