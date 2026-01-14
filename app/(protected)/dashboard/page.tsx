@@ -22,7 +22,8 @@ async function getDashboardData() {
     { data: storesNeedingSecondVisitRaw },
     { data: profiles },
     { data: allStores },
-    { data: plannedRoutesRaw }
+    { data: plannedRoutesRaw },
+    { data: fraStores }
   ] = await Promise.all([
     supabase.from('fa_incidents').select('*', { count: 'exact', head: true }).in('status', ['open', 'under_investigation', 'actions_in_progress']),
     supabase.from('fa_incidents').select('*', { count: 'exact', head: true }).eq('status', 'under_investigation'),
@@ -35,7 +36,8 @@ async function getDashboardData() {
     supabase.from('fa_stores').select(`id, store_name, store_code, compliance_audit_1_date, compliance_audit_2_date, compliance_audit_2_assigned_manager_user_id, compliance_audit_2_planned_date, assigned_manager:fa_profiles!fa_stores_compliance_audit_2_assigned_manager_user_id_fkey(id, full_name)`).is('compliance_audit_2_date', null).eq('is_active', true).order('store_name', { ascending: true }),
     supabase.from('fa_profiles').select('id, full_name').order('full_name', { ascending: true }),
     supabase.from('fa_stores').select('id, compliance_audit_1_date, compliance_audit_1_overall_pct, compliance_audit_2_date, compliance_audit_2_overall_pct').eq('is_active', true),
-        supabase.from('fa_stores').select(`id, store_name, store_code, region, postcode, latitude, longitude, compliance_audit_2_planned_date, compliance_audit_2_assigned_manager_user_id, route_sequence, assigned_manager:fa_profiles!fa_stores_compliance_audit_2_assigned_manager_user_id_fkey(id, full_name, home_address, home_latitude, home_longitude)`).not('compliance_audit_2_planned_date', 'is', null).eq('is_active', true).order('compliance_audit_2_planned_date', { ascending: true })
+        supabase.from('fa_stores').select(`id, store_name, store_code, region, postcode, latitude, longitude, compliance_audit_2_planned_date, compliance_audit_2_assigned_manager_user_id, route_sequence, assigned_manager:fa_profiles!fa_stores_compliance_audit_2_assigned_manager_user_id_fkey(id, full_name, home_address, home_latitude, home_longitude)`).not('compliance_audit_2_planned_date', 'is', null).eq('is_active', true).order('compliance_audit_2_planned_date', { ascending: true }),
+    supabase.from('fa_stores').select('id, compliance_audit_1_date, compliance_audit_2_date, fire_risk_assessment_date').eq('is_active', true)
   ])
 
   // Data Processing
@@ -174,12 +176,124 @@ async function getDashboardData() {
     return a.managerName.localeCompare(b.managerName)
   })
 
+  // Fetch operational items for each planned route
+  const routesWithOperationalItems = await Promise.all(plannedRoutes.map(async (route) => {
+    if (!route.managerId || !route.plannedDate) {
+      return { ...route, operationalItems: [] }
+    }
+
+    try {
+      const { data: operationalItems, error } = await supabase
+        .from('fa_route_operational_items')
+        .select('title, location')
+        .eq('manager_user_id', route.managerId)
+        .eq('planned_date', route.plannedDate)
+        .eq('region', route.area)
+        .order('start_time')
+
+      if (error) {
+        console.error('Error fetching operational items for route:', error)
+        return { ...route, operationalItems: [] }
+      }
+
+      return {
+        ...route,
+        operationalItems: operationalItems || []
+      }
+    } catch (e) {
+      console.error('Error fetching operational items:', e)
+      return { ...route, operationalItems: [] }
+    }
+  }))
+
   const totalStores = allStores?.length || 0
   const firstAuditsComplete = allStores?.filter(s => s.compliance_audit_1_date && s.compliance_audit_1_overall_pct !== null).length || 0
   const secondAuditsComplete = allStores?.filter(s => s.compliance_audit_2_date && s.compliance_audit_2_overall_pct !== null).length || 0
   const totalAuditsComplete = allStores?.filter(s => {
     return s.compliance_audit_1_date && s.compliance_audit_1_overall_pct !== null && 
            s.compliance_audit_2_date && s.compliance_audit_2_overall_pct !== null
+  }).length || 0
+
+  // Calculate stores requiring FRA (have audit 1 or 2 in current year, but haven't completed FRA)
+  // Use same logic as FRA page - use allStores which we already have
+  const currentYear = new Date().getFullYear()
+  
+  // Get FRA data if available (handle missing columns gracefully)
+  let fraDataMap = new Map()
+  if (fraStores && fraStores.length > 0) {
+    fraStores.forEach((store: any) => {
+      fraDataMap.set(store.id, {
+        fire_risk_assessment_date: store.fire_risk_assessment_date || null,
+        fire_risk_assessment_pct: null // Will try to fetch separately
+      })
+    })
+    
+    // Try to fetch percentage column if it exists
+    try {
+      const storeIds = Array.from(fraDataMap.keys())
+      const { data: fraPctData, error: pctError } = await supabase
+        .from('fa_stores')
+        .select('id, fire_risk_assessment_pct')
+        .in('id', storeIds)
+      
+      if (!pctError && fraPctData) {
+        fraPctData.forEach((f: any) => {
+          const existing = fraDataMap.get(f.id)
+          if (existing) {
+            existing.fire_risk_assessment_pct = f.fire_risk_assessment_pct
+          }
+        })
+      }
+    } catch (e) {
+      // Percentage column doesn't exist yet - that's okay
+    }
+  }
+  
+  // Use allStores (which we already have) to calculate - more reliable
+  const storesRequiringFRA = (allStores || []).filter((store: any) => {
+    // Check if store needs FRA (has audit 1 or 2 in current year)
+    let needsFRA = false
+    
+    // Check audit 1 date
+    if (store.compliance_audit_1_date) {
+      try {
+        const audit1Date = new Date(store.compliance_audit_1_date)
+        if (!isNaN(audit1Date.getTime())) {
+          const audit1Year = audit1Date.getFullYear()
+          if (audit1Year === currentYear) {
+            needsFRA = true
+          }
+        }
+      } catch (e) {
+        // Ignore parse errors
+      }
+    }
+    
+    // Check audit 2 date
+    if (!needsFRA && store.compliance_audit_2_date) {
+      try {
+        const audit2Date = new Date(store.compliance_audit_2_date)
+        if (!isNaN(audit2Date.getTime())) {
+          const audit2Year = audit2Date.getFullYear()
+          if (audit2Year === currentYear) {
+            needsFRA = true
+          }
+        }
+      } catch (e) {
+        // Ignore parse errors
+      }
+    }
+    
+    if (!needsFRA) return false
+    
+    // Get FRA data for this store
+    const fraData = fraDataMap.get(store.id) || { fire_risk_assessment_date: null, fire_risk_assessment_pct: null }
+    
+    // A store has completed FRA only if it has BOTH date AND percentage
+    const hasCompletedFRA = fraData.fire_risk_assessment_date !== null && fraData.fire_risk_assessment_pct !== null
+    
+    // Show stores that need FRA but haven't completed it
+    return !hasCompletedFRA
   }).length || 0
 
   return {
@@ -195,7 +309,7 @@ async function getDashboardData() {
     recentActivity: recentActivity || [],
     storesNeedingSecondVisit,
     profiles: profiles || [],
-    plannedRoutes,
+    plannedRoutes: routesWithOperationalItems,
     auditStats: {
       totalStores,
       firstAuditsComplete,
@@ -205,6 +319,7 @@ async function getDashboardData() {
       secondAuditPercentage: totalStores > 0 ? Math.round((secondAuditsComplete / totalStores) * 100) : 0,
       totalAuditPercentage: totalStores > 0 ? Math.round((totalAuditsComplete / totalStores) * 100) : 0,
     },
+    storesRequiringFRA,
   }
 }
 

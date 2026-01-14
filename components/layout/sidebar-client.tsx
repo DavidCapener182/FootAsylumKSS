@@ -2,23 +2,17 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, AlertTriangle, CheckSquare, Store, FileText, Settings, User, ClipboardList, Activity, X, Route } from 'lucide-react'
+import { FileText, Settings, User, Activity, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { UserRole, UserProfile } from '@/lib/auth'
 import { useSidebar } from './sidebar-provider'
+import { navItems, type NavItem } from './nav-items'
 
-const navItems = [
-  { href: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/incidents', label: 'Incidents', icon: AlertTriangle },
-  { href: '/actions', label: 'Actions', icon: CheckSquare },
-  { href: '/stores', label: 'Stores', icon: Store },
-  { href: '/audit-tracker', label: 'Audit Tracker', icon: ClipboardList },
-  { href: '/route-planning', label: 'Route Planning', icon: Route },
-  { href: '/reports', label: 'Reports', icon: FileText },
-  { href: '/activity', label: 'Recent Activity', icon: Activity },
-  { href: '/admin', label: 'Admin', icon: Settings, adminOnly: true },
-]
+// Add activity item (not in main nav-items but needed for sidebar)
+const activityItem: NavItem = { href: '/activity', label: 'Recent Activity', icon: Activity }
+const allNavItems = [...navItems, activityItem]
 
 interface SidebarClientProps {
   userRole?: UserRole | null
@@ -30,8 +24,8 @@ export function SidebarClient({ userRole, userProfile }: SidebarClientProps) {
   const { isOpen, setIsOpen } = useSidebar()
 
   const filteredItems = userRole === 'admin' 
-    ? navItems 
-    : navItems.filter(item => !item.adminOnly)
+    ? allNavItems 
+    : allNavItems.filter(item => !item.adminOnly)
 
   // Close mobile menu when route changes
   useEffect(() => {
@@ -56,7 +50,20 @@ export function SidebarClient({ userRole, userProfile }: SidebarClientProps) {
   const sidebarContent = (
     <>
       <div className="flex h-16 items-center justify-between px-6">
-        <h1 className="text-lg font-semibold text-white">KSS Assurance</h1>
+        <div className="flex items-center gap-2">
+          <div className="relative h-14 w-32">
+            <Image
+              src="/fa-logo.png"
+              alt="KSS Assurance"
+              fill
+              sizes="128px"
+              className="object-contain"
+              style={{ top: 6, left: 34 }}
+              priority
+            />
+          </div>
+          <span className="sr-only">KSS Assurance</span>
+        </div>
         <button
           onClick={() => setIsOpen(false)}
           className="md:hidden p-2 rounded-lg hover:bg-white/10 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"

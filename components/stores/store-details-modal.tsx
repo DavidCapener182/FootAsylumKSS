@@ -80,7 +80,7 @@ export function StoreDetailsModal({ store, incidents, actions, open, onOpenChang
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0 gap-0 bg-white [&>button]:z-20 [&>button]:top-3 [&>button]:right-3">
+      <DialogContent className="max-w-4xl md:max-w-8xl max-h-[90vh] overflow-y-auto p-0 gap-0 bg-white [&>button]:z-20 [&>button]:top-3 [&>button]:right-3">
         <DialogHeader className="p-4 md:p-6 bg-white border-b sticky top-0 z-10 relative safe-top">
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1 min-w-0 pr-10 md:pr-0">
@@ -100,90 +100,87 @@ export function StoreDetailsModal({ store, incidents, actions, open, onOpenChang
         </DialogHeader>
 
         <div className="p-4 md:p-6 space-y-4 md:space-y-6 safe-bottom">
-          {/* Top Row: Info & Map */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-            {/* Store Information */}
-            <Card className="shadow-sm border-slate-200">
-              <CardHeader className="pb-3 border-b bg-slate-50/50">
-                <CardTitle className="text-sm font-semibold text-slate-800 flex items-center gap-2">
-                  <Building2 className="h-4 w-4 text-indigo-500" />
-                  Location Details
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-4 space-y-4">
-                <div>
-                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Address</p>
-                  <div className="flex items-start gap-2">
-                    <div className="mt-0.5 min-w-[16px]">
-                      <MapPin className="h-4 w-4 text-slate-400" />
-                    </div>
-                    <div>
-                      {store.address_line_1 && <p className="text-sm text-slate-700 font-medium">{store.address_line_1}</p>}
-                      {(store.city || store.postcode) && (
-                        <p className="text-sm text-slate-600">
-                          {store.city}
-                          {store.city && store.postcode && ', '}
-                          {store.postcode}
-                        </p>
-                      )}
-                      {!fullAddress && <p className="text-sm text-slate-400 italic">No address on file</p>}
-                    </div>
+          {/* Location Details with Map Below */}
+          <Card className="shadow-sm border-slate-200">
+            <CardHeader className="pb-3 border-b bg-slate-50/50">
+              <CardTitle className="text-sm font-semibold text-slate-800 flex items-center gap-2">
+                <Building2 className="h-4 w-4 text-indigo-500" />
+                Location Details
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-4 space-y-4">
+              <div>
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Address</p>
+                <div className="flex items-start gap-2">
+                  <div className="mt-0.5 min-w-[16px]">
+                    <MapPin className="h-4 w-4 text-slate-400" />
+                  </div>
+                  <div>
+                    {store.address_line_1 && <p className="text-sm text-slate-700 font-medium">{store.address_line_1}</p>}
+                    {(store.city || store.postcode) && (
+                      <p className="text-sm text-slate-600">
+                        {store.city}
+                        {store.city && store.postcode && ', '}
+                        {store.postcode}
+                      </p>
+                    )}
+                    {!fullAddress && <p className="text-sm text-slate-400 italic">No address on file</p>}
                   </div>
                 </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  {store.region && (
-                    <div>
-                      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Region</p>
-                      <p className="text-sm text-slate-700">{store.region}</p>
-                    </div>
-                  )}
-                  {store.city && (
-                    <div>
-                      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">City</p>
-                      <p className="text-sm text-slate-700">{store.city}</p>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Map Preview */}
-            <Card className="shadow-sm border-slate-200 overflow-hidden flex flex-col">
-              <div className="flex-1 bg-slate-100 relative min-h-[200px]">
-                {googleMapsEmbedUrl ? (
-                  <iframe
-                    src={googleMapsEmbedUrl}
-                    width="100%"
-                    height="100%"
-                    style={{ border: 0, minHeight: '200px' }}
-                    allowFullScreen
-                    loading="lazy"
-                    referrerPolicy="no-referrer-when-downgrade"
-                    className="absolute inset-0 w-full h-full"
-                  />
-                ) : (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400">
-                    <MapPin className="h-8 w-8 mb-2 opacity-20" />
-                    <p className="text-sm">No map data available</p>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                {store.region && (
+                  <div>
+                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Region</p>
+                    <p className="text-sm text-slate-700">{store.region}</p>
                   </div>
                 )}
-                {fullAddress && (
-                  <div className="absolute top-2 right-2 md:top-3 md:right-3 z-10">
-                    <Button
-                      onClick={handleNavigate}
-                      size="sm"
-                      className="bg-white hover:bg-slate-50 text-slate-900 shadow-md border border-slate-200 text-xs md:text-sm min-h-[44px] md:min-h-0 px-2 md:px-3"
-                    >
-                      <Navigation className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
-                      <span className="hidden sm:inline">Navigate to Store</span>
-                      <span className="sm:hidden">Navigate</span>
-                    </Button>
+                {store.city && (
+                  <div>
+                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">City</p>
+                    <p className="text-sm text-slate-700">{store.city}</p>
                   </div>
                 )}
               </div>
-            </Card>
-          </div>
+
+              {/* Map Preview - Below Address */}
+              <div className="mt-4 -mx-4 md:-mx-6">
+                <div className="bg-slate-100 relative min-h-[300px] md:min-h-[400px]">
+                  {googleMapsEmbedUrl ? (
+                    <iframe
+                      src={googleMapsEmbedUrl}
+                      width="100%"
+                      height="100%"
+                      style={{ border: 0, minHeight: '300px' }}
+                      allowFullScreen
+                      loading="lazy"
+                      referrerPolicy="no-referrer-when-downgrade"
+                      className="absolute inset-0 w-full h-full"
+                    />
+                  ) : (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400">
+                      <MapPin className="h-8 w-8 mb-2 opacity-20" />
+                      <p className="text-sm">No map data available</p>
+                    </div>
+                  )}
+                  {fullAddress && (
+                    <div className="absolute top-2 right-2 md:top-3 md:right-3 z-10">
+                      <Button
+                        onClick={handleNavigate}
+                        size="sm"
+                        className="bg-white hover:bg-slate-50 text-slate-900 shadow-md border border-slate-200 text-xs md:text-sm min-h-[44px] md:min-h-0 px-2 md:px-3"
+                      >
+                        <Navigation className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
+                        <span className="hidden sm:inline">Navigate to Store</span>
+                        <span className="sm:hidden">Navigate</span>
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Compliance Scores */}
           <Card className="shadow-sm border-slate-200">

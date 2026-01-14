@@ -156,9 +156,19 @@ export function StoreDirectory({ stores }: StoreDirectoryProps) {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <MapPin className="h-4 w-4 text-slate-400" />
+                        <MapPin className="h-4 w-4 text-slate-400 flex-shrink-0" />
                         <span className="text-sm text-slate-600">
-                          {store.city || <span className="text-slate-400 italic">No city</span>}
+                          {store.address_line_1 || store.city || store.postcode ? (
+                            <span>
+                              {store.address_line_1 && <span>{store.address_line_1}</span>}
+                              {store.address_line_1 && store.city && <span>, </span>}
+                              {store.city && <span>{store.city}</span>}
+                              {store.postcode && (store.address_line_1 || store.city) && <span> </span>}
+                              {store.postcode && <span className="text-slate-500">{store.postcode}</span>}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 italic">No address</span>
+                          )}
                         </span>
                       </div>
                     </TableCell>

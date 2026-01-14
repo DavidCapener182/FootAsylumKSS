@@ -1,17 +1,18 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { AlertTriangle, TrendingUp, Clock, AlertCircle, Store, FileCheck, Sparkles, X, Loader2, Calendar } from 'lucide-react'
+import { AlertTriangle, TrendingUp, Clock, AlertCircle, Store, FileCheck, Sparkles, X, Loader2, Calendar, Flame } from 'lucide-react'
 import { format } from 'date-fns'
 import { ComplianceVisitsTracking } from '@/components/dashboard/compliance-visits-tracking'
 import { PlannedRounds } from '@/components/dashboard/planned-rounds'
 
 // --- Helper Components ---
 
-function MetricCard({ title, value, icon: Icon, colorClass, bgClass }: any) {
-  return (
-    <Card className="flex flex-row items-center justify-between p-4 md:p-6 bg-white shadow-sm border-slate-200 transition-all hover:shadow-md">
+function MetricCard({ title, value, icon: Icon, colorClass, bgClass, href }: any) {
+  const cardContent = (
+    <Card className={`flex flex-row items-center justify-between p-4 md:p-6 bg-white shadow-sm border-slate-200 transition-all hover:shadow-md ${href ? 'cursor-pointer' : ''}`}>
       <div className="flex flex-col gap-1 min-w-0 flex-1">
         <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{title}</span>
         <span className="text-2xl md:text-3xl font-bold text-slate-900">{value}</span>
@@ -21,6 +22,16 @@ function MetricCard({ title, value, icon: Icon, colorClass, bgClass }: any) {
       </div>
     </Card>
   )
+
+  if (href) {
+    return (
+      <Link href={href} className="block">
+        {cardContent}
+      </Link>
+    )
+  }
+
+  return cardContent
 }
 
 function ProgressBar({ value, colorClass = "bg-blue-600", heightClass = "h-2" }: { value: number, colorClass?: string, heightClass?: string }) {
@@ -229,7 +240,7 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
       </div>
 
       {/* KPI Section */}
-      <div className="grid gap-3 md:gap-4 grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 md:gap-4 grid-cols-2 lg:grid-cols-5">
         <MetricCard 
           title="Open Incidents" 
           value={data.openIncidents} 
@@ -257,6 +268,14 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
           icon={AlertCircle} 
           colorClass="text-rose-600" 
           bgClass="bg-rose-50" 
+        />
+        <MetricCard 
+          title="Stores Requiring FRA" 
+          value={data.storesRequiringFRA || 0} 
+          icon={Flame} 
+          colorClass="text-orange-600" 
+          bgClass="bg-orange-50"
+          href="/fire-risk-assessment"
         />
       </div>
 

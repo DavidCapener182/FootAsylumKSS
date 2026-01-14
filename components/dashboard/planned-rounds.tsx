@@ -42,6 +42,11 @@ interface Store {
   sequence: number | null
 }
 
+interface OperationalItem {
+  title: string
+  location: string | null
+}
+
 interface PlannedRoute {
   key: string
   managerId: string | null
@@ -51,6 +56,7 @@ interface PlannedRoute {
   storeCount: number
   stores: Store[]
   storeNames?: string[] // For backward compatibility
+  operationalItems?: OperationalItem[]
   managerHome: {
     latitude: number
     longitude: number
@@ -206,7 +212,10 @@ export function PlannedRounds({ plannedRoutes }: PlannedRoundsProps) {
                       : 'Not set'}
                   </div>
                   <div className="text-xs text-slate-700 pt-0.5 mb-2">
-                    {route.stores.map(s => s.name).join(', ')}
+                    {[
+                      ...route.stores.map(s => s.name),
+                      ...(route.operationalItems || []).map(item => item.title)
+                    ].join(', ')}
                   </div>
 
                   {/* Complete/Reschedule options - only show on the day of the route */}

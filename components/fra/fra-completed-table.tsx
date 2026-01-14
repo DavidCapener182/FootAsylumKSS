@@ -1,0 +1,302 @@
+'use client'
+
+import { useMemo, useState } from 'react'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Button } from '@/components/ui/button'
+import { createClient } from '@/lib/supabase/client'
+import { getFRAPDFDownloadUrl } from '@/app/actions/fra-pdfs'
+import { Download } from 'lucide-react'
+import { 
+  FRARow, 
+  formatDate,
+  calculateNextDueDate,
+  getFRAStatus,
+  getDaysUntilDue,
+  statusBadge,
+  pctBadge
+} from './fra-table-helpers'
+
+export function FRACompletedTable({ 
+  rows, 
+  areaFilter: externalAreaFilter, 
+  onAreaFilterChange 
+}: { 
+  rows: FRARow[]
+  areaFilter?: string
+  onAreaFilterChange?: (area: string) => void
+}) {
+  const [search, setSearch] = useState('')
+  const [internalArea, setInternalArea] = useState<string>('all')
+  const area = externalAreaFilter !== undefined ? externalAreaFilter : internalArea
+  const setArea = onAreaFilterChange || setInternalArea
+  const [downloadingPdf, setDownloadingPdf] = useState<string | null>(null)
+
+  const areaOptions = useMemo(() => {
+    const set = new Set<string>()
+    rows.forEach((r) => r.region && set.add(r.region))
+    return Array.from(set).sort()
+  }, [rows])
+
+  // Filter stores that have completed FRA (have date and percentage)
+  const filtered = useMemo(() => {
+    return rows.filter((row) => {
+      const hasCompletedFRA = row.fire_risk_assessment_date !== null && row.fire_risk_assessment_pct !== null
+      
+      if (!hasCompletedFRA) return false
+      
+      const matchesArea = area === 'all' || row.region === area
+      const term = search.trim().toLowerCase()
+      const matchesSearch =
+        term.length === 0 ||
+        row.store_name.toLowerCase().includes(term) ||
+        (row.store_code || '').toLowerCase().includes(term)
+      
+      return matchesArea && matchesSearch
+    })
+  }, [rows, area, search])
+
+  const grouped = useMemo(() => {
+    const map = new Map<string, FRARow[]>()
+    
+    // 1. Group by Region
+    filtered.forEach((row) => {
+      const key = row.region || 'Unassigned'
+      if (!map.has(key)) map.set(key, [])
+      map.get(key)!.push(row)
+    })
+
+    // 2. Sort STORES within each area by next due date (earliest first)
+    map.forEach((storeRows) => {
+      storeRows.sort((a, b) => {
+        const nextDueA = calculateNextDueDate(a.fire_risk_assessment_date)
+        const nextDueB = calculateNextDueDate(b.fire_risk_assessment_date)
+        
+        if (!nextDueA && !nextDueB) return a.store_name.localeCompare(b.store_name)
+        if (!nextDueA) return 1
+        if (!nextDueB) return -1
+        
+        return nextDueA.getTime() - nextDueB.getTime()
+      })
+    })
+
+    // 3. Sort AREAS alphabetically
+    return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b))
+  }, [filtered])
+
+  const handleDownloadPDF = async (row: FRARow) => {
+    if (!row.fire_risk_assessment_pdf_path) return
+    
+    setDownloadingPdf(row.id)
+    try {
+      const url = await getFRAPDFDownloadUrl(row.fire_risk_assessment_pdf_path)
+      if (url) {
+        window.open(url, '_blank')
+      }
+    } catch (error) {
+      console.error('Error downloading PDF:', error)
+      alert('Failed to download PDF')
+    } finally {
+      setDownloadingPdf(null)
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Controls */}
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+          <Input
+            placeholder="Search store name or code"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="flex-1 md:w-64 bg-white min-h-[44px]"
+          />
+          <Select value={area} onValueChange={setArea}>
+            <SelectTrigger className="w-full sm:w-40 bg-white min-h-[44px]">
+              <SelectValue placeholder="Area" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All areas</SelectItem>
+              {areaOptions.map((opt) => (
+                <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="text-sm text-muted-foreground">
+          Showing {filtered.length} of {rows.length} stores
+        </div>
+      </div>
+
+      {/* Table Container */}
+      <div className="rounded-xl border bg-white shadow-sm overflow-hidden flex flex-col">
+        {/* Fixed Header */}
+        <div className="hidden md:block border-b bg-white overflow-x-auto">
+          <Table className="w-full border-separate border-spacing-0" style={{ tableLayout: 'fixed' }}>
+            <colgroup>
+              <col style={{ width: '40px' }} />
+              <col style={{ width: '60px' }} />
+              <col style={{ width: '80px' }} />
+              <col style={{ width: '180px' }} />
+              <col style={{ width: '120px' }} />
+              <col style={{ width: '120px' }} />
+              <col style={{ width: '150px' }} />
+              <col style={{ width: '80px' }} />
+              <col style={{ width: '150px' }} />
+            </colgroup>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="text-center bg-white">#</TableHead>
+                <TableHead className="bg-white">Area</TableHead>
+                <TableHead className="bg-white">Store Code</TableHead>
+                <TableHead className="bg-white">Store Name</TableHead>
+                <TableHead className="bg-white">FRA Date</TableHead>
+                <TableHead className="bg-white">Next Due Date</TableHead>
+                <TableHead className="bg-white">Status</TableHead>
+                <TableHead className="bg-white">%</TableHead>
+                <TableHead className="bg-white">PDF</TableHead>
+              </TableRow>
+            </TableHeader>
+          </Table>
+        </div>
+
+        {/* Scrollable Body */}
+        <div className="h-[70vh] overflow-y-auto overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0 relative">
+          {/* Mobile Header */}
+          <div className="md:hidden sticky top-0 z-10 bg-white border-b">
+            <Table className="w-full border-separate border-spacing-0 min-w-[900px]" style={{ tableLayout: 'fixed' }}>
+              <colgroup>
+                <col style={{ width: '40px' }} />
+                <col style={{ width: '60px' }} />
+                <col style={{ width: '80px' }} />
+                <col style={{ width: '180px' }} />
+                <col style={{ width: '120px' }} />
+                <col style={{ width: '120px' }} />
+                <col style={{ width: '150px' }} />
+                <col style={{ width: '80px' }} />
+                <col style={{ width: '150px' }} />
+              </colgroup>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="text-center bg-white">#</TableHead>
+                  <TableHead className="bg-white">Area</TableHead>
+                  <TableHead className="bg-white">Store Code</TableHead>
+                  <TableHead className="bg-white">Store Name</TableHead>
+                  <TableHead className="bg-white">FRA Date</TableHead>
+                  <TableHead className="bg-white">Next Due Date</TableHead>
+                  <TableHead className="bg-white">Status</TableHead>
+                  <TableHead className="bg-white">%</TableHead>
+                  <TableHead className="bg-white">PDF</TableHead>
+                </TableRow>
+              </TableHeader>
+            </Table>
+          </div>
+          <Table className="w-full border-separate border-spacing-0 min-w-[900px]" style={{ tableLayout: 'fixed' }}>
+            <colgroup>
+              <col style={{ width: '40px' }} />
+              <col style={{ width: '60px' }} />
+              <col style={{ width: '80px' }} />
+              <col style={{ width: '180px' }} />
+              <col style={{ width: '120px' }} />
+              <col style={{ width: '120px' }} />
+              <col style={{ width: '150px' }} />
+              <col style={{ width: '80px' }} />
+              <col style={{ width: '150px' }} />
+            </colgroup>
+            <TableBody>
+              {grouped.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={9} className="text-center text-muted-foreground py-10">
+                    No completed FRA data found matching your filters.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                grouped.map(([groupKey, areaRows]) => {
+                  return (
+                    <>
+                      {/* Area Divider Row */}
+                      <TableRow key={`hdr-${groupKey}`} className="bg-slate-100/80 hover:bg-slate-100/80">
+                        <TableCell 
+                          colSpan={9} 
+                          className="py-2 px-4 bg-slate-50 border-b border-t"
+                        >
+                          <span className="font-bold text-slate-700">{groupKey}</span>
+                        </TableCell>
+                      </TableRow>
+
+                      {/* Store Rows */}
+                      {areaRows.map((row, idx) => {
+                        const nextDue = calculateNextDueDate(row.fire_risk_assessment_date)
+                        const days = getDaysUntilDue(row.fire_risk_assessment_date)
+                        const status = getFRAStatus(row.fire_risk_assessment_date, true)
+                        
+                        return (
+                          <TableRow
+                            key={row.id}
+                            className="group hover:bg-slate-50 transition-colors"
+                          >
+                            <TableCell className="font-mono text-xs text-center text-muted-foreground border-b bg-white group-hover:bg-slate-50">
+                              {idx + 1}
+                            </TableCell>
+                            <TableCell className="text-xs text-muted-foreground border-b bg-white group-hover:bg-slate-50">
+                              {row.region || '—'}
+                            </TableCell>
+                            <TableCell className="font-mono text-xs font-medium border-b bg-white group-hover:bg-slate-50">
+                              {row.store_code || '—'}
+                            </TableCell>
+                            <TableCell className="font-semibold text-sm border-b bg-white group-hover:bg-slate-50">
+                              {row.store_name}
+                            </TableCell>
+                            
+                            <TableCell className="border-b bg-white group-hover:bg-slate-50">
+                              <span className="text-sm text-muted-foreground">
+                                {formatDate(row.fire_risk_assessment_date)}
+                              </span>
+                            </TableCell>
+                            
+                            <TableCell className="border-b bg-white group-hover:bg-slate-50">
+                              <span className="text-sm text-muted-foreground">
+                                {nextDue ? formatDate(nextDue.toISOString().split('T')[0]) : '—'}
+                              </span>
+                            </TableCell>
+                            
+                            <TableCell className="border-b bg-white group-hover:bg-slate-50">
+                              {statusBadge(status, days)}
+                            </TableCell>
+                            
+                            <TableCell className="border-b bg-white group-hover:bg-slate-50">
+                              {pctBadge(row.fire_risk_assessment_pct)}
+                            </TableCell>
+                            
+                            <TableCell className="border-b bg-white group-hover:bg-slate-50">
+                              {row.fire_risk_assessment_pdf_path ? (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleDownloadPDF(row)}
+                                  disabled={downloadingPdf === row.id}
+                                  className="h-7 px-2 text-xs"
+                                >
+                                  <Download className="h-3 w-3 mr-1" />
+                                  {downloadingPdf === row.id ? 'Loading...' : 'Download'}
+                                </Button>
+                              ) : (
+                                <span className="text-sm text-muted-foreground">—</span>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })}
+                    </>
+                  )
+                })
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
+    </div>
+  )
+}

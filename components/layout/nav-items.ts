@@ -7,6 +7,8 @@ import {
   Settings,
   Store,
   Route,
+  Flame,
+  Calendar,
 } from 'lucide-react'
 import type React from 'react'
 
@@ -14,6 +16,7 @@ export type NavItem = {
   href: string
   label: string
   icon: React.ComponentType<{ className?: string }>
+  adminOnly?: boolean
 }
 
 export const navItems: NavItem[] = [
@@ -22,8 +25,10 @@ export const navItems: NavItem[] = [
   { href: '/actions', label: 'Actions', icon: CheckSquare },
   { href: '/stores', label: 'Stores', icon: Store },
   { href: '/audit-tracker', label: 'Audit Tracker', icon: ClipboardList },
+  { href: '/fire-risk-assessment', label: 'Fire Risk Assessment', icon: Flame },
   { href: '/route-planning', label: 'Route Planning', icon: Route },
+  { href: '/calendar', label: 'Calendar', icon: Calendar },
   { href: '/reports', label: 'Reports', icon: FileText },
-  { href: '/admin', label: 'Admin', icon: Settings },
+  { href: '/admin', label: 'Admin', icon: Settings, adminOnly: true },
 ]
 

@@ -117,3 +117,14 @@
   border-radius: 50%;
 }
 
+/* Main content wrapper - ensure top-left corner is 8px on desktop */
+.main-content-wrapper {
+  border-top-left-radius: 8px !important;
+}
+
+@media (min-width: 768px) {
+  .main-content-wrapper {
+    border-top-left-radius: 8px !important;
+  }
+}
+

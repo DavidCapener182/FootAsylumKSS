@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { LogOut, Menu } from 'lucide-react'
 import { useSidebar } from './sidebar-provider'
 import { cn } from '@/lib/utils'
+import { StoreSearch } from '@/components/layout/store-search'
 
 interface HeaderClientProps {
   signOut: () => void
@@ -20,7 +21,7 @@ export function HeaderClient({ signOut }: HeaderClientProps) {
 
   return (
     <header className="flex h-16 items-center justify-between bg-[#0e1925] px-4 md:px-6 lg:px-8 relative z-30">
-      <div className="flex items-center gap-3 md:gap-4 flex-1">
+      <div className="flex items-center gap-3 md:gap-4 flex-1 min-w-0">
         {/* Mobile Menu Button */}
         <button
           onClick={handleMenuClick}
@@ -34,6 +35,8 @@ export function HeaderClient({ signOut }: HeaderClientProps) {
         >
           <Menu className="h-6 w-6 text-white pointer-events-none" />
         </button>
+
+        <StoreSearch />
       </div>
 
       <div className="flex items-center gap-2 md:gap-4">
