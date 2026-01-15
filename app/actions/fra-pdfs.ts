@@ -89,3 +89,61 @@ export async function getFRAPDFDownloadUrl(filePath: string | null) {
 
   return data.signedUrl
 }
+
+/**
+ * Delete a Fire Risk Assessment PDF file
+ * @param storeId - The store ID
+ * @returns Success status
+ */
+export async function deleteFRAPDF(storeId: string) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) {
+    throw new Error('Unauthorized')
+  }
+
+  // Get current PDF path
+  const { data: store, error: fetchError } = await supabase
+    .from('fa_stores')
+    .select('fire_risk_assessment_pdf_path')
+    .eq('id', storeId)
+    .single()
+
+  if (fetchError || !store) {
+    throw new Error('Store not found')
+  }
+
+  const pdfPath = store.fire_risk_assessment_pdf_path
+
+  if (!pdfPath) {
+    throw new Error('No PDF found to delete')
+  }
+
+  // Delete from storage
+  const { error: deleteError } = await supabase.storage
+    .from('fa-attachments')
+    .remove([pdfPath])
+
+  if (deleteError) {
+    throw new Error(`Failed to delete PDF from storage: ${deleteError.message}`)
+  }
+
+  // Update store record to remove PDF path and clear FRA data (date, percentage, notes)
+  // When PDF is deleted, the entire FRA record should be cleared
+  const { error: updateError } = await supabase
+    .from('fa_stores')
+    .update({ 
+      fire_risk_assessment_pdf_path: null,
+      fire_risk_assessment_date: null,
+      fire_risk_assessment_pct: null,
+      fire_risk_assessment_notes: null
+    })
+    .eq('id', storeId)
+
+  if (updateError) {
+    throw new Error(`Failed to update store record: ${updateError.message}`)
+  }
+
+  return { success: true }
+}

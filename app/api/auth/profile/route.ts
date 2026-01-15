@@ -21,13 +21,19 @@ export async function POST() {
     return NextResponse.json({ message: 'Profile already exists' })
   }
 
-  // Create profile with default readonly role
+  // Create profile with default pending role (needs admin approval)
+  // Check if user metadata has intended_role
+  const intendedRole = user.user_metadata?.intended_role
+  const defaultRole = (intendedRole === 'client' || intendedRole === 'admin' || intendedRole === 'ops')
+    ? intendedRole
+    : 'pending'
+  
   const { data: profile, error } = await supabase
     .from('fa_profiles')
     .insert({
       id: user.id,
-      full_name: user.email?.split('@')[0] || null,
-      role: 'readonly',
+      full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || null,
+      role: defaultRole,
     })
     .select()
     .single()

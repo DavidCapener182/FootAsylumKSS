@@ -17,6 +17,7 @@ export type NavItem = {
   label: string
   icon: React.ComponentType<{ className?: string }>
   adminOnly?: boolean
+  clientHidden?: boolean
 }
 
 export const navItems: NavItem[] = [
@@ -26,7 +27,7 @@ export const navItems: NavItem[] = [
   { href: '/stores', label: 'Stores', icon: Store },
   { href: '/audit-tracker', label: 'Audit Tracker', icon: ClipboardList },
   { href: '/fire-risk-assessment', label: 'Fire Risk Assessment', icon: Flame },
-  { href: '/route-planning', label: 'Route Planning', icon: Route },
+  { href: '/route-planning', label: 'Route Planning', icon: Route, clientHidden: true },
   { href: '/calendar', label: 'Calendar', icon: Calendar },
   { href: '/reports', label: 'Reports', icon: FileText },
   { href: '/admin', label: 'Admin', icon: Settings, adminOnly: true },

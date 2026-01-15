@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -9,8 +9,10 @@ import { cn } from '@/lib/utils'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { UserRole } from '@/lib/auth'
-import { uploadAuditPDF } from '@/app/actions/audit-pdfs'
-import { Upload, FileText, Eye, EyeOff } from 'lucide-react'
+import { uploadAuditPDF, getAuditPDFDownloadUrl, deleteAuditPDF } from '@/app/actions/audit-pdfs'
+import { Upload, FileText, Eye, EyeOff, File, Trash2, X } from 'lucide-react'
+import { PDFViewerModal } from '@/components/shared/pdf-viewer-modal'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { 
   AuditRow, 
   pctBadge, 
@@ -52,6 +54,20 @@ export function AuditTable({
   const [saving, setSaving] = useState(false)
   const [localRows, setLocalRows] = useState<AuditRow[]>(rows)
   const canEdit = true // All logged-in users can edit
+  
+  // Sync localRows with rows prop when it changes
+  useEffect(() => {
+    setLocalRows(rows)
+  }, [rows])
+  
+  const [pdfViewerOpen, setPdfViewerOpen] = useState(false)
+  const [selectedPdfRow, setSelectedPdfRow] = useState<{ row: AuditRow; auditNumber: 1 | 2 } | null>(null)
+  const [pdfUploadDialogOpen, setPdfUploadDialogOpen] = useState(false)
+  const [pdfUploadRow, setPdfUploadRow] = useState<AuditRow | null>(null)
+  const [selectedAuditForUpload, setSelectedAuditForUpload] = useState<1 | 2 | null>(null)
+  const [pdfUploadFile, setPdfUploadFile] = useState<File | null>(null)
+  const [uploadingPdf, setUploadingPdf] = useState(false)
+  const [deletingPdf, setDeletingPdf] = useState<string | null>(null)
 
   const areaOptions = useMemo(() => {
     const set = new Set<string>()
@@ -174,7 +190,24 @@ export function AuditTable({
       let pdfPath: string | null = null
       if (pdfFile) {
         try {
-          pdfPath = await uploadAuditPDF(storeId, auditNumber, pdfFile)
+          // Use FormData to upload via API route
+          const formData = new FormData()
+          formData.append('storeId', storeId)
+          formData.append('auditNumber', auditNumber.toString())
+          formData.append('file', pdfFile)
+
+          const response = await fetch('/api/audit-pdfs/upload', {
+            method: 'POST',
+            body: formData,
+          })
+
+          const result = await response.json()
+
+          if (!response.ok) {
+            throw new Error(result.error || 'Failed to upload PDF')
+          }
+
+          pdfPath = result.filePath
         } catch (uploadError) {
           console.error('PDF upload error:', uploadError)
           alert(`Failed to upload PDF: ${uploadError instanceof Error ? uploadError.message : 'Unknown error'}`)
@@ -263,6 +296,157 @@ export function AuditTable({
       const errorMessage = error instanceof Error ? error.message : 'Failed to save audit. Please try again.'
       alert(`Error: ${errorMessage}`)
       setSaving(false)
+    }
+  }
+
+  const handleViewPDF = (row: AuditRow, auditNumber: 1 | 2) => {
+    const pdfPath = auditNumber === 1 
+      ? row.compliance_audit_1_pdf_path 
+      : row.compliance_audit_2_pdf_path
+    
+    if (!pdfPath) return
+    
+    setSelectedPdfRow({ row, auditNumber })
+    setPdfViewerOpen(true)
+  }
+
+  const handleGetPDFUrl = async () => {
+    if (!selectedPdfRow) return null
+    
+    const pdfPath = selectedPdfRow.auditNumber === 1
+      ? selectedPdfRow.row.compliance_audit_1_pdf_path
+      : selectedPdfRow.row.compliance_audit_2_pdf_path
+    
+    if (!pdfPath) return null
+    
+    try {
+      return await getAuditPDFDownloadUrl(pdfPath)
+    } catch (error) {
+      console.error('Error fetching PDF URL:', error)
+      return null
+    }
+  }
+
+  const handleOpenPDFUpload = (row: AuditRow, auditNumber?: 1 | 2) => {
+    setPdfUploadRow(row)
+    setPdfUploadFile(null)
+    
+    if (auditNumber) {
+      // If audit number is provided, use it
+      setSelectedAuditForUpload(auditNumber)
+    } else {
+      // Otherwise, auto-select if only one audit exists
+      const hasAudit1 = !!(row.compliance_audit_1_date && row.compliance_audit_1_overall_pct !== null)
+      const hasAudit2 = !!(row.compliance_audit_2_date && row.compliance_audit_2_overall_pct !== null)
+      
+      if (hasAudit1 && !hasAudit2) {
+        setSelectedAuditForUpload(1)
+      } else if (hasAudit2 && !hasAudit1) {
+        setSelectedAuditForUpload(2)
+      } else {
+        // Both exist or neither exists - user must select
+        setSelectedAuditForUpload(null)
+      }
+    }
+    
+    setPdfUploadDialogOpen(true)
+  }
+
+  const handlePDFFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null
+    setPdfUploadFile(file)
+  }
+
+  const handleUploadPDF = async () => {
+    if (!pdfUploadRow || !pdfUploadFile || !selectedAuditForUpload) {
+      alert('Please select an audit and PDF file')
+      return
+    }
+
+    setUploadingPdf(true)
+    try {
+      // Use FormData to upload via API route
+      const formData = new FormData()
+      formData.append('storeId', pdfUploadRow.id)
+      formData.append('auditNumber', selectedAuditForUpload.toString())
+      formData.append('file', pdfUploadFile)
+
+      const response = await fetch('/api/audit-pdfs/upload', {
+        method: 'POST',
+        body: formData,
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to upload PDF')
+      }
+
+      // Update local state
+      setLocalRows(prevRows => prevRows.map(row => {
+        if (row.id === pdfUploadRow.id) {
+          return {
+            ...row,
+            compliance_audit_1_pdf_path: selectedAuditForUpload === 1 ? result.filePath : row.compliance_audit_1_pdf_path,
+            compliance_audit_2_pdf_path: selectedAuditForUpload === 2 ? result.filePath : row.compliance_audit_2_pdf_path,
+          }
+        }
+        return row
+      }))
+
+      setPdfUploadDialogOpen(false)
+      setPdfUploadRow(null)
+      setPdfUploadFile(null)
+      setSelectedAuditForUpload(null)
+      
+      // Reset file input
+      const fileInput = document.getElementById(`pdf-upload-standalone-${pdfUploadRow.id}`) as HTMLInputElement
+      if (fileInput) fileInput.value = ''
+      
+      // Refresh page to show updated data
+      setTimeout(() => window.location.reload(), 500)
+    } catch (error) {
+      console.error('Error uploading PDF:', error)
+      alert(`Failed to upload PDF: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    } finally {
+      setUploadingPdf(false)
+    }
+  }
+
+  const handleDeletePDF = async (row: AuditRow, auditNumber: 1 | 2) => {
+    if (!confirm(`Are you sure you want to delete the PDF for Audit ${auditNumber}?`)) {
+      return
+    }
+
+    setDeletingPdf(`${row.id}-${auditNumber}`)
+    try {
+      await deleteAuditPDF(row.id, auditNumber)
+      
+      // Update local state immediately
+      setLocalRows(prevRows => prevRows.map(r => {
+        if (r.id === row.id) {
+          return {
+            ...r,
+            compliance_audit_1_pdf_path: auditNumber === 1 ? null : r.compliance_audit_1_pdf_path,
+            compliance_audit_2_pdf_path: auditNumber === 2 ? null : r.compliance_audit_2_pdf_path,
+          }
+        }
+        return r
+      }))
+      
+      // Close PDF viewer if it's open for this row/audit
+      if (selectedPdfRow?.row.id === row.id && selectedPdfRow.auditNumber === auditNumber) {
+        setPdfViewerOpen(false)
+        setSelectedPdfRow(null)
+      }
+      
+      // Refresh page to show updated data from server
+      window.location.reload()
+    } catch (error) {
+      console.error('Error deleting PDF:', error)
+      alert(`Failed to delete PDF: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    } finally {
+      setDeletingPdf(null)
     }
   }
 
@@ -382,47 +566,9 @@ export function AuditTable({
 
       {/* Table Container */}
       <div className="rounded-xl border bg-white shadow-sm overflow-hidden flex flex-col">
-        {/* Fixed Header - OUTSIDE scroll container on desktop, INSIDE on mobile */}
-        <div className="hidden md:block border-b bg-white overflow-x-auto">
-          <Table className="w-full border-separate border-spacing-0" style={{ tableLayout: 'fixed' }}>
-            <colgroup>
-              <col style={{ width: '40px' }} />
-              <col style={{ width: '60px' }} />
-              <col style={{ width: '80px' }} />
-              <col style={{ width: '140px' }} />
-              <col style={{ width: '100px' }} />
-              <col style={{ width: '80px' }} />
-              <col style={{ width: '70px' }} />
-              <col style={{ width: '100px' }} />
-              <col style={{ width: '80px' }} />
-              <col style={{ width: '70px' }} />
-              <col style={{ width: '70px' }} />
-              <col style={{ width: '140px' }} />
-            </colgroup>
-            <TableHeader>
-              <TableRow className="hover:bg-transparent">
-                <TableHead className="text-center bg-white">#</TableHead>
-                <TableHead className="bg-white">Area</TableHead>
-                <TableHead className="bg-white">Store Code</TableHead>
-                <TableHead className="bg-white">Store Name</TableHead>
-                <TableHead className="bg-white">Audit 1 Date</TableHead>
-                <TableHead className="bg-white">Action Plan 1</TableHead>
-                <TableHead className="bg-white">Audit 1 %</TableHead>
-                <TableHead className="bg-white">Audit 2 Date</TableHead>
-                <TableHead className="bg-white">Action Plan 2</TableHead>
-                <TableHead className="bg-white">Audit 2 %</TableHead>
-                <TableHead className="text-right pr-4 bg-white">Total Audits</TableHead>
-                <TableHead className="bg-white">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-          </Table>
-        </div>
-
-        {/* Scrollable Body - Headers inside on mobile, body only on desktop */}
-        <div className="h-[70vh] overflow-y-auto overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0 relative">
-          {/* Mobile Header - Inside scroll container, sticky */}
-          <div className="md:hidden sticky top-0 z-10 bg-white border-b">
-            <Table className="w-full border-separate border-spacing-0 min-w-[1000px]" style={{ tableLayout: 'fixed' }}>
+        <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
+          <div className="min-w-[1000px]">
+            <Table className="w-full border-separate border-spacing-0" style={{ tableLayout: 'fixed' }}>
               <colgroup>
                 <col style={{ width: '40px' }} />
                 <col style={{ width: '60px' }} />
@@ -431,13 +577,15 @@ export function AuditTable({
                 <col style={{ width: '100px' }} />
                 <col style={{ width: '80px' }} />
                 <col style={{ width: '70px' }} />
+                <col style={{ width: '50px' }} />
                 <col style={{ width: '100px' }} />
                 <col style={{ width: '80px' }} />
                 <col style={{ width: '70px' }} />
+                <col style={{ width: '50px' }} />
                 <col style={{ width: '70px' }} />
                 <col style={{ width: '140px' }} />
               </colgroup>
-              <TableHeader>
+              <TableHeader className="bg-white">
                 <TableRow className="hover:bg-transparent">
                   <TableHead className="text-center bg-white">#</TableHead>
                   <TableHead className="bg-white">Area</TableHead>
@@ -446,34 +594,38 @@ export function AuditTable({
                   <TableHead className="bg-white">Audit 1 Date</TableHead>
                   <TableHead className="bg-white">Action Plan 1</TableHead>
                   <TableHead className="bg-white">Audit 1 %</TableHead>
+                  <TableHead className="bg-white text-center">PDF</TableHead>
                   <TableHead className="bg-white">Audit 2 Date</TableHead>
                   <TableHead className="bg-white">Action Plan 2</TableHead>
                   <TableHead className="bg-white">Audit 2 %</TableHead>
+                  <TableHead className="bg-white text-center">PDF</TableHead>
                   <TableHead className="text-right pr-4 bg-white">Total Audits</TableHead>
                   <TableHead className="bg-white">Actions</TableHead>
                 </TableRow>
               </TableHeader>
             </Table>
-          </div>
-          <Table className="w-full border-separate border-spacing-0 min-w-[1000px]" style={{ tableLayout: 'fixed' }}>
-            <colgroup>
-              <col style={{ width: '40px' }} />
-              <col style={{ width: '60px' }} />
-              <col style={{ width: '80px' }} />
-              <col style={{ width: '140px' }} />
-              <col style={{ width: '100px' }} />
-              <col style={{ width: '80px' }} />
-              <col style={{ width: '70px' }} />
-              <col style={{ width: '100px' }} />
-              <col style={{ width: '80px' }} />
-              <col style={{ width: '70px' }} />
-              <col style={{ width: '70px' }} />
-              <col style={{ width: '140px' }} />
-            </colgroup>
-            <TableBody>
+            <div className="h-[70vh] overflow-y-auto">
+              <Table className="w-full border-separate border-spacing-0" style={{ tableLayout: 'fixed' }}>
+                <colgroup>
+                  <col style={{ width: '40px' }} />
+                  <col style={{ width: '60px' }} />
+                  <col style={{ width: '80px' }} />
+                  <col style={{ width: '140px' }} />
+                  <col style={{ width: '100px' }} />
+                  <col style={{ width: '80px' }} />
+                  <col style={{ width: '70px' }} />
+                  <col style={{ width: '50px' }} />
+                  <col style={{ width: '100px' }} />
+                  <col style={{ width: '80px' }} />
+                  <col style={{ width: '70px' }} />
+                  <col style={{ width: '50px' }} />
+                  <col style={{ width: '70px' }} />
+                  <col style={{ width: '140px' }} />
+                </colgroup>
+                <TableBody>
               {grouped.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={12} className="text-center text-muted-foreground py-10">
+                  <TableCell colSpan={14} className="text-center text-muted-foreground py-10">
                     No audit data found matching your filters.
                   </TableCell>
                 </TableRow>
@@ -497,7 +649,7 @@ export function AuditTable({
                       {/* Area Divider Row */}
                       <TableRow key={`hdr-${groupKey}`} className="bg-slate-100/80 hover:bg-slate-100/80">
                         <TableCell 
-                          colSpan={12} 
+                          colSpan={14} 
                           className="py-2 px-4 bg-slate-50 border-b border-t"
                         >
                           <div className="flex items-center justify-between w-full">
@@ -534,10 +686,88 @@ export function AuditTable({
                           <TableCell className="border-b bg-white group-hover:bg-slate-50">{renderDateCell(row.compliance_audit_1_date, row.compliance_audit_1_overall_pct, row.id, 1, row)}</TableCell>
                           <TableCell className="border-b bg-white group-hover:bg-slate-50">{renderActionPlanCell(row.action_plan_1_sent, row.id, 1)}</TableCell>
                           <TableCell className="border-b bg-white group-hover:bg-slate-50">{renderPercentageCell(row.compliance_audit_1_overall_pct, row.id, 1)}</TableCell>
+                          <TableCell className="border-b bg-white group-hover:bg-slate-50 text-center">
+                            <div className="flex items-center justify-center gap-1">
+                              {row.compliance_audit_1_pdf_path ? (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => handleViewPDF(row, 1)}
+                                    className="h-7 px-2"
+                                    title="View Audit 1 PDF"
+                                  >
+                                    <File className="h-4 w-4 text-blue-600" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => handleDeletePDF(row, 1)}
+                                    disabled={deletingPdf === `${row.id}-1`}
+                                    className="h-7 px-1 text-red-600 hover:text-red-700"
+                                    title="Delete Audit 1 PDF"
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </>
+                              ) : (row.compliance_audit_1_date && row.compliance_audit_1_overall_pct !== null) ? (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleOpenPDFUpload(row, 1)}
+                                  className="h-7 px-2 text-xs"
+                                  title="Upload Audit 1 PDF"
+                                >
+                                  <Upload className="h-3 w-3 text-slate-500" />
+                                </Button>
+                              ) : (
+                                <span className="text-sm text-muted-foreground">—</span>
+                              )}
+                            </div>
+                          </TableCell>
                           
                           <TableCell className="border-b bg-white group-hover:bg-slate-50">{renderDateCell(row.compliance_audit_2_date, row.compliance_audit_2_overall_pct, row.id, 2, row)}</TableCell>
                           <TableCell className="border-b bg-white group-hover:bg-slate-50">{renderActionPlanCell(row.action_plan_2_sent, row.id, 2)}</TableCell>
                           <TableCell className="border-b bg-white group-hover:bg-slate-50">{renderPercentageCell(row.compliance_audit_2_overall_pct, row.id, 2)}</TableCell>
+                          <TableCell className="border-b bg-white group-hover:bg-slate-50 text-center">
+                            <div className="flex items-center justify-center gap-1">
+                              {row.compliance_audit_2_pdf_path ? (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => handleViewPDF(row, 2)}
+                                    className="h-7 px-2"
+                                    title="View Audit 2 PDF"
+                                  >
+                                    <File className="h-4 w-4 text-blue-600" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => handleDeletePDF(row, 2)}
+                                    disabled={deletingPdf === `${row.id}-2`}
+                                    className="h-7 px-1 text-red-600 hover:text-red-700"
+                                    title="Delete Audit 2 PDF"
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </>
+                              ) : (row.compliance_audit_2_date && row.compliance_audit_2_overall_pct !== null) ? (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleOpenPDFUpload(row, 2)}
+                                  className="h-7 px-2 text-xs"
+                                  title="Upload Audit 2 PDF"
+                                >
+                                  <Upload className="h-3 w-3 text-slate-500" />
+                                </Button>
+                              ) : (
+                                <span className="text-sm text-muted-foreground">—</span>
+                              )}
+                            </div>
+                          </TableCell>
                           
                           <TableCell className="text-right pr-4 font-mono text-xs text-muted-foreground border-b bg-white group-hover:bg-slate-50">
                             {(() => {
@@ -621,6 +851,93 @@ export function AuditTable({
           </Table>
         </div>
       </div>
+    </div>
+  </div>
+      
+      {/* PDF Viewer Modal */}
+      <PDFViewerModal
+        open={pdfViewerOpen}
+        onOpenChange={setPdfViewerOpen}
+        pdfUrl={null}
+        title={selectedPdfRow ? `Audit ${selectedPdfRow.auditNumber} - ${selectedPdfRow.row.store_name}` : 'Audit PDF'}
+        getDownloadUrl={handleGetPDFUrl}
+      />
+
+      {/* PDF Upload Dialog */}
+      <Dialog open={pdfUploadDialogOpen} onOpenChange={setPdfUploadDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Upload Audit PDF</DialogTitle>
+            <DialogDescription>
+              {pdfUploadRow?.store_name}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {/* Select Audit Number - only show if both audits exist */}
+            {pdfUploadRow && 
+             (pdfUploadRow.compliance_audit_1_date && pdfUploadRow.compliance_audit_1_overall_pct !== null) &&
+             (pdfUploadRow.compliance_audit_2_date && pdfUploadRow.compliance_audit_2_overall_pct !== null) ? (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Select Audit</label>
+                <Select
+                  value={selectedAuditForUpload?.toString() || ''}
+                  onValueChange={(value) => setSelectedAuditForUpload(parseInt(value) as 1 | 2)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select audit..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">Audit 1</SelectItem>
+                    <SelectItem value="2">Audit 2</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : (
+              <div className="text-sm text-muted-foreground">
+                {selectedAuditForUpload === 1 && 'Uploading to Audit 1'}
+                {selectedAuditForUpload === 2 && 'Uploading to Audit 2'}
+                {!selectedAuditForUpload && 'Please select an audit'}
+              </div>
+            )}
+
+            {/* File Input */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">PDF File</label>
+              <input
+                type="file"
+                id={`pdf-upload-standalone-${pdfUploadRow?.id}`}
+                accept=".pdf,application/pdf"
+                onChange={handlePDFFileSelect}
+                className="w-full text-sm"
+              />
+              {pdfUploadFile && (
+                <p className="text-xs text-muted-foreground">{pdfUploadFile.name}</p>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setPdfUploadDialogOpen(false)
+                setPdfUploadRow(null)
+                setPdfUploadFile(null)
+                setSelectedAuditForUpload(null)
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleUploadPDF}
+              disabled={!pdfUploadFile || !selectedAuditForUpload || uploadingPdf}
+            >
+              {uploadingPdf ? 'Uploading...' : 'Upload'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -9,7 +9,7 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
-export type FaUserRole = 'admin' | 'ops' | 'readonly'
+export type FaUserRole = 'admin' | 'ops' | 'readonly' | 'client' | 'pending'
 export type FaIncidentCategory = 'accident' | 'near_miss' | 'security' | 'fire' | 'health_safety' | 'other'
 export type FaSeverity = 'low' | 'medium' | 'high' | 'critical'
 export type FaIncidentStatus = 'open' | 'under_investigation' | 'actions_in_progress' | 'closed' | 'cancelled'

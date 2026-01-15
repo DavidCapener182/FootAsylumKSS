@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import { requireAuth } from '@/lib/auth'
+import { requireRole } from '@/lib/auth'
 import { RoutePlanningClient } from '@/components/route-planning/route-planning-client'
 
 async function getRoutePlanningData() {
@@ -88,10 +88,11 @@ async function getRoutePlanningData() {
     return { stores: [], profiles: [] }
   }
 
-  // Get all profiles for manager selection
+  // Get all profiles for manager selection (exclude client role)
   const { data: profiles, error: profilesError } = await supabase
     .from('fa_profiles')
-    .select('id, full_name, home_address, home_latitude, home_longitude')
+    .select('id, full_name, home_address, home_latitude, home_longitude, role')
+    .neq('role', 'client') // Exclude client role users from manager dropdown
     .order('full_name', { ascending: true })
 
   if (profilesError) {
@@ -130,7 +131,8 @@ async function getRoutePlanningData() {
 }
 
 export default async function RoutePlanningPage() {
-  await requireAuth()
+  // Restrict access to admin, ops, and readonly roles only (exclude client)
+  await requireRole(['admin', 'ops', 'readonly'])
   const data = await getRoutePlanningData()
 
   return <RoutePlanningClient initialData={data} />

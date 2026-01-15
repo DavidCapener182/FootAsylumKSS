@@ -289,12 +289,38 @@ async function getDashboardData() {
     
     // Get FRA data for this store
     const fraData = fraDataMap.get(store.id) || { fire_risk_assessment_date: null, fire_risk_assessment_pct: null }
+    const fraDate = fraData.fire_risk_assessment_date
     
-    // A store has completed FRA only if it has BOTH date AND percentage
-    const hasCompletedFRA = fraData.fire_risk_assessment_date !== null && fraData.fire_risk_assessment_pct !== null
+    // Calculate FRA status (same logic as getFRAStatus helper)
+    let status: 'up_to_date' | 'due' | 'overdue' | 'required' = 'required'
+    if (fraDate) {
+      try {
+        const date = new Date(fraDate)
+        const nextDue = new Date(date)
+        nextDue.setMonth(nextDue.getMonth() + 12)
+        
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        const dueDate = new Date(nextDue)
+        dueDate.setHours(0, 0, 0, 0)
+        
+        const daysDiff = Math.floor((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+        
+        if (daysDiff < 0) {
+          status = 'overdue'
+        } else if (daysDiff <= 30) {
+          status = 'due'
+        } else {
+          status = 'up_to_date'
+        }
+      } catch (e) {
+        // If date parsing fails, keep as 'required'
+      }
+    }
     
-    // Show stores that need FRA but haven't completed it
-    return !hasCompletedFRA
+    // Show stores that need FRA and are NOT "up_to_date"
+    // "Up to date" stores should be counted as completed, not requiring action
+    return status !== 'up_to_date'
   }).length || 0
 
   return {

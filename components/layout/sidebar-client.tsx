@@ -11,7 +11,7 @@ import { useSidebar } from './sidebar-provider'
 import { navItems, type NavItem } from './nav-items'
 
 // Add activity item (not in main nav-items but needed for sidebar)
-const activityItem: NavItem = { href: '/activity', label: 'Recent Activity', icon: Activity }
+const activityItem: NavItem = { href: '/activity', label: 'Recent Activity', icon: Activity, clientHidden: true }
 const allNavItems = [...navItems, activityItem]
 
 interface SidebarClientProps {
@@ -23,9 +23,18 @@ export function SidebarClient({ userRole, userProfile }: SidebarClientProps) {
   const pathname = usePathname()
   const { isOpen, setIsOpen } = useSidebar()
 
-  const filteredItems = userRole === 'admin' 
-    ? allNavItems 
-    : allNavItems.filter(item => !item.adminOnly)
+  const filteredItems = (() => {
+    if (userRole === 'admin') {
+      // Admin sees everything
+      return allNavItems
+    } else if (userRole === 'client') {
+      // Client role: hide adminOnly and clientHidden items
+      return allNavItems.filter(item => !item.adminOnly && !item.clientHidden)
+    } else {
+      // Ops and readonly: hide adminOnly items only
+      return allNavItems.filter(item => !item.adminOnly)
+    }
+  })()
 
   // Close mobile menu when route changes
   useEffect(() => {

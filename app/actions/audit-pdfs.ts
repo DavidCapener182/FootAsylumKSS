@@ -96,4 +96,64 @@ export async function getAuditPDFDownloadUrl(filePath: string | null) {
   return data.signedUrl
 }
 
+/**
+ * Delete an audit PDF file
+ * @param storeId - The store ID
+ * @param auditNumber - 1 or 2 for audit 1 or audit 2
+ * @returns Success status
+ */
+export async function deleteAuditPDF(
+  storeId: string,
+  auditNumber: 1 | 2
+) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) {
+    throw new Error('Unauthorized')
+  }
+
+  // Get current PDF path
+  const pdfColumn = auditNumber === 1 
+    ? 'compliance_audit_1_pdf_path' 
+    : 'compliance_audit_2_pdf_path'
+
+  const { data: store, error: fetchError } = await supabase
+    .from('fa_stores')
+    .select(pdfColumn)
+    .eq('id', storeId)
+    .single()
+
+  if (fetchError || !store) {
+    throw new Error('Store not found')
+  }
+
+  const pdfPath = store[pdfColumn as keyof typeof store] as string | null
+
+  if (!pdfPath) {
+    throw new Error('No PDF found to delete')
+  }
+
+  // Delete from storage
+  const { error: deleteError } = await supabase.storage
+    .from('fa-attachments')
+    .remove([pdfPath])
+
+  if (deleteError) {
+    throw new Error(`Failed to delete PDF from storage: ${deleteError.message}`)
+  }
+
+  // Update store record to remove PDF path
+  const { error: updateError } = await supabase
+    .from('fa_stores')
+    .update({ [pdfColumn]: null })
+    .eq('id', storeId)
+
+  if (updateError) {
+    throw new Error(`Failed to update store record: ${updateError.message}`)
+  }
+
+  return { success: true }
+}
+
 

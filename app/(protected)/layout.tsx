@@ -12,21 +12,49 @@ export default async function ProtectedLayout({
   const session = await requireAuth()
   const supabase = createClient()
   
-  // Ensure profile exists
+  // Ensure profile exists and check role
   const { data: profile } = await supabase
     .from('fa_profiles')
-    .select('id')
+    .select('id, role')
     .eq('id', session.user.id)
     .single()
 
+  // Block access for pending users
+  if (profile && profile.role === 'pending') {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
+        <div className="w-full max-w-md bg-white rounded-lg shadow-lg p-8 text-center">
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">Account Pending Approval</h1>
+          <p className="text-gray-600 mb-6">
+            Your account has been created but is pending admin approval. 
+            You will be able to access the system once an administrator approves your account.
+          </p>
+          <p className="text-sm text-gray-500">
+            If you have any questions, please contact your administrator.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   if (!profile && session.user) {
-    // Create profile with default readonly role
+    // Get intended role from user metadata (set during sign-up)
+    // New users default to 'pending' unless they're Foot Asylum client or explicitly set
+    const intendedRole = session.user.user_metadata?.intended_role
+    const defaultRole = (intendedRole === 'client' || intendedRole === 'admin' || intendedRole === 'ops') 
+      ? intendedRole 
+      : 'pending' // New users need admin approval
+    
+    // Use full_name from metadata if available, otherwise derive from email
+    const fullName = session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || null
+    
+    // Create profile with intended role or default to pending
     await supabase
       .from('fa_profiles')
       .insert({
         id: session.user.id,
-        full_name: session.user.email?.split('@')[0] || null,
-        role: 'readonly',
+        full_name: fullName,
+        role: defaultRole,
       })
   }
 

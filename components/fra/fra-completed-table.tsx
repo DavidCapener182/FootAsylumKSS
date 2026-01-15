@@ -6,8 +6,9 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/client'
-import { getFRAPDFDownloadUrl } from '@/app/actions/fra-pdfs'
-import { Download } from 'lucide-react'
+import { getFRAPDFDownloadUrl, deleteFRAPDF } from '@/app/actions/fra-pdfs'
+import { File, Trash2 } from 'lucide-react'
+import { PDFViewerModal } from '@/components/shared/pdf-viewer-modal'
 import { 
   FRARow, 
   formatDate,
@@ -15,7 +16,8 @@ import {
   getFRAStatus,
   getDaysUntilDue,
   statusBadge,
-  pctBadge
+  pctBadge,
+  storeNeedsFRA
 } from './fra-table-helpers'
 
 export function FRACompletedTable({ 
@@ -31,7 +33,9 @@ export function FRACompletedTable({
   const [internalArea, setInternalArea] = useState<string>('all')
   const area = externalAreaFilter !== undefined ? externalAreaFilter : internalArea
   const setArea = onAreaFilterChange || setInternalArea
-  const [downloadingPdf, setDownloadingPdf] = useState<string | null>(null)
+  const [pdfViewerOpen, setPdfViewerOpen] = useState(false)
+  const [selectedPdfRow, setSelectedPdfRow] = useState<FRARow | null>(null)
+  const [deletingPdf, setDeletingPdf] = useState<string | null>(null)
 
   const areaOptions = useMemo(() => {
     const set = new Set<string>()
@@ -39,12 +43,18 @@ export function FRACompletedTable({
     return Array.from(set).sort()
   }, [rows])
 
-  // Filter stores that have completed FRA (have date and percentage)
+  // Filter stores that have completed FRA (have date and are "up_to_date", or have both date and percentage)
   const filtered = useMemo(() => {
     return rows.filter((row) => {
-      const hasCompletedFRA = row.fire_risk_assessment_date !== null && row.fire_risk_assessment_pct !== null
+      const needsFRA = storeNeedsFRA(row)
+      const status = getFRAStatus(row.fire_risk_assessment_date, needsFRA)
+      const hasDateAndPct = row.fire_risk_assessment_date !== null && row.fire_risk_assessment_pct !== null
       
-      if (!hasCompletedFRA) return false
+      // Show stores that are "up_to_date" OR have both date and percentage
+      if (status === 'up_to_date') return true
+      if (hasDateAndPct) return true
+      
+      return false
       
       const matchesArea = area === 'all' || row.region === area
       const term = search.trim().toLowerCase()
@@ -85,20 +95,44 @@ export function FRACompletedTable({
     return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b))
   }, [filtered])
 
-  const handleDownloadPDF = async (row: FRARow) => {
+  const handleViewPDF = (row: FRARow) => {
     if (!row.fire_risk_assessment_pdf_path) return
-    
-    setDownloadingPdf(row.id)
+    setSelectedPdfRow(row)
+    setPdfViewerOpen(true)
+  }
+
+  const handleGetPDFUrl = async () => {
+    if (!selectedPdfRow?.fire_risk_assessment_pdf_path) return null
     try {
-      const url = await getFRAPDFDownloadUrl(row.fire_risk_assessment_pdf_path)
-      if (url) {
-        window.open(url, '_blank')
-      }
+      return await getFRAPDFDownloadUrl(selectedPdfRow.fire_risk_assessment_pdf_path)
     } catch (error) {
-      console.error('Error downloading PDF:', error)
-      alert('Failed to download PDF')
+      console.error('Error fetching PDF URL:', error)
+      return null
+    }
+  }
+
+  const handleDeletePDF = async (row: FRARow) => {
+    if (!confirm('Are you sure you want to delete the Fire Risk Assessment PDF? This will also clear the FRA date and all related data.')) {
+      return
+    }
+
+    setDeletingPdf(row.id)
+    try {
+      await deleteFRAPDF(row.id)
+      
+      // Close PDF viewer if it's open for this row
+      if (selectedPdfRow?.id === row.id) {
+        setPdfViewerOpen(false)
+        setSelectedPdfRow(null)
+      }
+      
+      // Refresh page to show updated data from server
+      window.location.reload()
+    } catch (error) {
+      console.error('Error deleting PDF:', error)
+      alert(`Failed to delete PDF: ${error instanceof Error ? error.message : 'Unknown error'}`)
     } finally {
-      setDownloadingPdf(null)
+      setDeletingPdf(null)
     }
   }
 
@@ -272,16 +306,27 @@ export function FRACompletedTable({
                             
                             <TableCell className="border-b bg-white group-hover:bg-slate-50">
                               {row.fire_risk_assessment_pdf_path ? (
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => handleDownloadPDF(row)}
-                                  disabled={downloadingPdf === row.id}
-                                  className="h-7 px-2 text-xs"
-                                >
-                                  <Download className="h-3 w-3 mr-1" />
-                                  {downloadingPdf === row.id ? 'Loading...' : 'Download'}
-                                </Button>
+                                <div className="flex items-center gap-1">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => handleViewPDF(row)}
+                                    className="h-7 px-2 text-xs"
+                                    title="View PDF"
+                                  >
+                                    <File className="h-4 w-4 text-blue-600" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => handleDeletePDF(row)}
+                                    disabled={deletingPdf === row.id}
+                                    className="h-7 px-1 text-red-600 hover:text-red-700"
+                                    title="Delete PDF"
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </div>
                               ) : (
                                 <span className="text-sm text-muted-foreground">—</span>
                               )}
@@ -297,6 +342,20 @@ export function FRACompletedTable({
           </Table>
         </div>
       </div>
+
+      {/* PDF Viewer Modal */}
+      <PDFViewerModal
+        open={pdfViewerOpen}
+        onOpenChange={(open) => {
+          setPdfViewerOpen(open)
+          if (!open) {
+            setSelectedPdfRow(null)
+          }
+        }}
+        pdfUrl={null}
+        title={selectedPdfRow ? `Fire Risk Assessment - ${selectedPdfRow.store_name}` : 'Fire Risk Assessment PDF'}
+        getDownloadUrl={handleGetPDFUrl}
+      />
     </div>
   )
 }

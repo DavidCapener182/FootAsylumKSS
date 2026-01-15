@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import { requireAuth } from '@/lib/auth'
+import { requireRole } from '@/lib/auth'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Activity } from 'lucide-react'
 import { format } from 'date-fns'
@@ -233,7 +233,8 @@ function formatEntityType(entityType: string): string {
 }
 
 export default async function ActivityPage() {
-  await requireAuth()
+  // Restrict access to admin, ops, and readonly roles only (exclude client)
+  await requireRole(['admin', 'ops', 'readonly'])
   const recentActivity = await getRecentActivity()
   
   // Batch fetch entity names and user names

@@ -29,8 +29,13 @@ export function FRAStatsCards({ stores, selectedArea }: FRAStatsCardsProps) {
     
     const activeStores = filteredStores.filter(s => s.is_active)
     
-    // Count stores requiring FRA
-    const storesRequiringFRA = activeStores.filter(store => storeNeedsFRA(store)).length
+    // Count stores requiring FRA (need FRA and status is NOT "up_to_date")
+    const storesRequiringFRA = activeStores.filter(store => {
+      const needsFRA = storeNeedsFRA(store)
+      if (!needsFRA) return false
+      const status = getFRAStatus(store.fire_risk_assessment_date, needsFRA)
+      return status !== 'up_to_date' // Exclude "up_to_date" stores
+    }).length
     
     // Count completed FRAs (have a date)
     const frasCompleted = activeStores.filter(store => 

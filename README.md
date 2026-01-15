@@ -69,7 +69,8 @@ All tables and enums are prefixed with `fa_` to prevent collisions in the shared
 RLS is enabled on all tables with role-based access:
 - **Admin**: Full access (read/write all, manage users/stores)
 - **Ops**: Read/Write Incidents, Investigations, Actions. Cannot manage users/stores
-- **Readonly**: View only
+- **Readonly**: View only (internal KSS users)
+- **Client**: Read-only access to incidents, actions, audits, and stores. No access to route planning or activity logs (Foot Asylum client portal)
 
 ## Features
 
@@ -109,12 +110,88 @@ RLS is enabled on all tables with role-based access:
 - `npm run lint` - Run ESLint
 - `npm run type-check` - Run TypeScript type checking
 
+## User Management
+
+### Account Creation
+
+**Sign up is disabled** - All user accounts must be created by administrators via the Supabase Dashboard.
+
+#### Creating New Users
+
+**Option 1: Self-Registration (Recommended for most users)**
+- Users can create their own accounts by clicking "Sign up" on the login page
+- They enter their full name, email, and password
+- Foot Asylum clients can check the "I am a Foot Asylum client" checkbox to get `'client'` role
+- Other users default to `'readonly'` role
+- If email confirmation is enabled in Supabase, users must confirm their email before signing in
+- Profile is automatically created with the appropriate role
+
+**Option 2: Admin-Invited Users**
+- Go to Supabase Dashboard → Authentication → Users
+- Click **"Invite User"** (recommended) or "Add User"
+- **Option A - Invite User (Recommended)**:
+  - Enter the user's email address
+  - Click "Send Invitation"
+  - User will receive an email with a link to set their own password
+  - No temporary password needed - user sets their own password
+- **Option B - Add User**:
+  - Enter email address and set a temporary password
+  - User must change password on first login or use "Forgot Password" link
+
+**Setting User Roles (for admin-invited users or role changes)**
+- After the user logs in for the first time, a profile is auto-created with default `'readonly'` role (or `'client'` if they signed up as Foot Asylum client)
+- To change the role, go to Supabase Dashboard → Table Editor → `fa_profiles`
+- Find the user by their email (or user ID from auth.users)
+- Update the `role` field to one of:
+  - `'admin'` - Full access (for managers like David Capener)
+  - `'ops'` - Read/write access to incidents, investigations, actions
+  - `'readonly'` - View-only access (default for new users)
+  - `'client'` - Read-only access for Foot Asylum client portal (no route planning or activity logs)
+
+#### Password Management
+
+**Users can set/reset their own passwords:**
+
+1. **First-time password setup** (when invited):
+   - User receives an email invitation from Supabase
+   - Clicks the link in the email
+   - Sets their password on the reset password page
+
+2. **Password reset** (forgot password):
+   - User clicks "Forgot your password?" on the login page
+   - Enters their email address
+   - Receives a password reset email
+   - Clicks the link and sets a new password
+
+3. **Changing password** (while logged in):
+   - Currently requires using Supabase Dashboard or API
+   - Future enhancement: Add "Change Password" option in user profile
+
+#### Role Assignment Examples
+
+- **Foot Asylum Client**: Set role to `'client'` for read-only access to incidents, actions, and audits
+- **KSS Managers**: Set role to `'admin'` for full access (same as David Capener)
+- **KSS Operations Staff**: Set role to `'ops'` for incident/action management
+- **KSS Read-only Staff**: Leave as `'readonly'` (default)
+
+### Email Confirmation Settings
+
+You can configure whether email confirmation is required for new sign-ups:
+
+1. Go to Supabase Dashboard → Authentication → Settings
+2. Under "Auth", find "Enable email confirmations"
+3. **If enabled**: Users must confirm their email before they can sign in (more secure)
+4. **If disabled**: Users can sign in immediately after creating an account (faster onboarding)
+
+**Note**: The sign-up page handles both scenarios automatically.
+
 ## Notes
 
 - All database operations use server actions or route handlers
 - Activity logging is automatic via database triggers
 - Storage bucket policies must be configured in Supabase Dashboard
 - User profiles are auto-created on first login with default 'readonly' role
-- Admin users must be manually assigned via database
+- Admin and client roles must be manually assigned via database after account creation
+- Client role users have restricted access (no route planning or activity logs)
 
 

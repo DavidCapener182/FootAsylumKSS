@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 
-export type UserRole = 'admin' | 'ops' | 'readonly'
+export type UserRole = 'admin' | 'ops' | 'readonly' | 'client' | 'pending'
 
 export interface UserProfile {
   id: string

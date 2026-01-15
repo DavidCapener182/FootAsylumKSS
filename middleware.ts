@@ -58,8 +58,11 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
+  // Allow access to login and password reset routes
+  const isAuthRoute = request.nextUrl.pathname.startsWith('/login')
+  
   // Protect routes - redirect to login if not authenticated
-  if (!user && !request.nextUrl.pathname.startsWith('/login')) {
+  if (!user && !isAuthRoute) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
@@ -77,8 +80,8 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Redirect authenticated users away from login
-  if (user && request.nextUrl.pathname === '/login') {
+  // Redirect authenticated users away from login/signup (but allow reset-password page)
+  if (user && (request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/login/signup') && !request.nextUrl.pathname.startsWith('/login/reset-password')) {
     return NextResponse.redirect(new URL('/', request.url))
   }
 
