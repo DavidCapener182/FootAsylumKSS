@@ -117,7 +117,7 @@ function generateICS(schedule: ScheduleItem[], managerName: string, plannedDate:
   // Calendar header
   lines.push('BEGIN:VCALENDAR')
   lines.push('VERSION:2.0')
-  lines.push('PRODID:-//Foot Asylum//Route Planning//EN')
+  lines.push('PRODID:-//KSS x Footasylum//Route Planning//EN')
   lines.push('CALSCALE:GREGORIAN')
   lines.push('METHOD:PUBLISH')
   

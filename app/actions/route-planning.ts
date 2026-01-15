@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 
 export async function updateStoreLocation(
@@ -34,8 +35,25 @@ export async function updateManagerHomeAddress(
   longitude: number | null
 ) {
   const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
 
-  const { error } = await supabase
+  if (!user) {
+    return { error: 'Unauthorized' }
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from('fa_profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  if (profileError || !profile || !['admin', 'ops'].includes(profile.role)) {
+    return { error: 'Unauthorized' }
+  }
+
+  const adminClient = createAdminSupabaseClient()
+
+  const { error } = await adminClient
     .from('fa_profiles')
     .update({
       home_address: homeAddress || null,
@@ -50,6 +68,7 @@ export async function updateManagerHomeAddress(
   }
 
   revalidatePath('/route-planning')
+  revalidatePath('/dashboard')
   return { success: true }
 }
 

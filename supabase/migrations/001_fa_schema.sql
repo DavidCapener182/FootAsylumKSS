@@ -1,4 +1,4 @@
--- Foot Asylum Assurance Platform Schema
+-- KSS x Footasylum Assurance Platform Schema
 -- All tables and enums prefixed with fa_ for shared database
 
 -- ============================================

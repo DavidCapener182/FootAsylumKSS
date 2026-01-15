@@ -13,6 +13,7 @@ import { updateRoutePlannedDate, updateManagerHomeAddress, getRouteOperationalIt
 import { format } from 'date-fns'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { RouteDirectionsModal } from './route-directions-modal'
+import { UserRole } from '@/lib/auth'
 
 // Dynamically import the map component to avoid SSR issues
 const MapComponent = dynamic(() => import('./map-component'), { ssr: false })
@@ -72,6 +73,7 @@ interface Profile {
   home_address: string | null
   home_latitude: number | null
   home_longitude: number | null
+  role: UserRole
 }
 
 interface RoutePlanningClientProps {
@@ -79,16 +81,18 @@ interface RoutePlanningClientProps {
     stores: Store[]
     profiles: Profile[]
   }
+  currentUserRole: UserRole
 }
 
-export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
+export function RoutePlanningClient({ initialData, currentUserRole }: RoutePlanningClientProps) {
   const router = useRouter()
   const [stores, setStores] = useState(initialData.stores)
-  const [profiles] = useState(initialData.profiles)
+  const [profiles, setProfiles] = useState(initialData.profiles)
   
   // Update stores when initialData changes (after router.refresh())
   useEffect(() => {
     setStores(initialData.stores)
+    setProfiles(initialData.profiles)
   }, [initialData])
   const [selectedManager, setSelectedManager] = useState<string | undefined>(undefined)
   const [selectedDate, setSelectedDate] = useState<string>('')
@@ -96,6 +100,13 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
   const [selectedStores, setSelectedStores] = useState<Set<string>>(new Set())
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [storeToDelete, setStoreToDelete] = useState<{ id: string; name: string } | null>(null)
+  const [managerHomeDraft, setManagerHomeDraft] = useState({
+    address: '',
+    latitude: '',
+    longitude: '',
+  })
+  const [savingManagerHome, setSavingManagerHome] = useState(false)
+  const [managerHomeError, setManagerHomeError] = useState<string | null>(null)
   
   // Route creation state
   const [routeManager, setRouteManager] = useState<string | undefined>(undefined)
@@ -117,6 +128,15 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
   const [routeStoreOrder, setRouteStoreOrder] = useState<Record<string, string[]>>({})
   // Track operational items for each route group
   const [routeOperationalItems, setRouteOperationalItems] = useState<Record<string, Array<{ title: string; start_time: string }>>>({})
+  const canEditManagerHome = currentUserRole === 'admin' || currentUserRole === 'ops'
+  const selectedRouteManager = routeManager ? profiles.find(p => p.id === routeManager) : null
+  const showManagerHomeEditor = Boolean(
+    routeManager &&
+      selectedRouteManager &&
+      !selectedRouteManager.home_address &&
+      !selectedRouteManager.home_latitude &&
+      !selectedRouteManager.home_longitude
+  )
 
   // Get selected manager's home location
   const managerHome = useMemo(() => {
@@ -139,6 +159,26 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
       address: manager.home_address || 'Manager Home',
     }
   }, [selectedManager, profiles])
+
+  useEffect(() => {
+    if (!routeManager) {
+      setManagerHomeDraft({ address: '', latitude: '', longitude: '' })
+      setManagerHomeError(null)
+      return
+    }
+
+    const manager = profiles.find(p => p.id === routeManager)
+    setManagerHomeDraft({
+      address: manager?.home_address || '',
+      latitude: manager?.home_latitude !== null && manager?.home_latitude !== undefined
+        ? String(manager.home_latitude)
+        : '',
+      longitude: manager?.home_longitude !== null && manager?.home_longitude !== undefined
+        ? String(manager.home_longitude)
+        : '',
+    })
+    setManagerHomeError(null)
+  }, [routeManager, profiles])
 
   // Get unique areas for filter
   const uniqueAreas = useMemo<string[]>(() => {
@@ -482,6 +522,52 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
     setSelectedManager(managerId)
   }
 
+  const handleSaveManagerHome = async () => {
+    if (!routeManager || !canEditManagerHome) return
+    setSavingManagerHome(true)
+    setManagerHomeError(null)
+
+    const address = managerHomeDraft.address.trim()
+    const latitudeValue = managerHomeDraft.latitude.trim()
+    const longitudeValue = managerHomeDraft.longitude.trim()
+    const latitude = latitudeValue ? Number(latitudeValue) : null
+    const longitude = longitudeValue ? Number(longitudeValue) : null
+
+    if ((latitudeValue && Number.isNaN(latitude)) || (longitudeValue && Number.isNaN(longitude))) {
+      setManagerHomeError('Latitude and longitude must be valid numbers.')
+      setSavingManagerHome(false)
+      return
+    }
+
+    if ((latitudeValue && !longitudeValue) || (!latitudeValue && longitudeValue)) {
+      setManagerHomeError('Provide both latitude and longitude, or leave both blank.')
+      setSavingManagerHome(false)
+      return
+    }
+
+    try {
+      const result = await updateManagerHomeAddress(routeManager, address || null, latitude, longitude)
+      if (result?.error) {
+        setManagerHomeError(result.error)
+        return
+      }
+
+      setProfiles(prev =>
+        prev.map(profile =>
+          profile.id === routeManager
+            ? { ...profile, home_address: address || null, home_latitude: latitude, home_longitude: longitude }
+            : profile
+        )
+      )
+
+      router.refresh()
+    } catch (error) {
+      setManagerHomeError(error instanceof Error ? error.message : 'Failed to update manager home address.')
+    } finally {
+      setSavingManagerHome(false)
+    }
+  }
+
   const handleStoreSelect = (storeId: string) => {
     const newSelected = new Set(selectedStores)
     if (newSelected.has(storeId)) {
@@ -782,6 +868,73 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
               </Select>
             </div>
           </div>
+
+          {showManagerHomeEditor && (
+            <div className="rounded-lg border border-slate-200 bg-white p-4">
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                  <div className="text-sm font-semibold text-slate-700">Manager home address</div>
+                  {canEditManagerHome && (
+                    <Button
+                      onClick={handleSaveManagerHome}
+                      disabled={savingManagerHome}
+                      size="sm"
+                      className="w-full md:w-auto"
+                    >
+                      {savingManagerHome ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        'Save Home Address'
+                      )}
+                    </Button>
+                  )}
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="md:col-span-2 space-y-2">
+                    <label className="text-sm font-medium text-slate-700">Address</label>
+                    <Input
+                      placeholder="Enter manager home address"
+                      value={managerHomeDraft.address}
+                      onChange={(e) => setManagerHomeDraft(prev => ({ ...prev, address: e.target.value }))}
+                      disabled={!canEditManagerHome}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700">Latitude</label>
+                    <Input
+                      placeholder="e.g. 53.4808"
+                      value={managerHomeDraft.latitude}
+                      onChange={(e) => setManagerHomeDraft(prev => ({ ...prev, latitude: e.target.value }))}
+                      disabled={!canEditManagerHome}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700">Longitude</label>
+                    <Input
+                      placeholder="e.g. -2.2426"
+                      value={managerHomeDraft.longitude}
+                      onChange={(e) => setManagerHomeDraft(prev => ({ ...prev, longitude: e.target.value }))}
+                      disabled={!canEditManagerHome}
+                    />
+                  </div>
+                </div>
+                {managerHomeError && (
+                  <p className="text-sm text-red-600">{managerHomeError}</p>
+                )}
+                {!canEditManagerHome && (
+                  <p className="text-sm text-slate-500">
+                    Only ops and admin users can edit manager home addresses.
+                  </p>
+                )}
+                <p className="text-xs text-slate-500">
+                  Home address and coordinates are used for route optimization and map display.
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Store Selection for Route */}
           {routeArea && storesInRouteArea.length > 0 && (

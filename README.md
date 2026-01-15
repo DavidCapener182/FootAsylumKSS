@@ -1,6 +1,6 @@
-# Foot Asylum Assurance Platform (KSS Internal)
+# KSS x Footasylum Assurance Platform (KSS Internal)
 
-A standalone internal web application for KSS NW (Foot Asylum's security/assurance partner). The system serves as a Single Source of Truth for managing incidents, accidents, investigations, and action tracking.
+A standalone internal web application for KSS NW (KSS x Footasylum's security/assurance partner). The system serves as a Single Source of Truth for managing incidents, accidents, investigations, and action tracking.
 
 ## Tech Stack
 
@@ -70,7 +70,7 @@ RLS is enabled on all tables with role-based access:
 - **Admin**: Full access (read/write all, manage users/stores)
 - **Ops**: Read/Write Incidents, Investigations, Actions. Cannot manage users/stores
 - **Readonly**: View only (internal KSS users)
-- **Client**: Read-only access to incidents, actions, audits, and stores. No access to route planning or activity logs (Foot Asylum client portal)
+- **Client**: Read-only access to incidents, actions, audits, and stores. No access to route planning or activity logs (KSS x Footasylum client portal)
 
 ## Features
 
@@ -121,7 +121,7 @@ RLS is enabled on all tables with role-based access:
 **Option 1: Self-Registration (Recommended for most users)**
 - Users can create their own accounts by clicking "Sign up" on the login page
 - They enter their full name, email, and password
-- Foot Asylum clients can check the "I am a Foot Asylum client" checkbox to get `'client'` role
+- KSS x Footasylum clients can check the "I am a KSS x Footasylum client" checkbox to get `'client'` role
 - Other users default to `'readonly'` role
 - If email confirmation is enabled in Supabase, users must confirm their email before signing in
 - Profile is automatically created with the appropriate role
@@ -139,14 +139,14 @@ RLS is enabled on all tables with role-based access:
   - User must change password on first login or use "Forgot Password" link
 
 **Setting User Roles (for admin-invited users or role changes)**
-- After the user logs in for the first time, a profile is auto-created with default `'readonly'` role (or `'client'` if they signed up as Foot Asylum client)
+- After the user logs in for the first time, a profile is auto-created with default `'readonly'` role (or `'client'` if they signed up as KSS x Footasylum client)
 - To change the role, go to Supabase Dashboard → Table Editor → `fa_profiles`
 - Find the user by their email (or user ID from auth.users)
 - Update the `role` field to one of:
   - `'admin'` - Full access (for managers like David Capener)
   - `'ops'` - Read/write access to incidents, investigations, actions
   - `'readonly'` - View-only access (default for new users)
-  - `'client'` - Read-only access for Foot Asylum client portal (no route planning or activity logs)
+  - `'client'` - Read-only access for KSS x Footasylum client portal (no route planning or activity logs)
 
 #### Password Management
 
@@ -169,7 +169,7 @@ RLS is enabled on all tables with role-based access:
 
 #### Role Assignment Examples
 
-- **Foot Asylum Client**: Set role to `'client'` for read-only access to incidents, actions, and audits
+- **KSS x Footasylum Client**: Set role to `'client'` for read-only access to incidents, actions, and audits
 - **KSS Managers**: Set role to `'admin'` for full access (same as David Capener)
 - **KSS Operations Staff**: Set role to `'ops'` for incident/action management
 - **KSS Read-only Staff**: Leave as `'readonly'` (default)

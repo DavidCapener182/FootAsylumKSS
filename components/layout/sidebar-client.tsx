@@ -58,16 +58,16 @@ export function SidebarClient({ userRole, userProfile }: SidebarClientProps) {
 
   const sidebarContent = (
     <>
-      <div className="flex h-16 items-center justify-between px-6">
+      <div className="flex h-20 items-center justify-between px-6">
         <div className="flex items-center gap-2">
-          <div className="relative h-14 w-32">
+          <div className="relative h-20 w-48">
             <Image
               src="/fa-logo.png"
               alt="KSS Assurance"
               fill
-              sizes="128px"
+              sizes="192px"
               className="object-contain"
-              style={{ top: 6, left: 34 }}
+              style={{ top: 22, left: 1 }}
               priority
             />
           </div>

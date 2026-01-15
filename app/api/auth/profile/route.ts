@@ -21,12 +21,23 @@ export async function POST() {
     return NextResponse.json({ message: 'Profile already exists' })
   }
 
-  // Create profile with default pending role (needs admin approval)
-  // Check if user metadata has intended_role
+  // Create profile with role from metadata or default to pending
+  // For invited users, use the intended_role from metadata if it's set
+  // For self-registered users, default to 'pending' unless they're KSS x Footasylum client
   const intendedRole = user.user_metadata?.intended_role
-  const defaultRole = (intendedRole === 'client' || intendedRole === 'admin' || intendedRole === 'ops')
-    ? intendedRole
-    : 'pending'
+  let defaultRole: string = 'pending'
+  
+  if (intendedRole) {
+    // If intended_role is explicitly set (from invitation), use it
+    const validRoles = ['admin', 'ops', 'readonly', 'client', 'pending']
+    if (validRoles.includes(intendedRole)) {
+      defaultRole = intendedRole
+    }
+  } else {
+    // No intended_role in metadata - this is likely a self-registered user
+    // Default to 'pending' for admin approval
+    defaultRole = 'pending'
+  }
   
   const { data: profile, error } = await supabase
     .from('fa_profiles')

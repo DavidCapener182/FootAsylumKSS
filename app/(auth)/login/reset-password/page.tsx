@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -118,68 +119,101 @@ function ResetPasswordContent() {
 
   if (success) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader className="px-4 sm:px-6 pt-4 sm:pt-6">
-            <CardTitle className="text-xl sm:text-2xl">Password set successfully</CardTitle>
-            <CardDescription className="text-sm sm:text-base">
-              Your password has been set. Redirecting to the app...
-            </CardDescription>
-          </CardHeader>
-        </Card>
+      <div className="min-h-screen bg-gradient-to-br from-[#0e1925] via-[#1a2f3f] to-[#0e1925] relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-[#0e1925]/90 via-[#1a2f3f]/80 to-[#0e1925]/90"></div>
+        
+        <div className="absolute top-6 left-6 z-10">
+          <Image
+            src="/fa-logo.png"
+            alt="KSS x Footasylum Logo"
+            width={120}
+            height={60}
+            className="object-contain"
+            priority
+          />
+        </div>
+
+        <div className="relative z-10 flex min-h-screen items-center justify-center p-4">
+          <Card className="w-full max-w-md bg-white/95 backdrop-blur-sm shadow-2xl border-0">
+            <CardHeader className="px-4 sm:px-6 pt-4 sm:pt-6 text-center">
+              <CardTitle className="text-2xl sm:text-3xl font-bold text-slate-900 mb-2">
+                Password set successfully
+              </CardTitle>
+              <CardDescription className="text-sm sm:text-base text-slate-600">
+                Your password has been set. Redirecting to the app...
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="px-4 sm:px-6 pt-4 sm:pt-6">
-          <CardTitle className="text-xl sm:text-2xl">
-            {(() => {
-              const hashParams = new URLSearchParams(window.location.hash.substring(1))
-              const queryParams = new URLSearchParams(window.location.search)
-              const type = hashParams.get('type') || queryParams.get('type')
-              return type === 'invite' ? 'Set your password' : 'Set new password'
-            })()}
-          </CardTitle>
-          <CardDescription className="text-sm sm:text-base">
-            {(() => {
-              const hashParams = new URLSearchParams(window.location.hash.substring(1))
-              const queryParams = new URLSearchParams(window.location.search)
-              const type = hashParams.get('type') || queryParams.get('type')
-              return type === 'invite' 
-                ? 'Welcome! Please set a password to complete your account setup.'
-                : 'Enter your new password below'
-            })()}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="password">New Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Enter new password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={6}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm Password</Label>
-              <Input
-                id="confirmPassword"
-                type="password"
-                placeholder="Confirm new password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-                minLength={6}
-              />
-            </div>
+    <div className="min-h-screen bg-gradient-to-br from-[#0e1925] via-[#1a2f3f] to-[#0e1925] relative overflow-hidden">
+      <div className="absolute inset-0 bg-gradient-to-br from-[#0e1925]/90 via-[#1a2f3f]/80 to-[#0e1925]/90"></div>
+      
+      <div className="absolute top-6 left-6 z-10">
+        <Image
+          src="/fa-logo.png"
+          alt="Footasylum KSS Logo"
+          width={120}
+          height={60}
+          className="object-contain"
+          priority
+        />
+      </div>
+
+      <div className="relative z-10 flex min-h-screen items-center justify-center p-4">
+        <Card className="w-full max-w-md bg-white/95 backdrop-blur-sm shadow-2xl border-0">
+          <CardHeader className="px-4 sm:px-6 pt-4 sm:pt-6 text-center">
+            <CardTitle className="text-2xl sm:text-3xl font-bold text-slate-900 mb-2">
+              {(() => {
+                const hashParams = new URLSearchParams(window.location.hash.substring(1))
+                const queryParams = new URLSearchParams(window.location.search)
+                const type = hashParams.get('type') || queryParams.get('type')
+                return type === 'invite' ? 'Set your password' : 'Set new password'
+              })()}
+            </CardTitle>
+            <CardDescription className="text-sm sm:text-base text-slate-600">
+              {(() => {
+                const hashParams = new URLSearchParams(window.location.hash.substring(1))
+                const queryParams = new URLSearchParams(window.location.search)
+                const type = hashParams.get('type') || queryParams.get('type')
+                return type === 'invite' 
+                  ? 'Welcome! Please set a password to complete your account setup.'
+                  : 'Enter your new password below'
+              })()}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6">
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="password" className="text-slate-700 font-medium">New Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Enter new password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={6}
+                  className="bg-white"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword" className="text-slate-700 font-medium">Confirm Password</Label>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  placeholder="Confirm new password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  minLength={6}
+                  className="bg-white"
+                />
+              </div>
             {error && (
               <div className="space-y-4">
                 <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">
@@ -196,23 +230,23 @@ function ResetPasswordContent() {
                       {linkType === 'invite' ? (
                         <>
                           <Link href="/login/forgot-password">
-                            <Button variant="outline" className="w-full">
+                            <Button variant="outline" className="w-full border-[#0e1925] text-[#0e1925] hover:bg-[#0e1925] hover:text-white">
                               Reset Password
                             </Button>
                           </Link>
-                          <p className="text-xs text-center text-muted-foreground">
+                          <p className="text-xs text-center text-slate-500">
                             If you already have an account, you can reset your password here.
                           </p>
                         </>
                       ) : (
                         <Link href="/login/forgot-password">
-                          <Button variant="outline" className="w-full">
+                          <Button variant="outline" className="w-full border-[#0e1925] text-[#0e1925] hover:bg-[#0e1925] hover:text-white">
                             Request New Reset Link
                           </Button>
                         </Link>
                       )}
                       <Link href="/login">
-                        <Button variant="ghost" className="w-full">
+                        <Button variant="ghost" className="w-full text-[#0e1925] hover:bg-[#0e1925]/10">
                           Back to Login
                         </Button>
                       </Link>
@@ -221,14 +255,15 @@ function ResetPasswordContent() {
                 )}
               </div>
             )}
-            {!isExpired && (
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? 'Updating password...' : 'Update password'}
-              </Button>
-            )}
-          </form>
-        </CardContent>
-      </Card>
+              {!isExpired && (
+                <Button type="submit" className="w-full bg-[#0e1925] hover:bg-[#1a2f3f] text-white" disabled={loading}>
+                  {loading ? 'Updating password...' : 'Update password'}
+                </Button>
+              )}
+            </form>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }
@@ -236,11 +271,11 @@ function ResetPasswordContent() {
 export default function ResetPasswordPage() {
   return (
     <Suspense fallback={
-      <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
-        <Card className="w-full max-w-md">
+      <div className="min-h-screen bg-gradient-to-br from-[#0e1925] via-[#1a2f3f] to-[#0e1925] flex items-center justify-center p-4">
+        <Card className="w-full max-w-md bg-white/95 backdrop-blur-sm">
           <CardContent className="flex items-center justify-center py-12">
             <div className="text-center">
-              <p className="text-muted-foreground">Loading...</p>
+              <p className="text-slate-600">Loading...</p>
             </div>
           </CardContent>
         </Card>

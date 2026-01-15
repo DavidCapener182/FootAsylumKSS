@@ -88,11 +88,11 @@ async function getRoutePlanningData() {
     return { stores: [], profiles: [] }
   }
 
-  // Get all profiles for manager selection (exclude client role)
+  // Get all profiles for manager selection (only ops and admin - managers)
   const { data: profiles, error: profilesError } = await supabase
     .from('fa_profiles')
     .select('id, full_name, home_address, home_latitude, home_longitude, role')
-    .neq('role', 'client') // Exclude client role users from manager dropdown
+    .in('role', ['ops', 'admin']) // Only include managers (ops and admin)
     .order('full_name', { ascending: true })
 
   if (profilesError) {
@@ -132,8 +132,8 @@ async function getRoutePlanningData() {
 
 export default async function RoutePlanningPage() {
   // Restrict access to admin, ops, and readonly roles only (exclude client)
-  await requireRole(['admin', 'ops', 'readonly'])
+  const { profile } = await requireRole(['admin', 'ops', 'readonly'])
   const data = await getRoutePlanningData()
 
-  return <RoutePlanningClient initialData={data} />
+  return <RoutePlanningClient initialData={data} currentUserRole={profile.role} />
 }

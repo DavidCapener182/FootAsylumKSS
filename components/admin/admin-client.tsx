@@ -168,7 +168,7 @@ export function AdminClient() {
       case 'readonly':
         return 'Can add and see everything'
       case 'client':
-        return 'Foot Asylum - Limited read-only access'
+        return 'KSS x Footasylum - Limited read-only access'
       case 'pending':
         return 'Awaiting admin approval - no access'
       default:
@@ -255,7 +255,7 @@ export function AdminClient() {
                     <SelectItem value="pending">Pending (Requires Approval)</SelectItem>
                     <SelectItem value="ops">Ops</SelectItem>
                     <SelectItem value="readonly">Readonly</SelectItem>
-                    <SelectItem value="client">Client (Foot Asylum)</SelectItem>
+                    <SelectItem value="client">Client (KSS x Footasylum)</SelectItem>
                     <SelectItem value="admin">Admin</SelectItem>
                   </SelectContent>
                 </Select>
@@ -534,7 +534,7 @@ export function AdminClient() {
                 Client
               </Badge>
               <span className="text-muted-foreground">
-                Foot Asylum - Limited read-only access. Can only view incidents, actions, audits, and stores. Cannot access route planning or activity logs.
+                KSS x Footasylum - Limited read-only access. Can only view incidents, actions, audits, and stores. Cannot access route planning or activity logs.
               </span>
             </div>
             <div>

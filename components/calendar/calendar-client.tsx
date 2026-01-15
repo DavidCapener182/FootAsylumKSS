@@ -1,13 +1,15 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { 
   startOfMonth, 
   endOfMonth, 
   startOfWeek, 
   endOfWeek, 
   format, 
-  isToday
+  isToday,
+  addDays,
+  subDays
 } from 'date-fns'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -29,6 +31,21 @@ export function CalendarClient({ initialData }: CalendarClientProps) {
     date: string
   } | null>(null)
   const [calendarData, setCalendarData] = useState(initialData)
+  const [isMobile, setIsMobile] = useState(false)
+  const [currentWeekStart, setCurrentWeekStart] = useState(() => {
+    const today = new Date()
+    return startOfWeek(today, { weekStartsOn: 1 }) // Monday
+  })
+
+  // Detect mobile viewport
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768) // md breakpoint
+    }
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
 
   // Get the date object for the current month
   const currentDate = useMemo(() => {
@@ -68,6 +85,63 @@ export function CalendarClient({ initialData }: CalendarClientProps) {
       console.error('Error fetching calendar data:', error)
     }
   }
+
+  // Handle week navigation for mobile
+  const handleWeekChange = async (direction: 'prev' | 'next') => {
+    const newWeekStart = direction === 'prev' 
+      ? subDays(currentWeekStart, 7)
+      : addDays(currentWeekStart, 7)
+    
+    setCurrentWeekStart(newWeekStart)
+    
+    // Check if we need to fetch data for a different month
+    const newWeekMonth = newWeekStart.getMonth() + 1
+    const newWeekYear = newWeekStart.getFullYear()
+    
+    if (newWeekMonth !== currentMonth || newWeekYear !== currentYear) {
+      setCurrentMonth(newWeekMonth)
+      setCurrentYear(newWeekYear)
+      
+      // Fetch new data
+      try {
+        const { getCalendarData } = await import('@/app/actions/calendar')
+        const newData = await getCalendarData(newWeekMonth, newWeekYear)
+        setCalendarData(newData)
+      } catch (error) {
+        console.error('Error fetching calendar data:', error)
+      }
+    }
+  }
+
+  // Get the week dates for mobile view
+  const weekDays = useMemo(() => {
+    const days: Array<{
+      date: Date
+      dateStr: string
+      plannedRoutes: PlannedRoute[]
+      completedStores: CompletedStore[]
+    }> = []
+
+    const dataMap = new Map<string, { plannedRoutes: PlannedRoute[], completedStores: CompletedStore[] }>()
+    calendarData.days.forEach(day => {
+      dataMap.set(day.date, { plannedRoutes: day.plannedRoutes, completedStores: day.completedStores })
+    })
+
+    for (let i = 0; i < 7; i++) {
+      const dayDate = addDays(currentWeekStart, i)
+      const dateStr = format(dayDate, 'yyyy-MM-dd')
+      const dayData = dataMap.get(dateStr) || { plannedRoutes: [], completedStores: [] }
+
+      days.push({
+        date: dayDate,
+        dateStr,
+        plannedRoutes: dayData.plannedRoutes,
+        completedStores: dayData.completedStores
+      })
+    }
+
+    return days
+  }, [currentWeekStart, calendarData])
 
   // Create calendar grid
   const calendarDays = useMemo(() => {
@@ -131,6 +205,119 @@ export function CalendarClient({ initialData }: CalendarClientProps) {
 
   const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
+  // Mobile week view
+  if (isMobile) {
+    const weekStartDate = weekDays[0]?.date || currentWeekStart
+    const weekEndDate = weekDays[6]?.date || addDays(currentWeekStart, 6)
+
+    return (
+      <div className="space-y-4">
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg">
+                {format(weekStartDate, 'MMM d')} - {format(weekEndDate, 'MMM d, yyyy')}
+              </CardTitle>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleWeekChange('prev')}
+                  className="h-8 w-8 p-0"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleWeekChange('next')}
+                  className="h-8 w-8 p-0"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            {/* Vertical week schedule */}
+            <div className="divide-y divide-slate-200">
+              {weekDays.map((day) => {
+                const isCurrentDay = isToday(day.date)
+                const dayName = dayNames[day.date.getDay() === 0 ? 6 : day.date.getDay() - 1]
+
+                return (
+                  <div
+                    key={day.dateStr}
+                    className={`
+                      p-4 border-l-4
+                      ${isCurrentDay ? 'border-l-blue-500 bg-blue-50' : 'border-l-transparent bg-white'}
+                    `}
+                  >
+                    {/* Day header */}
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <div className={`
+                          text-sm font-semibold
+                          ${isCurrentDay ? 'text-blue-600' : 'text-slate-900'}
+                        `}>
+                          {dayName}
+                        </div>
+                        <div className={`
+                          text-lg font-bold
+                          ${isCurrentDay ? 'text-blue-600' : 'text-slate-900'}
+                        `}>
+                          {format(day.date, 'd')}
+                        </div>
+                        {isCurrentDay && (
+                          <span className="text-xs text-blue-600 font-medium">Today</span>
+                        )}
+                      </div>
+                      <div className="text-sm text-slate-500">
+                        {format(day.date, 'MMM yyyy')}
+                      </div>
+                    </div>
+
+                    {/* Events for this day */}
+                    <div className="space-y-2">
+                      {day.plannedRoutes.length === 0 && day.completedStores.length === 0 ? (
+                        <p className="text-sm text-slate-400 italic">No events scheduled</p>
+                      ) : (
+                        <>
+                          {/* Planned routes */}
+                          {day.plannedRoutes.map((route, idx) => (
+                            <CalendarDayEvent
+                              key={`planned-${route.key}-${idx}`}
+                              type="planned"
+                              data={route}
+                              date={day.dateStr}
+                              onClick={() => setSelectedEvent({ type: 'planned', data: route, date: day.dateStr })}
+                            />
+                          ))}
+
+                          {/* Completed stores */}
+                          {day.completedStores.map((store, idx) => (
+                            <CalendarDayEvent
+                              key={`completed-${store.id}-${idx}`}
+                              type="completed"
+                              data={store}
+                              date={day.dateStr}
+                              onClick={() => setSelectedEvent({ type: 'completed', data: store, date: day.dateStr })}
+                            />
+                          ))}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  // Desktop month view
   return (
     <div className="space-y-6">
       <Card>

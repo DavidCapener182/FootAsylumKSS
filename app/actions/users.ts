@@ -181,10 +181,12 @@ export async function inviteUserByEmail(
       throw new Error(`Failed to invite user: ${inviteError.message}`)
     }
 
-    // Create profile with the intended role
+    // Create profile with the intended role using admin client to bypass RLS
     // The profile will be created when they first log in, but we can pre-create it
     if (inviteData?.user?.id) {
-      const { error: profileError } = await supabase
+      // Use admin client to create profile to ensure it works regardless of RLS
+      const adminClient = createAdminSupabaseClient()
+      const { error: profileError } = await adminClient
         .from('fa_profiles')
         .insert({
           id: inviteData.user.id,

@@ -19,15 +19,15 @@ export default async function ProtectedLayout({
     .eq('id', session.user.id)
     .single()
 
-  // Block access for pending users
-  if (profile && profile.role === 'pending') {
+  // Block access for pending users and readonly users (treat readonly as pending)
+  if (profile && (profile.role === 'pending' || profile.role === 'readonly')) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
         <div className="w-full max-w-md bg-white rounded-lg shadow-lg p-8 text-center">
           <h1 className="text-2xl font-bold text-gray-900 mb-4">Account Pending Approval</h1>
           <p className="text-gray-600 mb-6">
             Your account has been created but is pending admin approval. 
-            You will be able to access the system once an administrator approves your account.
+            You will be able to access the system once an administrator approves your account and changes your role to Ops, Client, or Admin.
           </p>
           <p className="text-sm text-gray-500">
             If you have any questions, please contact your administrator.
@@ -38,12 +38,25 @@ export default async function ProtectedLayout({
   }
 
   if (!profile && session.user) {
-    // Get intended role from user metadata (set during sign-up)
-    // New users default to 'pending' unless they're Foot Asylum client or explicitly set
+    // Get intended role from user metadata (set during sign-up or invitation)
     const intendedRole = session.user.user_metadata?.intended_role
-    const defaultRole = (intendedRole === 'client' || intendedRole === 'admin' || intendedRole === 'ops') 
-      ? intendedRole 
-      : 'pending' // New users need admin approval
+    
+    // For invited users, use the intended_role from metadata if it's set
+    // For self-registered users, default to 'pending' unless they're KSS x Footasylum client
+    // Always default to 'pending' if no intended_role is set (safety first)
+    let defaultRole: string = 'pending'
+    
+    if (intendedRole) {
+      // If intended_role is explicitly set (from invitation), use it
+      const validRoles = ['admin', 'ops', 'readonly', 'client', 'pending']
+      if (validRoles.includes(intendedRole)) {
+        defaultRole = intendedRole
+      }
+    } else {
+      // No intended_role in metadata - this is likely a self-registered user
+      // Default to 'pending' for admin approval
+      defaultRole = 'pending'
+    }
     
     // Use full_name from metadata if available, otherwise derive from email
     const fullName = session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || null
