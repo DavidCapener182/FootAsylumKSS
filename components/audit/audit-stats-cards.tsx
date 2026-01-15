@@ -3,6 +3,7 @@
 import { useMemo } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { ClipboardCheck, Store, TrendingUp } from 'lucide-react'
+import { formatPercent } from '@/lib/utils'
 import { AuditRow, getLatestPct } from './audit-table-helpers'
 
 // Area name mapping
@@ -48,7 +49,7 @@ export function AuditStatsCards({ stores, selectedArea }: AuditStatsCardsProps) 
       .filter((score): score is number => score !== null)
       
     const avgScore = scores.length 
-      ? Math.round(scores.reduce((a: number, b: number) => a + b, 0) / scores.length) 
+      ? scores.reduce((a: number, b: number) => a + b, 0) / scores.length 
       : 0
 
     // Only count COMPLETED audits (both date AND percentage)
@@ -75,7 +76,7 @@ export function AuditStatsCards({ stores, selectedArea }: AuditStatsCardsProps) 
             <p className="text-sm font-medium text-slate-500 uppercase tracking-wide">
               {areaLabel} Average
             </p>
-            <p className="text-3xl font-bold text-slate-900">{stats.avgScore}%</p>
+            <p className="text-3xl font-bold text-slate-900">{formatPercent(stats.avgScore)}</p>
           </div>
           <div className="h-12 w-12 rounded-full bg-emerald-50 flex items-center justify-center">
             <TrendingUp className="h-6 w-6 text-emerald-600" />

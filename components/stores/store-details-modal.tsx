@@ -8,6 +8,7 @@ import { format } from 'date-fns'
 import { MapPin, Building2, Award, AlertTriangle, CheckCircle2, Clock, CalendarDays, Navigation } from 'lucide-react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
+import { formatPercent } from '@/lib/utils'
 
 interface StoreDetailsModalProps {
   store: any
@@ -34,7 +35,7 @@ export function StoreDetailsModal({ store, incidents, actions, open, onOpenChang
   ].filter((score): score is number => score !== null && score !== undefined)
   
   const averageCompliance = complianceScores.length > 0
-    ? Math.round(complianceScores.reduce((sum, score) => sum + score, 0) / complianceScores.length)
+    ? complianceScores.reduce((sum, score) => sum + score, 0) / complianceScores.length
     : null
   
   // Helper for score color
@@ -203,7 +204,7 @@ export function StoreDetailsModal({ store, incidents, actions, open, onOpenChang
                       <span className="text-[10px] md:text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Audit {num}</span>
                       <div className="flex items-baseline gap-2">
                         <span className={`text-xl md:text-3xl font-bold ${getScoreColor(score)}`}>
-                          {score}%
+                          {formatPercent(score)}
                         </span>
                       </div>
                       {date && (
@@ -220,7 +221,7 @@ export function StoreDetailsModal({ store, incidents, actions, open, onOpenChang
                   <div className="flex flex-col border-l border-slate-200 pl-3 md:pl-6">
                     <span className="text-[10px] md:text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Avg Score</span>
                     <span className={`text-xl md:text-3xl font-bold ${getScoreColor(averageCompliance)}`}>
-                      {averageCompliance}%
+                      {formatPercent(averageCompliance)}
                     </span>
                     <span className="text-[10px] md:text-xs text-slate-400 mt-1">FY To Date</span>
                   </div>

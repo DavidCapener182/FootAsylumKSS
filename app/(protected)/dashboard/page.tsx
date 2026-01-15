@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/auth'
+import { truncateToDecimals } from '@/lib/utils'
 import { subDays } from 'date-fns'
 import { DashboardClient } from '@/components/dashboard/dashboard-client'
 
@@ -315,9 +316,9 @@ async function getDashboardData() {
       firstAuditsComplete,
       secondAuditsComplete,
       totalAuditsComplete,
-      firstAuditPercentage: totalStores > 0 ? Math.round((firstAuditsComplete / totalStores) * 100) : 0,
-      secondAuditPercentage: totalStores > 0 ? Math.round((secondAuditsComplete / totalStores) * 100) : 0,
-      totalAuditPercentage: totalStores > 0 ? Math.round((totalAuditsComplete / totalStores) * 100) : 0,
+      firstAuditPercentage: totalStores > 0 ? truncateToDecimals((firstAuditsComplete / totalStores) * 100) : 0,
+      secondAuditPercentage: totalStores > 0 ? truncateToDecimals((secondAuditsComplete / totalStores) * 100) : 0,
+      totalAuditPercentage: totalStores > 0 ? truncateToDecimals((totalAuditsComplete / totalStores) * 100) : 0,
     },
     storesRequiringFRA,
   }

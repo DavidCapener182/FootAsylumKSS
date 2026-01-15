@@ -1,6 +1,6 @@
 'use client'
 
-import { cn } from '@/lib/utils'
+import { cn, formatPercent } from '@/lib/utils'
 import type { PlannedRoute, CompletedStore } from '@/app/actions/calendar'
 
 interface CalendarDayEventProps {
@@ -53,20 +53,20 @@ export function CalendarDayEvent({ type, data, date, onClick }: CalendarDayEvent
   const percentages: string[] = []
   
   if (isAudit1Date && hasAudit1) {
-    percentages.push(`A1: ${store.audit1Pct}%`)
+    percentages.push(`A1: ${formatPercent(store.audit1Pct)}`)
   }
   if (isAudit2Date && hasAudit2) {
-    percentages.push(`A2: ${store.audit2Pct}%`)
+    percentages.push(`A2: ${formatPercent(store.audit2Pct)}`)
   }
   if (isFRADate && hasFRA) {
-    percentages.push(`FRA: ${store.fraPct}%`)
+    percentages.push(`FRA: ${formatPercent(store.fraPct)}`)
   }
 
   // If no specific completion on this date, show all available percentages
   if (percentages.length === 0) {
-    if (hasAudit1) percentages.push(`A1: ${store.audit1Pct}%`)
-    if (hasAudit2) percentages.push(`A2: ${store.audit2Pct}%`)
-    if (hasFRA) percentages.push(`FRA: ${store.fraPct}%`)
+    if (hasAudit1) percentages.push(`A1: ${formatPercent(store.audit1Pct)}`)
+    if (hasAudit2) percentages.push(`A2: ${formatPercent(store.audit2Pct)}`)
+    if (hasFRA) percentages.push(`FRA: ${formatPercent(store.fraPct)}`)
   }
 
   // Use red styling if any audit failed, otherwise use green

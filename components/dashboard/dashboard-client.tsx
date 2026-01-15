@@ -7,6 +7,7 @@ import { AlertTriangle, TrendingUp, Clock, AlertCircle, Store, FileCheck, Sparkl
 import { format } from 'date-fns'
 import { ComplianceVisitsTracking } from '@/components/dashboard/compliance-visits-tracking'
 import { PlannedRounds } from '@/components/dashboard/planned-rounds'
+import { formatPercent } from '@/lib/utils'
 
 // --- Helper Components ---
 
@@ -318,7 +319,7 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
               <div className="flex flex-col gap-1 p-2.5 rounded-xl bg-slate-50 border border-slate-100 hover:border-emerald-200 transition-colors">
                 <span className="text-xs font-bold uppercase text-slate-500 tracking-wider">First Audit</span>
                 <div className="flex items-end justify-between">
-                  <span className="text-2xl font-bold text-slate-900">{data.auditStats.firstAuditPercentage}%</span>
+                  <span className="text-2xl font-bold text-slate-900">{formatPercent(data.auditStats.firstAuditPercentage)}</span>
                   <span className="text-xs font-medium text-slate-400">{data.auditStats.firstAuditsComplete}/{data.auditStats.totalStores}</span>
                 </div>
                 <ProgressBar value={data.auditStats.firstAuditPercentage} colorClass="bg-emerald-500" />
@@ -328,7 +329,7 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
               <div className="flex flex-col gap-1 p-2.5 rounded-xl bg-slate-50 border border-slate-100 hover:border-blue-200 transition-colors">
                  <span className="text-xs font-bold uppercase text-slate-500 tracking-wider">Second Audit</span>
                  <div className="flex items-end justify-between">
-                  <span className="text-2xl font-bold text-slate-900">{data.auditStats.secondAuditPercentage}%</span>
+                  <span className="text-2xl font-bold text-slate-900">{formatPercent(data.auditStats.secondAuditPercentage)}</span>
                   <span className="text-xs font-medium text-slate-400">{data.auditStats.secondAuditsComplete}/{data.auditStats.totalStores}</span>
                 </div>
                 <ProgressBar value={data.auditStats.secondAuditPercentage} colorClass="bg-blue-500" />
@@ -338,7 +339,7 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
               <div className="flex flex-col gap-1 p-2.5 rounded-xl bg-slate-50 border border-slate-100 hover:border-purple-200 transition-colors">
                  <span className="text-xs font-bold uppercase text-slate-500 tracking-wider">Fully Compliant</span>
                  <div className="flex items-end justify-between">
-                  <span className="text-2xl font-bold text-slate-900">{data.auditStats.totalAuditPercentage}%</span>
+                  <span className="text-2xl font-bold text-slate-900">{formatPercent(data.auditStats.totalAuditPercentage)}</span>
                   <span className="text-xs font-medium text-slate-400">{data.auditStats.totalAuditsComplete}/{data.auditStats.totalStores}</span>
                 </div>
                 <ProgressBar value={data.auditStats.totalAuditPercentage} colorClass="bg-purple-500" />

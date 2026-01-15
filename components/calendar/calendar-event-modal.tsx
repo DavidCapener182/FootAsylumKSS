@@ -4,7 +4,7 @@ import { format, parseISO } from 'date-fns'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { User, MapPin, Store, CheckCircle2, FileText } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn, formatPercent } from '@/lib/utils'
 import type { PlannedRoute, CompletedStore } from '@/app/actions/calendar'
 
 // Area name mapping
@@ -211,7 +211,7 @@ export function CalendarEventModal({ event, onClose }: CalendarEventModalProps) 
                     ? "text-red-700"
                     : "text-blue-700"
                 )}>
-                  <span className="font-medium">Score:</span> {store.audit1Pct}%
+                  <span className="font-medium">Score:</span> {formatPercent(store.audit1Pct)}
                   {store.audit1Pct !== null && store.audit1Pct < 80 && (
                     <span className="ml-2 font-semibold">(Revisit Required)</span>
                   )}
@@ -275,7 +275,7 @@ export function CalendarEventModal({ event, onClose }: CalendarEventModalProps) 
                     ? "text-red-700"
                     : "text-blue-700"
                 )}>
-                  <span className="font-medium">Score:</span> {store.audit2Pct}%
+                  <span className="font-medium">Score:</span> {formatPercent(store.audit2Pct)}
                   {store.audit2Pct !== null && store.audit2Pct < 80 && (
                     <span className="ml-2 font-semibold">(Revisit Required)</span>
                   )}
@@ -339,7 +339,7 @@ export function CalendarEventModal({ event, onClose }: CalendarEventModalProps) 
                     ? "text-red-700"
                     : "text-orange-700"
                 )}>
-                  <span className="font-medium">Score:</span> {store.fraPct}%
+                  <span className="font-medium">Score:</span> {formatPercent(store.fraPct)}
                   {store.fraPct !== null && store.fraPct < 80 && (
                     <span className="ml-2 font-semibold">(Revisit Required)</span>
                   )}

@@ -10,7 +10,7 @@ import { ExternalLink, MapPin, Search, ShieldAlert, ShieldCheck } from 'lucide-r
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
-import { cn } from '@/lib/utils'
+import { cn, formatPercent } from '@/lib/utils'
 
 type StoreSearchResult = {
   id: string
@@ -67,10 +67,7 @@ function getLatestAudit(store: StoreSearchResult): { date: Date | null; pct: num
 }
 
 function formatPct(pct: number | null): string {
-  if (pct === null || pct === undefined) return '—'
-  // Scores in DB appear numeric(5,2); show as whole percent if integer-ish.
-  const rounded = Math.round(pct * 100) / 100
-  return `${Number.isInteger(rounded) ? rounded.toFixed(0) : rounded.toFixed(2)}%`
+  return formatPercent(pct)
 }
 
 function buildAddress(store: StoreSearchResult): string {

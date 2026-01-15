@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { LucideIcon } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn, formatPercent } from '@/lib/utils'
 
 interface KPICardProps {
   title: string
@@ -46,7 +46,7 @@ export function KPICard({ title, value, description, icon: Icon, trend, variant 
         )}
         {trend && (
           <p className={cn('text-xs mt-1 font-medium', trend.isPositive ? 'text-emerald-600' : 'text-red-600')}>
-            {trend.isPositive ? '+' : ''}{trend.value}% from last period
+            {trend.isPositive ? '+' : ''}{formatPercent(trend.value)} from last period
           </p>
         )}
       </CardContent>

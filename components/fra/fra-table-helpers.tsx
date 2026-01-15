@@ -1,5 +1,5 @@
 import { Badge } from '@/components/ui/badge'
-import { cn } from '@/lib/utils'
+import { cn, formatPercent } from '@/lib/utils'
 
 /**
  * Render a percentage badge (similar to audit table)
@@ -11,7 +11,7 @@ export function pctBadge(value: number | null) {
     pct >= 90 ? 'bg-emerald-100 text-emerald-800 border-emerald-200' :
     pct >= 80 ? 'bg-amber-100 text-amber-800 border-amber-200' :
     'bg-rose-100 text-rose-800 border-rose-200'
-  return <Badge variant="outline" className={cn('font-mono font-normal', tone)}>{Math.round(pct)}%</Badge>
+  return <Badge variant="outline" className={cn('font-mono font-normal', tone)}>{formatPercent(pct)}</Badge>
 }
 
 export interface FRARow {

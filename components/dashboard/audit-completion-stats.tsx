@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { cn } from '@/lib/utils'
+import { cn, formatPercent } from '@/lib/utils'
 
 interface AuditStats {
   totalStores: number
@@ -56,7 +56,7 @@ export function AuditCompletionStats({ stats }: AuditCompletionStatsProps) {
                 <div>
                   <p className="text-sm text-gray-600 mb-1">First Audits Complete</p>
                   <p className={cn('text-4xl font-bold', getPercentageColor(stats.firstAuditPercentage))}>
-                    {stats.firstAuditPercentage}%
+                    {formatPercent(stats.firstAuditPercentage)}
                   </p>
                 </div>
                 <div className="text-right">
@@ -79,7 +79,7 @@ export function AuditCompletionStats({ stats }: AuditCompletionStatsProps) {
                 <div>
                   <p className="text-sm text-gray-600 mb-1">Second Audits Complete</p>
                   <p className={cn('text-4xl font-bold', getPercentageColor(stats.secondAuditPercentage))}>
-                    {stats.secondAuditPercentage}%
+                    {formatPercent(stats.secondAuditPercentage)}
                   </p>
                 </div>
                 <div className="text-right">
@@ -102,7 +102,7 @@ export function AuditCompletionStats({ stats }: AuditCompletionStatsProps) {
                 <div>
                   <p className="text-sm text-gray-600 mb-1">Total Audits Complete</p>
                   <p className={cn('text-4xl font-bold', getPercentageColor(stats.totalAuditPercentage))}>
-                    {stats.totalAuditPercentage}%
+                    {formatPercent(stats.totalAuditPercentage)}
                   </p>
                 </div>
                 <div className="text-right">
