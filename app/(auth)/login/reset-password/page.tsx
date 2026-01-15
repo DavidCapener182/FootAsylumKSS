@@ -2,6 +2,7 @@
 
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -16,6 +17,8 @@ function ResetPasswordContent() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
+  const [linkType, setLinkType] = useState<string | null>(null)
+  const [isExpired, setIsExpired] = useState(false)
 
   useEffect(() => {
     // Check if we have the necessary tokens in the URL
@@ -29,6 +32,10 @@ function ResetPasswordContent() {
     const type = hashParams.get('type') || queryParams.get('type')
     const refreshToken = hashParams.get('refresh_token') || queryParams.get('refresh_token')
 
+    if (type) {
+      setLinkType(type)
+    }
+
     if ((type === 'recovery' || type === 'invite' || type === 'signup') && accessToken) {
       // User came from email link (password reset or invitation), we can proceed
       // If tokens are in query params, we might need to redirect to hash format
@@ -39,8 +46,8 @@ function ResetPasswordContent() {
       }
     } else if (!accessToken) {
       // No valid token found - might be a direct visit or expired link
-      // Don't redirect immediately, let the form show and handle error on submit
-      console.log('No access token found in URL')
+      setIsExpired(true)
+      setError('This link has expired or is invalid.')
     }
   }, [router])
 
@@ -72,6 +79,7 @@ function ResetPasswordContent() {
 
     if (!accessToken) {
       setError('Invalid or expired link. Please request a new invitation or password reset.')
+      setIsExpired(true)
       setLoading(false)
       return
     }
@@ -83,7 +91,8 @@ function ResetPasswordContent() {
     })
 
     if (sessionError) {
-      setError('Invalid or expired reset link. Please request a new one.')
+      setError('Invalid or expired link. Please request a new one.')
+      setIsExpired(true)
       setLoading(false)
       return
     }
@@ -172,11 +181,51 @@ function ResetPasswordContent() {
               />
             </div>
             {error && (
-              <div className="text-sm text-destructive">{error}</div>
+              <div className="space-y-4">
+                <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">
+                  {error}
+                </div>
+                {isExpired && (
+                  <div className="space-y-3 pt-2">
+                    <p className="text-sm text-muted-foreground">
+                      {linkType === 'invite' 
+                        ? 'This invitation link has expired. Please contact your administrator to request a new invitation, or use the options below:'
+                        : 'This password reset link has expired. Please request a new one:'}
+                    </p>
+                    <div className="flex flex-col gap-2">
+                      {linkType === 'invite' ? (
+                        <>
+                          <Link href="/login/forgot-password">
+                            <Button variant="outline" className="w-full">
+                              Reset Password
+                            </Button>
+                          </Link>
+                          <p className="text-xs text-center text-muted-foreground">
+                            If you already have an account, you can reset your password here.
+                          </p>
+                        </>
+                      ) : (
+                        <Link href="/login/forgot-password">
+                          <Button variant="outline" className="w-full">
+                            Request New Reset Link
+                          </Button>
+                        </Link>
+                      )}
+                      <Link href="/login">
+                        <Button variant="ghost" className="w-full">
+                          Back to Login
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Updating password...' : 'Update password'}
-            </Button>
+            {!isExpired && (
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? 'Updating password...' : 'Update password'}
+              </Button>
+            )}
           </form>
         </CardContent>
       </Card>
