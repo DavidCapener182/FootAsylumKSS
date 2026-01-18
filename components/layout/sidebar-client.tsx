@@ -67,7 +67,7 @@ export function SidebarClient({ userRole, userProfile }: SidebarClientProps) {
               fill
               sizes="192px"
               className="object-contain"
-              style={{ top: 22, left: 1 }}
+              style={{ top: 4, left: 24 }}
               priority
             />
           </div>

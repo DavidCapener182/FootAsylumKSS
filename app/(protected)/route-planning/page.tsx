@@ -132,8 +132,8 @@ async function getRoutePlanningData() {
 
 export default async function RoutePlanningPage() {
   // Restrict access to admin, ops, and readonly roles only (exclude client)
-  const { profile } = await requireRole(['admin', 'ops', 'readonly'])
+  await requireRole(['admin', 'ops', 'readonly'])
   const data = await getRoutePlanningData()
 
-  return <RoutePlanningClient initialData={data} currentUserRole={profile.role} />
+  return <RoutePlanningClient initialData={data} />
 }

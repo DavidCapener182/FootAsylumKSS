@@ -1,0 +1,2261 @@
+'use client'
+
+import React, { useState, useEffect, useMemo, useRef } from 'react'
+import Link from 'next/link'
+import { 
+  ChevronRight,
+  Plus,
+  FileText,
+  ClipboardCheck,
+  History,
+  ArrowLeft,
+  Sparkles,
+  Loader2,
+  Trash2,
+  Edit2,
+  Upload,
+  X,
+  Camera,
+  Image as ImageIcon,
+  Download,
+  CheckCircle2
+} from 'lucide-react'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { createClient } from '@/lib/supabase/client'
+import { 
+  getTemplates, 
+  getTemplate, 
+  createTemplate,
+  createAuditInstance,
+  getAuditHistory,
+  deleteAuditInstance,
+  getAuditInstance,
+  saveAuditResponse,
+  uploadAuditMedia,
+  completeAudit
+} from '@/app/actions/safehub'
+
+type ViewState = 'templates' | 'template-builder' | 'active-audits' | 'audit-form' | 'audit-execution' | 'audit-history'
+
+interface Template {
+  id: string
+  title: string
+  description?: string
+  category: string
+  created_at: string
+  is_active: boolean
+}
+
+export function AuditLabClient() {
+  const [activeTab, setActiveTab] = useState('templates')
+  const [view, setView] = useState<'templates' | 'template-builder' | 'audit-form' | 'audit-execution'>('templates')
+  const [templates, setTemplates] = useState<Template[]>([])
+  const [loading, setLoading] = useState(true)
+  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null)
+  const [selectedAuditInstance, setSelectedAuditInstance] = useState<string | null>(null)
+  const [activeAudits, setActiveAudits] = useState<any[]>([])
+  const [loadingAudits, setLoadingAudits] = useState(true)
+  const [auditHistory, setAuditHistory] = useState<any[]>([])
+  const [loadingHistory, setLoadingHistory] = useState(true)
+
+  useEffect(() => {
+    loadTemplates()
+  }, [])
+
+  useEffect(() => {
+    if (activeTab === 'active-audits') {
+      loadActiveAudits()
+    } else if (activeTab === 'history') {
+      loadAuditHistory()
+    }
+  }, [activeTab])
+
+  const loadTemplates = async () => {
+    try {
+      setLoading(true)
+      const data = await getTemplates()
+      setTemplates(data as Template[])
+    } catch (error) {
+      console.error('Error loading templates:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const loadActiveAudits = async () => {
+    try {
+      setLoadingAudits(true)
+      // Get both draft and in_progress audits
+      const allData = await getAuditHistory()
+      const active = allData.filter((a: any) => a.status === 'draft' || a.status === 'in_progress')
+      setActiveAudits(active)
+    } catch (error) {
+      console.error('Error loading active audits:', error)
+    } finally {
+      setLoadingAudits(false)
+    }
+  }
+
+  const loadAuditHistory = async () => {
+    try {
+      setLoadingHistory(true)
+      const data = await getAuditHistory({ status: 'completed' })
+      setAuditHistory(data)
+    } catch (error) {
+      console.error('Error loading audit history:', error)
+    } finally {
+      setLoadingHistory(false)
+    }
+  }
+
+  const handleTemplateClick = (templateId: string) => {
+    setSelectedTemplate(templateId)
+    setView('audit-form')
+  }
+
+  const handleBackFromSubView = () => {
+    setView('templates')
+    setSelectedTemplate(null)
+  }
+
+  return (
+    <div className="space-y-4 md:space-y-6">
+      {/* Breadcrumb */}
+      <nav className="flex items-center gap-2 text-xs md:text-sm text-muted-foreground mb-3 md:mb-4 overflow-x-auto">
+        <Link 
+          href="/admin" 
+          className="hover:text-foreground transition-colors whitespace-nowrap"
+        >
+          Admin
+        </Link>
+        <ChevronRight className="h-3 w-3 md:h-4 md:w-4 flex-shrink-0" />
+        <span className="text-foreground font-medium truncate">SafeHub</span>
+        {selectedTemplate && view === 'audit-form' && (
+          <>
+            <ChevronRight className="h-3 w-3 md:h-4 md:w-4 flex-shrink-0" />
+            <span className="text-foreground font-medium truncate">
+              {templates.find(t => t.id === selectedTemplate)?.title || 'Template'}
+            </span>
+          </>
+        )}
+      </nav>
+
+      {/* Main Navigation Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full max-w-[600px] grid-cols-3 bg-slate-100 p-1 min-h-[44px]">
+          <TabsTrigger 
+            value="templates"
+            className="data-[state=active]:bg-white data-[state=active]:text-indigo-700 data-[state=active]:shadow-sm transition-all"
+          >
+            Templates
+          </TabsTrigger>
+          <TabsTrigger 
+            value="active-audits"
+            className="data-[state=active]:bg-white data-[state=active]:text-indigo-700 data-[state=active]:shadow-sm transition-all"
+          >
+            Active Audits
+          </TabsTrigger>
+          <TabsTrigger 
+            value="history"
+            className="data-[state=active]:bg-white data-[state=active]:text-indigo-700 data-[state=active]:shadow-sm transition-all"
+          >
+            History
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="templates" className="mt-6">
+          {view === 'templates' && (
+            <TemplatesLibraryView 
+              templates={templates}
+              loading={loading}
+              onTemplateClick={handleTemplateClick}
+              onCreateNew={() => setView('template-builder')}
+              onTemplatesReload={loadTemplates}
+            />
+          )}
+
+          {view === 'template-builder' && (
+            <TemplateBuilderView 
+              onBack={handleBackFromSubView}
+              onSave={() => {
+                loadTemplates()
+                setView('templates')
+              }}
+            />
+          )}
+
+          {view === 'audit-form' && selectedTemplate && (
+            <AuditFormView 
+              templateId={selectedTemplate}
+              onBack={handleBackFromSubView}
+              onStartAudit={(instanceId) => {
+                setSelectedAuditInstance(instanceId)
+                setView('audit-execution')
+              }}
+            />
+          )}
+
+          {view === 'audit-execution' && selectedTemplate && selectedAuditInstance && (
+            <AuditExecutionView 
+              templateId={selectedTemplate}
+              instanceId={selectedAuditInstance}
+              onBack={() => {
+                setSelectedAuditInstance(null)
+                setView('audit-form')
+              }}
+            />
+          )}
+        </TabsContent>
+
+        <TabsContent value="active-audits" className="mt-6">
+          <ActiveAuditsView 
+            audits={activeAudits} 
+            loading={loadingAudits} 
+            onReload={loadActiveAudits}
+            onEdit={(auditInstanceId) => {
+              // Find the audit to get its template_id
+              const audit = activeAudits.find((a: any) => a.id === auditInstanceId)
+              if (audit && audit.template_id) {
+                // Set template and instance, switch to templates tab, and show audit execution view
+                setSelectedTemplate(audit.template_id)
+                setSelectedAuditInstance(auditInstanceId)
+                setActiveTab('templates')
+                setView('audit-execution')
+              }
+            }}
+          />
+        </TabsContent>
+
+        <TabsContent value="history" className="mt-6">
+          <AuditHistoryView 
+            audits={auditHistory} 
+            loading={loadingHistory}
+            onEdit={(auditId, templateId) => {
+              // Find the audit to get its template_id
+              const audit = auditHistory.find((a: any) => a.id === auditId)
+              if (audit && (audit.template_id || templateId)) {
+                // Set template and instance, switch to templates tab, and show audit execution view
+                setSelectedTemplate(audit.template_id || templateId)
+                setSelectedAuditInstance(auditId)
+                setActiveTab('templates')
+                setView('audit-execution')
+              }
+            }}
+          />
+        </TabsContent>
+      </Tabs>
+    </div>
+  )
+}
+
+// Templates Library View
+function TemplatesLibraryView({
+  templates,
+  loading,
+  onTemplateClick,
+  onCreateNew,
+  onTemplatesReload,
+}: {
+  templates: Template[]
+  loading: boolean
+  onTemplateClick: (id: string) => void
+  onCreateNew: () => void
+  onTemplatesReload?: () => void
+}) {
+  const [seeding, setSeeding] = useState(false)
+
+  const handleSeedFootAsylumTemplate = async () => {
+    if (!confirm('This will create the FootAsylum SafeHub template with all sections and questions. Continue?')) {
+      return
+    }
+
+    try {
+      setSeeding(true)
+      const response = await fetch('/api/safehub/seed-template', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      const result = await response.json()
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || 'Failed to seed template')
+      }
+
+      alert('FootAsylum SafeHub template created successfully!')
+      if (onTemplatesReload) {
+        onTemplatesReload()
+      } else {
+        window.location.reload()
+      }
+    } catch (error: any) {
+      console.error('Error seeding template:', error)
+      alert(`Failed to seed template: ${error.message}`)
+    } finally {
+      setSeeding(false)
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Actions */}
+      <div className="flex gap-3 flex-wrap">
+        <Button onClick={onCreateNew} className="bg-indigo-600 hover:bg-indigo-700">
+          <Plus className="h-4 w-4 mr-2" />
+          Create New Template
+        </Button>
+        {templates.length === 0 && (
+          <Button 
+            onClick={handleSeedFootAsylumTemplate} 
+            disabled={seeding}
+            variant="outline"
+            className="border-indigo-600 text-indigo-600 hover:bg-indigo-50"
+          >
+            {seeding ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Creating FootAsylum Template...
+              </>
+            ) : (
+              <>
+                <Sparkles className="h-4 w-4 mr-2" />
+                Seed FootAsylum SafeHub Template
+              </>
+            )}
+          </Button>
+        )}
+      </div>
+
+      {/* Templates Grid */}
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+        </div>
+      ) : templates.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <FileText className="h-12 w-12 mx-auto text-slate-300 mb-4" />
+            <p className="text-slate-500 mb-4">No templates yet</p>
+            <Button onClick={onCreateNew} variant="outline">
+              <Plus className="h-4 w-4 mr-2" />
+              Create Your First Template
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {templates.map((template) => (
+            <Card 
+              key={template.id}
+              className="hover:shadow-lg transition-shadow cursor-pointer"
+              onClick={() => onTemplateClick(template.id)}
+            >
+              <CardHeader>
+                <div className="flex items-start justify-between">
+                  <CardTitle className="text-lg">{template.title}</CardTitle>
+                  <Badge variant="outline" className="shrink-0 ml-2">
+                    {template.category.replace('_', ' ')}
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {template.description && (
+                  <p className="text-sm text-slate-600 mb-4">{template.description}</p>
+                )}
+                <div className="flex items-center justify-between text-xs text-slate-500">
+                  <span>Created {new Date(template.created_at).toLocaleDateString()}</span>
+                  <Button variant="ghost" size="sm" className="text-indigo-600">
+                    Start Audit <ChevronRight className="h-3 w-3 ml-1" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Template Builder View
+function TemplateBuilderView({
+  onBack,
+  onSave,
+}: {
+  onBack: () => void
+  onSave: () => void
+}) {
+  const [title, setTitle] = useState('')
+  const [description, setDescription] = useState('')
+  const [category, setCategory] = useState<'footasylum_audit' | 'fire_risk_assessment' | 'custom'>('custom')
+  const [saving, setSaving] = useState(false)
+
+  const handleSave = async () => {
+    if (!title.trim()) {
+      alert('Please enter a template title')
+      return
+    }
+
+    try {
+      setSaving(true)
+      await createTemplate({
+        title: title.trim(),
+        description: description.trim() || undefined,
+        category,
+        sections: [],
+      })
+      onSave()
+    } catch (error) {
+      console.error('Error creating template:', error)
+      alert('Failed to create template')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={onBack}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back
+          </Button>
+          <CardTitle>Create New Template</CardTitle>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div>
+          <label className="block text-sm font-medium mb-2">Title *</label>
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            placeholder="e.g., Daily Safety Inspection"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-2">Description</label>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            rows={3}
+            placeholder="Describe what this audit template is for..."
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-2">Category</label>
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value as any)}
+            className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            <option value="custom">Custom</option>
+            <option value="footasylum_audit">Footasylum Audit</option>
+            <option value="fire_risk_assessment">Fire Risk Assessment</option>
+          </select>
+        </div>
+
+        <div className="pt-4 border-t">
+          <p className="text-sm text-slate-600 mb-4">
+            Template created. Sections and questions can be added after creation.
+          </p>
+          <div className="flex gap-3">
+            <Button onClick={handleSave} disabled={saving} className="bg-indigo-600 hover:bg-indigo-700">
+              {saving ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Create Template
+                </>
+              )}
+            </Button>
+            <Button variant="outline" onClick={onBack} disabled={saving}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+// Audit Form View (Store Selection)
+function AuditFormView({
+  templateId,
+  onBack,
+  onStartAudit,
+}: {
+  templateId: string
+  onBack: () => void
+  onStartAudit: (instanceId: string) => void
+}) {
+  const [loading, setLoading] = useState(true)
+  const [template, setTemplate] = useState<any>(null)
+  const [stores, setStores] = useState<any[]>([])
+  const [selectedStoreId, setSelectedStoreId] = useState<string>('')
+  const [startingAudit, setStartingAudit] = useState(false)
+
+  useEffect(() => {
+    loadTemplate()
+    loadStores()
+  }, [templateId])
+
+  const loadTemplate = async () => {
+    try {
+      setLoading(true)
+      const data = await getTemplate(templateId)
+      setTemplate(data)
+    } catch (error) {
+      console.error('Error loading template:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const loadStores = async () => {
+    try {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('fa_stores')
+        .select('id, store_code, store_name, city, region')
+        .eq('is_active', true)
+        .order('store_name', { ascending: true })
+
+      if (!error && data) {
+        setStores(data)
+      }
+    } catch (error) {
+      console.error('Error loading stores:', error)
+    }
+  }
+
+  const handleStartAudit = async () => {
+    if (!selectedStoreId) {
+      alert('Please select a store')
+      return
+    }
+
+    try {
+      setStartingAudit(true)
+      const instance = await createAuditInstance(templateId, selectedStoreId)
+      onStartAudit(instance.id)
+    } catch (error) {
+      console.error('Error starting audit:', error)
+      alert('Failed to start audit')
+    } finally {
+      setStartingAudit(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <Card>
+        <CardContent className="py-12 text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-indigo-600 mx-auto" />
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (!template) {
+    return (
+      <Card>
+        <CardContent className="py-12 text-center">
+          <p className="text-slate-500">Template not found</p>
+          <Button onClick={onBack} variant="outline" className="mt-4">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Templates
+          </Button>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={onBack}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back
+          </Button>
+          <CardTitle>{template.title}</CardTitle>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-6">
+          {template.description && (
+            <p className="text-slate-600">{template.description}</p>
+          )}
+
+          {/* Store Selection */}
+          <div>
+            <label className="block text-sm font-medium mb-2">Select Store *</label>
+            <select
+              value={selectedStoreId}
+              onChange={(e) => setSelectedStoreId(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-50 disabled:text-slate-500"
+              disabled={startingAudit}
+            >
+              <option value="">-- Select a store --</option>
+              {stores.map((store) => (
+                <option key={store.id} value={store.id}>
+                  {store.store_name} {store.store_code && `(${store.store_code})`} 
+                  {store.city && ` - ${store.city}`}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="pt-4 border-t">
+            <Button 
+              onClick={handleStartAudit} 
+              disabled={!selectedStoreId || startingAudit}
+              className="bg-indigo-600 hover:bg-indigo-700"
+            >
+              {startingAudit ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Starting...
+                </>
+              ) : (
+                <>
+                  <ClipboardCheck className="h-4 w-4 mr-2" />
+                  Start Audit
+                </>
+              )}
+            </Button>
+          </div>
+
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+// Signature Canvas Component
+function SignatureCanvasComponent({
+  questionId,
+  responseValue,
+  onSignatureChange,
+}: {
+  questionId: string
+  responseValue: string | null
+  onSignatureChange: (dataURL: string) => void
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    // Set canvas dimensions
+    const rect = canvas.getBoundingClientRect()
+    canvas.width = rect.width || 600
+    canvas.height = 192
+
+    // Load existing signature if available
+    if (responseValue && responseValue.startsWith('data:image')) {
+      const ctx = canvas.getContext('2d')
+      if (ctx) {
+        const img = new Image()
+        img.onload = () => {
+          ctx.clearRect(0, 0, canvas.width, canvas.height)
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+        }
+        img.src = responseValue
+      }
+    }
+  }, [responseValue])
+
+  const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    const rect = canvas.getBoundingClientRect()
+    const x = e.clientX - rect.left
+    const y = e.clientY - rect.top
+
+    ctx.strokeStyle = '#1e293b'
+    ctx.lineWidth = 2
+    ctx.lineCap = 'round'
+    ctx.beginPath()
+    ctx.moveTo(x, y)
+
+    const draw = (e: MouseEvent) => {
+      const newX = e.clientX - rect.left
+      const newY = e.clientY - rect.top
+      ctx.lineTo(newX, newY)
+      ctx.stroke()
+      // Save continuously as user draws
+      onSignatureChange(canvas.toDataURL())
+    }
+
+    const stopDrawing = () => {
+      canvas.removeEventListener('mousemove', draw)
+      canvas.removeEventListener('mouseup', stopDrawing)
+      canvas.removeEventListener('mouseleave', stopDrawing)
+      onSignatureChange(canvas.toDataURL())
+    }
+
+    canvas.addEventListener('mousemove', draw)
+    canvas.addEventListener('mouseup', stopDrawing)
+    canvas.addEventListener('mouseleave', stopDrawing)
+  }
+
+  const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault()
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    const rect = canvas.getBoundingClientRect()
+    const touch = e.touches[0]
+    const x = touch.clientX - rect.left
+    const y = touch.clientY - rect.top
+
+    ctx.strokeStyle = '#1e293b'
+    ctx.lineWidth = 2
+    ctx.lineCap = 'round'
+    ctx.beginPath()
+    ctx.moveTo(x, y)
+
+    const draw = (e: TouchEvent) => {
+      e.preventDefault()
+      const touch = e.touches[0]
+      const newX = touch.clientX - rect.left
+      const newY = touch.clientY - rect.top
+      ctx.lineTo(newX, newY)
+      ctx.stroke()
+      onSignatureChange(canvas.toDataURL())
+    }
+
+    const stopDrawing = () => {
+      canvas.removeEventListener('touchmove', draw)
+      canvas.removeEventListener('touchend', stopDrawing)
+      canvas.removeEventListener('touchcancel', stopDrawing)
+      onSignatureChange(canvas.toDataURL())
+    }
+
+    canvas.addEventListener('touchmove', draw, { passive: false })
+    canvas.addEventListener('touchend', stopDrawing)
+    canvas.addEventListener('touchcancel', stopDrawing)
+  }
+
+  const handleClear = () => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    const ctx = canvas.getContext('2d')
+    if (ctx) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+      onSignatureChange('')
+    }
+  }
+
+  return (
+    <>
+      <canvas
+        ref={canvasRef}
+        className="w-full h-48 cursor-crosshair touch-none"
+        style={{ borderTopLeftRadius: '0.5rem', borderTopRightRadius: '0.5rem' }}
+        onMouseDown={handleMouseDown}
+        onTouchStart={handleTouchStart}
+      />
+      <div className="px-4 py-2 border-t border-slate-300 bg-slate-50 flex items-center justify-between">
+        <p className="text-sm text-slate-600">Draw your signature above</p>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={handleClear}
+          className="text-xs"
+        >
+          Clear
+        </Button>
+      </div>
+    </>
+  )
+}
+
+// Audit Execution View - Section by section navigation
+function AuditExecutionView({
+  templateId,
+  instanceId,
+  onBack,
+}: {
+  templateId: string
+  instanceId: string
+  onBack: () => void
+}) {
+  const [loading, setLoading] = useState(true)
+  const [template, setTemplate] = useState<any>(null)
+  const [currentSectionIndex, setCurrentSectionIndex] = useState(0)
+  const [responses, setResponses] = useState<Record<string, any>>({})
+  const [saving, setSaving] = useState(false)
+  const [uploadingFiles, setUploadingFiles] = useState<Record<string, boolean>>({})
+  const [comments, setComments] = useState<Record<string, string>>({})
+  const [completed, setCompleted] = useState(false)
+  const [completing, setCompleting] = useState(false)
+
+  useEffect(() => {
+    loadTemplate()
+    loadResponses()
+  }, [templateId, instanceId])
+
+  const loadTemplate = async () => {
+    try {
+      setLoading(true)
+      const data = await getTemplate(templateId)
+      setTemplate(data)
+    } catch (error) {
+      console.error('Error loading template:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const loadResponses = async () => {
+    try {
+      const instance = await getAuditInstance(instanceId)
+      const responsesMap: Record<string, any> = {}
+      const commentsMap: Record<string, string> = {}
+      instance.responses?.forEach((r: any) => {
+        responsesMap[r.question_id] = r
+        // Load comments from response_json if available
+        if (r.response_json?.comment) {
+          commentsMap[r.question_id] = r.response_json.comment
+        }
+      })
+      setResponses(responsesMap)
+      setComments(commentsMap)
+    } catch (error) {
+      console.error('Error loading responses:', error)
+    }
+  }
+
+  const sections = template?.sections || []
+  const currentSection = sections[currentSectionIndex]
+
+  // Helper function to get short section name (before " - " or ":" if exists, otherwise truncate)
+  const getShortSectionName = (title: string): string => {
+    if (!title) return ''
+    // Try to extract before " - " first
+    const dashIndex = title.indexOf(' - ')
+    if (dashIndex > 0) {
+      return title.substring(0, dashIndex).trim()
+    }
+    // Try to extract before ":"
+    const colonIndex = title.indexOf(':')
+    if (colonIndex > 0) {
+      return title.substring(0, colonIndex).trim()
+    }
+    // If no separator, return first 30 characters
+    return title.length > 30 ? title.substring(0, 30).trim() + '...' : title.trim()
+  }
+
+  // Calculate scores - made reactive with useMemo
+  const calculateSectionScore = (section: any, responsesMap: Record<string, any>) => {
+    if (!section?.questions || section.questions.length === 0) {
+      return { questions: 0, passes: 0, percentage: 0 }
+    }
+    
+    const questions = section.questions.filter((q: any) => q.question_type === 'yesno')
+    // Filter out N/A questions from scoring - only count questions with yes/no answers
+    const scorableQuestions = questions.filter((question: any) => {
+      const response = responsesMap[question.id]
+      const responseValue = response?.response_value || response?.response_json
+      return responseValue && responseValue !== 'na' && responseValue !== 'N/A'
+    })
+    const questionsCount = scorableQuestions.length
+    let passes = 0
+
+    scorableQuestions.forEach((question: any) => {
+      const response = responsesMap[question.id]
+      const responseValue = response?.response_value || response?.response_json
+      
+      // Special case: "enforcement action" question - "no" should get a point, "yes" shouldn't
+      const isEnforcementQuestion = question.question_text?.toLowerCase().includes('enforcement action')
+      
+      if (isEnforcementQuestion) {
+        // Inverted logic: "no" counts as pass
+        if (responseValue === 'no') {
+          passes++
+        }
+      } else {
+        // Normal logic: "yes" counts as pass
+        if (responseValue === 'yes') {
+          passes++
+        }
+      }
+    })
+
+    const percentage = questionsCount > 0 ? Math.round((passes / questionsCount) * 100) : 0
+    return { questions: questionsCount, passes, percentage }
+  }
+
+  // Make currentSectionScore reactive to responses changes
+  const currentSectionScore = useMemo(() => {
+    return calculateSectionScore(currentSection, responses)
+  }, [currentSection, responses])
+
+  // Calculate overall score (sum of all passes / sum of all questions across all sections)
+  // NOTE: Only counts scored questions (yes/no questions), informational questions are excluded
+  // calculateSectionScore already filters for question_type === 'yesno'
+  // Make overallScore reactive to responses changes
+  const overallScore = useMemo(() => {
+    let totalQuestions = 0
+    let totalPasses = 0
+
+    sections.forEach((section: any) => {
+      // calculateSectionScore only counts yes/no questions, ignoring informational questions
+      const score = calculateSectionScore(section, responses)
+      totalQuestions += score.questions // Only scored questions
+      totalPasses += score.passes // Only passes from scored questions
+    })
+
+    const percentage = totalQuestions > 0 ? Math.round((totalPasses / totalQuestions) * 100) : 0
+    return { questions: totalQuestions, passes: totalPasses, percentage }
+  }, [sections, responses])
+
+  // Check if section is disclaimer (no inputs needed, just display text)
+  const isDisclaimerSection = currentSection?.title?.toLowerCase() === 'disclaimer'
+  
+  // Check if this is the Risk Assessments section
+  const isRiskAssessmentsSection = currentSection?.title?.toLowerCase().includes('risk assessments')
+
+  const handleNext = () => {
+    if (currentSectionIndex < sections.length - 1) {
+      setCurrentSectionIndex(currentSectionIndex + 1)
+    }
+  }
+
+  const handleCompleteAudit = async () => {
+    try {
+      setCompleting(true)
+      const result = await completeAudit(instanceId)
+      setCompleted(true)
+      // Reload responses to get updated status
+      await loadResponses()
+    } catch (error) {
+      console.error('Error completing audit:', error)
+      alert('Failed to complete audit. Please try again.')
+    } finally {
+      setCompleting(false)
+    }
+  }
+
+  const isLastSection = currentSectionIndex === sections.length - 1
+
+  const handlePrevious = () => {
+    if (currentSectionIndex > 0) {
+      setCurrentSectionIndex(currentSectionIndex - 1)
+    }
+  }
+
+  const handleAnswerChange = async (questionId: string, value: any) => {
+    // Update local state immediately for responsive UI
+    const currentResponse = responses[questionId]
+    const existingJson = currentResponse?.response_json || {}
+    const existingComment = comments[questionId] || ''
+    
+    setResponses(prev => ({ 
+      ...prev, 
+      [questionId]: { 
+        ...currentResponse,
+        response_value: value,
+        response_json: {
+          ...existingJson,
+          comment: existingComment || undefined,
+        }
+      } 
+    }))
+    
+    try {
+      setSaving(true)
+      await saveAuditResponse(instanceId, questionId, {
+        response_value: typeof value === 'string' ? value : null,
+        response_json: {
+          ...existingJson,
+          comment: existingComment || undefined,
+        },
+      })
+    } catch (error) {
+      console.error('Error saving response:', error)
+      // Reload responses on error to revert
+      loadResponses()
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleCommentChange = async (questionId: string, comment: string) => {
+    setComments(prev => ({ ...prev, [questionId]: comment }))
+    
+    const currentResponse = responses[questionId]
+    const existingJson = currentResponse?.response_json || {}
+    
+    try {
+      setSaving(true)
+      await saveAuditResponse(instanceId, questionId, {
+        response_value: currentResponse?.response_value || null,
+        response_json: {
+          ...existingJson,
+          comment: comment || undefined,
+        },
+      })
+      // Update local state
+      setResponses(prev => ({
+        ...prev,
+        [questionId]: {
+          ...currentResponse,
+          response_json: {
+            ...existingJson,
+            comment: comment || undefined,
+          }
+        }
+      }))
+    } catch (error) {
+      console.error('Error saving comment:', error)
+      loadResponses()
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleFileUpload = async (questionId: string, file: File) => {
+    try {
+      setUploadingFiles(prev => ({ ...prev, [questionId]: true }))
+      await uploadAuditMedia(instanceId, questionId, file)
+      // Reload responses to get updated media
+      await loadResponses()
+    } catch (error) {
+      console.error('Error uploading file:', error)
+      alert(`Failed to upload file: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    } finally {
+      setUploadingFiles(prev => ({ ...prev, [questionId]: false }))
+    }
+  }
+
+  const renderQuestion = (question: any) => {
+    const currentResponse = responses[question.id]
+    const responseValue = currentResponse?.response_value || currentResponse?.response_json || null
+
+    // Check if this is the enforcement action question (inverted scoring)
+    const isEnforcementQuestion = question.question_text?.toLowerCase().includes('enforcement action')
+    
+    // Check if this question needs media upload and comments (1st and 3rd questions of H&S Policy section)
+    const questionText = question.question_text?.toLowerCase() || ''
+    const needsMediaAndComments = questionText.includes('health and safety policy available on site') || 
+                                   questionText.includes('health and policy statement been signed')
+    
+    // Check if this is the 3rd question (needs auto-input text with date)
+    const isSignedQuestion = questionText.includes('health and policy statement been signed')
+    
+    // Check if this is in Risk Assessments section and needs media upload
+    const isRiskAssessmentsQuestion = isRiskAssessmentsSection && question.question_type === 'yesno'
+    
+    // Check if this is the first question in Risk Assessments (Slips, trips and falls?)
+    const isFirstRiskAssessmentQuestion = isRiskAssessmentsSection && 
+                                          questionText.includes('slips, trips and falls')
+    
+    // Check if this is in Training section and needs media upload
+    const isTrainingSection = currentSection?.title?.toLowerCase() === 'training'
+    const isTrainingQuestion = isTrainingSection && question.question_type === 'yesno'
+    
+    // Check if this is in Contractor & Visitor Safety section
+    const isContractorSection = currentSection?.title?.toLowerCase().includes('contractor') || 
+                                currentSection?.title?.toLowerCase().includes('visitor safety')
+    
+    // Check if this is the first question in Contractor section (about signing in)
+    const isFirstContractorQuestion = isContractorSection && 
+                                      questionText.includes('contractors managed whilst working on site')
+    
+    // Check if this is in Statutory Testing section and needs media upload
+    const isStatutoryTestingSection = currentSection?.title?.toLowerCase().includes('statutory testing')
+    const isStatutoryTestingQuestion = isStatutoryTestingSection && question.question_type === 'yesno'
+    
+    // Check if this is in Manual Handling section and needs media upload
+    const isManualHandlingSection = currentSection?.title?.toLowerCase() === 'manual handling'
+    const isManualHandlingQuestion = isManualHandlingSection && question.question_type === 'yesno'
+    
+    // Check if this is in COSHH section and needs media upload
+    const isCoshhSection = currentSection?.title?.toLowerCase() === 'coshh'
+    const isCoshhQuestion = isCoshhSection && question.question_type === 'yesno'
+    
+    // Check if this is in Premises and Equipment section and needs media upload
+    const isPremisesEquipmentSection = currentSection?.title?.toLowerCase() === 'premises and equipment'
+    const isPremisesEquipmentQuestion = isPremisesEquipmentSection && question.question_type === 'yesno'
+    
+    // Check if this is in Working at Height section and needs media upload
+    const isWorkingAtHeightSection = currentSection?.title?.toLowerCase() === 'working at height'
+    const isWorkingAtHeightQuestion = isWorkingAtHeightSection && question.question_type === 'yesno'
+    
+    // Check if this is question 1 or 3 in Working at Height section (needs comment box)
+    const isWorkingAtHeightQuestion1 = isWorkingAtHeightSection && 
+                                       questionText.includes('working at height / use of ladders')
+    const isWorkingAtHeightQuestion3 = isWorkingAtHeightSection && 
+                                       questionText.includes('ladder checks completed and recorded')
+    
+    // Check if this is in First Aid section and needs media upload and comments
+    const isFirstAidSection = currentSection?.title?.toLowerCase() === 'first aid'
+    const isFirstAidQuestion = isFirstAidSection && question.question_type === 'yesno'
+    
+    // Check if this is the "Date of last in store accident" question
+    const isAccidentDateQuestion = questionText.includes('date of last in store accident') || 
+                                   questionText.includes('date of last in-store accident')
+    
+    // Check if this is in Accident Reporting section and needs N/A
+    const isAccidentReportingSection = currentSection?.title?.toLowerCase().includes('accident reporting') || 
+                                      currentSection?.title?.toLowerCase().includes('accident reporting and investigation')
+    
+    // Check if this is the 3rd question in Accident Reporting (Accident investigations have been completed...)
+    const isAccidentInvestigationQuestion = isAccidentReportingSection && 
+                                           questionText.includes('accident investigations have been completed')
+    
+    // Check if this is in Fire Safety section and needs media upload and comments
+    const isFireSafetySection = currentSection?.title?.toLowerCase() === 'fire safety'
+    const isFireSafetyQuestion = isFireSafetySection && question.question_type === 'yesno'
+    
+    // Check if this is the sprinkler question in Fire Safety section (50mm clearance question)
+    const isFireSafetySprinklerQuestion = isFireSafetySection && 
+                                          questionText.includes('50mm clearance from stock to sprinkler')
+    
+    // Check if this is the "Location of Emergency Lighting Test Switch" question in Fire Safety
+    const isEmergencyLightingLocationQuestion = isFireSafetySection && 
+                                                questionText.includes('location of emergency lighting test switch')
+    
+    // Check if this is in Store Compliance section and needs media upload and comments
+    const isStoreComplianceSection = currentSection?.title?.toLowerCase() === 'store compliance'
+    const isStoreComplianceQuestion = isStoreComplianceSection && question.question_type === 'yesno'
+
+    switch (question.question_type) {
+      case 'yesno':
+        const currentComment = comments[question.id] || ''
+        const currentJson = currentResponse?.response_json || {}
+        const dateValue = currentJson.date || ''
+        
+        return (
+          <div className="space-y-4 mt-4">
+            {/* Yes/No Buttons and Media Upload on same row */}
+            <div className="flex items-center justify-between gap-4 flex-wrap">
+              {/* Yes/No/N/A Buttons on the left */}
+              <div className="flex gap-4">
+                <Button
+                  variant={responseValue === 'yes' ? 'default' : 'outline'}
+                  onClick={() => handleAnswerChange(question.id, 'yes')}
+                  className={
+                    responseValue === 'yes'
+                      ? isEnforcementQuestion
+                        ? 'bg-red-600 hover:bg-red-700 text-white'
+                        : 'bg-green-600 hover:bg-green-700 text-white'
+                      : ''
+                  }
+                >
+                  Yes
+                </Button>
+                <Button
+                  variant={responseValue === 'no' ? 'default' : 'outline'}
+                  onClick={() => handleAnswerChange(question.id, 'no')}
+                  className={
+                    responseValue === 'no'
+                      ? isEnforcementQuestion
+                        ? 'bg-green-600 hover:bg-green-700 text-white'
+                        : 'bg-red-600 hover:bg-red-700 text-white'
+                      : ''
+                  }
+                >
+                  No
+                </Button>
+                {/* N/A button - only show on Statutory Testing page, asbestos question, accident investigation question, or Fire Safety sprinkler question */}
+                {(isStatutoryTestingSection || questionText.includes('asbestos') || isAccidentInvestigationQuestion || isFireSafetySprinklerQuestion) && (
+                  <Button
+                    variant={responseValue === 'na' || responseValue === 'N/A' ? 'default' : 'outline'}
+                    onClick={() => handleAnswerChange(question.id, 'na')}
+                    className={
+                      responseValue === 'na' || responseValue === 'N/A'
+                        ? 'bg-slate-600 hover:bg-slate-700 text-white'
+                        : ''
+                    }
+                  >
+                    N/A
+                  </Button>
+                )}
+              </div>
+              
+              {/* Media Upload on the right */}
+              {(needsMediaAndComments || isRiskAssessmentsQuestion || isTrainingQuestion || isStatutoryTestingQuestion || isManualHandlingQuestion || isCoshhQuestion || isPremisesEquipmentQuestion || isWorkingAtHeightQuestion || isFirstAidQuestion || isFireSafetyQuestion || isStoreComplianceQuestion) && (
+                <div className="flex items-center gap-3 shrink-0">
+                  {/* Camera button - opens device camera */}
+                  <div className="relative">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) {
+                          handleFileUpload(question.id, file)
+                        }
+                        // Reset input so same file can be selected again
+                        e.target.value = ''
+                      }}
+                      disabled={uploadingFiles[question.id]}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      id={`camera-${question.id}`}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={uploadingFiles[question.id]}
+                      className="h-10 w-10 p-0 border-slate-300 hover:bg-indigo-50 hover:border-indigo-300"
+                      title="Take Photo"
+                      onClick={() => document.getElementById(`camera-${question.id}`)?.click()}
+                    >
+                      <Camera className="h-5 w-5 text-slate-700" />
+                    </Button>
+                  </div>
+                  
+                  {/* File/Gallery button - opens file picker */}
+                  <div className="relative">
+                    <input
+                      type="file"
+                      accept="image/*,.pdf"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) {
+                          handleFileUpload(question.id, file)
+                        }
+                        // Reset input so same file can be selected again
+                        e.target.value = ''
+                      }}
+                      disabled={uploadingFiles[question.id]}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      id={`file-${question.id}`}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={uploadingFiles[question.id]}
+                      className="h-10 w-10 p-0 border-slate-300 hover:bg-indigo-50 hover:border-indigo-300"
+                      title="Upload from Gallery"
+                      onClick={() => document.getElementById(`file-${question.id}`)?.click()}
+                    >
+                      <ImageIcon className="h-5 w-5 text-slate-700" />
+                    </Button>
+                  </div>
+                  
+                  {uploadingFiles[question.id] && (
+                    <Loader2 className="h-4 w-4 animate-spin text-indigo-600" />
+                  )}
+                </div>
+              )}
+            </div>
+            
+            {/* Conditional text for first Contractor question */}
+            {isFirstContractorQuestion && (responseValue === 'yes' || responseValue === 'no') && (
+              <div className="mt-4">
+                <p className="text-slate-700 font-medium">
+                  {responseValue === 'yes' 
+                    ? 'I was asked to sign in on arrival'
+                    : 'I was not asked to sign in on arrival'}
+                </p>
+              </div>
+            )}
+            
+            {/* Auto-input text with date for 3rd question */}
+            {isSignedQuestion && responseValue === 'yes' && (
+              <div className="mt-4 space-y-2">
+                <div className="flex flex-wrap items-center gap-2 text-slate-700">
+                  <span>The Health and Safety Policy Statement was last updated and signed by the chief financial officer on</span>
+                  <input
+                    type="date"
+                    value={dateValue}
+                    onChange={async (e) => {
+                      const newDate = e.target.value
+                      const newJson = { ...currentJson, date: newDate }
+                      
+                      // Update local state immediately
+                      setResponses(prev => ({
+                        ...prev,
+                        [question.id]: {
+                          ...currentResponse,
+                          response_json: newJson
+                        }
+                      }))
+                      
+                      // Save to database
+                      try {
+                        setSaving(true)
+                        await saveAuditResponse(instanceId, question.id, {
+                          response_value: responseValue,
+                          response_json: newJson,
+                        })
+                      } catch (error) {
+                        console.error('Error saving date:', error)
+                        loadResponses()
+                      } finally {
+                        setSaving(false)
+                      }
+                    }}
+                    className="px-3 py-2 border border-slate-300 rounded-lg bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+              </div>
+            )}
+            
+            {/* Comments for questions 1 and 3 of H&S Policy, all Risk Assessment questions, Training questions, Statutory Testing questions, Manual Handling questions, COSHH questions, Premises and Equipment questions, questions 1 & 3 of Working at Height, all First Aid questions, all Fire Safety questions, and all Store Compliance questions */}
+            {(needsMediaAndComments || isRiskAssessmentsQuestion || isTrainingQuestion || isStatutoryTestingQuestion || isManualHandlingQuestion || isCoshhQuestion || isPremisesEquipmentQuestion || isWorkingAtHeightQuestion1 || isWorkingAtHeightQuestion3 || isFirstAidQuestion || isFireSafetyQuestion || isStoreComplianceQuestion) && (
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Comments
+                </label>
+                <textarea
+                  value={currentComment}
+                  onChange={(e) => handleCommentChange(question.id, e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  rows={3}
+                  placeholder="Add any comments or notes..."
+                />
+              </div>
+            )}
+          </div>
+        )
+      case 'multiple':
+        const options = question.options || []
+        // Check if this multiple choice question needs media upload (e.g., in Risk Assessments)
+        const needsMultipleChoiceMedia = isRiskAssessmentsSection
+        
+        return (
+          <div className="mt-4">
+            <div className="flex items-center justify-between gap-4 flex-wrap">
+              {/* Multiple choice buttons on the left */}
+              <div className="flex flex-wrap gap-3">
+                {options.map((opt: string) => (
+                  <Button
+                    key={opt}
+                    type="button"
+                    variant={responseValue === opt ? 'default' : 'outline'}
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      handleAnswerChange(question.id, opt)
+                    }}
+                    className={
+                      responseValue === opt
+                        ? 'bg-indigo-600 hover:bg-indigo-700 text-white min-w-[80px] cursor-pointer'
+                        : 'min-w-[80px] cursor-pointer'
+                    }
+                  >
+                    {opt}
+                  </Button>
+                ))}
+              </div>
+              
+              {/* Media Upload on the right */}
+              {needsMultipleChoiceMedia && (
+                <div className="flex items-center gap-3 shrink-0">
+                  {/* Camera button - opens device camera */}
+                  <div className="relative">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) {
+                          handleFileUpload(question.id, file)
+                        }
+                        e.target.value = ''
+                      }}
+                      disabled={uploadingFiles[question.id]}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      id={`camera-multiple-${question.id}`}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={uploadingFiles[question.id]}
+                      className="h-10 w-10 p-0 border-slate-300 hover:bg-indigo-50 hover:border-indigo-300"
+                      title="Take Photo"
+                      onClick={() => document.getElementById(`camera-multiple-${question.id}`)?.click()}
+                    >
+                      <Camera className="h-5 w-5 text-slate-700" />
+                    </Button>
+                  </div>
+                  
+                  {/* File/Gallery button - opens file picker */}
+                  <div className="relative">
+                    <input
+                      type="file"
+                      accept="image/*,.pdf"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) {
+                          handleFileUpload(question.id, file)
+                        }
+                        e.target.value = ''
+                      }}
+                      disabled={uploadingFiles[question.id]}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      id={`file-multiple-${question.id}`}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={uploadingFiles[question.id]}
+                      className="h-10 w-10 p-0 border-slate-300 hover:bg-indigo-50 hover:border-indigo-300"
+                      title="Upload from Gallery"
+                      onClick={() => document.getElementById(`file-multiple-${question.id}`)?.click()}
+                    >
+                      <ImageIcon className="h-5 w-5 text-slate-700" />
+                    </Button>
+                  </div>
+                  
+                  {uploadingFiles[question.id] && (
+                    <Loader2 className="h-4 w-4 animate-spin text-indigo-600" />
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )
+      case 'text':
+        // Special handling for name fields - use single-line input instead of textarea
+        const isNameField = questionText.includes('store manager name') || 
+                           questionText.includes('auditor name')
+        
+        if (isNameField) {
+          return (
+            <input
+              type="text"
+              value={responseValue || ''}
+              onChange={(e) => handleAnswerChange(question.id, e.target.value)}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 mt-4"
+              placeholder="Enter name..."
+            />
+          )
+        }
+        
+        // Special handling for Emergency Lighting location question - add media upload
+        if (isEmergencyLightingLocationQuestion) {
+          return (
+            <div className="mt-4 space-y-4">
+              <textarea
+                value={responseValue || ''}
+                onChange={(e) => handleAnswerChange(question.id, e.target.value)}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                rows={3}
+                placeholder="Enter your answer..."
+              />
+              {/* Media Upload for Emergency Lighting location */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Add Photo
+                </label>
+                <div className="flex items-center gap-3">
+                  {/* Camera button - opens device camera */}
+                  <div className="relative">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) {
+                          handleFileUpload(question.id, file)
+                        }
+                        e.target.value = ''
+                      }}
+                      disabled={uploadingFiles[question.id]}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      id={`camera-text-${question.id}`}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={uploadingFiles[question.id]}
+                      className="h-10 w-10 p-0 border-slate-300 hover:bg-indigo-50 hover:border-indigo-300"
+                      title="Take Photo"
+                      onClick={() => document.getElementById(`camera-text-${question.id}`)?.click()}
+                    >
+                      <Camera className="h-5 w-5 text-slate-700" />
+                    </Button>
+                  </div>
+                  
+                  {/* File/Gallery button - opens file picker */}
+                  <div className="relative">
+                    <input
+                      type="file"
+                      accept="image/*,.pdf"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) {
+                          handleFileUpload(question.id, file)
+                        }
+                        e.target.value = ''
+                      }}
+                      disabled={uploadingFiles[question.id]}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      id={`file-text-${question.id}`}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={uploadingFiles[question.id]}
+                      className="h-10 w-10 p-0 border-slate-300 hover:bg-indigo-50 hover:border-indigo-300"
+                      title="Upload from Gallery"
+                      onClick={() => document.getElementById(`file-text-${question.id}`)?.click()}
+                    >
+                      <ImageIcon className="h-5 w-5 text-slate-700" />
+                    </Button>
+                  </div>
+                  
+                  {uploadingFiles[question.id] && (
+                    <Loader2 className="h-4 w-4 animate-spin text-indigo-600" />
+                  )}
+                </div>
+              </div>
+            </div>
+          )
+        }
+        
+        // Regular text input for other text questions
+        return (
+          <textarea
+            value={responseValue || ''}
+            onChange={(e) => handleAnswerChange(question.id, e.target.value)}
+            className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 mt-4"
+            rows={3}
+            placeholder="Enter your answer..."
+          />
+        )
+      case 'number':
+        return (
+          <input
+            type="number"
+            value={responseValue || ''}
+            onChange={(e) => handleAnswerChange(question.id, e.target.value)}
+            className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 mt-4"
+            placeholder="Enter a number..."
+          />
+        )
+      case 'date':
+        // Special handling for "Date of last in store accident" - add "No accident reported" option
+        if (isAccidentDateQuestion) {
+          const hasNoAccident = responseValue === 'na' || responseValue === 'N/A' || responseValue === 'no_accident'
+          return (
+            <div className="mt-4 space-y-4">
+              <div className="flex items-center gap-4">
+                <input
+                  type="date"
+                  value={hasNoAccident ? '' : (responseValue || '')}
+                  onChange={(e) => {
+                    // If date is selected, clear the "no accident" flag
+                    handleAnswerChange(question.id, e.target.value)
+                  }}
+                  disabled={hasNoAccident}
+                  className="px-3 py-2 border border-slate-300 rounded-lg bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-100 disabled:text-slate-500"
+                />
+                <Button
+                  type="button"
+                  variant={hasNoAccident ? 'default' : 'outline'}
+                  onClick={() => handleAnswerChange(question.id, 'na')}
+                  className={
+                    hasNoAccident
+                      ? 'bg-slate-600 hover:bg-slate-700 text-white'
+                      : ''
+                  }
+                >
+                  No accident reported
+                </Button>
+              </div>
+            </div>
+          )
+        }
+        
+        // Regular date input for other date questions
+        return (
+          <input
+            type="date"
+            value={responseValue || ''}
+            onChange={(e) => handleAnswerChange(question.id, e.target.value)}
+            className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 mt-4"
+          />
+        )
+      case 'signature':
+        return (
+          <div className="mt-4">
+            <div className="border-2 border-slate-300 rounded-lg bg-white">
+              <SignatureCanvasComponent
+                questionId={question.id}
+                responseValue={responseValue}
+                onSignatureChange={(dataURL) => handleAnswerChange(question.id, dataURL)}
+              />
+            </div>
+          </div>
+        )
+      default:
+        return (
+          <input
+            type="text"
+            value={responseValue || ''}
+            onChange={(e) => handleAnswerChange(question.id, e.target.value)}
+            className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 mt-4"
+            placeholder="Enter your answer..."
+          />
+        )
+    }
+  }
+
+  if (loading) {
+    return (
+      <Card>
+        <CardContent className="py-12 text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-indigo-600 mx-auto" />
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (!template || !currentSection) {
+    return (
+      <Card>
+        <CardContent className="py-12 text-center">
+          <p className="text-slate-500">Template or section not found</p>
+          <Button onClick={onBack} variant="outline" className="mt-4">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back
+          </Button>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="sm" onClick={onBack}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back
+            </Button>
+            <div>
+              <CardTitle>{template.title}</CardTitle>
+              <p className="text-sm text-slate-500 mt-1">
+                Section {currentSectionIndex + 1} of {sections.length}: {currentSection.title}
+              </p>
+            </div>
+          </div>
+          {saving && (
+            <div className="flex items-center gap-2 text-sm text-slate-500">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Saving...
+            </div>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-6">
+          {/* Section Score */}
+          {currentSectionScore.questions > 0 && (
+            <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 mb-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-indigo-900">Section Score</p>
+                  <p className="text-2xl font-bold text-indigo-700 mt-1">
+                    {currentSectionScore.passes} / {currentSectionScore.questions} ({currentSectionScore.percentage}%)
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm text-indigo-600">Overall Score</p>
+                  <p className="text-2xl font-bold text-indigo-900 mt-1">
+                    {overallScore.passes} / {overallScore.questions} ({overallScore.percentage}%)
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <h2 className="text-2xl font-semibold border-b pb-3">{currentSection.title}</h2>
+          
+          {/* Date field for Risk Assessments section - before first question */}
+          {isRiskAssessmentsSection && currentSection.questions && currentSection.questions.length > 0 && (() => {
+            const firstQuestion = currentSection.questions[0]
+            const firstQuestionResponse = responses[firstQuestion.id]
+            const sectionDate = firstQuestionResponse?.response_json?.sectionDate || ''
+            const firstQuestionText = firstQuestion.question_text?.toLowerCase() || ''
+            const isFirstQuestion = firstQuestionText.includes('slips, trips and falls')
+            
+            if (!isFirstQuestion) return null
+            
+            return (
+              <div className="mb-8 pb-6 border-b">
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      Risk Assessment Date
+                    </label>
+                    <input
+                      type="date"
+                      value={sectionDate}
+                      onChange={async (e) => {
+                        const newDate = e.target.value
+                        const currentJson = firstQuestionResponse?.response_json || {}
+                        const newJson = { ...currentJson, sectionDate: newDate }
+                        
+                        // Format date for comment text
+                        const formattedDate = newDate 
+                          ? new Date(newDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+                          : ''
+                        const autoCommentText = formattedDate 
+                          ? `The Risk Assessment is present and dated ${formattedDate}`
+                          : ''
+                        
+                        // Update local state
+                        setResponses(prev => ({
+                          ...prev,
+                          [firstQuestion.id]: {
+                            ...firstQuestionResponse,
+                            response_json: newJson
+                          }
+                        }))
+                        
+                        // Auto-fill comments for all questions in this section with the date text
+                        if (autoCommentText && currentSection?.questions) {
+                          const updatedComments: Record<string, string> = {}
+                          currentSection.questions.forEach((q: any) => {
+                            updatedComments[q.id] = autoCommentText
+                          })
+                          setComments(prev => ({ ...prev, ...updatedComments }))
+                          
+                          // Save comments for all questions
+                          try {
+                            for (const question of currentSection.questions) {
+                              const questionResponse = responses[question.id] || {}
+                              const questionJson = questionResponse?.response_json || {}
+                              await saveAuditResponse(instanceId, question.id, {
+                                response_value: questionResponse?.response_value || null,
+                                response_json: {
+                                  ...questionJson,
+                                  comment: autoCommentText,
+                                },
+                              })
+                            }
+                          } catch (error) {
+                            console.error('Error auto-filling comments:', error)
+                          }
+                        }
+                        
+                        // Save to database
+                        try {
+                          setSaving(true)
+                          await saveAuditResponse(instanceId, firstQuestion.id, {
+                            response_value: firstQuestionResponse?.response_value || null,
+                            response_json: newJson,
+                          })
+                        } catch (error) {
+                          console.error('Error saving section date:', error)
+                          loadResponses()
+                        } finally {
+                          setSaving(false)
+                        }
+                      }}
+                      className="px-3 py-2 border border-slate-300 rounded-lg bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                  {sectionDate && (
+                    <p className="text-slate-700 font-medium">
+                      The Risk Assessment is present and dated {new Date(sectionDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )
+          })()}
+          
+          {currentSection.questions && currentSection.questions.length > 0 ? (
+            <div className="space-y-8">
+              {currentSection.questions.map((question: any) => {
+                // For disclaimer section, just display text without input
+                if (isDisclaimerSection) {
+                  return (
+                    <div key={question.id} className="prose max-w-none">
+                      <p className="text-slate-700 whitespace-pre-wrap leading-relaxed">
+                        {question.question_text}
+                      </p>
+                    </div>
+                  )
+                }
+
+                // Check if this question contributes to scoring
+                const isScoredQuestion = question.question_type === 'yesno'
+                const isInformationalQuestion = !isScoredQuestion
+
+                return (
+                  <div key={question.id} className="space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="font-medium text-lg">{question.question_text}</p>
+                      <div className="flex gap-2 shrink-0">
+                        {isScoredQuestion && (
+                          <Badge className="bg-green-100 text-green-800 border-green-300">Scored</Badge>
+                        )}
+                        {isInformationalQuestion && (
+                          <Badge className="bg-slate-100 text-slate-600 border-slate-300">Information</Badge>
+                        )}
+                        {question.is_required && (
+                          <Badge variant="destructive">Required</Badge>
+                        )}
+                      </div>
+                    </div>
+                    {renderQuestion(question)}
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <p className="text-slate-500">No questions in this section</p>
+          )}
+
+          <div className="flex items-center justify-between pt-6 border-t gap-4">
+            <Button
+              variant="outline"
+              onClick={handlePrevious}
+              disabled={currentSectionIndex === 0}
+              className="max-w-[200px] truncate"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2 shrink-0" />
+              <span className="truncate">
+                Previous {currentSectionIndex > 0 ? `(${getShortSectionName(sections[currentSectionIndex - 1]?.title || '')})` : ''}
+              </span>
+            </Button>
+            <div className="text-sm text-slate-500 shrink-0">
+              Section {currentSectionIndex + 1} of {sections.length}
+            </div>
+            {isLastSection ? (
+              <Button
+                onClick={handleCompleteAudit}
+                disabled={completing || completed}
+                className="bg-green-600 hover:bg-green-700 max-w-[200px] truncate"
+              >
+                {completing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin shrink-0" />
+                    <span>Completing...</span>
+                  </>
+                ) : completed ? (
+                  <>
+                    <CheckCircle2 className="h-4 w-4 mr-2 shrink-0" />
+                    <span>Completed</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="h-4 w-4 mr-2 shrink-0" />
+                    <span>Complete Audit</span>
+                  </>
+                )}
+              </Button>
+            ) : (
+              <Button
+                onClick={handleNext}
+                className="bg-indigo-600 hover:bg-indigo-700 max-w-[200px] truncate"
+              >
+                <span className="truncate">
+                  Next ({getShortSectionName(sections[currentSectionIndex + 1]?.title || '')})
+                </span>
+                <ChevronRight className="h-4 w-4 ml-2 shrink-0" />
+              </Button>
+            )}
+          </div>
+        </div>
+      </CardContent>
+
+      {/* Completion Dialog */}
+      <Dialog open={completed} onOpenChange={setCompleted}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle2 className="h-6 w-6 text-green-600" />
+              Audit Completed Successfully!
+            </DialogTitle>
+            <DialogDescription>
+              Your audit has been saved and is now complete.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-6 mt-4">
+            {/* Final Score Display */}
+            <div className="bg-indigo-50 rounded-lg p-6 border-2 border-indigo-200">
+              <h3 className="text-lg font-semibold text-indigo-900 mb-4">Final Audit Score</h3>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-indigo-600">Score</p>
+                  <p className="text-4xl font-bold text-indigo-900 mt-1">
+                    {overallScore.passes} / {overallScore.questions}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm text-indigo-600">Percentage</p>
+                  <p className="text-4xl font-bold text-indigo-900 mt-1">
+                    {overallScore.percentage}%
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* PDF Options */}
+            <div className="space-y-3">
+              <h3 className="text-lg font-semibold text-slate-900">Report Options</h3>
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    const url = `/api/audit-pdfs/generate?instanceId=${instanceId}`
+                    window.open(url, '_blank')
+                  }}
+                  className="flex-1"
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  View Report
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={async () => {
+                    try {
+                      const response = await fetch(`/api/audit-pdfs/generate?instanceId=${instanceId}`)
+                      if (!response.ok) throw new Error('Failed to generate PDF')
+                      const blob = await response.blob()
+                      const url = window.URL.createObjectURL(blob)
+                      const a = document.createElement('a')
+                      a.href = url
+                      a.download = `inspection-report-${instanceId.slice(-8)}.pdf`
+                      document.body.appendChild(a)
+                      a.click()
+                      window.URL.revokeObjectURL(url)
+                      document.body.removeChild(a)
+                    } catch (error) {
+                      console.error('Error downloading PDF:', error)
+                      alert('Failed to download PDF. Please try again.')
+                    }
+                  }}
+                  className="flex-1"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download PDF
+                </Button>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex justify-end gap-3 pt-4 border-t">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setCompleted(false)
+                  onBack()
+                }}
+              >
+                Back to Audits
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </Card>
+  )
+}
+
+// Active Audits View
+function ActiveAuditsView({
+  audits,
+  loading,
+  onReload,
+  onEdit,
+}: {
+  audits: any[]
+  loading: boolean
+  onReload?: () => void
+  onEdit?: (auditId: string) => void
+}) {
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  const handleDelete = async (auditId: string) => {
+    const audit = audits.find(a => a.id === auditId)
+    const templateName = (audit?.fa_audit_templates as any)?.title || 'this audit'
+    const storeName = (audit?.fa_stores as any)?.store_name || 'Unknown Store'
+    
+    if (!confirm(`Are you sure you want to delete "${templateName}" for ${storeName}? This action cannot be undone.`)) {
+      return
+    }
+
+    try {
+      setDeletingId(auditId)
+      await deleteAuditInstance(auditId)
+      if (onReload) {
+        onReload()
+      } else {
+        window.location.reload()
+      }
+    } catch (error: any) {
+      console.error('Error deleting audit:', error)
+      alert(`Failed to delete audit: ${error.message}`)
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
+  const handleEdit = (auditId: string) => {
+    if (onEdit) {
+      onEdit(auditId)
+    } else {
+      // TODO: Implement edit navigation
+      alert('Edit functionality coming soon')
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Active Audits</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {loading ? (
+          <div className="py-12 text-center">
+            <Loader2 className="h-8 w-8 animate-spin text-indigo-600 mx-auto" />
+          </div>
+        ) : audits.length === 0 ? (
+          <div className="py-12 text-center">
+            <ClipboardCheck className="h-12 w-12 mx-auto text-slate-300 mb-4" />
+            <p className="text-slate-500">No active audits</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Template</TableHead>
+                  <TableHead>Store</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Created</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {audits.map((audit) => (
+                  <TableRow key={audit.id}>
+                    <TableCell className="font-medium">
+                      {(audit.fa_audit_templates as any)?.title || 'Unknown Template'}
+                    </TableCell>
+                    <TableCell>
+                      {(audit.fa_stores as any)?.store_name || 'Unknown Store'}
+                      {(audit.fa_stores as any)?.store_code && (
+                        <span className="text-xs text-slate-500 ml-2">
+                          ({(audit.fa_stores as any).store_code})
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Badge>{audit.status}</Badge>
+                    </TableCell>
+                    <TableCell className="text-sm text-slate-600">
+                      {new Date(audit.created_at).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEdit(audit.id)}
+                          className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
+                        >
+                          <Edit2 className="h-4 w-4 mr-1" />
+                          Edit
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDelete(audit.id)}
+                          disabled={deletingId === audit.id}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          {deletingId === audit.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <>
+                              <Trash2 className="h-4 w-4 mr-1" />
+                              Delete
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+// Audit History View
+function AuditHistoryView({
+  audits,
+  loading,
+  onEdit,
+}: {
+  audits: any[]
+  loading: boolean
+  onEdit?: (auditId: string, templateId: string) => void
+}) {
+  const handleDownloadPDF = async (instanceId: string) => {
+    try {
+      const response = await fetch(`/api/audit-pdfs/generate?instanceId=${instanceId}`)
+      if (!response.ok) throw new Error('Failed to generate PDF')
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `inspection-report-${instanceId.slice(-8)}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+    } catch (error) {
+      console.error('Error downloading PDF:', error)
+      alert('Failed to download PDF. Please try again.')
+    }
+  }
+
+  const handleViewPDF = (instanceId: string) => {
+    const url = `/api/audit-pdfs/generate?instanceId=${instanceId}`
+    window.open(url, '_blank')
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Audit History</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {loading ? (
+          <div className="py-12 text-center">
+            <Loader2 className="h-8 w-8 animate-spin text-indigo-600 mx-auto" />
+          </div>
+        ) : audits.length === 0 ? (
+          <div className="py-12 text-center">
+            <ClipboardCheck className="h-12 w-12 mx-auto text-slate-300 mb-4" />
+            <p className="text-slate-500">No audit history yet</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Template</TableHead>
+                  <TableHead>Store</TableHead>
+                  <TableHead>Score</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {audits.map((audit) => (
+                  <TableRow key={audit.id}>
+                    <TableCell className="font-medium">
+                      {(audit.fa_audit_templates as any)?.title || 'Unknown Template'}
+                    </TableCell>
+                    <TableCell>
+                      {(audit.fa_stores as any)?.store_name || 'Unknown Store'}
+                      {(audit.fa_stores as any)?.store_code && (
+                        <span className="text-xs text-slate-500 ml-2">
+                          ({(audit.fa_stores as any).store_code})
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {audit.overall_score !== null && audit.overall_score !== undefined ? (
+                        <span className="font-semibold text-indigo-600">
+                          {Math.round(audit.overall_score)}%
+                        </span>
+                      ) : (
+                        <span className="text-slate-400">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-sm text-slate-600">
+                      {new Date(audit.conducted_at || audit.created_at).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        {audit.status === 'completed' ? (
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleViewPDF(audit.id)}
+                              className="h-8 px-3"
+                            >
+                              <FileText className="h-3 w-3 mr-1" />
+                              View
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleDownloadPDF(audit.id)}
+                              className="h-8 px-3"
+                            >
+                              <Download className="h-3 w-3 mr-1" />
+                              PDF
+                            </Button>
+                          </>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              if (onEdit) {
+                                onEdit(audit.id, audit.template_id)
+                              }
+                            }}
+                            className="h-8 px-3"
+                          >
+                            <Edit2 className="h-3 w-3 mr-1" />
+                            Edit
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
