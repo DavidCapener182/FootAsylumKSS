@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Route, Calendar, MapPin, User, CheckCircle2, Calendar as CalendarIcon } from 'lucide-react'
-import { format, isSameDay, parseISO } from 'date-fns'
+import { format, isBefore, isSameDay, parseISO, startOfDay } from 'date-fns'
 import { RouteDirectionsModal } from '@/components/route-planning/route-directions-modal'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -93,13 +93,13 @@ export function PlannedRounds({ plannedRoutes }: PlannedRoundsProps) {
     }
   }, [completedRoutes, plannedRoutes])
 
-  // Check if a route's planned date is today
-  const isRouteToday = (plannedDate: string | null): boolean => {
+  // Check if a route's planned date is today or in the past
+  const isRouteDue = (plannedDate: string | null): boolean => {
     if (!plannedDate) return false
     try {
       const routeDate = parseISO(plannedDate)
-      const today = new Date()
-      return isSameDay(routeDate, today)
+      const today = startOfDay(new Date())
+      return isSameDay(routeDate, today) || isBefore(routeDate, today)
     } catch {
       return false
     }
@@ -186,17 +186,17 @@ export function PlannedRounds({ plannedRoutes }: PlannedRoundsProps) {
         <div className="px-3 pb-3 flex-1 min-h-0">
           <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
             {visibleRoutes.map((route) => {
-              const isToday = isRouteToday(route.plannedDate)
+              const isDue = isRouteDue(route.plannedDate)
               const isCompletingRoute = isCompleting === route.key
               const isChecked = completedRoutes.has(route.key)
 
               return (
                 <div 
                   key={route.key} 
-                  onClick={() => !isToday && setSelectedRoute(route)}
+                  onClick={() => !isDue && setSelectedRoute(route)}
                   className={cn(
                     "bg-white rounded-lg border border-blue-200 p-2.5 space-y-0.5 transition-all",
-                    isToday ? "border-orange-300 bg-orange-50/30" : "cursor-pointer hover:border-blue-400 hover:shadow-md",
+                    isDue ? "border-orange-300 bg-orange-50/30" : "cursor-pointer hover:border-blue-400 hover:shadow-md",
                     isCompletingRoute && "opacity-50"
                   )}
                 >
@@ -218,8 +218,8 @@ export function PlannedRounds({ plannedRoutes }: PlannedRoundsProps) {
                     ].join(', ')}
                   </div>
 
-                  {/* Complete/Reschedule options - only show on the day of the route */}
-                  {isToday && (
+                  {/* Complete/Reschedule options - show when route is due */}
+                  {isDue && (
                     <div className="flex flex-col gap-2 pt-2 border-t border-orange-200 mt-2" onClick={(e) => e.stopPropagation()}>
                       {/* Complete Toggle */}
                       <div className="flex items-center justify-between gap-3">
