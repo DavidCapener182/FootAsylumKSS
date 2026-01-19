@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+
+export const dynamic = 'force-dynamic'
 import { createClient } from '@/lib/supabase/server'
 import { getTemplate, getAuditInstance } from '@/app/actions/safehub'
 import { renderToBuffer } from '@react-pdf/renderer'
@@ -16,6 +18,7 @@ export async function GET(request: NextRequest) {
 
     const searchParams = request.nextUrl.searchParams
     const instanceId = searchParams.get('instanceId')
+    const mode = searchParams.get('mode') || 'download' // 'view' or 'download'
 
     if (!instanceId) {
       return NextResponse.json({ error: 'instanceId is required' }, { status: 400 })
@@ -24,6 +27,19 @@ export async function GET(request: NextRequest) {
     // Get audit instance with related data
     const instance = await getAuditInstance(instanceId)
     const template = await getTemplate(instance.template_id)
+
+    // Get auditor profile
+    let auditorName = 'Admin User'
+    if (instance.conducted_by_user_id) {
+      const { data: auditorProfile } = await supabase
+        .from('fa_profiles')
+        .select('full_name')
+        .eq('id', instance.conducted_by_user_id)
+        .single()
+      if (auditorProfile?.full_name) {
+        auditorName = auditorProfile.full_name
+      }
+    }
 
     // Calculate overall score
     const overallScore = instance.overall_score || 0
@@ -35,17 +51,25 @@ export async function GET(request: NextRequest) {
         instance={instance}
         store={instance.fa_stores}
         responses={instance.responses || []}
+        media={instance.media || []}
         overallScore={Math.round(overallScore)}
+        auditorName={auditorName}
       />
     )
 
     const pdfBuffer = await renderToBuffer(pdfDoc)
+    const pdfArrayBuffer = new Uint8Array(pdfBuffer).buffer
 
     // Return PDF as response
-    return new NextResponse(pdfBuffer, {
+    // Use 'inline' for viewing in browser, 'attachment' for downloading
+    const contentDisposition = mode === 'view' 
+      ? `inline; filename="inspection-report-${instanceId.slice(-8)}.pdf"`
+      : `attachment; filename="inspection-report-${instanceId.slice(-8)}.pdf"`
+
+    return new NextResponse(pdfArrayBuffer, {
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="inspection-report-${instanceId.slice(-8)}.pdf"`,
+        'Content-Disposition': contentDisposition,
       },
     })
   } catch (error: any) {

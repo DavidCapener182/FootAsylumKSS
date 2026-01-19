@@ -402,18 +402,42 @@ export async function completeAudit(instanceId: string) {
     throw new Error('Unauthorized')
   }
 
-  // Calculate overall score from responses
+  // Calculate overall score from yes/no answers (exclude N/A)
   const { data: responses } = await supabase
     .from('fa_audit_responses')
-    .select('score')
+    .select(`
+      response_value,
+      response_json,
+      fa_audit_template_questions (
+        question_type,
+        question_text
+      )
+    `)
     .eq('audit_instance_id', instanceId)
-    .not('score', 'is', null)
 
   let overallScore: number | null = null
   if (responses && responses.length > 0) {
-    const scores = responses.map(r => r.score).filter((s): s is number => s !== null)
-    if (scores.length > 0) {
-      overallScore = scores.reduce((sum, s) => sum + s, 0) / scores.length
+    let total = 0
+    let passed = 0
+
+    responses.forEach((response: any) => {
+      const question = response.fa_audit_template_questions
+      if (!question || question.question_type !== 'yesno') return
+
+      const rawAnswer = response.response_value || response.response_json?.value || response.response_json
+      if (!rawAnswer) return
+      const answer = String(rawAnswer).toLowerCase()
+      if (answer === 'na' || answer === 'n/a') return
+
+      const isEnforcement = question.question_text?.toLowerCase().includes('enforcement action')
+      const isPass = isEnforcement ? answer === 'no' : answer === 'yes'
+
+      total += 1
+      if (isPass) passed += 1
+    })
+
+    if (total > 0) {
+      overallScore = Math.round((passed / total) * 100)
     }
   }
 
@@ -497,6 +521,58 @@ export async function getAuditHistory(filters?: {
   return data || []
 }
 
+export async function getAuditDashboardData() {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) {
+    throw new Error('Unauthorized')
+  }
+
+  const { data, error } = await supabase
+    .from('fa_audit_instances')
+    .select(`
+      id,
+      template_id,
+      store_id,
+      conducted_at,
+      created_at,
+      overall_score,
+      status,
+      fa_stores (
+        id,
+        store_name,
+        store_code,
+        city,
+        region
+      ),
+      fa_audit_responses (
+        id,
+        response_value,
+        response_json,
+        question_id,
+        fa_audit_template_questions (
+          id,
+          question_text,
+          question_type,
+          fa_audit_template_sections (
+            id,
+            title
+          )
+        )
+      )
+    `)
+    .eq('status', 'completed')
+    .order('conducted_at', { ascending: false })
+    .limit(200)
+
+  if (error) {
+    throw new Error(`Failed to fetch dashboard data: ${error.message}`)
+  }
+
+  return data || []
+}
+
 export async function getAuditInstance(id: string) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -517,7 +593,13 @@ export async function getAuditInstance(id: string) {
       fa_stores (
         id,
         store_name,
-        store_code
+        store_code,
+        address_line_1,
+        city,
+        postcode,
+        region,
+        latitude,
+        longitude
       )
     `)
     .eq('id', id)

@@ -37,7 +37,8 @@ import {
   getAuditInstance,
   saveAuditResponse,
   uploadAuditMedia,
-  completeAudit
+  completeAudit,
+  getAuditDashboardData
 } from '@/app/actions/safehub'
 
 type ViewState = 'templates' | 'template-builder' | 'active-audits' | 'audit-form' | 'audit-execution' | 'audit-history'
@@ -51,6 +52,14 @@ interface Template {
   is_active: boolean
 }
 
+type PreviousFailure = {
+  questionId: string
+  questionText: string
+  failedAt: string
+}
+
+type PreviousFailureMap = Record<string, PreviousFailure>
+
 export function AuditLabClient() {
   const [activeTab, setActiveTab] = useState('templates')
   const [view, setView] = useState<'templates' | 'template-builder' | 'audit-form' | 'audit-execution'>('templates')
@@ -62,6 +71,13 @@ export function AuditLabClient() {
   const [loadingAudits, setLoadingAudits] = useState(true)
   const [auditHistory, setAuditHistory] = useState<any[]>([])
   const [loadingHistory, setLoadingHistory] = useState(true)
+  const [historyNotice, setHistoryNotice] = useState<string | null>(null)
+  const [previousFailures, setPreviousFailures] = useState<PreviousFailureMap>({})
+  const [dashboardAudits, setDashboardAudits] = useState<any[]>([])
+  const [loadingDashboard, setLoadingDashboard] = useState(false)
+  const [aiInsights, setAiInsights] = useState<string | null>(null)
+  const [loadingInsights, setLoadingInsights] = useState(false)
+  const [dashboardStoreFilter, setDashboardStoreFilter] = useState<string>('all')
 
   useEffect(() => {
     loadTemplates()
@@ -72,6 +88,8 @@ export function AuditLabClient() {
       loadActiveAudits()
     } else if (activeTab === 'history') {
       loadAuditHistory()
+    } else if (activeTab === 'dashboard') {
+      loadDashboardAudits()
     }
   }, [activeTab])
 
@@ -113,6 +131,245 @@ export function AuditLabClient() {
     }
   }
 
+  const loadDashboardAudits = async () => {
+    try {
+      setLoadingDashboard(true)
+      const data = await getAuditDashboardData()
+      setDashboardAudits(data)
+    } catch (error) {
+      console.error('Error loading dashboard audits:', error)
+    } finally {
+      setLoadingDashboard(false)
+    }
+  }
+
+  const dashboardStats = useMemo(() => {
+    const audits = dashboardAudits || []
+    const scores = audits
+      .map((a: any) => Number(a.overall_score))
+      .filter((score: number) => !Number.isNaN(score))
+    const avgScore = scores.length > 0
+      ? Math.round((scores.reduce((acc, score) => acc + score, 0) / scores.length) * 10) / 10
+      : 0
+
+    const now = new Date()
+    const last30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+    const last30Count = audits.filter((a: any) => {
+      const date = new Date(a.conducted_at || a.created_at)
+      return date >= last30
+    }).length
+
+    const recentAudits = audits
+      .slice()
+      .sort((a: any, b: any) => {
+        const aDate = new Date(a.conducted_at || a.created_at).getTime()
+        const bDate = new Date(b.conducted_at || b.created_at).getTime()
+        return bDate - aDate
+      })
+      .slice(0, 6)
+
+    const storeMap = new Map<string, { count: number; total: number }>()
+    audits.forEach((a: any) => {
+      const storeName = a.fa_stores?.store_name || 'Unknown Store'
+      const score = Number(a.overall_score) || 0
+      const entry = storeMap.get(storeName) || { count: 0, total: 0 }
+      storeMap.set(storeName, { count: entry.count + 1, total: entry.total + score })
+    })
+
+    const storeStats = Array.from(storeMap.entries()).map(([name, data]) => ({
+      name,
+      count: data.count,
+      avg: Math.round((data.total / data.count) * 10) / 10,
+    }))
+    storeStats.sort((a, b) => b.count - a.count)
+
+    const questionFailMap = new Map<string, { count: number; total: number; section: string }>()
+    const sectionFailMap = new Map<string, { count: number; total: number }>()
+    const storeFailMap = new Map<string, number>()
+
+    audits.forEach((audit: any) => {
+      const storeName = audit.fa_stores?.store_name || 'Unknown Store'
+      const responses = audit.fa_audit_responses || []
+
+      responses.forEach((response: any) => {
+        const question = response.fa_audit_template_questions
+        if (!question || question.question_type !== 'yesno') return
+
+        const rawAnswer = response.response_value || response.response_json?.value || response.response_json
+        if (!rawAnswer) return
+        const answer = String(rawAnswer).toLowerCase()
+        if (answer === 'na' || answer === 'n/a') return
+
+        const key = question.question_text || 'Unnamed Question'
+        const sectionTitle = question.fa_audit_template_sections?.title || 'Unknown Section'
+        const existing = questionFailMap.get(key) || { count: 0, total: 0, section: sectionTitle }
+        const sectionExisting = sectionFailMap.get(sectionTitle) || { count: 0, total: 0 }
+
+        const failed = answer === 'no'
+        questionFailMap.set(key, {
+          count: existing.count + (failed ? 1 : 0),
+          total: existing.total + 1,
+          section: sectionTitle,
+        })
+        sectionFailMap.set(sectionTitle, {
+          count: sectionExisting.count + (failed ? 1 : 0),
+          total: sectionExisting.total + 1,
+        })
+        if (failed) {
+          storeFailMap.set(storeName, (storeFailMap.get(storeName) || 0) + 1)
+        }
+      })
+    })
+
+    const topFailedQuestions = Array.from(questionFailMap.entries())
+      .map(([question, data]) => ({
+        question,
+        section: data.section,
+        fails: data.count,
+        total: data.total,
+        rate: data.total > 0 ? Math.round((data.count / data.total) * 100) : 0,
+      }))
+      .filter((item) => item.total > 0)
+      .sort((a, b) => b.rate - a.rate)
+      .slice(0, 8)
+
+    const sectionFails = Array.from(sectionFailMap.entries())
+      .map(([section, data]) => ({
+        section,
+        fails: data.count,
+        total: data.total,
+        rate: data.total > 0 ? Math.round((data.count / data.total) * 100) : 0,
+      }))
+      .filter((item) => item.total > 0)
+      .sort((a, b) => b.rate - a.rate)
+      .slice(0, 6)
+
+    const storeFails = Array.from(storeFailMap.entries())
+      .map(([name, fails]) => ({ name, fails }))
+      .sort((a, b) => b.fails - a.fails)
+      .slice(0, 6)
+
+    const storeOptions = Array.from(storeMap.entries())
+      .map(([name, data]) => ({ name, count: data.count }))
+      .sort((a, b) => a.name.localeCompare(b.name))
+
+    const filteredAudits = dashboardStoreFilter === 'all'
+      ? audits
+      : audits.filter((a: any) => a.fa_stores?.store_name === dashboardStoreFilter)
+
+    const storeAuditHistory = filteredAudits
+      .slice()
+      .sort((a: any, b: any) => {
+        const aDate = new Date(a.conducted_at || a.created_at).getTime()
+        const bDate = new Date(b.conducted_at || b.created_at).getTime()
+        return bDate - aDate
+      })
+
+    const latestAudit = storeAuditHistory[0] || null
+    const previousAudit = storeAuditHistory[1] || null
+    const latestScore = latestAudit ? Math.round(latestAudit.overall_score || 0) : null
+    const previousScore = previousAudit ? Math.round(previousAudit.overall_score || 0) : null
+    const scoreDelta = latestScore !== null && previousScore !== null
+      ? latestScore - previousScore
+      : null
+
+    const selectedStore = dashboardStoreFilter === 'all'
+      ? null
+      : (audits.find((a: any) => a.fa_stores?.store_name === dashboardStoreFilter)?.fa_stores || null)
+
+    const selectedStoreCity = selectedStore?.city || null
+    const selectedStoreRegion = selectedStore?.region || null
+
+    const selectedScores = filteredAudits
+      .map((a: any) => Number(a.overall_score))
+      .filter((s: number) => !Number.isNaN(s))
+    const selectedAvg = selectedScores.length > 0
+      ? Math.round((selectedScores.reduce((acc, s) => acc + s, 0) / selectedScores.length) * 10) / 10
+      : null
+
+    const areaAudits = audits.filter((a: any) => {
+      if (!selectedStoreCity && !selectedStoreRegion) return false
+      const cityMatch = selectedStoreCity && a.fa_stores?.city === selectedStoreCity
+      const regionMatch = selectedStoreRegion && a.fa_stores?.region === selectedStoreRegion
+      return cityMatch || regionMatch
+    })
+    const areaScores = areaAudits
+      .map((a: any) => Number(a.overall_score))
+      .filter((s: number) => !Number.isNaN(s))
+    const areaAvg = areaScores.length > 0
+      ? Math.round((areaScores.reduce((acc, s) => acc + s, 0) / areaScores.length) * 10) / 10
+      : null
+
+    const overallAvg = avgScore
+    const storeRankList = storeStats
+      .slice()
+      .sort((a, b) => (b.avg - a.avg))
+    const storeRank = dashboardStoreFilter === 'all'
+      ? null
+      : (storeRankList.findIndex((s) => s.name === dashboardStoreFilter) + 1 || null)
+
+    return {
+      totalAudits: audits.length,
+      avgScore,
+      last30Count,
+      recentAudits,
+      storeStats: storeStats.slice(0, 6),
+      topFailedQuestions,
+      sectionFails,
+      storeFails,
+      storeOptions,
+      storeAuditHistory,
+      latestAudit,
+      previousAudit,
+      latestScore,
+      previousScore,
+      scoreDelta,
+      selectedStore,
+      selectedAvg,
+      areaAvg,
+      overallAvg,
+      storeRank,
+      areaCount: areaAudits.length,
+    }
+  }, [dashboardAudits, dashboardStoreFilter])
+
+  const handleGenerateInsights = async () => {
+    try {
+      setLoadingInsights(true)
+      setAiInsights(null)
+      const response = await fetch('/api/ai/audit-insights', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          metrics: {
+            totalAudits: dashboardStats.totalAudits,
+            avgScore: dashboardStats.avgScore,
+            last30Count: dashboardStats.last30Count,
+          },
+          stores: dashboardStats.storeStats,
+          topFailedQuestions: dashboardStats.topFailedQuestions,
+          sectionFails: dashboardStats.sectionFails,
+          recentAudits: dashboardStats.recentAudits.map((a: any) => ({
+            store: a.fa_stores?.store_name || 'Unknown Store',
+            score: a.overall_score,
+            date: a.conducted_at || a.created_at,
+          })),
+        }),
+      })
+
+      const data = await response.json()
+      if (!response.ok) {
+        throw new Error(data?.error || 'Failed to generate insights')
+      }
+      setAiInsights(data.content || 'No insights returned.')
+    } catch (error) {
+      console.error('Error generating AI insights:', error)
+      setAiInsights('Unable to generate insights at the moment.')
+    } finally {
+      setLoadingInsights(false)
+    }
+  }
+
   const handleTemplateClick = (templateId: string) => {
     setSelectedTemplate(templateId)
     setView('audit-form')
@@ -147,7 +404,7 @@ export function AuditLabClient() {
 
       {/* Main Navigation Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full max-w-[600px] grid-cols-3 bg-slate-100 p-1 min-h-[44px]">
+        <TabsList className="grid w-full max-w-[820px] grid-cols-5 bg-slate-100 p-1 min-h-[44px]">
           <TabsTrigger 
             value="templates"
             className="data-[state=active]:bg-white data-[state=active]:text-indigo-700 data-[state=active]:shadow-sm transition-all"
@@ -165,6 +422,18 @@ export function AuditLabClient() {
             className="data-[state=active]:bg-white data-[state=active]:text-indigo-700 data-[state=active]:shadow-sm transition-all"
           >
             History
+          </TabsTrigger>
+          <TabsTrigger
+            value="dashboard"
+            className="data-[state=active]:bg-white data-[state=active]:text-indigo-700 data-[state=active]:shadow-sm transition-all"
+          >
+            Dashboard
+          </TabsTrigger>
+          <TabsTrigger
+            value="import"
+            className="data-[state=active]:bg-white data-[state=active]:text-indigo-700 data-[state=active]:shadow-sm transition-all"
+          >
+            Import Audit
           </TabsTrigger>
         </TabsList>
 
@@ -193,8 +462,9 @@ export function AuditLabClient() {
             <AuditFormView 
               templateId={selectedTemplate}
               onBack={handleBackFromSubView}
-              onStartAudit={(instanceId) => {
+              onStartAudit={(instanceId, failures) => {
                 setSelectedAuditInstance(instanceId)
+                setPreviousFailures(failures || {})
                 setView('audit-execution')
               }}
             />
@@ -204,6 +474,7 @@ export function AuditLabClient() {
             <AuditExecutionView 
               templateId={selectedTemplate}
               instanceId={selectedAuditInstance}
+              previousFailures={previousFailures}
               onBack={() => {
                 setSelectedAuditInstance(null)
                 setView('audit-form')
@@ -224,6 +495,7 @@ export function AuditLabClient() {
                 // Set template and instance, switch to templates tab, and show audit execution view
                 setSelectedTemplate(audit.template_id)
                 setSelectedAuditInstance(auditInstanceId)
+                setPreviousFailures({})
                 setActiveTab('templates')
                 setView('audit-execution')
               }
@@ -232,6 +504,11 @@ export function AuditLabClient() {
         </TabsContent>
 
         <TabsContent value="history" className="mt-6">
+          {historyNotice && (
+            <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+              {historyNotice}
+            </div>
+          )}
           <AuditHistoryView 
             audits={auditHistory} 
             loading={loadingHistory}
@@ -242,9 +519,329 @@ export function AuditLabClient() {
                 // Set template and instance, switch to templates tab, and show audit execution view
                 setSelectedTemplate(audit.template_id || templateId)
                 setSelectedAuditInstance(auditId)
+                setPreviousFailures({})
                 setActiveTab('templates')
                 setView('audit-execution')
               }
+            }}
+          />
+        </TabsContent>
+
+        <TabsContent value="dashboard" className="mt-6">
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Compare Store Audits</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Select Store</label>
+                  <select
+                    value={dashboardStoreFilter}
+                    onChange={(e) => setDashboardStoreFilter(e.target.value)}
+                    className="w-full max-w-[360px] px-3 py-2 border border-slate-300 rounded-lg bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    disabled={loadingDashboard}
+                  >
+                    <option value="all">All stores</option>
+                    {dashboardStats.storeOptions.map((store) => (
+                      <option key={store.name} value={store.name}>
+                        {store.name} ({store.count})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {dashboardStoreFilter !== 'all' && (
+                  <div className="grid gap-4 md:grid-cols-12">
+                    <Card className="border-slate-200 md:col-span-4">
+                      <CardHeader>
+                        <CardTitle>Latest Score</CardTitle>
+                      </CardHeader>
+                      <CardContent className="text-3xl font-semibold">
+                        {dashboardStats.latestScore !== null ? `${dashboardStats.latestScore}%` : '—'}
+                      </CardContent>
+                    </Card>
+                    <Card className="border-slate-200 md:col-span-4">
+                      <CardHeader>
+                        <CardTitle>Previous Score</CardTitle>
+                      </CardHeader>
+                      <CardContent className="text-3xl font-semibold">
+                        {dashboardStats.previousScore !== null ? `${dashboardStats.previousScore}%` : '—'}
+                      </CardContent>
+                    </Card>
+                    <Card className="border-slate-200 md:col-span-4">
+                      <CardHeader>
+                        <CardTitle>Change</CardTitle>
+                      </CardHeader>
+                      <CardContent className={`text-3xl font-semibold ${dashboardStats.scoreDelta !== null && dashboardStats.scoreDelta < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                        {dashboardStats.scoreDelta !== null ? `${dashboardStats.scoreDelta > 0 ? '+' : ''}${dashboardStats.scoreDelta}%` : '—'}
+                      </CardContent>
+                    </Card>
+
+                    <Card className="border-slate-200 md:col-span-4">
+                      <CardHeader>
+                        <CardTitle>Store Average</CardTitle>
+                      </CardHeader>
+                      <CardContent className="text-2xl font-semibold">
+                        {dashboardStats.selectedAvg !== null ? `${dashboardStats.selectedAvg}%` : '—'}
+                      </CardContent>
+                    </Card>
+                    <Card className="border-slate-200 md:col-span-4">
+                      <CardHeader>
+                        <CardTitle>Area Average</CardTitle>
+                      </CardHeader>
+                      <CardContent className="text-2xl font-semibold">
+                        {dashboardStats.areaAvg !== null ? `${dashboardStats.areaAvg}%` : '—'}
+                        <span className="ml-2 text-xs text-slate-500">
+                          ({dashboardStats.areaCount} audits)
+                        </span>
+                        {dashboardStats.selectedStore?.city || dashboardStats.selectedStore?.region ? (
+                          <div className="text-xs font-normal text-slate-500 mt-1">
+                            {dashboardStats.selectedStore?.city || '—'}
+                            {dashboardStats.selectedStore?.region ? `, ${dashboardStats.selectedStore.region}` : ''}
+                          </div>
+                        ) : null}
+                      </CardContent>
+                    </Card>
+                    <Card className="border-slate-200 md:col-span-4">
+                      <CardHeader>
+                        <CardTitle>Overall Average</CardTitle>
+                      </CardHeader>
+                      <CardContent className="text-2xl font-semibold">
+                        {dashboardStats.overallAvg !== null ? `${dashboardStats.overallAvg}%` : '—'}
+                      </CardContent>
+                    </Card>
+
+                    <Card className="border-slate-200 md:col-span-3">
+                      <CardHeader>
+                        <CardTitle>Store Rank</CardTitle>
+                      </CardHeader>
+                      <CardContent className="text-2xl font-semibold">
+                        {dashboardStats.storeRank ? `#${dashboardStats.storeRank}` : '—'}
+                      </CardContent>
+                    </Card>
+                    <Card className="border-slate-200 md:col-span-5">
+                      <CardHeader>
+                        <CardTitle>City / Region</CardTitle>
+                      </CardHeader>
+                      <CardContent className="text-sm text-slate-700">
+                        {dashboardStats.selectedStore?.city || '—'}
+                        {dashboardStats.selectedStore?.region ? `, ${dashboardStats.selectedStore.region}` : ''}
+                      </CardContent>
+                    </Card>
+                    <Card className="border-slate-200 md:col-span-4">
+                      <CardHeader>
+                        <CardTitle>Audit Count</CardTitle>
+                      </CardHeader>
+                      <CardContent className="text-2xl font-semibold">
+                        {dashboardStats.storeAuditHistory.length}
+                      </CardContent>
+                    </Card>
+
+                    <Card className="border-slate-200 md:col-span-12">
+                      <CardHeader>
+                        <CardTitle>Audit History</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-2">
+                        {dashboardStats.storeAuditHistory.length === 0 && (
+                          <p className="text-sm text-slate-500">No audits for this store yet.</p>
+                        )}
+                        {dashboardStats.storeAuditHistory.map((audit: any) => (
+                          <div key={audit.id} className="flex items-center justify-between border-b pb-2 text-sm">
+                            <div>
+                              <div className="font-medium text-slate-800">
+                                {new Date(audit.conducted_at || audit.created_at).toLocaleDateString('en-GB')}
+                              </div>
+                              <div className="text-xs text-slate-500">
+                                {audit.fa_audit_templates?.title || 'Audit'}
+                              </div>
+                            </div>
+                            <div className="font-semibold text-indigo-600">
+                              {Math.round(audit.overall_score || 0)}%
+                            </div>
+                          </div>
+                        ))}
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <div className="grid gap-4 md:grid-cols-3">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Completed Audits</CardTitle>
+                </CardHeader>
+                <CardContent className="text-3xl font-semibold">
+                  {loadingDashboard ? '—' : dashboardStats.totalAudits}
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Average Score</CardTitle>
+                </CardHeader>
+                <CardContent className="text-3xl font-semibold text-indigo-600">
+                  {loadingDashboard ? '—' : `${dashboardStats.avgScore}%`}
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Last 30 Days</CardTitle>
+                </CardHeader>
+                <CardContent className="text-3xl font-semibold">
+                  {loadingDashboard ? '—' : dashboardStats.last30Count}
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Recent Audits</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3 text-sm">
+                  {loadingDashboard && <p className="text-slate-500">Loading recent audits…</p>}
+                  {!loadingDashboard && dashboardStats.recentAudits.length === 0 && (
+                    <p className="text-slate-500">No completed audits yet.</p>
+                  )}
+                  {!loadingDashboard && dashboardStats.recentAudits.map((audit: any) => (
+                    <div key={audit.id} className="flex items-center justify-between border-b pb-2">
+                      <div className="text-slate-700">
+                        <div className="font-medium">{audit.fa_stores?.store_name || 'Unknown Store'}</div>
+                        <div className="text-xs text-slate-500">
+                          {new Date(audit.conducted_at || audit.created_at).toLocaleDateString('en-GB')}
+                        </div>
+                      </div>
+                      <div className="text-indigo-600 font-semibold">{Math.round(audit.overall_score || 0)}%</div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Top Stores by Audit Count</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3 text-sm">
+                  {loadingDashboard && <p className="text-slate-500">Loading store stats…</p>}
+                  {!loadingDashboard && dashboardStats.storeStats.length === 0 && (
+                    <p className="text-slate-500">No store data yet.</p>
+                  )}
+                  {!loadingDashboard && dashboardStats.storeStats.map((store) => (
+                    <div key={store.name} className="flex items-center justify-between border-b pb-2">
+                      <div className="text-slate-700">
+                        <div className="font-medium">{store.name}</div>
+                        <div className="text-xs text-slate-500">{store.count} audits</div>
+                      </div>
+                      <div className="text-slate-700 font-semibold">{store.avg}%</div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Top Failed Questions</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3 text-sm">
+                  {loadingDashboard && <p className="text-slate-500">Loading failure data…</p>}
+                  {!loadingDashboard && dashboardStats.topFailedQuestions.length === 0 && (
+                    <p className="text-slate-500">No failures recorded yet.</p>
+                  )}
+                  {!loadingDashboard && dashboardStats.topFailedQuestions.map((item) => (
+                    <div key={item.question} className="border-b pb-2">
+                      <div className="font-medium text-slate-800">{item.question}</div>
+                      <div className="text-xs text-slate-500">{item.section}</div>
+                      <div className="text-xs text-red-600 font-semibold">
+                        {item.fails} fails / {item.total} ({item.rate}%)
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Sections With Most Fails</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3 text-sm">
+                  {loadingDashboard && <p className="text-slate-500">Loading section data…</p>}
+                  {!loadingDashboard && dashboardStats.sectionFails.length === 0 && (
+                    <p className="text-slate-500">No failures recorded yet.</p>
+                  )}
+                  {!loadingDashboard && dashboardStats.sectionFails.map((item) => (
+                    <div key={item.section} className="flex items-center justify-between border-b pb-2">
+                      <div>
+                        <div className="font-medium text-slate-800">{item.section}</div>
+                        <div className="text-xs text-slate-500">
+                          {item.fails} fails / {item.total}
+                        </div>
+                      </div>
+                      <div className="text-red-600 font-semibold">{item.rate}%</div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Stores With Most Failures</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm">
+                {loadingDashboard && <p className="text-slate-500">Loading store failures…</p>}
+                {!loadingDashboard && dashboardStats.storeFails.length === 0 && (
+                  <p className="text-slate-500">No failures recorded yet.</p>
+                )}
+                {!loadingDashboard && dashboardStats.storeFails.map((item) => (
+                  <div key={item.name} className="flex items-center justify-between border-b pb-2">
+                    <div className="font-medium text-slate-800">{item.name}</div>
+                    <div className="text-red-600 font-semibold">{item.fails} fails</div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle>AI Insights</CardTitle>
+                <Button
+                  size="sm"
+                  onClick={handleGenerateInsights}
+                  disabled={loadingInsights || loadingDashboard}
+                >
+                  {loadingInsights ? 'Generating…' : 'Generate Insights'}
+                </Button>
+              </CardHeader>
+              <CardContent className="text-sm text-slate-700">
+                {loadingDashboard && <p className="text-slate-500">Load dashboard data to generate insights.</p>}
+                {!loadingDashboard && !aiInsights && (
+                  <p className="text-slate-500">
+                    Generate a short summary of trends and risks using OpenAI.
+                  </p>
+                )}
+                {!loadingDashboard && aiInsights && (
+                  <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: aiInsights }} />
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="import" className="mt-6">
+          <ImportAuditView
+            templates={templates}
+            onAuditCreated={(templateId, instanceId) => {
+              setSelectedTemplate(templateId)
+              setSelectedAuditInstance(instanceId)
+              setPreviousFailures({})
+              setHistoryNotice('Imported audit saved to history.')
+              setTimeout(() => setHistoryNotice(null), 8000)
+              setActiveTab('history')
+              loadAuditHistory()
             }}
           />
         </TabsContent>
@@ -503,18 +1100,30 @@ function AuditFormView({
 }: {
   templateId: string
   onBack: () => void
-  onStartAudit: (instanceId: string) => void
+  onStartAudit: (instanceId: string, failures: PreviousFailureMap) => void
 }) {
   const [loading, setLoading] = useState(true)
   const [template, setTemplate] = useState<any>(null)
   const [stores, setStores] = useState<any[]>([])
   const [selectedStoreId, setSelectedStoreId] = useState<string>('')
   const [startingAudit, setStartingAudit] = useState(false)
+  const [loadingPrevious, setLoadingPrevious] = useState(false)
+  const [previousFailures, setPreviousFailures] = useState<PreviousFailureMap>({})
+  const [previousAuditDate, setPreviousAuditDate] = useState<string | null>(null)
 
   useEffect(() => {
     loadTemplate()
     loadStores()
   }, [templateId])
+
+  useEffect(() => {
+    if (selectedStoreId) {
+      loadPreviousFailures(selectedStoreId)
+    } else {
+      setPreviousFailures({})
+      setPreviousAuditDate(null)
+    }
+  }, [selectedStoreId, templateId])
 
   const loadTemplate = async () => {
     try {
@@ -554,12 +1163,78 @@ function AuditFormView({
     try {
       setStartingAudit(true)
       const instance = await createAuditInstance(templateId, selectedStoreId)
-      onStartAudit(instance.id)
+      onStartAudit(instance.id, previousFailures)
     } catch (error) {
       console.error('Error starting audit:', error)
       alert('Failed to start audit')
     } finally {
       setStartingAudit(false)
+    }
+  }
+
+  const loadPreviousFailures = async (storeId: string) => {
+    try {
+      setLoadingPrevious(true)
+      const supabase = createClient()
+      const { data: previousInstance } = await supabase
+        .from('fa_audit_instances')
+        .select('id, conducted_at, created_at')
+        .eq('store_id', storeId)
+        .eq('template_id', templateId)
+        .eq('status', 'completed')
+        .order('conducted_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (!previousInstance) {
+        setPreviousFailures({})
+        setPreviousAuditDate(null)
+        return
+      }
+
+      const { data: responses } = await supabase
+        .from('fa_audit_responses')
+        .select(`
+          question_id,
+          response_value,
+          response_json,
+          fa_audit_template_questions (
+            id,
+            question_text,
+            question_type
+          )
+        `)
+        .eq('audit_instance_id', previousInstance.id)
+
+      const failures: PreviousFailureMap = {}
+      responses?.forEach((response: any) => {
+        const question = response.fa_audit_template_questions
+        if (!question || question.question_type !== 'yesno') return
+
+        const rawAnswer = response.response_value || response.response_json?.value || response.response_json
+        if (!rawAnswer) return
+        const answer = String(rawAnswer).toLowerCase()
+        if (answer === 'na' || answer === 'n/a') return
+
+        const isEnforcement = question.question_text?.toLowerCase().includes('enforcement action')
+        const failed = isEnforcement ? answer === 'yes' : answer === 'no'
+        if (!failed) return
+
+        failures[question.id] = {
+          questionId: question.id,
+          questionText: question.question_text || 'Unnamed question',
+          failedAt: previousInstance.conducted_at || previousInstance.created_at,
+        }
+      })
+
+      setPreviousFailures(failures)
+      setPreviousAuditDate(previousInstance.conducted_at || previousInstance.created_at)
+    } catch (error) {
+      console.error('Error loading previous failures:', error)
+      setPreviousFailures({})
+      setPreviousAuditDate(null)
+    } finally {
+      setLoadingPrevious(false)
     }
   }
 
@@ -623,6 +1298,42 @@ function AuditFormView({
             </select>
           </div>
 
+          {selectedStoreId && (
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+              {loadingPrevious && (
+                <div className="flex items-center gap-2 text-sm text-slate-600">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading previous audit findings...
+                </div>
+              )}
+              {!loadingPrevious && Object.keys(previousFailures).length === 0 && (
+                <div className="text-sm text-slate-600">
+                  No failed points from the last completed audit.
+                </div>
+              )}
+              {!loadingPrevious && Object.keys(previousFailures).length > 0 && (
+                <div className="space-y-2">
+                  <div className="text-sm font-semibold text-slate-800">
+                    Failed points from last audit
+                    {previousAuditDate && (
+                      <span className="ml-2 text-xs font-normal text-slate-500">
+                        ({new Date(previousAuditDate).toLocaleDateString('en-GB')})
+                      </span>
+                    )}
+                  </div>
+                  <ul className="space-y-1 text-sm text-slate-700">
+                    {Object.values(previousFailures).map((failure) => (
+                      <li key={failure.questionId} className="flex items-start gap-2">
+                        <span className="mt-1 h-1.5 w-1.5 rounded-full bg-red-500" />
+                        <span>{failure.questionText}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="pt-4 border-t">
             <Button 
               onClick={handleStartAudit} 
@@ -644,6 +1355,352 @@ function AuditFormView({
           </div>
 
         </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function ImportAuditView({
+  templates,
+  onAuditCreated,
+}: {
+  templates: Template[]
+  onAuditCreated: (templateId: string, instanceId: string) => void
+}) {
+  const [templateId, setTemplateId] = useState('')
+  const [template, setTemplate] = useState<any>(null)
+  const [stores, setStores] = useState<any[]>([])
+  const [selectedStoreId, setSelectedStoreId] = useState('')
+  const [file, setFile] = useState<File | null>(null)
+  const [parsing, setParsing] = useState(false)
+  const [importing, setImporting] = useState(false)
+  const [parseError, setParseError] = useState<string | null>(null)
+  const [parsedAnswers, setParsedAnswers] = useState<Record<string, string>>({})
+  const [parseMeta, setParseMeta] = useState<{ durationMs: number; totalPages?: number | null; pagesParsed?: number | null } | null>(null)
+  const [saveStatus, setSaveStatus] = useState<string | null>(null)
+  const [parseAllPages, setParseAllPages] = useState(false)
+
+  useEffect(() => {
+    const loadStores = async () => {
+      try {
+        const supabase = createClient()
+        const { data, error } = await supabase
+          .from('fa_stores')
+          .select('id, store_code, store_name, city')
+          .eq('is_active', true)
+          .order('store_name', { ascending: true })
+        if (!error && data) {
+          setStores(data)
+        }
+      } catch (error) {
+        console.error('Error loading stores:', error)
+      }
+    }
+    loadStores()
+  }, [])
+
+  useEffect(() => {
+    if (!templateId) {
+      setTemplate(null)
+      return
+    }
+    const loadTemplate = async () => {
+      try {
+        const data = await getTemplate(templateId)
+        setTemplate(data)
+      } catch (error) {
+        console.error('Error loading template:', error)
+      }
+    }
+    loadTemplate()
+  }, [templateId])
+
+  const handleParse = async () => {
+    if (!file || !templateId) {
+      setParseError('Please select a template and PDF file.')
+      return
+    }
+    try {
+      setParsing(true)
+      setParseMeta(null)
+      setSaveStatus(null)
+      setParseError(null)
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('templateId', templateId)
+      formData.append('maxPages', parseAllPages ? '0' : '10')
+      const start = performance.now()
+      const response = await fetch('/api/ai/audit-import', {
+        method: 'POST',
+        body: formData,
+      })
+      const contentType = response.headers.get('content-type') || ''
+      if (!contentType.includes('application/json')) {
+        const text = await response.text()
+        throw new Error(text || 'Unexpected response from server.')
+      }
+      const data = await response.json()
+      if (!response.ok) {
+        throw new Error(data?.error || 'Failed to parse audit')
+      }
+      const normalizedAnswers: Record<string, string> = {}
+      Object.entries(data.answers || {}).forEach(([key, value]) => {
+        const str = String(value || '').trim().toLowerCase()
+        if (str === 'n/a' || str === 'na') {
+          normalizedAnswers[key] = 'na'
+        } else if (str === 'yes' || str === 'no') {
+          normalizedAnswers[key] = str
+        } else {
+          normalizedAnswers[key] = String(value || '')
+        }
+      })
+      setParsedAnswers(normalizedAnswers)
+      setParseMeta({
+        durationMs: performance.now() - start,
+        totalPages: data.totalPages,
+        pagesParsed: data.pagesParsed,
+      })
+    } catch (error: any) {
+      console.error('Error parsing audit:', error)
+      setParseError(error?.message || 'Failed to parse audit')
+    } finally {
+      setParsing(false)
+    }
+  }
+
+  const normalizeAnswer = (question: any, answer: string) => {
+    const raw = answer?.trim()
+    if (!raw) return null
+    const lower = raw.toLowerCase()
+
+    if (question.question_type === 'yesno') {
+      if (lower.includes('n/a') || lower === 'na') return 'na'
+      if (lower.startsWith('y')) return 'yes'
+      if (lower.startsWith('n')) return 'no'
+      return null
+    }
+
+    if (question.question_type === 'number') {
+      const match = raw.match(/-?\d+(\.\d+)?/)
+      return match ? match[0] : null
+    }
+
+    if (question.question_type === 'date') {
+      const date = new Date(raw)
+      if (!Number.isNaN(date.getTime())) {
+        return date.toISOString().slice(0, 10)
+      }
+      return raw
+    }
+
+    return raw
+  }
+
+  const handleImport = async () => {
+    if (!template || !selectedStoreId) {
+      setParseError('Please select a template and store.')
+      return
+    }
+    try {
+      setImporting(true)
+      setParseError(null)
+      setSaveStatus(null)
+      const instance = await createAuditInstance(templateId, selectedStoreId)
+      const questions = template.sections?.flatMap((section: any) => section.questions || []) || []
+      const failures: { questionId: string; message: string }[] = []
+
+      for (const question of questions) {
+        const answer = parsedAnswers[question.id] || ''
+        const normalized = normalizeAnswer(question, answer)
+        if (!normalized) continue
+        try {
+          if (question.question_type === 'multiple') {
+            await saveAuditResponse(instance.id, question.id, {
+              response_value: null,
+              response_json: { value: normalized },
+            })
+          } else if (question.question_type === 'yesno') {
+            const isEnforcement = question.question_text?.toLowerCase().includes('enforcement action')
+            const lower = String(normalized).toLowerCase()
+            const score =
+              lower === 'na'
+                ? null
+                : isEnforcement
+                ? lower === 'no'
+                  ? 1
+                  : 0
+                : lower === 'yes'
+                ? 1
+                : 0
+            await saveAuditResponse(instance.id, question.id, {
+              response_value: normalized,
+              response_json: null,
+              score,
+            })
+          } else {
+            await saveAuditResponse(instance.id, question.id, {
+              response_value: normalized,
+              response_json: null,
+            })
+          }
+        } catch (error: any) {
+          console.error('Error saving imported response:', error)
+          failures.push({
+            questionId: question.id,
+            message: error?.message || 'Unknown error',
+          })
+        }
+      }
+
+      if (failures.length > 0) {
+        setParseError(`Imported with ${failures.length} answer errors. Please review and re-save in the audit.`)
+      }
+      const result = await completeAudit(instance.id)
+      const finalScore = result?.overall_score !== null && result?.overall_score !== undefined
+        ? `${Math.round(result.overall_score)}%`
+        : 'Score pending'
+      setSaveStatus(`Audit saved to history (${finalScore}).`)
+      onAuditCreated(templateId, instance.id)
+    } catch (error) {
+      console.error('Error importing audit:', error)
+      setParseError((error as any)?.message || 'Failed to create audit from import.')
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Import Legacy Audit PDF</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="grid gap-4 md:grid-cols-2">
+          <div>
+            <label className="block text-sm font-medium mb-2">Template *</label>
+            <select
+              value={templateId}
+              onChange={(e) => setTemplateId(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            >
+              <option value="">-- Select a template --</option>
+              {templates.map((t) => (
+                <option key={t.id} value={t.id}>{t.title}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2">Store *</label>
+            <select
+              value={selectedStoreId}
+              onChange={(e) => setSelectedStoreId(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            >
+              <option value="">-- Select a store --</option>
+              {stores.map((store) => (
+                <option key={store.id} value={store.id}>
+                  {store.store_name} {store.store_code && `(${store.store_code})`} {store.city && `- ${store.city}`}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-2">PDF File *</label>
+          <input
+            type="file"
+            accept="application/pdf"
+            onChange={(e) => setFile(e.target.files?.[0] || null)}
+            className="block w-full text-sm text-slate-700 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200"
+          />
+        </div>
+
+        {parseError && (
+          <div className="text-sm text-red-600">{parseError}</div>
+        )}
+
+        <div className="flex flex-wrap gap-3 items-center">
+          <Button onClick={handleParse} disabled={parsing || !file || !templateId}>
+            {parsing ? 'Parsing…' : 'Parse PDF'}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={handleImport}
+            disabled={importing || !template || Object.keys(parsedAnswers).length === 0}
+          >
+            {importing ? 'Saving…' : 'Save to History'}
+          </Button>
+        </div>
+        <label className="flex items-center gap-2 text-xs text-slate-600">
+          <input
+            type="checkbox"
+            checked={parseAllPages}
+            onChange={(e) => setParseAllPages(e.target.checked)}
+            className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+          />
+          Parse all pages (slower but more accurate)
+        </label>
+        {parsing && (
+          <div className="text-xs text-slate-500">
+            Parsing PDF… this can take up to 30s on large files ({parseAllPages ? 'processing all pages' : 'processing first 10 pages'}).
+          </div>
+        )}
+        {parseMeta && (
+          <div className="text-xs text-slate-500">
+            Parsed in {(parseMeta.durationMs / 1000).toFixed(1)}s
+            {parseMeta.pagesParsed ? ` • ${parseMeta.pagesParsed}` : ''}
+            {parseMeta.totalPages ? `/${parseMeta.totalPages} pages` : ' pages'}
+            {parseMeta.totalPages && parseMeta.pagesParsed && parseMeta.pagesParsed < parseMeta.totalPages
+              ? ' • Partial parse'
+              : ' • Full parse'}
+          </div>
+        )}
+        {saveStatus && (
+          <div className="text-xs text-emerald-600">{saveStatus}</div>
+        )}
+
+        {template && (
+          <div className="space-y-4">
+            <h4 className="text-sm font-semibold text-slate-800">Parsed Answers</h4>
+            {template.sections?.map((section: any) => (
+              <div key={section.id} className="space-y-3">
+                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  {section.title}
+                </div>
+                {section.questions?.map((question: any) => (
+                  <div key={question.id} className="rounded-lg border border-slate-200 p-3">
+                    <div className="text-sm font-medium text-slate-800">{question.question_text}</div>
+                    {question.question_type === 'yesno' ? (
+                      <select
+                        value={parsedAnswers[question.id] || ''}
+                        onChange={(e) =>
+                          setParsedAnswers((prev) => ({ ...prev, [question.id]: e.target.value }))
+                        }
+                        className="mt-2 w-full max-w-[220px] px-3 py-2 border border-slate-300 rounded-lg bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      >
+                        <option value="">-- Select --</option>
+                        <option value="yes">Yes</option>
+                        <option value="no">No</option>
+                        <option value="na">N/A</option>
+                      </select>
+                    ) : (
+                      <input
+                        type="text"
+                        value={parsedAnswers[question.id] || ''}
+                        onChange={(e) =>
+                          setParsedAnswers((prev) => ({ ...prev, [question.id]: e.target.value }))
+                        }
+                        className="mt-2 w-full px-3 py-2 border border-slate-300 rounded-lg bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        placeholder="No answer parsed"
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
       </CardContent>
     </Card>
   )
@@ -803,10 +1860,12 @@ function SignatureCanvasComponent({
 function AuditExecutionView({
   templateId,
   instanceId,
+  previousFailures,
   onBack,
 }: {
   templateId: string
   instanceId: string
+  previousFailures: PreviousFailureMap
   onBack: () => void
 }) {
   const [loading, setLoading] = useState(true)
@@ -1814,11 +2873,21 @@ function AuditExecutionView({
                 const isScoredQuestion = question.question_type === 'yesno'
                 const isInformationalQuestion = !isScoredQuestion
 
+                const previousFailure = previousFailures?.[question.id]
+                const previousFailureDate = previousFailure?.failedAt
+                  ? new Date(previousFailure.failedAt).toLocaleDateString('en-GB')
+                  : null
+
                 return (
                   <div key={question.id} className="space-y-2">
                     <div className="flex items-start justify-between gap-2">
                       <p className="font-medium text-lg">{question.question_text}</p>
-                      <div className="flex gap-2 shrink-0">
+                      <div className="flex gap-2 shrink-0 flex-wrap justify-end">
+                        {previousFailure && (
+                          <Badge className="bg-amber-100 text-amber-800 border-amber-300">
+                            Failed previously{previousFailureDate ? ` (${previousFailureDate})` : ''}
+                          </Badge>
+                        )}
                         {isScoredQuestion && (
                           <Badge className="bg-green-100 text-green-800 border-green-300">Scored</Badge>
                         )}
@@ -1932,7 +3001,7 @@ function AuditExecutionView({
                 <Button
                   variant="outline"
                   onClick={() => {
-                    const url = `/api/audit-pdfs/generate?instanceId=${instanceId}`
+                    const url = `/audit-lab/view-report?instanceId=${instanceId}`
                     window.open(url, '_blank')
                   }}
                   className="flex-1"
@@ -2132,6 +3201,28 @@ function AuditHistoryView({
   loading: boolean
   onEdit?: (auditId: string, templateId: string) => void
 }) {
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  const handleDelete = async (auditId: string) => {
+    const audit = audits.find(a => a.id === auditId)
+    const templateName = (audit?.fa_audit_templates as any)?.title || 'this audit'
+    const storeName = (audit?.fa_stores as any)?.store_name || 'Unknown Store'
+
+    if (!confirm(`Are you sure you want to delete "${templateName}" for ${storeName}? This action cannot be undone.`)) {
+      return
+    }
+
+    try {
+      setDeletingId(auditId)
+      await deleteAuditInstance(auditId)
+      window.location.reload()
+    } catch (error: any) {
+      console.error('Error deleting audit:', error)
+      alert(`Failed to delete audit: ${error.message}`)
+    } finally {
+      setDeletingId(null)
+    }
+  }
   const handleDownloadPDF = async (instanceId: string) => {
     try {
       const response = await fetch(`/api/audit-pdfs/generate?instanceId=${instanceId}`)
@@ -2152,7 +3243,7 @@ function AuditHistoryView({
   }
 
   const handleViewPDF = (instanceId: string) => {
-    const url = `/api/audit-pdfs/generate?instanceId=${instanceId}`
+    const url = `/audit-lab/view-report?instanceId=${instanceId}`
     window.open(url, '_blank')
   }
 
@@ -2231,21 +3322,68 @@ function AuditHistoryView({
                               <Download className="h-3 w-3 mr-1" />
                               PDF
                             </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                if (onEdit) {
+                                  onEdit(audit.id, audit.template_id)
+                                }
+                              }}
+                              className="h-8 px-3"
+                            >
+                              <Edit2 className="h-3 w-3 mr-1" />
+                              Edit
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleDelete(audit.id)}
+                              disabled={deletingId === audit.id}
+                              className="h-8 px-3 text-red-600 border-red-200 hover:bg-red-50"
+                            >
+                              {deletingId === audit.id ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <>
+                                  <Trash2 className="h-3 w-3 mr-1" />
+                                  Delete
+                                </>
+                              )}
+                            </Button>
                           </>
                         ) : (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              if (onEdit) {
-                                onEdit(audit.id, audit.template_id)
-                              }
-                            }}
-                            className="h-8 px-3"
-                          >
-                            <Edit2 className="h-3 w-3 mr-1" />
-                            Edit
-                          </Button>
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                if (onEdit) {
+                                  onEdit(audit.id, audit.template_id)
+                                }
+                              }}
+                              className="h-8 px-3"
+                            >
+                              <Edit2 className="h-3 w-3 mr-1" />
+                              Edit
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleDelete(audit.id)}
+                              disabled={deletingId === audit.id}
+                              className="h-8 px-3 text-red-600 border-red-200 hover:bg-red-50"
+                            >
+                              {deletingId === audit.id ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <>
+                                  <Trash2 className="h-3 w-3 mr-1" />
+                                  Delete
+                                </>
+                              )}
+                            </Button>
+                          </>
                         )}
                       </div>
                     </TableCell>
