@@ -34,6 +34,14 @@ interface EditState {
   pdfFile: File | null
 }
 
+interface UpdateScoreState {
+  storeId: string
+  auditNumber: 1 | 2
+  storeName: string
+  currentDate: string | null
+  percentage: string
+}
+
 export function AuditTable({ 
   rows, 
   userRole, 
@@ -68,6 +76,9 @@ export function AuditTable({
   const [pdfUploadFile, setPdfUploadFile] = useState<File | null>(null)
   const [uploadingPdf, setUploadingPdf] = useState(false)
   const [deletingPdf, setDeletingPdf] = useState<string | null>(null)
+  const [updateDialogOpen, setUpdateDialogOpen] = useState(false)
+  const [updateScoreState, setUpdateScoreState] = useState<UpdateScoreState | null>(null)
+  const [updatingScore, setUpdatingScore] = useState(false)
 
   const areaOptions = useMemo(() => {
     const set = new Set<string>()
@@ -450,6 +461,90 @@ export function AuditTable({
     }
   }
 
+  const handleOpenUpdateScore = (row: AuditRow, auditNumber: 1 | 2) => {
+    const currentPct = auditNumber === 1 ? row.compliance_audit_1_overall_pct : row.compliance_audit_2_overall_pct
+    const currentDate = auditNumber === 1 ? row.compliance_audit_1_date : row.compliance_audit_2_date
+
+    if (currentPct === null || currentPct === undefined) return
+
+    setUpdateScoreState({
+      storeId: row.id,
+      auditNumber,
+      storeName: row.store_name,
+      currentDate,
+      percentage: currentPct.toString(),
+    })
+    setUpdateDialogOpen(true)
+  }
+
+  const handleUpdateScore = async () => {
+    if (!updateScoreState) return
+
+    const pctNum = Number(updateScoreState.percentage)
+    if (!updateScoreState.percentage || isNaN(pctNum)) {
+      alert('Please enter a valid percentage (0-100)')
+      return
+    }
+    if (pctNum < 0 || pctNum > 100) {
+      alert('Percentage must be between 0 and 100')
+      return
+    }
+
+    setUpdatingScore(true)
+
+    try {
+      const supabase = createClient()
+      const updateData: Record<string, number> = {}
+
+      if (updateScoreState.auditNumber === 1) {
+        updateData.compliance_audit_1_overall_pct = pctNum
+      } else {
+        updateData.compliance_audit_2_overall_pct = pctNum
+      }
+
+      const { data, error } = await supabase
+        .from('fa_stores')
+        .update(updateData)
+        .eq('id', updateScoreState.storeId)
+        .select()
+        .single()
+
+      if (error) {
+        console.error('Supabase error:', error)
+        throw new Error(error.message || 'Failed to update audit score')
+      }
+
+      if (!data) {
+        throw new Error('No data returned from update')
+      }
+
+      setLocalRows(prevRows => 
+        prevRows.map(row => {
+          if (row.id === updateScoreState.storeId) {
+            return {
+              ...row,
+              compliance_audit_1_overall_pct: data.compliance_audit_1_overall_pct,
+              compliance_audit_2_overall_pct: data.compliance_audit_2_overall_pct,
+            }
+          }
+          return row
+        })
+      )
+
+      setUpdateDialogOpen(false)
+      setUpdateScoreState(null)
+
+      setTimeout(() => {
+        window.location.reload()
+      }, 100)
+    } catch (error) {
+      console.error('Error updating audit score:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update audit score. Please try again.'
+      alert(`Error: ${errorMessage}`)
+      setUpdatingScore(false)
+    }
+  }
+
   const renderDateCell = (date: string | null, pct: number | null, storeId: string, auditNum: 1 | 2, row: AuditRow) => {
     const isEditing = editing?.storeId === storeId && editing?.auditNumber === auditNum
     
@@ -514,7 +609,23 @@ export function AuditTable({
       )
     }
     
-    return pctBadge(value)
+    if (value === null || value === undefined) {
+      return pctBadge(value)
+    }
+
+    return (
+      <button
+        type="button"
+        onClick={() => {
+          const row = localRows.find(r => r.id === storeId)
+          if (row) handleOpenUpdateScore(row, auditNum)
+        }}
+        className="inline-flex items-center justify-center hover:opacity-80 transition-opacity"
+        title="Update audit score"
+      >
+        {pctBadge(value)}
+      </button>
+    )
   }
 
   return (
@@ -934,6 +1045,62 @@ export function AuditTable({
               disabled={!pdfUploadFile || !selectedAuditForUpload || uploadingPdf}
             >
               {uploadingPdf ? 'Uploading...' : 'Upload'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Update Score Dialog */}
+      <Dialog
+        open={updateDialogOpen}
+        onOpenChange={(open) => {
+          setUpdateDialogOpen(open)
+          if (!open) {
+            setUpdateScoreState(null)
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Update Audit Score</DialogTitle>
+            <DialogDescription>
+              {updateScoreState ? `Audit ${updateScoreState.auditNumber} - ${updateScoreState.storeName}` : ''}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            {updateScoreState?.currentDate && (
+              <div className="text-xs text-muted-foreground">
+                Audit date: {formatDate(updateScoreState.currentDate)}
+              </div>
+            )}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Score (%)</label>
+              <Input
+                type="number"
+                min="0"
+                max="100"
+                step="0.01"
+                value={updateScoreState?.percentage || ''}
+                onChange={(e) => {
+                  if (!updateScoreState) return
+                  setUpdateScoreState({ ...updateScoreState, percentage: e.target.value })
+                }}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setUpdateDialogOpen(false)
+                setUpdateScoreState(null)
+              }}
+              disabled={updatingScore}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleUpdateScore} disabled={updatingScore}>
+              {updatingScore ? 'Updating...' : 'Update'}
             </Button>
           </DialogFooter>
         </DialogContent>

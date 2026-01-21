@@ -128,40 +128,8 @@ export function statusBadge(status: FRAStatus, days: number | null) {
 }
 
 /**
- * Check if a store needs an FRA (has audit 1 or 2 in current year)
+ * Check if a store needs an FRA (only after at least one completed H&S audit)
  */
 export function storeNeedsFRA(row: FRARow): boolean {
-  const currentYear = new Date().getFullYear()
-  
-  // Check audit 1 date
-  if (row.compliance_audit_1_date) {
-    try {
-      const audit1Date = new Date(row.compliance_audit_1_date)
-      if (!isNaN(audit1Date.getTime())) {
-        const audit1Year = audit1Date.getFullYear()
-        if (audit1Year === currentYear) {
-          return true
-        }
-      }
-    } catch (e) {
-      console.error('Error parsing audit 1 date:', row.compliance_audit_1_date, e)
-    }
-  }
-  
-  // Check audit 2 date
-  if (row.compliance_audit_2_date) {
-    try {
-      const audit2Date = new Date(row.compliance_audit_2_date)
-      if (!isNaN(audit2Date.getTime())) {
-        const audit2Year = audit2Date.getFullYear()
-        if (audit2Year === currentYear) {
-          return true
-        }
-      }
-    } catch (e) {
-      console.error('Error parsing audit 2 date:', row.compliance_audit_2_date, e)
-    }
-  }
-  
-  return false
+  return Boolean(row.compliance_audit_1_date || row.compliance_audit_2_date)
 }

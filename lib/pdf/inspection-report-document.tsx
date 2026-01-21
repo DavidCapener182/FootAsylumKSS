@@ -311,6 +311,20 @@ const styles = StyleSheet.create({
     color: '#111827',
     fontWeight: 'normal',
   },
+  commentLabel: {
+    fontSize: 8,
+    color: '#6B7280',
+    fontWeight: 'bold',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginTop: 4,
+  },
+  commentText: {
+    fontSize: 9,
+    color: '#111827',
+    marginTop: 2,
+    lineHeight: 1.4,
+  },
   // Media/photo styles
   mediaContainer: {
     marginTop: 8,
@@ -398,6 +412,18 @@ export const InspectionReportPDF = ({
       }
       // If it's an object, return the whole object
       return response.response_json
+    }
+    return null
+  }
+
+  const getComment = (questionId: string): string | null => {
+    const response = responses.find((r: any) => r.question_id === questionId)
+    if (!response?.response_json) return null
+    if (typeof response.response_json === 'object' && response.response_json !== null) {
+      const comment = response.response_json.comment
+      if (typeof comment === 'string' && comment.trim().length > 0) {
+        return comment.trim()
+      }
     }
     return null
   }
@@ -699,6 +725,7 @@ export const InspectionReportPDF = ({
                 const answerStr = formatAnswerForDisplay(answer, question)
                 const questionMedia = getMediaForQuestion(question.id)
                 const signatureData = getSignatureData(answer)
+                const comment = getComment(question.id)
 
                 // Check if this is Action Plan Sign Off section - don't show badges for text/date fields
                 const isActionPlanSection = section.title?.toLowerCase().includes('action plan')
@@ -726,6 +753,14 @@ export const InspectionReportPDF = ({
                     {/* Show answer text for non-badge answers (text, date, number, etc.) */}
                     {!isSignatureData(answer) && question.question_type !== 'yesno' && question.question_type !== 'signature' && (
                       <Text style={styles.answerText}>{formatAnswer(answer) || '—'}</Text>
+                    )}
+
+                    {/* Show comment if available */}
+                    {comment && (
+                      <View>
+                        <Text style={styles.commentLabel}>Comment</Text>
+                        <Text style={styles.commentText}>{comment}</Text>
+                      </View>
                     )}
 
                     {/* Show media/photos if available */}

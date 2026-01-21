@@ -18,14 +18,17 @@ import {
   Camera,
   Image as ImageIcon,
   Download,
-  CheckCircle2
+  CheckCircle2,
+  Flame
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
+import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { 
   getTemplates, 
@@ -50,6 +53,46 @@ interface Template {
   category: string
   created_at: string
   is_active: boolean
+}
+
+const getTemplateDisplayTitle = (template: { title?: string; category?: string }) => {
+  if (template.category === 'footasylum_audit') {
+    return 'Footasylum H&S Audit'
+  }
+  return template.title || 'Untitled Template'
+}
+
+const getTemplateDisplayDescription = (template: { description?: string; category?: string }) => {
+  if (template.category === 'footasylum_audit') {
+    return 'Comprehensive H&S audit template for Footasylum stores. Includes disclaimer and all standard sections.'
+  }
+  return template.description || ''
+}
+
+const getTemplateTheme = (category?: string) => {
+  switch (category) {
+    case 'fire_risk_assessment':
+      return {
+        card: 'border-l-4 border-l-orange-500',
+        header: 'bg-orange-50/60',
+        badge: 'border-orange-200 text-orange-700 bg-orange-50',
+        action: 'text-orange-700',
+      }
+    case 'footasylum_audit':
+      return {
+        card: 'border-l-4 border-l-indigo-500',
+        header: 'bg-indigo-50/60',
+        badge: 'border-indigo-200 text-indigo-700 bg-indigo-50',
+        action: 'text-indigo-700',
+      }
+    default:
+      return {
+        card: 'border-l-4 border-l-slate-300',
+        header: 'bg-slate-50/60',
+        badge: 'border-slate-200 text-slate-600 bg-slate-50',
+        action: 'text-indigo-600',
+      }
+  }
 }
 
 type PreviousFailure = {
@@ -865,6 +908,8 @@ function TemplatesLibraryView({
   onTemplatesReload?: () => void
 }) {
   const [seeding, setSeeding] = useState(false)
+  const [creatingFRA, setCreatingFRA] = useState(false)
+  const hasFRATemplate = templates.some((template) => template.category === 'fire_risk_assessment')
 
   const handleSeedFootAsylumTemplate = async () => {
     if (!confirm('This will create the FootAsylum SafeHub template with all sections and questions. Continue?')) {
@@ -900,6 +945,32 @@ function TemplatesLibraryView({
     }
   }
 
+  const handleCreateFRATemplate = async () => {
+    if (!confirm('Create a Fire Risk Assessment template with no questions yet?')) {
+      return
+    }
+    try {
+      setCreatingFRA(true)
+      await createTemplate({
+        title: 'Fire Risk Assessment',
+        description: 'Fire Risk Assessment template for stores that have completed H&S audits.',
+        category: 'fire_risk_assessment',
+        sections: [],
+      })
+      alert('Fire Risk Assessment template created successfully!')
+      if (onTemplatesReload) {
+        onTemplatesReload()
+      } else {
+        window.location.reload()
+      }
+    } catch (error: any) {
+      console.error('Error creating FRA template:', error)
+      alert(`Failed to create FRA template: ${error.message || 'Unknown error'}`)
+    } finally {
+      setCreatingFRA(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Actions */}
@@ -908,6 +979,21 @@ function TemplatesLibraryView({
           <Plus className="h-4 w-4 mr-2" />
           Create New Template
         </Button>
+        {!hasFRATemplate && (
+          <Button
+            onClick={handleCreateFRATemplate}
+            disabled={creatingFRA}
+            variant="outline"
+            className="border-orange-600 text-orange-600 hover:bg-orange-50"
+          >
+            {creatingFRA ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Flame className="h-4 w-4 mr-2" />
+            )}
+            Create Fire Risk Assessment Template
+          </Button>
+        )}
         {templates.length === 0 && (
           <Button 
             onClick={handleSeedFootAsylumTemplate} 
@@ -948,33 +1034,37 @@ function TemplatesLibraryView({
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {templates.map((template) => (
+          {templates.map((template) => {
+            const theme = getTemplateTheme(template.category)
+            return (
             <Card 
               key={template.id}
-              className="hover:shadow-lg transition-shadow cursor-pointer"
+              className={cn('hover:shadow-lg transition-shadow cursor-pointer', theme.card)}
               onClick={() => onTemplateClick(template.id)}
             >
-              <CardHeader>
+              <CardHeader className={cn('rounded-t-lg', theme.header)}>
                 <div className="flex items-start justify-between">
-                  <CardTitle className="text-lg">{template.title}</CardTitle>
-                  <Badge variant="outline" className="shrink-0 ml-2">
+                  <CardTitle className="text-xl font-extrabold tracking-tight text-slate-900">
+                    {getTemplateDisplayTitle(template)}
+                  </CardTitle>
+                  <Badge variant="outline" className={cn('shrink-0 ml-2', theme.badge)}>
                     {template.category.replace('_', ' ')}
                   </Badge>
                 </div>
               </CardHeader>
               <CardContent>
-                {template.description && (
-                  <p className="text-sm text-slate-600 mb-4">{template.description}</p>
+                {getTemplateDisplayDescription(template) && (
+                  <p className="text-sm text-slate-600 mb-4">{getTemplateDisplayDescription(template)}</p>
                 )}
                 <div className="flex items-center justify-between text-xs text-slate-500">
                   <span>Created {new Date(template.created_at).toLocaleDateString()}</span>
-                  <Button variant="ghost" size="sm" className="text-indigo-600">
+                  <Button variant="ghost" size="sm" className={theme.action}>
                     Start Audit <ChevronRight className="h-3 w-3 ml-1" />
                   </Button>
                 </div>
               </CardContent>
             </Card>
-          ))}
+          )})}
         </div>
       )}
     </div>
@@ -1113,8 +1203,11 @@ function AuditFormView({
 
   useEffect(() => {
     loadTemplate()
-    loadStores()
   }, [templateId])
+
+  useEffect(() => {
+    loadStores()
+  }, [template?.category])
 
   useEffect(() => {
     if (selectedStoreId) {
@@ -1142,12 +1235,19 @@ function AuditFormView({
       const supabase = createClient()
       const { data, error } = await supabase
         .from('fa_stores')
-        .select('id, store_code, store_name, city, region')
+        .select('id, store_code, store_name, city, region, compliance_audit_1_date, compliance_audit_2_date')
         .eq('is_active', true)
         .order('store_name', { ascending: true })
 
       if (!error && data) {
-        setStores(data)
+        if (template?.category === 'fire_risk_assessment') {
+          const eligible = data.filter(
+            (store) => store.compliance_audit_1_date || store.compliance_audit_2_date
+          )
+          setStores(eligible)
+        } else {
+          setStores(data)
+        }
       }
     } catch (error) {
       console.error('Error loading stores:', error)
@@ -1270,13 +1370,13 @@ function AuditFormView({
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
           </Button>
-          <CardTitle>{template.title}</CardTitle>
+          <CardTitle>{getTemplateDisplayTitle(template)}</CardTitle>
         </div>
       </CardHeader>
       <CardContent>
         <div className="space-y-6">
           {template.description && (
-            <p className="text-slate-600">{template.description}</p>
+            <p className="text-slate-600">{getTemplateDisplayDescription(template)}</p>
           )}
 
           {/* Store Selection */}
@@ -1372,10 +1472,12 @@ function ImportAuditView({
   const [stores, setStores] = useState<any[]>([])
   const [selectedStoreId, setSelectedStoreId] = useState('')
   const [file, setFile] = useState<File | null>(null)
+  const [rawText, setRawText] = useState('')
   const [parsing, setParsing] = useState(false)
   const [importing, setImporting] = useState(false)
   const [parseError, setParseError] = useState<string | null>(null)
   const [parsedAnswers, setParsedAnswers] = useState<Record<string, string>>({})
+  const [parsedComments, setParsedComments] = useState<Record<string, string>>({})
   const [parseMeta, setParseMeta] = useState<{ durationMs: number; totalPages?: number | null; pagesParsed?: number | null } | null>(null)
   const [saveStatus, setSaveStatus] = useState<string | null>(null)
   const [parseAllPages, setParseAllPages] = useState(false)
@@ -1415,6 +1517,27 @@ function ImportAuditView({
     loadTemplate()
   }, [templateId])
 
+  const applyParsedResponse = (data: any, durationMs: number) => {
+    const normalizedAnswers: Record<string, string> = {}
+    Object.entries(data.answers || {}).forEach(([key, value]) => {
+      const str = String(value || '').trim().toLowerCase()
+      if (str === 'n/a' || str === 'na') {
+        normalizedAnswers[key] = 'na'
+      } else if (str === 'yes' || str === 'no') {
+        normalizedAnswers[key] = str
+      } else {
+        normalizedAnswers[key] = String(value || '')
+      }
+    })
+    setParsedAnswers(normalizedAnswers)
+    setParsedComments(data.comments || {})
+    setParseMeta({
+      durationMs,
+      totalPages: data.totalPages,
+      pagesParsed: data.pagesParsed,
+    })
+  }
+
   const handleParse = async () => {
     if (!file || !templateId) {
       setParseError('Please select a template and PDF file.')
@@ -1443,26 +1566,46 @@ function ImportAuditView({
       if (!response.ok) {
         throw new Error(data?.error || 'Failed to parse audit')
       }
-      const normalizedAnswers: Record<string, string> = {}
-      Object.entries(data.answers || {}).forEach(([key, value]) => {
-        const str = String(value || '').trim().toLowerCase()
-        if (str === 'n/a' || str === 'na') {
-          normalizedAnswers[key] = 'na'
-        } else if (str === 'yes' || str === 'no') {
-          normalizedAnswers[key] = str
-        } else {
-          normalizedAnswers[key] = String(value || '')
-        }
-      })
-      setParsedAnswers(normalizedAnswers)
-      setParseMeta({
-        durationMs: performance.now() - start,
-        totalPages: data.totalPages,
-        pagesParsed: data.pagesParsed,
-      })
+      applyParsedResponse(data, performance.now() - start)
     } catch (error: any) {
       console.error('Error parsing audit:', error)
       setParseError(error?.message || 'Failed to parse audit')
+    } finally {
+      setParsing(false)
+    }
+  }
+
+  const handleParseText = async () => {
+    if (!rawText.trim() || !templateId) {
+      setParseError('Please select a template and paste the audit text.')
+      return
+    }
+    try {
+      setParsing(true)
+      setParseMeta(null)
+      setSaveStatus(null)
+      setParseError(null)
+      const formData = new FormData()
+      formData.append('templateId', templateId)
+      formData.append('rawText', rawText)
+      const start = performance.now()
+      const response = await fetch('/api/ai/audit-import', {
+        method: 'POST',
+        body: formData,
+      })
+      const contentType = response.headers.get('content-type') || ''
+      if (!contentType.includes('application/json')) {
+        const text = await response.text()
+        throw new Error(text || 'Unexpected response from server.')
+      }
+      const data = await response.json()
+      if (!response.ok) {
+        throw new Error(data?.error || 'Failed to parse audit')
+      }
+      applyParsedResponse(data, performance.now() - start)
+    } catch (error: any) {
+      console.error('Error parsing audit text:', error)
+      setParseError(error?.message || 'Failed to parse audit text')
     } finally {
       setParsing(false)
     }
@@ -1512,12 +1655,13 @@ function ImportAuditView({
       for (const question of questions) {
         const answer = parsedAnswers[question.id] || ''
         const normalized = normalizeAnswer(question, answer)
+        const comment = parsedComments[question.id] || ''
         if (!normalized) continue
         try {
           if (question.question_type === 'multiple') {
             await saveAuditResponse(instance.id, question.id, {
               response_value: null,
-              response_json: { value: normalized },
+              response_json: { value: normalized, comment: comment || undefined },
             })
           } else if (question.question_type === 'yesno') {
             const isEnforcement = question.question_text?.toLowerCase().includes('enforcement action')
@@ -1534,13 +1678,13 @@ function ImportAuditView({
                 : 0
             await saveAuditResponse(instance.id, question.id, {
               response_value: normalized,
-              response_json: null,
+              response_json: { comment: comment || undefined },
               score,
             })
           } else {
             await saveAuditResponse(instance.id, question.id, {
               response_value: normalized,
-              response_json: null,
+              response_json: { comment: comment || undefined },
             })
           }
         } catch (error: any) {
@@ -1616,6 +1760,19 @@ function ImportAuditView({
           />
         </div>
 
+        <div>
+          <label className="block text-sm font-medium mb-2">Or paste audit text</label>
+          <Textarea
+            value={rawText}
+            onChange={(e) => setRawText(e.target.value)}
+            placeholder="Paste the full audit text extracted from the PDF..."
+            className="min-h-[160px]"
+          />
+          <p className="mt-2 text-xs text-slate-500">
+            Use this if you already copied the PDF content into text.
+          </p>
+        </div>
+
         {parseError && (
           <div className="text-sm text-red-600">{parseError}</div>
         )}
@@ -1625,6 +1782,13 @@ function ImportAuditView({
             {parsing ? 'Parsing…' : 'Parse PDF'}
           </Button>
           <Button
+            variant="secondary"
+            onClick={handleParseText}
+            disabled={parsing || !rawText.trim() || !templateId}
+          >
+            {parsing ? 'Parsing…' : 'Parse Text'}
+          </Button>
+          <Button
             variant="outline"
             onClick={handleImport}
             disabled={importing || !template || Object.keys(parsedAnswers).length === 0}
@@ -1632,28 +1796,38 @@ function ImportAuditView({
             {importing ? 'Saving…' : 'Save to History'}
           </Button>
         </div>
-        <label className="flex items-center gap-2 text-xs text-slate-600">
-          <input
-            type="checkbox"
-            checked={parseAllPages}
-            onChange={(e) => setParseAllPages(e.target.checked)}
-            className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-          />
-          Parse all pages (slower but more accurate)
-        </label>
-        {parsing && (
+        {file && (
+          <label className="flex items-center gap-2 text-xs text-slate-600">
+            <input
+              type="checkbox"
+              checked={parseAllPages}
+              onChange={(e) => setParseAllPages(e.target.checked)}
+              className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+            />
+            Parse all pages (slower but more accurate)
+          </label>
+        )}
+        {parsing && file && (
           <div className="text-xs text-slate-500">
             Parsing PDF… this can take up to 30s on large files ({parseAllPages ? 'processing all pages' : 'processing first 10 pages'}).
+          </div>
+        )}
+        {parsing && !file && (
+          <div className="text-xs text-slate-500">
+            Parsing audit text…
           </div>
         )}
         {parseMeta && (
           <div className="text-xs text-slate-500">
             Parsed in {(parseMeta.durationMs / 1000).toFixed(1)}s
-            {parseMeta.pagesParsed ? ` • ${parseMeta.pagesParsed}` : ''}
-            {parseMeta.totalPages ? `/${parseMeta.totalPages} pages` : ' pages'}
+            {parseMeta.totalPages || parseMeta.pagesParsed
+              ? ` • ${parseMeta.pagesParsed || 0}/${parseMeta.totalPages || 0} pages`
+              : ''}
             {parseMeta.totalPages && parseMeta.pagesParsed && parseMeta.pagesParsed < parseMeta.totalPages
               ? ' • Partial parse'
-              : ' • Full parse'}
+              : parseMeta.totalPages
+              ? ' • Full parse'
+              : ''}
           </div>
         )}
         {saveStatus && (
@@ -1694,6 +1868,21 @@ function ImportAuditView({
                         className="mt-2 w-full px-3 py-2 border border-slate-300 rounded-lg bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         placeholder="No answer parsed"
                       />
+                    )}
+                    {(question.question_type === 'yesno' || parsedComments[question.id]) && (
+                      <div className="mt-3">
+                        <label className="block text-xs font-medium text-slate-500 mb-1">
+                          Comment
+                        </label>
+                        <Textarea
+                          value={parsedComments[question.id] || ''}
+                          onChange={(e) =>
+                            setParsedComments((prev) => ({ ...prev, [question.id]: e.target.value }))
+                          }
+                          placeholder="Add any comments or notes..."
+                          className="min-h-[80px]"
+                        />
+                      </div>
                     )}
                   </div>
                 ))}
@@ -3135,7 +3324,10 @@ function ActiveAuditsView({
                 {audits.map((audit) => (
                   <TableRow key={audit.id}>
                     <TableCell className="font-medium">
-                      {(audit.fa_audit_templates as any)?.title || 'Unknown Template'}
+                      {getTemplateDisplayTitle({
+                        title: (audit.fa_audit_templates as any)?.title,
+                        category: (audit.fa_audit_templates as any)?.category,
+                      })}
                     </TableCell>
                     <TableCell>
                       {(audit.fa_stores as any)?.store_name || 'Unknown Store'}
@@ -3202,6 +3394,7 @@ function AuditHistoryView({
   onEdit?: (auditId: string, templateId: string) => void
 }) {
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
   const handleDelete = async (auditId: string) => {
     const audit = audits.find(a => a.id === auditId)
@@ -3220,6 +3413,44 @@ function AuditHistoryView({
       console.error('Error deleting audit:', error)
       alert(`Failed to delete audit: ${error.message}`)
     } finally {
+      setDeletingId(null)
+    }
+  }
+
+  const toggleSelect = (auditId: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(auditId)) {
+        next.delete(auditId)
+      } else {
+        next.add(auditId)
+      }
+      return next
+    })
+  }
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === audits.length) {
+      setSelectedIds(new Set())
+      return
+    }
+    setSelectedIds(new Set(audits.map((audit) => audit.id)))
+  }
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return
+    if (!confirm(`Delete ${selectedIds.size} selected audit(s)? This action cannot be undone.`)) {
+      return
+    }
+    try {
+      setDeletingId('bulk')
+      for (const auditId of Array.from(selectedIds)) {
+        await deleteAuditInstance(auditId)
+      }
+      window.location.reload()
+    } catch (error: any) {
+      console.error('Error deleting audits:', error)
+      alert(`Failed to delete audits: ${error.message}`)
       setDeletingId(null)
     }
   }
@@ -3250,7 +3481,25 @@ function AuditHistoryView({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Audit History</CardTitle>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <CardTitle>Audit History</CardTitle>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleBulkDelete}
+            disabled={selectedIds.size === 0 || deletingId === 'bulk'}
+            className="h-8 px-3 text-red-600 border-red-200 hover:bg-red-50"
+          >
+            {deletingId === 'bulk' ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <>
+                <Trash2 className="h-3 w-3 mr-1" />
+                Delete Selected
+              </>
+            )}
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
         {loading ? (
@@ -3267,6 +3516,15 @@ function AuditHistoryView({
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-10">
+                    <input
+                      type="checkbox"
+                      aria-label="Select all audits"
+                      checked={audits.length > 0 && selectedIds.size === audits.length}
+                      onChange={toggleSelectAll}
+                      className="h-4 w-4"
+                    />
+                  </TableHead>
                   <TableHead>Template</TableHead>
                   <TableHead>Store</TableHead>
                   <TableHead>Score</TableHead>
@@ -3277,6 +3535,15 @@ function AuditHistoryView({
               <TableBody>
                 {audits.map((audit) => (
                   <TableRow key={audit.id}>
+                    <TableCell>
+                      <input
+                        type="checkbox"
+                        aria-label={`Select audit ${audit.id}`}
+                        checked={selectedIds.has(audit.id)}
+                        onChange={() => toggleSelect(audit.id)}
+                        className="h-4 w-4"
+                      />
+                    </TableCell>
                     <TableCell className="font-medium">
                       {(audit.fa_audit_templates as any)?.title || 'Unknown Template'}
                     </TableCell>
