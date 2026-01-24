@@ -25,15 +25,19 @@ export function SidebarClient({ userRole, userProfile }: SidebarClientProps) {
 
   const filteredItems = (() => {
     if (userRole === 'admin') {
-      // Admin sees everything
-      return allNavItems
+      // Admin sees everything (respect role-restricted items)
+      return allNavItems.filter(item => !item.allowedRoles || item.allowedRoles.includes('admin'))
     } else if (userRole === 'client') {
-      // Client role: hide adminOnly and clientHidden items
-      return allNavItems.filter(item => !item.adminOnly && !item.clientHidden)
-    } else {
-      // Ops and readonly: hide adminOnly items only
-      return allNavItems.filter(item => !item.adminOnly)
+      // Client role: hide adminOnly, clientHidden, and role-restricted items
+      return allNavItems.filter(item => !item.adminOnly && !item.clientHidden && (!item.allowedRoles || item.allowedRoles.includes('client')))
+    } else if (userRole === 'ops') {
+      return allNavItems.filter(item => !item.adminOnly && (!item.allowedRoles || item.allowedRoles.includes('ops')))
+    } else if (userRole === 'readonly') {
+      return allNavItems.filter(item => !item.adminOnly && (!item.allowedRoles || item.allowedRoles.includes('readonly')))
+    } else if (userRole === 'pending') {
+      return allNavItems.filter(item => !item.adminOnly && !item.clientHidden && (!item.allowedRoles || item.allowedRoles.includes('pending')))
     }
+    return allNavItems.filter(item => !item.adminOnly && !item.clientHidden)
   })()
 
   // Close mobile menu when route changes
