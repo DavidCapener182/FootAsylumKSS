@@ -8,8 +8,8 @@ export const dynamic = 'force-dynamic'
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 /**
- * Generate a PDF of the FRA report using Puppeteer
- * This creates a proper multi-page PDF with headers and footers on each page
+ * Generate a PDF of the FRA report using Puppeteer.
+ * Loads /print/fra-report with print media; PDF uses preferCSSPageSize and margin 0 so @page in print.css is the single source of truth (no double/triple margins).
  */
 export async function GET(request: NextRequest) {
   let browser: Awaited<ReturnType<typeof puppeteer.launch>> | null = null
@@ -60,13 +60,30 @@ export async function GET(request: NextRequest) {
       timeout: 30000,
     })
 
-    // Wait for content to load
+    // Wait for content to load (wrapper and at least one section so all pages can render)
     await page.waitForSelector('.fra-report-print-wrapper', { timeout: 15000 })
+    await page.waitForSelector('.fra-print-page', { timeout: 10000 })
     await sleep(1500)
+
+    // Wait for all images to finish loading so PDF includes uploaded photos
+    const imageWaitDeadline = Date.now() + 8000
+    while (Date.now() < imageWaitDeadline) {
+      const allLoaded = await page.evaluate(() => {
+        const imgs = Array.from(document.images)
+        return imgs.length === 0 || imgs.every((img: HTMLImageElement) => img.complete)
+      })
+      if (allLoaded) break
+      await sleep(200)
+    }
 
     // Set media type to print so @media print styles apply
     await page.emulateMediaType('print')
     await sleep(300)
+
+    // Ensure print-document class so print.css per-page header and layout rules apply
+    await page.evaluate(() => {
+      document.body.classList.add('fra-print-document')
+    })
 
     // Force every ancestor of #print-root to allow pagination (no fixed height/overflow)
     await page.evaluate(() => {
@@ -86,35 +103,29 @@ export async function GET(request: NextRequest) {
       document.body.style.setProperty('overflow', 'visible', 'important')
     })
 
-    // Read header/footer text from the page for PDF margin boxes
-    const { premises, assessor, date } = await page.evaluate(() => {
+    // Read premises/date from the page for filename only. Do not use displayHeaderFooter:
+    // each .fra-print-page already has its own .fra-print-page-header in the HTML, so
+    // Puppeteer's header would duplicate it.
+    const { premises, date } = await page.evaluate(() => {
       const root = document.getElementById('print-root')
       return {
         premises: root?.getAttribute('data-pdf-premises') ?? 'Report',
-        assessor: root?.getAttribute('data-pdf-assessor') ?? '',
         date: root?.getAttribute('data-pdf-date') ?? '—',
       }
     })
 
+    // Use per-page headers in HTML only; do not enable Puppeteer headerTemplate or we get two headers on page 1.
     const pdfBuffer = await page.pdf({
-      format: 'A4',
-      margin: {
-        top: '22mm',
-        right: '18mm',
-        bottom: '22mm',
-        left: '18mm',
-      },
       printBackground: true,
-      preferCSSPageSize: false,
-      displayHeaderFooter: true,
-      headerTemplate: `<div style="font-size:10pt; padding:0 8px; color:#334155;"><span>KSS NW Ltd</span><span style="position:absolute; left:50%; transform:translateX(-50%);">Fire Risk Assessment – ${String(premises).replace(/</g, '&lt;')}</span></div>`,
-      footerTemplate: `<div style="font-size:9pt; color:#64748b; padding:0 8px;"><span>${String(assessor).replace(/</g, '&lt;')} – KSS NW Ltd</span><span style="position:absolute; right:8px;">${String(date).replace(/</g, '&lt;')}</span></div>`,
+      preferCSSPageSize: true,
+      margin: { top: '0', right: '0', bottom: '0', left: '0' },
+      displayHeaderFooter: false,
     })
 
     await browser.close()
     browser = null
 
-    const filename = getFraReportFilename(premises, date, `fra-report-${instanceId.slice(-8)}.pdf`)
+    const filename = getFraReportFilename(premises, date, 'pdf')
 
     return new NextResponse(pdfBuffer as unknown as BodyInit, {
       headers: {

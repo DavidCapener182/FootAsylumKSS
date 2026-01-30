@@ -1,7 +1,17 @@
-/* FRA report: force multiple A4 pages when printing. Loaded only for print (media="print"). */
+/* FRA report: single source of truth for print. Loaded only for print (media="print"). */
 @page {
   size: A4;
   margin: 15mm;
+}
+
+/* Single header source: only per-page .fra-print-page-header. Force global header off so first page has one header. */
+.fra-report-print-header {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+  overflow: hidden !important;
+  position: absolute !important;
+  left: -9999px !important;
 }
 
 html, body {
@@ -13,7 +23,7 @@ html, body {
   background: #fff !important;
 }
 
-/* FRA print page only: every wrapper must allow pagination */
+/* Wrappers: 100% width so content fits inside @page margin; no fixed 210mm */
 body.fra-print-document .fra-print-page-root,
 body.fra-print-document .fra-print-page-content,
 body.fra-print-document #print-root,
@@ -21,60 +31,46 @@ body.fra-print-document .print-root,
 body.fra-print-document .fra-report-print-wrapper,
 body.fra-print-document .fra-report-print-content {
   display: block !important;
-  width: 210mm !important;
+  width: 100% !important;
   height: auto !important;
   min-height: 0 !important;
   max-height: none !important;
   overflow: visible !important;
   position: static !important;
   transform: none !important;
-  margin: 0 auto !important;
+  margin: 0 !important;
   padding: 0 !important;
+  box-sizing: border-box !important;
 }
 body.fra-print-document #print-root.min-h-screen,
 body.fra-print-document .fra-report-print-wrapper.min-h-screen {
   min-height: 0 !important;
 }
 
-/* Each section = one printed sheet; force page breaks so sections don't run together */
+/* Each section = one printed page. Width 100%, no padding (@page margin provides inset). Single break rule. */
 body.fra-print-document .fra-print-page {
   display: block !important;
-  width: 210mm !important;
-  min-height: 0 !important;
+  width: 100% !important;
+  min-height: auto !important;
   overflow: visible !important;
-  margin: 0 auto 0 !important;
-  padding: 18mm !important;
+  margin: 0 !important;
+  padding: 0 !important;
   box-sizing: border-box !important;
   box-shadow: none !important;
-  page-break-after: always !important;
   break-after: page !important;
-  -webkit-column-break-after: always !important;
+  page-break-after: always !important;
 }
-body.fra-print-document .fra-report-print-content > .fra-print-page:not(:first-child) {
-  page-break-before: always !important;
-  break-before: page !important;
-  -webkit-column-break-before: always !important;
-}
-body.fra-print-document .fra-report-print-content > .fra-print-page:first-child {
-  page-break-before: auto !important;
-  break-before: auto !important;
+body.fra-print-document .fra-print-page:last-child {
+  break-after: auto !important;
+  page-break-after: auto !important;
 }
 
-/* Travel Distances: compact tables so they fit on one page */
-body.fra-print-document .fra-travel-distances-tables {
-  break-inside: avoid !important;
-  page-break-inside: avoid !important;
-}
-body.fra-print-document .fra-travel-distances-tables table {
-  font-size: 9pt !important;
-  margin-bottom: 4px !important;
-}
-body.fra-print-document .fra-travel-distances-tables th,
-body.fra-print-document .fra-travel-distances-tables td {
-  padding: 2px 5px !important;
+/* Kill Tailwind p-12 on print pages so we don't double-pad with @page margin */
+body.fra-print-document .fra-print-page.p-12 {
+  padding: 0 !important;
 }
 
-/* Per-page header: shown at top of each printed page, above section heading */
+/* Per-page header: shown at top of each printed page */
 body.fra-print-document .fra-print-page-header {
   display: none !important;
 }
@@ -87,7 +83,7 @@ body.fra-print-document .fra-print-page .fra-print-page-header {
   border-bottom: 1px solid #cbd5e1 !important;
   font-size: 11pt !important;
   font-weight: 600 !important;
-  color: #0f172a !important;
+  color: #0f1a2e !important;
 }
 body.fra-print-document .fra-print-page-header .fra-report-print-title {
   flex: 1;
@@ -98,18 +94,20 @@ body.fra-print-document .fra-print-page-header .fra-report-print-logo {
   flex-shrink: 0;
 }
 
-/* Last page: no break after */
-body.fra-print-document .fra-print-page:last-child {
-  page-break-after: auto !important;
-  break-after: auto !important;
+/* Travel Distances: compact tables */
+body.fra-print-document .fra-travel-distances-tables table {
+  font-size: 9pt !important;
+  margin-bottom: 4px !important;
+}
+body.fra-print-document .fra-travel-distances-tables th,
+body.fra-print-document .fra-travel-distances-tables td {
+  padding: 2px 5px !important;
 }
 
-/* Map: constrain to one page so it isn't cut off in PDF */
+/* Map: constrain height so it doesn't bleed */
 body.fra-print-document .fra-map-print {
   max-height: 180mm !important;
   overflow: hidden !important;
-  break-inside: avoid !important;
-  page-break-inside: avoid !important;
 }
 body.fra-print-document .fra-map-print .leaflet-container,
 body.fra-print-document .fra-map-print .fra-map-container {
@@ -119,20 +117,50 @@ body.fra-print-document .fra-map-print .fra-map-container {
   width: 100% !important;
 }
 
-/* Hazards table: keep on one page when possible, compact for print */
-body.fra-print-document .fra-hazards-table-wrapper {
+/* Table of Contents: 2-column in print, compact, avoid splitting items */
+body.fra-print-document .fra-toc {
+  font-size: 10pt !important;
+}
+body.fra-print-document .fra-toc-list {
+  columns: 2 !important;
+  column-gap: 12mm !important;
+}
+body.fra-print-document .fra-toc-item {
   break-inside: avoid !important;
   page-break-inside: avoid !important;
 }
+
+/* Hazards table: compact for print */
 body.fra-print-document .fra-hazards-table {
   font-size: 9pt !important;
 }
 body.fra-print-document .fra-hazards-table th,
 body.fra-print-document .fra-hazards-table td {
-  padding: 4px 6px !important;
+  padding: 3px 5px !important;
 }
 
-/* Prevent overlap: no fixed/sticky in print */
+/* Photo placeholders: reserve height so real photos (~2× placeholder) fit without breaking pages */
+body.fra-print-document .fra-photo-block {
+  min-height: 90mm !important;
+  height: 90mm !important;
+  overflow: hidden !important;
+}
+body.fra-print-document .fra-photo-block img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+}
+body.fra-print-document .fra-photo-grid {
+  display: grid !important;
+  grid-template-columns: repeat(3, 1fr) !important;
+  gap: 6mm !important;
+}
+body.fra-print-document .fra-photo-grid .fra-photo-block {
+  height: 70mm !important;
+  min-height: 70mm !important;
+}
+
+/* No fixed/sticky in print */
 body.fra-print-document [style*="position: fixed"],
 body.fra-print-document [style*="position:fixed"],
 body.fra-print-document .fixed,

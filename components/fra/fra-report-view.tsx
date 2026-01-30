@@ -68,6 +68,8 @@ interface FRAData {
   actionPlanLevel?: string
   actionPlanItems?: Array<{ recommendation: string; priority: 'Low' | 'Medium' | 'High'; dueNote?: string }>
   sitePremisesPhotos?: any[]
+  /** Uploaded photos per placeholder (from storage), so they appear after refresh and in PDF */
+  placeholderPhotos?: Record<string, { file_path: string; public_url: string }[]>
 }
 
 interface FRAReportViewProps {
@@ -90,6 +92,13 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
   const [uploadingPhotos, setUploadingPhotos] = useState<Record<string, boolean>>({})
   const [placeholderPhotos, setPlaceholderPhotos] = useState<Record<string, any[]>>({})
   const [logoError, setLogoError] = useState(false)
+
+  // Rehydrate placeholder photos from server (so PDF and refresh show uploaded photos)
+  useEffect(() => {
+    if (data.placeholderPhotos && Object.keys(data.placeholderPhotos).length > 0) {
+      setPlaceholderPhotos(data.placeholderPhotos)
+    }
+  }, [data.placeholderPhotos])
 
   // Debug badge component
   const DebugBadge = ({ source, fieldName }: { source?: string, fieldName: string }) => {
@@ -248,16 +257,17 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
     const photos = placeholderPhotos[placeholderId] || []
     const isUploading = uploadingPhotos[placeholderId]
 
+    const isGrid = (maxPhotos ?? 5) > 1
     return (
       <div className="mt-4">
         {photos.length > 0 ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+          <div className={`grid grid-cols-2 md:grid-cols-3 gap-2 ${isGrid ? 'fra-photo-grid' : ''}`}>
             {photos.map((photo: any, idx: number) => (
-              <div key={idx} className="relative">
+              <div key={idx} className={`relative fra-photo-block ${isGrid ? '' : ''}`}>
                 <img 
                   src={photo.public_url || photo.file_path} 
                   alt={`${label} ${idx + 1}`}
-                  className="w-full h-48 object-cover rounded border border-slate-300"
+                  className="w-full h-48 object-cover rounded border border-slate-300 print:object-cover print:w-full print:h-full"
                 />
                 <button
                   onClick={() => {
@@ -274,7 +284,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
             ))}
           </div>
         ) : (
-          <div className="border-2 border-dashed border-slate-300 rounded p-4 h-48 flex flex-col items-center justify-center text-slate-400 text-sm">
+          <div className="border-2 border-dashed border-slate-300 rounded p-4 h-48 flex flex-col items-center justify-center text-slate-400 text-sm fra-photo-block">
             <p className="mb-2">{label}</p>
             <label className="cursor-pointer">
               <input
@@ -416,14 +426,16 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
       data-pdf-assessor={data.assessorName ?? ''}
       data-pdf-date={pdfFooterDate}
     >
-      {/* On-screen preview: fixed header (hidden in print; PDF uses Puppeteer header) */}
-      <header
-        className="fra-report-print-header no-print"
-        aria-hidden={!showHeaderFooter}
-        style={headerStyle}
-      >
-        {printHeaderContent}
-      </header>
+      {/* On-screen preview: fixed header. Omit in print/PDF context so only per-page headers show (avoids double header on page 1). */}
+      {!showHeaderFooter && (
+        <header
+          className="fra-report-print-header no-print"
+          aria-hidden={!showHeaderFooter}
+          style={headerStyle}
+        >
+          {printHeaderContent}
+        </header>
+      )}
       <div className="fra-report-print-content" style={showHeaderFooter ? { paddingTop: 92, paddingBottom: 36 } : undefined}>
       {/* Debug Toggle - only show in development, and never in print preview so preview matches print/PDF */}
       {process.env.NODE_ENV === 'development' && !showHeaderFooter && (
@@ -440,7 +452,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
         </div>
       )}
       {/* Cover Page */}
-      <div className="fra-print-page page-break-after-always p-12 max-w-4xl mx-auto" style={{ pageBreakAfter: 'always' }}>
+      <div className="fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
         <div className="fra-print-page-header hidden print:flex print:items-center print:justify-between print:border-b print:border-slate-300 print:pb-2 print:mb-4 print:text-[11pt] print:font-semibold print:text-slate-900">
           {printHeaderContent}
         </div>
@@ -507,104 +519,42 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
         </div>
       </div>
 
-      {/* Photo of Site / Building / Premises (6 placeholders for screenshots) */}
-      <div className="fra-print-page page-break-after-always p-12 max-w-4xl mx-auto" style={{ pageBreakAfter: 'always' }}>
+      {/* Photo of Site / Building / Premises + Table of Contents (one printed page) */}
+      <div className="fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
         <div className="fra-print-page-header hidden print:flex print:items-center print:justify-between print:border-b print:border-slate-300 print:pb-2 print:mb-4 print:text-[11pt] print:font-semibold print:text-slate-900">
           {printHeaderContent}
         </div>
         <h2 className="text-xl font-semibold mb-4">Photo of Site / Building / Premises</h2>
         <p className="text-sm text-slate-600 mb-4">Add screenshots or photos of the site, building and premises (e.g. from pages 3–6 of the reference FRA).</p>
         <PhotoPlaceholder placeholderId="site-premises-photos" label="Site / Building / Premises (Photo 1–6)" maxPhotos={6} />
-      </div>
-
-      {/* Table of Contents */}
-      <div className="fra-print-page page-break-after-always p-12 max-w-4xl mx-auto" style={{ pageBreakAfter: 'always' }}>
-        <div className="fra-print-page-header hidden print:flex print:items-center print:justify-between print:border-b print:border-slate-300 print:pb-2 print:mb-4 print:text-[11pt] print:font-semibold print:text-slate-900">
-          {printHeaderContent}
-        </div>
-        <h2 className="text-xl font-semibold mb-4">Table of Contents</h2>
-        <div className="space-y-2 text-sm">
-          <div className="flex items-center justify-between">
-            <span>Purpose of This Assessment</span>
-            <span className="ml-auto">2</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span>Regulatory Reform (Fire Safety) Order 2005 – Fire Risk Assessment</span>
-            <span className="ml-auto">3</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span>Travel Distances</span>
-            <span className="ml-auto">4</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span>Category L Fire Alarm Systems - Life Protection</span>
-            <span className="ml-auto">5</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span>Fire Resistance</span>
-            <span className="ml-auto">6</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span>Fire Risk Assessment – Terms, Conditions and Limitations</span>
-            <span className="ml-auto">7</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span>Scope of Assessment</span>
-            <span className="ml-auto">7</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span>Limitations</span>
-            <span className="ml-auto">7</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span>Enforcement and Insurers</span>
-            <span className="ml-auto">8</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span>Specialist Advice</span>
-            <span className="ml-auto">8</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span>Liability</span>
-            <span className="ml-auto">8</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span>About the Property:</span>
-            <span className="ml-auto">9</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span>Stage 1 – Fire Hazards</span>
-            <span className="ml-auto">10</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span>Stage 2 – People at Risk</span>
-            <span className="ml-auto">10</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span>Stage 3 – Evaluate, remove, reduce and protect from risk</span>
-            <span className="ml-auto">10</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span>Fire Plan</span>
-            <span className="ml-auto">12</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span>Risk Rating</span>
-            <span className="ml-auto">14</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span>Action Plan</span>
-            <span className="ml-auto">15</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span>Fire Risk Assessment Report</span>
-            <span className="ml-auto">13</span>
+        <h2 className="text-xl font-semibold mb-4 mt-8">Table of Contents</h2>
+        <div className="fra-toc">
+          <div className="fra-toc-list space-y-2 text-sm">
+            <div className="fra-toc-item flex items-center justify-between"><span>Purpose of This Assessment</span><span className="ml-auto">2</span></div>
+            <div className="fra-toc-item flex items-center justify-between"><span>Regulatory Reform (Fire Safety) Order 2005 – Fire Risk Assessment</span><span className="ml-auto">3</span></div>
+            <div className="fra-toc-item flex items-center justify-between"><span>Travel Distances</span><span className="ml-auto">4</span></div>
+            <div className="fra-toc-item flex items-center justify-between"><span>Category L Fire Alarm Systems - Life Protection</span><span className="ml-auto">5</span></div>
+            <div className="fra-toc-item flex items-center justify-between"><span>Fire Resistance</span><span className="ml-auto">6</span></div>
+            <div className="fra-toc-item flex items-center justify-between"><span>Fire Risk Assessment – Terms, Conditions and Limitations</span><span className="ml-auto">7</span></div>
+            <div className="fra-toc-item flex items-center justify-between"><span>Scope of Assessment</span><span className="ml-auto">7</span></div>
+            <div className="fra-toc-item flex items-center justify-between"><span>Limitations</span><span className="ml-auto">7</span></div>
+            <div className="fra-toc-item flex items-center justify-between"><span>Enforcement and Insurers</span><span className="ml-auto">8</span></div>
+            <div className="fra-toc-item flex items-center justify-between"><span>Specialist Advice</span><span className="ml-auto">8</span></div>
+            <div className="fra-toc-item flex items-center justify-between"><span>Liability</span><span className="ml-auto">8</span></div>
+            <div className="fra-toc-item flex items-center justify-between"><span>About the Property:</span><span className="ml-auto">9</span></div>
+            <div className="fra-toc-item flex items-center justify-between"><span>Stage 1 – Fire Hazards</span><span className="ml-auto">10</span></div>
+            <div className="fra-toc-item flex items-center justify-between"><span>Stage 2 – People at Risk</span><span className="ml-auto">10</span></div>
+            <div className="fra-toc-item flex items-center justify-between"><span>Stage 3 – Evaluate, remove, reduce and protect from risk</span><span className="ml-auto">10</span></div>
+            <div className="fra-toc-item flex items-center justify-between"><span>Fire Plan</span><span className="ml-auto">12</span></div>
+            <div className="fra-toc-item flex items-center justify-between"><span>Risk Rating</span><span className="ml-auto">14</span></div>
+            <div className="fra-toc-item flex items-center justify-between"><span>Action Plan</span><span className="ml-auto">15</span></div>
+            <div className="fra-toc-item flex items-center justify-between"><span>Fire Risk Assessment Report</span><span className="ml-auto">13</span></div>
           </div>
         </div>
       </div>
 
       {/* Purpose of This Assessment */}
-      <div className="fra-print-page page-break-after-always p-12 max-w-4xl mx-auto" style={{ pageBreakAfter: 'always' }}>
+      <div className="fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
         <div className="fra-print-page-header hidden print:flex print:items-center print:justify-between print:border-b print:border-slate-300 print:pb-2 print:mb-4 print:text-[11pt] print:font-semibold print:text-slate-900">
           {printHeaderContent}
         </div>
@@ -627,7 +577,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
       </div>
 
       {/* Regulatory Reform (Fire Safety) Order 2005 – FIRE RISK ASSESSMENT (5 steps) */}
-      <div className="fra-print-page page-break-after-always p-12 max-w-4xl mx-auto" style={{ pageBreakAfter: 'always' }}>
+      <div className="fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
         <div className="fra-print-page-header hidden print:flex print:items-center print:justify-between print:border-b print:border-slate-300 print:pb-2 print:mb-4 print:text-[11pt] print:font-semibold print:text-slate-900">
           {printHeaderContent}
         </div>
@@ -701,7 +651,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
       </div>
 
       {/* Travel Distances */}
-      <div className="fra-print-page page-break-after-always p-12 max-w-4xl mx-auto" style={{ pageBreakAfter: 'always' }}>
+      <div className="fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
         <div className="fra-print-page-header hidden print:flex print:items-center print:justify-between print:border-b print:border-slate-300 print:pb-2 print:mb-4 print:text-[11pt] print:font-semibold print:text-slate-900">
           {printHeaderContent}
         </div>
@@ -715,7 +665,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
           </p>
         </div>
         <div className="fra-travel-distances-tables overflow-x-auto mt-6 space-y-6">
-          <table className="w-full border border-slate-300 text-sm">
+          <table className="fra-print-table w-full border border-slate-300 text-sm">
             <thead>
               <tr className="bg-slate-100">
                 <th className="border border-slate-300 p-2 text-left">No.</th>
@@ -731,7 +681,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
               <tr><td className="border border-slate-300 p-2">3</td><td className="border border-slate-300 p-2">Low</td><td className="border border-slate-300 p-2">35m</td><td className="border border-slate-300 p-2">60m</td></tr>
             </tbody>
           </table>
-          <table className="w-full border border-slate-300 text-sm">
+          <table className="fra-print-table w-full border border-slate-300 text-sm">
             <thead>
               <tr className="bg-slate-100">
                 <th className="border border-slate-300 p-2 text-left">No.</th>
@@ -747,7 +697,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
               <tr><td className="border border-slate-300 p-2">6</td><td className="border border-slate-300 p-2">Low</td><td className="border border-slate-300 p-2">25m</td><td className="border border-slate-300 p-2">45m</td></tr>
             </tbody>
           </table>
-          <table className="w-full border border-slate-300 text-sm">
+          <table className="fra-print-table w-full border border-slate-300 text-sm">
             <thead>
               <tr className="bg-slate-100">
                 <th className="border border-slate-300 p-2 text-left">No.</th>
@@ -762,7 +712,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
               <tr><td className="border border-slate-300 p-2">2</td><td className="border border-slate-300 p-2">Normal</td><td className="border border-slate-300 p-2">25m</td><td className="border border-slate-300 p-2">45m</td></tr>
             </tbody>
           </table>
-          <table className="w-full border border-slate-300 text-sm">
+          <table className="fra-print-table w-full border border-slate-300 text-sm">
             <thead>
               <tr className="bg-slate-100">
                 <th className="border border-slate-300 p-2 text-left">No.</th>
@@ -777,7 +727,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
               <tr><td className="border border-slate-300 p-2">4</td><td className="border border-slate-300 p-2">Normal</td><td className="border border-slate-300 p-2">12m</td><td className="border border-slate-300 p-2">25m</td></tr>
             </tbody>
           </table>
-          <table className="w-full border border-slate-300 text-sm">
+          <table className="fra-print-table w-full border border-slate-300 text-sm">
             <thead>
               <tr className="bg-slate-100">
                 <th className="border border-slate-300 p-2 text-left">No.</th>
@@ -791,7 +741,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
               <tr><td className="border border-slate-300 p-2">1</td><td className="border border-slate-300 p-2">Normal</td><td className="border border-slate-300 p-2">25m</td><td className="border border-slate-300 p-2">45m</td></tr>
             </tbody>
           </table>
-          <table className="w-full border border-slate-300 text-sm">
+          <table className="fra-print-table w-full border border-slate-300 text-sm">
             <thead>
               <tr className="bg-slate-100">
                 <th className="border border-slate-300 p-2 text-left">No.</th>
@@ -819,7 +769,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
       </div>
 
       {/* Category L Fire Alarm Systems - Life Protection */}
-      <div className="fra-print-page page-break-after-always p-12 max-w-4xl mx-auto" style={{ pageBreakAfter: 'always' }}>
+      <div className="fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
         <div className="fra-print-page-header hidden print:flex print:items-center print:justify-between print:border-b print:border-slate-300 print:pb-2 print:mb-4 print:text-[11pt] print:font-semibold print:text-slate-900">
           {printHeaderContent}
         </div>
@@ -857,7 +807,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
       </div>
 
       {/* Fire Resistance */}
-      <div className="fra-print-page page-break-after-always p-12 max-w-4xl mx-auto" style={{ pageBreakAfter: 'always' }}>
+      <div className="fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
         <div className="fra-print-page-header hidden print:flex print:items-center print:justify-between print:border-b print:border-slate-300 print:pb-2 print:mb-4 print:text-[11pt] print:font-semibold print:text-slate-900">
           {printHeaderContent}
         </div>
@@ -868,7 +818,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
           </p>
         </div>
         <div className="overflow-x-auto mt-6">
-          <table className="w-full border border-slate-300 text-sm">
+          <table className="fra-print-table w-full border border-slate-300 text-sm">
             <thead>
               <tr className="bg-slate-100">
                 <th className="border border-slate-300 p-2 text-left">Element being separated or protected</th>
@@ -900,7 +850,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
       </div>
 
       {/* Terms, Conditions and Limitations */}
-      <div className="fra-print-page page-break-after-always p-12 max-w-4xl mx-auto" style={{ pageBreakAfter: 'always' }}>
+      <div className="fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
         <div className="fra-print-page-header hidden print:flex print:items-center print:justify-between print:border-b print:border-slate-300 print:pb-2 print:mb-4 print:text-[11pt] print:font-semibold print:text-slate-900">
           {printHeaderContent}
         </div>
@@ -961,7 +911,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
       </div>
 
       {/* Enforcement and Insurers, Specialist Advice, Liability */}
-      <div className="fra-print-page page-break-after-always p-12 max-w-4xl mx-auto" style={{ pageBreakAfter: 'always' }}>
+      <div className="fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
         <div className="fra-print-page-header hidden print:flex print:items-center print:justify-between print:border-b print:border-slate-300 print:pb-2 print:mb-4 print:text-[11pt] print:font-semibold print:text-slate-900">
           {printHeaderContent}
         </div>
@@ -1000,7 +950,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
       </div>
 
       {/* About the Property */}
-      <div className="fra-print-page page-break-after-always p-12 max-w-4xl mx-auto" style={{ pageBreakAfter: 'always' }}>
+      <div className="fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
         <div className="fra-print-page-header hidden print:flex print:items-center print:justify-between print:border-b print:border-slate-300 print:pb-2 print:mb-4 print:text-[11pt] print:font-semibold print:text-slate-900">
           {printHeaderContent}
         </div>
@@ -1145,7 +1095,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
             <p className="mt-2">{data.internalFireDoors}</p>
             <DebugBadge source={data._sources?.internalFireDoors} fieldName="Internal Fire Doors" />
             {/* Fire Doors Photo Placeholder */}
-            <PhotoPlaceholder placeholderId="fire-doors" label="Fire Doors Photo" />
+            <PhotoPlaceholder placeholderId="fire-doors" label="Fire Doors Photo" maxPhotos={1} />
             <p className="mt-4">
               It is the ongoing responsibility of store management to ensure that internal fire doors
               are maintained in good working order and kept closed when not in use, in accordance
@@ -1161,7 +1111,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
       </div>
 
       {/* Fire Alarm System */}
-      <div className="fra-print-page page-break-after-always p-12 max-w-4xl mx-auto" style={{ pageBreakAfter: 'always' }}>
+      <div className="fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
         <div className="fra-print-page-header hidden print:flex print:items-center print:justify-between print:border-b print:border-slate-300 print:pb-2 print:mb-4 print:text-[11pt] print:font-semibold print:text-slate-900">
           {printHeaderContent}
         </div>
@@ -1192,7 +1142,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
             )}
           </div>
           {/* Fire Alarm Panel Photo Placeholder */}
-          <PhotoPlaceholder placeholderId="fire-alarm-panel" label="Fire Alarm Panel Photo" />
+          <PhotoPlaceholder placeholderId="fire-alarm-panel" label="Fire Alarm Panel Photo" maxPhotos={1} />
           <div className="mt-4">
             <p>{data.fireAlarmMaintenance}</p>
             <DebugBadge source={data._sources?.fireAlarmMaintenance} fieldName="Fire Alarm Maintenance" />
@@ -1205,7 +1155,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
       </div>
 
       {/* Emergency Lighting */}
-      <div className="fra-print-page page-break-after-always p-12 max-w-4xl mx-auto" style={{ pageBreakAfter: 'always' }}>
+      <div className="fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
         <div className="fra-print-page-header hidden print:flex print:items-center print:justify-between print:border-b print:border-slate-300 print:pb-2 print:mb-4 print:text-[11pt] print:font-semibold print:text-slate-900">
           {printHeaderContent}
         </div>
@@ -1228,7 +1178,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
             )}
           </div>
           {/* Emergency Lighting Test Switch Photo Placeholder */}
-          <PhotoPlaceholder placeholderId="emergency-lighting-switch" label="Emergency Lighting Test Switch Photo" />
+          <PhotoPlaceholder placeholderId="emergency-lighting-switch" label="Emergency Lighting Test Switch Photo" maxPhotos={1} />
           <p className="mt-2 italic">
             (NB: This assessment is based on visual inspection and review of available records only. No physical
             testing of the emergency lighting system was undertaken as part of this assessment.)
@@ -1237,7 +1187,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
       </div>
 
       {/* Portable Fire-Fighting Equipment */}
-      <div className="fra-print-page page-break-after-always p-12 max-w-4xl mx-auto" style={{ pageBreakAfter: 'always' }}>
+      <div className="fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
         <div className="fra-print-page-header hidden print:flex print:items-center print:justify-between print:border-b print:border-slate-300 print:pb-2 print:mb-4 print:text-[11pt] print:font-semibold print:text-slate-900">
           {printHeaderContent}
         </div>
@@ -1248,7 +1198,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
           <p>{data.fireExtinguisherService}</p>
           <DebugBadge source={data._sources?.fireExtinguisherService} fieldName="Fire Extinguisher Service" />
           {/* Fire Extinguisher Photo Placeholder */}
-          <PhotoPlaceholder placeholderId="fire-extinguisher" label="Fire Extinguisher Photo" />
+          <PhotoPlaceholder placeholderId="fire-extinguisher" label="Fire Extinguisher Photo" maxPhotos={1} />
           <p className="mt-4">
             Staff receive fire safety awareness training as part of their induction and
             refresher training, which includes instruction on the purpose of fire
@@ -1260,7 +1210,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
 
       {/* Sprinkler & Smoke Extraction - only show if sprinklers exist */}
       {data.hasSprinklers && (
-        <div className="fra-print-page page-break-after-always p-12 max-w-4xl mx-auto" style={{ pageBreakAfter: 'always' }}>
+        <div className="fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
           <div className="fra-print-page-header hidden print:flex print:items-center print:justify-between print:border-b print:border-slate-300 print:pb-2 print:mb-4 print:text-[11pt] print:font-semibold print:text-slate-900">
             {printHeaderContent}
           </div>
@@ -1276,12 +1226,12 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
             </p>
           </div>
         {/* Sprinkler Photo Placeholder */}
-        <PhotoPlaceholder placeholderId="sprinkler-system" label="Sprinkler System Photo" />
+        <PhotoPlaceholder placeholderId="sprinkler-system" label="Sprinkler System Photo" maxPhotos={1} />
         </div>
       )}
 
       {/* Fire and Rescue Services Access */}
-      <div className="fra-print-page page-break-after-always p-12 max-w-4xl mx-auto" style={{ pageBreakAfter: 'always' }}>
+      <div className="fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
         <div className="fra-print-page-header hidden print:flex print:items-center print:justify-between print:border-b print:border-slate-300 print:pb-2 print:mb-4 print:text-[11pt] print:font-semibold print:text-slate-900">
           {printHeaderContent}
         </div>
@@ -1322,13 +1272,13 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
       </div>
 
       {/* Stage 1 - Fire Hazards */}
-      <div className="fra-print-page page-break-after-always p-12 max-w-4xl mx-auto" style={{ pageBreakAfter: 'always' }}>
+      <div className="fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
         <div className="fra-print-page-header hidden print:flex print:items-center print:justify-between print:border-b print:border-slate-300 print:pb-2 print:mb-4 print:text-[11pt] print:font-semibold print:text-slate-900">
           {printHeaderContent}
         </div>
         <h2 className="text-xl font-semibold mb-4">Stage 1 – Fire Hazards</h2>
         <div className="fra-hazards-table-wrapper overflow-x-auto">
-          <table className="w-full border-collapse border border-slate-300 text-sm fra-hazards-table">
+          <table className="fra-print-table w-full border-collapse border border-slate-300 text-sm fra-hazards-table">
             <thead>
               <tr className="bg-slate-100">
                 <th className="border border-slate-300 px-3 py-2 text-left font-semibold w-40">Hazard category</th>
@@ -1376,14 +1326,8 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
             </tbody>
           </table>
         </div>
-      </div>
 
-      {/* Stage 2 - People at Risk */}
-      <div className="fra-print-page page-break-after-always p-12 max-w-4xl mx-auto" style={{ pageBreakAfter: 'always' }}>
-        <div className="fra-print-page-header hidden print:flex print:items-center print:justify-between print:border-b print:border-slate-300 print:pb-2 print:mb-4 print:text-[11pt] print:font-semibold print:text-slate-900">
-          {printHeaderContent}
-        </div>
-        <h2 className="text-xl font-semibold mb-4">Stage 2 – People at Risk</h2>
+        <h2 className="text-xl font-semibold mb-4 mt-4">Stage 2 – People at Risk</h2>
         <p className="text-sm mb-4">
           The following persons may be at risk in the event of a fire within the premises:
         </p>
@@ -1396,15 +1340,15 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
         <p className="text-sm mt-4">There are no sleeping occupants within the premises.</p>
       </div>
 
-      {/* Stage 3 - Evaluate, remove, reduce and protect */}
-      <div className="fra-print-page page-break-after-always p-12 max-w-4xl mx-auto" style={{ pageBreakAfter: 'always' }}>
+      {/* Stage 3 – Evaluate, remove, reduce and protect */}
+      <div className="fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
         <div className="fra-print-page-header hidden print:flex print:items-center print:justify-between print:border-b print:border-slate-300 print:pb-2 print:mb-4 print:text-[11pt] print:font-semibold print:text-slate-900">
           {printHeaderContent}
         </div>
         <h2 className="text-xl font-semibold mb-4">Stage 3 – Evaluate, remove, reduce and protect from risk</h2>
         
         {/* Stage 3 Photo Placeholder */}
-        <PhotoPlaceholder placeholderId="stage-3" label="Fire Safety Measures Photo" />
+        <PhotoPlaceholder placeholderId="stage-3" label="Fire Safety Measures Photo" maxPhotos={1} />
         
         <div className="space-y-6 text-sm leading-relaxed">
           <div>
@@ -1479,14 +1423,14 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
       </div>
 
       {/* Fire Plan */}
-      <div className="fra-print-page page-break-after-always p-12 max-w-4xl mx-auto" style={{ pageBreakAfter: 'always' }}>
+      <div className="fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
         <div className="fra-print-page-header hidden print:flex print:items-center print:justify-between print:border-b print:border-slate-300 print:pb-2 print:mb-4 print:text-[11pt] print:font-semibold print:text-slate-900">
           {printHeaderContent}
         </div>
         <h2 className="text-xl font-semibold mb-4">Fire Plan</h2>
         
         {/* Fire Plan Photo Placeholder */}
-        <PhotoPlaceholder placeholderId="fire-plan" label="Fire Plan / Evacuation Route Photo" />
+        <PhotoPlaceholder placeholderId="fire-plan" label="Fire Plan / Evacuation Route Photo" maxPhotos={1} />
         
         <div className="space-y-6 text-sm leading-relaxed">
           <div>
@@ -1550,7 +1494,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
 
           <div className="mt-8">
             <h3 className="font-semibold mb-4">Assessment review</h3>
-            <table className="w-full border-collapse border border-slate-300">
+            <table className="fra-print-table w-full border-collapse border border-slate-300">
               <thead>
                 <tr className="bg-slate-100">
                   <th className="border border-slate-300 p-2 text-left">Assessment review date</th>
@@ -1581,7 +1525,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
       </div>
 
       {/* Fire Risk Assessment Report */}
-      <div className="fra-print-page page-break-after-always p-12 max-w-4xl mx-auto" style={{ pageBreakAfter: 'always' }}>
+      <div className="fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
         <div className="fra-print-page-header hidden print:flex print:items-center print:justify-between print:border-b print:border-slate-300 print:pb-2 print:mb-4 print:text-[11pt] print:font-semibold print:text-slate-900">
           {printHeaderContent}
         </div>
@@ -1594,7 +1538,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
         </div>
         
         {/* Assessment Overview Photo Placeholder */}
-        <PhotoPlaceholder placeholderId="premises-overview" label="Premises Overview Photo" />
+        <PhotoPlaceholder placeholderId="premises-overview" label="Premises Overview Photo" maxPhotos={1} />
         
         <div className="space-y-6 text-sm leading-relaxed">
           <div>
@@ -1786,7 +1730,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
       </div>
 
       {/* Risk Rating */}
-      <div className="fra-print-page page-break-after-always p-12 max-w-4xl mx-auto" style={{ pageBreakAfter: 'always' }}>
+      <div className="fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
         <div className="fra-print-page-header hidden print:flex print:items-center print:justify-between print:border-b print:border-slate-300 print:pb-2 print:mb-4 print:text-[11pt] print:font-semibold print:text-slate-900">
           {printHeaderContent}
         </div>
@@ -1833,7 +1777,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
       </div>
 
       {/* Action Plan */}
-      <div className="fra-print-page page-break-after-always p-12 max-w-4xl mx-auto" style={{ pageBreakAfter: 'always' }}>
+      <div className="fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
         <div className="fra-print-page-header hidden print:flex print:items-center print:justify-between print:border-b print:border-slate-300 print:pb-2 print:mb-4 print:text-[11pt] print:font-semibold print:text-slate-900">
           {printHeaderContent}
         </div>
@@ -1861,20 +1805,20 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
       </div>
 
       {/* Additional Site Pictures */}
-      <div className="fra-print-page page-break-after-always p-12 max-w-4xl mx-auto" style={{ pageBreakAfter: 'always' }}>
+      <div className="fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
         <div className="fra-print-page-header hidden print:flex print:items-center print:justify-between print:border-b print:border-slate-300 print:pb-2 print:mb-4 print:text-[11pt] print:font-semibold print:text-slate-900">
           {printHeaderContent}
         </div>
         <h2 className="text-xl font-semibold mb-4">Additional Site Pictures</h2>
         {data.photos && data.photos.length > 0 ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4 fra-photo-grid">
             {data.photos.map((photo: any, idx: number) => (
-              <div key={idx} className="border border-slate-200 rounded p-2">
+              <div key={idx} className="border border-slate-200 rounded p-2 fra-photo-block">
                 {photo.file_path ? (
                   <img 
                     src={photo.file_path} 
                     alt={`Photo ${idx + 1}`}
-                    className="w-full h-48 object-cover rounded"
+                    className="w-full h-48 object-cover rounded print:w-full print:h-full"
                   />
                 ) : (
                   <div className="w-full h-48 bg-slate-100 rounded flex items-center justify-center text-slate-400 text-sm">
@@ -1886,9 +1830,9 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
           </div>
         ) : (
           <div className="mt-4 space-y-4">
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 fra-photo-grid">
               {[1, 2, 3, 4, 5, 6].map((num) => (
-                <div key={num} className="border-2 border-dashed border-slate-300 rounded p-4 h-48 flex items-center justify-center text-slate-400 text-sm">
+                <div key={num} className="border-2 border-dashed border-slate-300 rounded p-4 h-48 flex items-center justify-center text-slate-400 text-sm fra-photo-block">
                   Photo Placeholder {num}
                 </div>
               ))}

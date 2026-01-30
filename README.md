@@ -185,6 +185,16 @@ You can configure whether email confirmation is required for new sign-ups:
 
 **Note**: The sign-up page handles both scenarios automatically.
 
+## FRA report printing and exports
+
+Fire Risk Assessments (FRA) support A4 print, PDF download, and DOCX download.
+
+- **Print**: FRA is designed to be printed from the standalone `/print/fra-report` page (or after “Print preview”). The scroll container on the main view page is expanded in `@media print` so printing from the view page still includes all content; for best results, use “Print preview”, which uses the print-document body class and A4 section layout.
+- **PDF**: Generated server-side via Puppeteer loading `/print/fra-report` with print media and exporting to PDF; margins and page size match A4 and `@page` (15mm).
+- **DOCX**: Generated server-side from the same FRA structured data (`mapHSAuditToFRAData`) using the `docx` library; page breaks are inserted between major sections; filename format is `FRA - (Store Name) (DD-MMM-YYYY).docx`.
+
+Download filenames follow: `FRA - (Store Name) (DD-MMM-YYYY).pdf` or `.docx`.
+
 ## Notes
 
 - All database operations use server actions or route handlers

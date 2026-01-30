@@ -16,9 +16,10 @@ export function formatPercent(value: number | null | undefined, decimals = 2) {
   return `${truncated.toFixed(decimals)}%`
 }
 
-/** Sanitize a string for use in a filename (remove invalid chars, trim). */
+/** Sanitize a string for use in a filename (remove invalid chars, normalise en-dash to hyphen for ASCII-safe headers). */
 function sanitizeForFilename(s: string): string {
   return s
+    .replace(/[\u2013\u2014]/g, '-') /* en-dash U+2013, em-dash U+2014 → hyphen */
     .replace(/[/\\:*?"<>|\n\r]/g, '')
     .replace(/\s+/g, ' ')
     .trim()
@@ -49,17 +50,17 @@ function formatDateForFilename(dateStr: string | null | undefined): string {
 }
 
 /**
- * Build FRA report download filename: "FRA [Store name] [date].pdf"
+ * Build FRA report download filename: "FRA - (Store name) (DD-MMM-YYYY).pdf" or ".docx"
  */
 export function getFraReportFilename(
   premises: string | null | undefined,
   assessmentDate: string | null | undefined,
-  fallback = 'fra-report.pdf'
+  extension: 'pdf' | 'docx' = 'pdf'
 ): string {
   const sanitized = sanitizeForFilename(premises || '')
-  if (!sanitized) return fallback
+  if (!sanitized) return `fra-report.${extension}`
   const datePart = formatDateForFilename(assessmentDate)
-  return `FRA ${sanitized} ${datePart}.pdf`
+  return `FRA - ${sanitized} ${datePart}.${extension}`
 }
 
 

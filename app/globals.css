@@ -129,9 +129,19 @@
 }
 
 /* ---------- FRA REPORT PRINT / A4 ---------- */
-@page {
-  size: A4;
-  margin: 15mm;
+/* @page is defined only in public/print.css (single source of truth) to avoid double margins with Puppeteer. */
+
+/* A4 page utility: 210mm x 297mm, box-sizing, margins in mm – screen and print share dimensions */
+.fra-a4-page {
+  width: 210mm;
+  min-height: 297mm;
+  box-sizing: border-box;
+  padding: 18mm;
+  background: #fff;
+  margin: 0 auto 12px;
+  page-break-after: always;
+  break-after: page;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 
 /* Each section is an explicit A4 page – on screen (print preview) you see stacked pages */
@@ -153,7 +163,7 @@
 
 @media print {
   html, body {
-    width: 210mm !important;
+    width: 100% !important;
     height: auto !important;
     margin: 0 !important;
     padding: 0 !important;
@@ -208,14 +218,13 @@
     max-height: none !important;
   }
 
-  /* Ensure print root isn't constrained by screen layout (block flow = multiple pages) */
+  /* Ensure print root isn't constrained (width 100%, no fixed mm so it fits inside @page margin) */
   #print-root,
   .print-root,
   .fra-report-print-wrapper {
     display: block !important;
     width: 100% !important;
-    max-width: 210mm !important;
-    margin: 0 auto !important;
+    margin: 0 !important;
     padding: 0 !important;
     overflow: visible !important;
     height: auto !important;
@@ -243,6 +252,14 @@
   * {
     box-shadow: none !important;
   }
+
+  /* FRA view scroll container: expand for print so all pages print (no clipping) */
+  .fra-view-scroll-container {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
   
   .scroll,
   .scroll-y,
@@ -263,35 +280,29 @@
   }
 
   /* Each section = one printed sheet; no min-height so short sections don’t create blank space */
+  .fra-a4-page,
   .fra-print-page {
-    width: 210mm !important;
-    min-height: 0 !important;
+    width: 100% !important;
+    min-height: auto !important;
+    margin: 0 !important;
     margin-bottom: 0 !important;
     box-shadow: none !important;
-    padding: 18mm !important;
+    padding: 0 !important;
     box-sizing: border-box !important;
-    page-break-after: always !important;
     break-after: page !important;
-    -webkit-column-break-after: always !important;
+    page-break-after: always !important;
   }
-  .fra-report-print-content > .fra-print-page:not(:first-child) {
-    page-break-before: always !important;
-    break-before: page !important;
-    -webkit-column-break-before: always !important;
-  }
-  .fra-report-print-content > .fra-print-page:first-child {
-    page-break-before: auto !important;
-    break-before: auto !important;
-  }
-  .fra-report-print-content > .fra-print-page:last-child {
-    page-break-after: auto !important;
+  .fra-print-page:last-child,
+  .fra-a4-page:last-child {
     break-after: auto !important;
+    page-break-after: auto !important;
+  }
+  .fra-print-page.p-12,
+  .fra-a4-page.p-12 {
+    padding: 0 !important;
   }
 
-  /* Travel Distances: compact tables and intro so they fit on one page */
   .fra-travel-distances-tables {
-    break-inside: avoid !important;
-    page-break-inside: avoid !important;
     margin-top: 8px !important;
   }
   .fra-travel-distances-tables table {
@@ -306,12 +317,9 @@
   .fra-travel-distances-tables > * + * {
     margin-top: 4px !important;
   }
-  /* Map: constrain to one page so it isn't cut off in PDF */
   .fra-map-print {
     max-height: 180mm !important;
     overflow: hidden !important;
-    break-inside: avoid !important;
-    page-break-inside: avoid !important;
   }
   .fra-map-print .leaflet-container,
   .fra-map-print .fra-map-container {
@@ -319,11 +327,6 @@
     max-height: 180mm !important;
     min-height: 0 !important;
     width: 100% !important;
-  }
-  /* Hazards table: keep on one page when possible */
-  .fra-hazards-table-wrapper {
-    break-inside: avoid !important;
-    page-break-inside: avoid !important;
   }
   .fra-hazards-table {
     font-size: 9pt !important;
@@ -343,37 +346,9 @@
     margin-top: 2px !important;
   }
   .fra-report-print-content { padding-bottom: 0 !important; }
-  /* Page break helpers */
-  .page-break-after-always,
-  .page-break {
-    page-break-after: always !important;
-    break-after: page !important;
-    break-before: auto !important;
-    page-break-before: auto !important;
-  }
-  /* First section: do not start on a new page (avoid blank first page) */
-  .fra-report-print-content > .fra-print-page:first-child,
-  .fra-report-print-content > .page-break:first-child {
-    break-before: auto !important;
-    page-break-before: auto !important;
-  }
-  /* From second section onward: start each on a new page */
-  .fra-report-print-content > .fra-print-page:not(:first-child),
-  .fra-report-print-content > .page-break:not(:first-child) {
-    page-break-before: always !important;
-    break-before: page !important;
-  }
 
-  /* Avoid splitting key blocks – but NOT the FRA wrapper table (content must flow across pages) */
-  .avoid-break,
-  table:not(.fra-print-table),
-  figure,
-  blockquote,
-  pre,
-  .card,
-  .section,
-  .bg-slate-50,
-  .bg-slate-100 {
+  /* Only avoid break for small items (signatures, small blocks). Broad wrappers like .bg-slate-50 cause clipping. */
+  .avoid-break {
     break-inside: avoid !important;
     page-break-inside: avoid !important;
   }
@@ -403,11 +378,13 @@
   
   .fra-print-table td {
     display: table-cell !important;
-    width: 100% !important;
-    padding: 0 !important;
-    /* Allow content inside the single body cell to break across pages */
+    padding: 4px 6px !important;
+    /* Allow content to break across pages; do not force width so columns stay aligned */
     break-inside: auto !important;
     page-break-inside: auto !important;
+  }
+  .fra-print-table th {
+    padding: 4px 6px !important;
   }
   
   .fra-print-header-cell,
@@ -459,14 +436,18 @@
   display: none;
 }
 
-/* On screen: table is layout-neutral so report looks normal */
+/* On screen: render as normal tables so columns align (travel distances, fire resistance, hazards). Block layout was breaking all FRA tables. */
 @media screen {
-  .fra-print-table { display: block !important; }
-  .fra-print-table:not(.fra-print-preview-table) thead.fra-print-thead,
-  .fra-print-table:not(.fra-print-preview-table) tfoot.fra-print-tfoot { display: none !important; }
-  .fra-print-table tbody { display: block !important; }
-  .fra-print-table tbody tr { display: block !important; }
-  .fra-print-table tbody td { display: block !important; }
+  .fra-print-table {
+    display: table !important;
+    width: 100%;
+  }
+  .fra-print-table thead { display: table-header-group !important; }
+  .fra-print-table tbody { display: table-row-group !important; }
+  .fra-print-table tfoot { display: table-footer-group !important; }
+  .fra-print-table tr { display: table-row !important; }
+  .fra-print-table th,
+  .fra-print-table td { display: table-cell !important; }
 }
 
 /* Print preview mode – show header/footer on screen (class on report wrapper) */
@@ -518,4 +499,3 @@
 body.fra-print-preview .fra-preview-hide-toolbar {
   display: none !important;
 }
-
