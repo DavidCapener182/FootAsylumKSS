@@ -128,3 +128,394 @@
   }
 }
 
+/* ---------- FRA REPORT PRINT / A4 ---------- */
+@page {
+  size: A4;
+  margin: 15mm;
+}
+
+/* Each section is an explicit A4 page – on screen (print preview) you see stacked pages */
+.fra-print-page {
+  width: 210mm;
+  min-height: 297mm;
+  box-sizing: border-box;
+  page-break-after: always;
+  break-after: page;
+  background: #fff;
+  margin: 0 auto 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+.fra-report-print-content {
+  width: 210mm;
+  margin: 0 auto;
+  padding-bottom: 12px;
+}
+
+@media print {
+  html, body {
+    width: 210mm !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Hide anything that isn't the document (sidebar, app header, nav, etc.) */
+  .no-print,
+  button:not(.print-keep),
+  nav,
+  header:not(.fra-report-print-header),
+  header.site-header,
+  .toolbar,
+  .controls,
+  .sidebar,
+  .fra-preview-hide-toolbar,
+  .fra-report-print-header,
+  .fra-report-print-footer,
+  aside,
+  [role="complementary"],
+  [class*="sidebar"],
+  [class*="Sidebar"],
+  [class*="Header"] {
+    display: none !important;
+  }
+
+  /* When printing from a page with layout: main content full width (no space for sidebar) */
+  [class*="ml-64"] {
+    margin-left: 0 !important;
+  }
+  
+  /* Layout containers must not constrain print */
+  main,
+  [role="main"],
+  .flex,
+  [class*="overflow-hidden"],
+  [class*="overflow-auto"] {
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+  }
+
+  /* Standalone print page – no flex/overflow so content flows across pages */
+  .fra-print-page-root,
+  .fra-print-page-content {
+    display: block !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    max-height: none !important;
+  }
+
+  /* Ensure print root isn't constrained by screen layout (block flow = multiple pages) */
+  #print-root,
+  .print-root,
+  .fra-report-print-wrapper {
+    display: block !important;
+    width: 100% !important;
+    max-width: 210mm !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    height: auto !important;
+    min-height: 0 !important;
+    position: static !important;
+    transform: none !important;
+  }
+
+  /* Force content wrapper to allow pagination (no min-height, no overflow) */
+  .fra-report-print-content {
+    display: block !important;
+    overflow: visible !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+  }
+
+  /* Override min-h-screen in print so FRA root doesn't force one tall box (breaks pagination) */
+  #print-root.min-h-screen,
+  .fra-report-print-wrapper.min-h-screen {
+    min-height: 0 !important;
+  }
+
+  /* Critical: these often cause "prints only what's visible" / broken pagination */
+  * {
+    box-shadow: none !important;
+  }
+  
+  .scroll,
+  .scroll-y,
+  .overflow-auto,
+  .overflow-scroll,
+  [class*="overflow"],
+  .h-screen,
+  .h-\[calc\(100vh
+  {
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+  }
+  
+  [style*="transform"],
+  [class*="transform"] {
+    transform: none !important;
+  }
+
+  /* Each section = one printed sheet; no min-height so short sections don’t create blank space */
+  .fra-print-page {
+    width: 210mm !important;
+    min-height: 0 !important;
+    margin-bottom: 0 !important;
+    box-shadow: none !important;
+    padding: 18mm !important;
+    box-sizing: border-box !important;
+    page-break-after: always !important;
+    break-after: page !important;
+    -webkit-column-break-after: always !important;
+  }
+  .fra-report-print-content > .fra-print-page:not(:first-child) {
+    page-break-before: always !important;
+    break-before: page !important;
+    -webkit-column-break-before: always !important;
+  }
+  .fra-report-print-content > .fra-print-page:first-child {
+    page-break-before: auto !important;
+    break-before: auto !important;
+  }
+  .fra-report-print-content > .fra-print-page:last-child {
+    page-break-after: auto !important;
+    break-after: auto !important;
+  }
+
+  /* Travel Distances: compact tables and intro so they fit on one page */
+  .fra-travel-distances-tables {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    margin-top: 8px !important;
+  }
+  .fra-travel-distances-tables table {
+    font-size: 9pt !important;
+    margin-bottom: 6px !important;
+  }
+  .fra-travel-distances-tables th,
+  .fra-travel-distances-tables td {
+    padding: 2px 6px !important;
+    border-width: 1px !important;
+  }
+  .fra-travel-distances-tables > * + * {
+    margin-top: 4px !important;
+  }
+  /* Map: constrain to one page so it isn't cut off in PDF */
+  .fra-map-print {
+    max-height: 180mm !important;
+    overflow: hidden !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+  .fra-map-print .leaflet-container,
+  .fra-map-print .fra-map-container {
+    height: 180mm !important;
+    max-height: 180mm !important;
+    min-height: 0 !important;
+    width: 100% !important;
+  }
+  /* Hazards table: keep on one page when possible */
+  .fra-hazards-table-wrapper {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+  .fra-hazards-table {
+    font-size: 9pt !important;
+  }
+  .fra-hazards-table th,
+  .fra-hazards-table td {
+    padding: 4px 6px !important;
+  }
+  .fra-print-page:has(.fra-travel-distances-tables) h2 {
+    margin-bottom: 6px !important;
+    font-size: 1rem !important;
+  }
+  .fra-print-page:has(.fra-travel-distances-tables) .space-y-4 {
+    margin-bottom: 4px !important;
+  }
+  .fra-print-page:has(.fra-travel-distances-tables) .space-y-4 > * + * {
+    margin-top: 2px !important;
+  }
+  .fra-report-print-content { padding-bottom: 0 !important; }
+  /* Page break helpers */
+  .page-break-after-always,
+  .page-break {
+    page-break-after: always !important;
+    break-after: page !important;
+    break-before: auto !important;
+    page-break-before: auto !important;
+  }
+  /* First section: do not start on a new page (avoid blank first page) */
+  .fra-report-print-content > .fra-print-page:first-child,
+  .fra-report-print-content > .page-break:first-child {
+    break-before: auto !important;
+    page-break-before: auto !important;
+  }
+  /* From second section onward: start each on a new page */
+  .fra-report-print-content > .fra-print-page:not(:first-child),
+  .fra-report-print-content > .page-break:not(:first-child) {
+    page-break-before: always !important;
+    break-before: page !important;
+  }
+
+  /* Avoid splitting key blocks – but NOT the FRA wrapper table (content must flow across pages) */
+  .avoid-break,
+  table:not(.fra-print-table),
+  figure,
+  blockquote,
+  pre,
+  .card,
+  .section,
+  .bg-slate-50,
+  .bg-slate-100 {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Tables print reliably */
+  .fra-print-table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    display: table !important;
+  }
+  
+  .fra-print-table thead {
+    display: table-header-group !important;
+  }
+  
+  .fra-print-table tbody {
+    display: table-row-group !important;
+  }
+  
+  .fra-print-table tfoot {
+    display: table-footer-group !important;
+  }
+  
+  .fra-print-table tr {
+    display: table-row !important;
+  }
+  
+  .fra-print-table td {
+    display: table-cell !important;
+    width: 100% !important;
+    padding: 0 !important;
+    /* Allow content inside the single body cell to break across pages */
+    break-inside: auto !important;
+    page-break-inside: auto !important;
+  }
+  
+  .fra-print-header-cell,
+  .fra-print-footer-cell {
+    width: 100% !important;
+  }
+
+  /* Print content styling */
+  .fra-report-print-content {
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  
+  /* Remove max-width constraints on page sections */
+  .max-w-4xl,
+  .max-w-5xl,
+  .max-w-6xl,
+  .max-w-7xl {
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+  
+  /* Ensure page sections are full width */
+  .page-break-after-always {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* Links not ugly */
+  a:link,
+  a:visited {
+    text-decoration: none !important;
+    color: inherit !important;
+  }
+
+  /* Ensure images print */
+  img {
+    max-width: 100% !important;
+    height: auto !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
+.fra-report-print-header,
+.fra-report-print-footer {
+  display: none;
+}
+
+/* On screen: table is layout-neutral so report looks normal */
+@media screen {
+  .fra-print-table { display: block !important; }
+  .fra-print-table:not(.fra-print-preview-table) thead.fra-print-thead,
+  .fra-print-table:not(.fra-print-preview-table) tfoot.fra-print-tfoot { display: none !important; }
+  .fra-print-table tbody { display: block !important; }
+  .fra-print-table tbody tr { display: block !important; }
+  .fra-print-table tbody td { display: block !important; }
+}
+
+/* Print preview mode – show header/footer on screen (class on report wrapper) */
+.fra-report-print-wrapper.fra-print-preview-mode .fra-report-print-header,
+.fra-report-print-wrapper.fra-print-preview-mode .fra-report-print-footer {
+  display: flex !important;
+}
+
+.fra-report-print-wrapper.fra-print-preview-mode .fra-report-print-header {
+  position: fixed;
+  top: 48px; /* below the preview toolbar */
+  left: 0;
+  right: 0;
+  height: 44px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 18mm;
+  font-size: 11pt;
+  font-weight: 600;
+  color: #0f172a;
+  border-bottom: 1px solid #cbd5e1;
+  background: #fff;
+  z-index: 9999;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+.fra-report-print-wrapper.fra-print-preview-mode .fra-report-print-footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 28px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 18mm;
+  font-size: 9pt;
+  color: #64748b;
+  border-top: 1px solid #cbd5e1;
+  background: #fff;
+  z-index: 9999;
+  box-shadow: 0 -1px 3px rgba(0,0,0,0.08);
+}
+
+.fra-report-print-wrapper.fra-print-preview-mode .fra-report-print-content {
+  padding-top: 92px; /* 48px toolbar + 44px header */
+  padding-bottom: 36px;
+}
+
+body.fra-print-preview .fra-preview-hide-toolbar {
+  display: none !important;
+}
+

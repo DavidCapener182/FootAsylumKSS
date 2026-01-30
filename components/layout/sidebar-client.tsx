@@ -127,8 +127,8 @@ export function SidebarClient({ userRole, userProfile }: SidebarClientProps) {
   // Desktop sidebar (always visible)
   return (
     <>
-      {/* Desktop Sidebar */}
-      <aside className="hidden md:flex w-64 flex-col h-screen bg-[#0e1925] fixed left-0 top-0 z-30">
+      {/* Desktop Sidebar - hidden when printing */}
+      <aside className="no-print hidden md:flex w-64 flex-col h-screen bg-[#0e1925] fixed left-0 top-0 z-30">
         {sidebarContent}
       </aside>
 
@@ -143,10 +143,10 @@ export function SidebarClient({ userRole, userProfile }: SidebarClientProps) {
           />
         )}
 
-        {/* Mobile Sidebar */}
+        {/* Mobile Sidebar - hidden when printing */}
         <aside
           className={cn(
-            'fixed top-0 left-0 z-[70] w-64 h-screen bg-[#0e1925] flex flex-col transition-transform duration-300 ease-in-out md:hidden shadow-2xl safe-top safe-bottom touch-pan-y',
+            'no-print fixed top-0 left-0 z-[70] w-64 h-screen bg-[#0e1925] flex flex-col transition-transform duration-300 ease-in-out md:hidden shadow-2xl safe-top safe-bottom touch-pan-y',
             isOpen ? 'translate-x-0' : '-translate-x-full'
           )}
           aria-hidden={!isOpen}

@@ -1,0 +1,149 @@
+/* FRA report: force multiple A4 pages when printing. Loaded only for print (media="print"). */
+@page {
+  size: A4;
+  margin: 15mm;
+}
+
+html, body {
+  height: auto !important;
+  overflow: visible !important;
+  width: auto !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: #fff !important;
+}
+
+/* FRA print page only: every wrapper must allow pagination */
+body.fra-print-document .fra-print-page-root,
+body.fra-print-document .fra-print-page-content,
+body.fra-print-document #print-root,
+body.fra-print-document .print-root,
+body.fra-print-document .fra-report-print-wrapper,
+body.fra-print-document .fra-report-print-content {
+  display: block !important;
+  width: 210mm !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow: visible !important;
+  position: static !important;
+  transform: none !important;
+  margin: 0 auto !important;
+  padding: 0 !important;
+}
+body.fra-print-document #print-root.min-h-screen,
+body.fra-print-document .fra-report-print-wrapper.min-h-screen {
+  min-height: 0 !important;
+}
+
+/* Each section = one printed sheet; force page breaks so sections don't run together */
+body.fra-print-document .fra-print-page {
+  display: block !important;
+  width: 210mm !important;
+  min-height: 0 !important;
+  overflow: visible !important;
+  margin: 0 auto 0 !important;
+  padding: 18mm !important;
+  box-sizing: border-box !important;
+  box-shadow: none !important;
+  page-break-after: always !important;
+  break-after: page !important;
+  -webkit-column-break-after: always !important;
+}
+body.fra-print-document .fra-report-print-content > .fra-print-page:not(:first-child) {
+  page-break-before: always !important;
+  break-before: page !important;
+  -webkit-column-break-before: always !important;
+}
+body.fra-print-document .fra-report-print-content > .fra-print-page:first-child {
+  page-break-before: auto !important;
+  break-before: auto !important;
+}
+
+/* Travel Distances: compact tables so they fit on one page */
+body.fra-print-document .fra-travel-distances-tables {
+  break-inside: avoid !important;
+  page-break-inside: avoid !important;
+}
+body.fra-print-document .fra-travel-distances-tables table {
+  font-size: 9pt !important;
+  margin-bottom: 4px !important;
+}
+body.fra-print-document .fra-travel-distances-tables th,
+body.fra-print-document .fra-travel-distances-tables td {
+  padding: 2px 5px !important;
+}
+
+/* Per-page header: shown at top of each printed page, above section heading */
+body.fra-print-document .fra-print-page-header {
+  display: none !important;
+}
+body.fra-print-document .fra-print-page .fra-print-page-header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 0 0 8px 0 !important;
+  margin-bottom: 12px !important;
+  border-bottom: 1px solid #cbd5e1 !important;
+  font-size: 11pt !important;
+  font-weight: 600 !important;
+  color: #0f172a !important;
+}
+body.fra-print-document .fra-print-page-header .fra-report-print-title {
+  flex: 1;
+  text-align: center;
+  margin: 0 12px;
+}
+body.fra-print-document .fra-print-page-header .fra-report-print-logo {
+  flex-shrink: 0;
+}
+
+/* Last page: no break after */
+body.fra-print-document .fra-print-page:last-child {
+  page-break-after: auto !important;
+  break-after: auto !important;
+}
+
+/* Map: constrain to one page so it isn't cut off in PDF */
+body.fra-print-document .fra-map-print {
+  max-height: 180mm !important;
+  overflow: hidden !important;
+  break-inside: avoid !important;
+  page-break-inside: avoid !important;
+}
+body.fra-print-document .fra-map-print .leaflet-container,
+body.fra-print-document .fra-map-print .fra-map-container {
+  height: 180mm !important;
+  max-height: 180mm !important;
+  min-height: 0 !important;
+  width: 100% !important;
+}
+
+/* Hazards table: keep on one page when possible, compact for print */
+body.fra-print-document .fra-hazards-table-wrapper {
+  break-inside: avoid !important;
+  page-break-inside: avoid !important;
+}
+body.fra-print-document .fra-hazards-table {
+  font-size: 9pt !important;
+}
+body.fra-print-document .fra-hazards-table th,
+body.fra-print-document .fra-hazards-table td {
+  padding: 4px 6px !important;
+}
+
+/* Prevent overlap: no fixed/sticky in print */
+body.fra-print-document [style*="position: fixed"],
+body.fra-print-document [style*="position:fixed"],
+body.fra-print-document .fixed,
+body.fra-print-document .sticky {
+  position: static !important;
+}
+
+/* Hide UI in print */
+body.fra-print-document .no-print,
+body.fra-print-document .fra-report-print-header,
+body.fra-print-document .fra-report-print-footer,
+body.fra-print-document button {
+  display: none !important;
+}

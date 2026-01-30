@@ -413,9 +413,22 @@ export function AuditLabClient() {
     }
   }
 
-  const handleTemplateClick = (templateId: string) => {
+  const handleTemplateClick = async (templateId: string) => {
     setSelectedTemplate(templateId)
-    setView('audit-form')
+    // Check if this is an FRA template - if so, we'll handle it differently
+    try {
+      const template = await getTemplate(templateId)
+      if (template?.category === 'fire_risk_assessment') {
+        // For FRA, go directly to store selection but with special handling
+        setView('audit-form')
+      } else {
+        // Normal flow for other templates
+        setView('audit-form')
+      }
+    } catch (error) {
+      console.error('Error loading template:', error)
+      setView('audit-form')
+    }
   }
 
   const handleBackFromSubView = () => {
@@ -506,6 +519,7 @@ export function AuditLabClient() {
               templateId={selectedTemplate}
               onBack={handleBackFromSubView}
               onStartAudit={(instanceId, failures) => {
+                // Normal flow - FRA handling is done in handleStartAudit
                 setSelectedAuditInstance(instanceId)
                 setPreviousFailures(failures || {})
                 setView('audit-execution')
@@ -1200,6 +1214,70 @@ function AuditFormView({
   const [loadingPrevious, setLoadingPrevious] = useState(false)
   const [previousFailures, setPreviousFailures] = useState<PreviousFailureMap>({})
   const [previousAuditDate, setPreviousAuditDate] = useState<string | null>(null)
+  const [hsAuditFile, setHsAuditFile] = useState<File | null>(null)
+  const [uploadingHSAudit, setUploadingHSAudit] = useState(false)
+
+  // Extract store name from PDF filename
+  const extractStoreNameFromFilename = (filename: string): string | null => {
+    // Remove file extension
+    const nameWithoutExt = filename.replace(/\.pdf$/i, '')
+    
+    // Try to extract store name - common patterns:
+    // "Aberdeen-22-Jan-2026-David-Capener.pdf" -> "Aberdeen"
+    // "Aberdeen-2...Capener.pdf" -> "Aberdeen"
+    // "StoreName-..." -> "StoreName"
+    
+    // Split by common separators and take the first part
+    const parts = nameWithoutExt.split(/[-_\s]+/)
+    if (parts.length > 0) {
+      const firstPart = parts[0].trim()
+      // Check if it looks like a date (starts with number) - if so, skip it
+      if (!/^\d/.test(firstPart) && firstPart.length > 2) {
+        return firstPart
+      }
+      // If first part is a date, try second part
+      if (parts.length > 1) {
+        const secondPart = parts[1].trim()
+        if (!/^\d/.test(secondPart) && secondPart.length > 2) {
+          return secondPart
+        }
+      }
+    }
+    
+    return null
+  }
+
+  // Auto-select store from PDF filename
+  const findStoreFromFilename = (filename: string) => {
+    const extractedName = extractStoreNameFromFilename(filename)
+    if (!extractedName || stores.length === 0) return null
+    
+    const searchTerm = extractedName.toLowerCase()
+    
+    // Try exact match first (store name)
+    let match = stores.find(store => 
+      store.store_name?.toLowerCase() === searchTerm
+    )
+    
+    // Try partial match (store name contains)
+    if (!match) {
+      match = stores.find(store => 
+        store.store_name?.toLowerCase().includes(searchTerm) ||
+        searchTerm.includes(store.store_name?.toLowerCase() || '')
+      )
+    }
+    
+    // Try city match
+    if (!match) {
+      match = stores.find(store => 
+        store.city?.toLowerCase() === searchTerm ||
+        store.city?.toLowerCase().includes(searchTerm) ||
+        searchTerm.includes(store.city?.toLowerCase() || '')
+      )
+    }
+    
+    return match?.id || null
+  }
 
   useEffect(() => {
     loadTemplate()
@@ -1217,6 +1295,16 @@ function AuditFormView({
       setPreviousAuditDate(null)
     }
   }, [selectedStoreId, templateId])
+
+  // Auto-select store when PDF is uploaded (only if no store is selected yet)
+  useEffect(() => {
+    if (hsAuditFile && stores.length > 0 && !selectedStoreId) {
+      const matchedStoreId = findStoreFromFilename(hsAuditFile.name)
+      if (matchedStoreId) {
+        setSelectedStoreId(matchedStoreId)
+      }
+    }
+  }, [hsAuditFile, stores, selectedStoreId])
 
   const loadTemplate = async () => {
     try {
@@ -1260,15 +1348,129 @@ function AuditFormView({
       return
     }
 
+    if (!templateId) {
+      alert('Template ID is missing')
+      return
+    }
+
     try {
       setStartingAudit(true)
+      console.log('Creating audit instance...', { templateId, selectedStoreId })
+      
       const instance = await createAuditInstance(templateId, selectedStoreId)
-      onStartAudit(instance.id, previousFailures)
+      console.log('[AUDIT-LAB] Audit instance created:', instance.id)
+      
+      // For FRA templates, auto-complete and show report directly
+      if (template?.category === 'fire_risk_assessment') {
+        console.log('[AUDIT-LAB] FRA template detected, checking for H&S audit file:', {
+          hasFile: !!hsAuditFile,
+          fileName: hsAuditFile?.name,
+          storeId: selectedStoreId
+        })
+        // If H&S audit PDF is uploaded, try to parse it (but don't fail if it doesn't work)
+        if (hsAuditFile) {
+          setUploadingHSAudit(true)
+          console.log('[AUDIT-LAB] Uploading H&S audit PDF:', {
+            fileName: hsAuditFile.name,
+            fileSize: hsAuditFile.size,
+            fileType: hsAuditFile.type,
+            fraInstanceId: instance.id,
+            storeId: selectedStoreId
+          })
+          
+          try {
+            const formData = new FormData()
+            formData.append('file', hsAuditFile)
+            formData.append('fraInstanceId', instance.id)
+            formData.append('storeId', selectedStoreId)
+            
+            const response = await fetch('/api/fra-reports/parse-hs-audit', {
+              method: 'POST',
+              body: formData,
+            })
+            
+            console.log('[AUDIT-LAB] PDF upload response status:', response.status)
+            
+            if (!response.ok) {
+              const error = await response.json().catch(() => ({ error: 'Unknown error' }))
+              console.warn('[AUDIT-LAB] PDF parsing failed, will use database H&S audit:', error.error || 'Unknown error')
+              // Continue - don't throw error
+            } else {
+              const result = await response.json()
+              console.log('[AUDIT-LAB] H&S audit PDF uploaded successfully:', {
+                success: result.success,
+                textLength: result.textLength,
+                hasText: result.hasText,
+                parseError: result.parseError,
+                message: result.message
+              })
+              
+              if (!result.hasText && result.parseError) {
+                console.error('[AUDIT-LAB] PDF parsing failed:', result.parseError)
+              }
+            }
+          } catch (parseError: any) {
+            // Log but don't throw - we'll use database audit instead
+            console.error('[AUDIT-LAB] PDF upload/parsing error, continuing with database audit:', parseError?.message || parseError)
+          } finally {
+            setUploadingHSAudit(false)
+          }
+          
+          // Wait longer after upload to ensure PDF text is stored in database
+          console.log('[AUDIT-LAB] Waiting 2 seconds for PDF text to be stored in database...')
+          await new Promise(resolve => setTimeout(resolve, 2000))
+        } else {
+          console.log('[AUDIT-LAB] No H&S audit PDF file provided - will use database audit only')
+        }
+        
+        // Auto-complete the FRA audit (it's generated from H&S data)
+        // For FRA, we don't need responses - just mark as completed
+        console.log('Completing FRA audit...')
+        try {
+          await completeAudit(instance.id)
+          console.log('FRA audit completed successfully')
+        } catch (completeError: any) {
+          // If completeAudit fails (e.g., no responses), manually mark as completed
+          console.warn('completeAudit failed, manually marking as completed:', completeError?.message || completeError)
+          const supabase = createClient()
+          const { error: updateError } = await supabase
+            .from('fa_audit_instances')
+            .update({ 
+              status: 'completed',
+              conducted_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', instance.id)
+          
+          if (updateError) {
+            console.error('Failed to manually complete audit:', updateError)
+            // Still try to navigate - the report might work anyway
+            console.warn('Continuing despite update error...')
+          } else {
+            console.log('FRA audit manually marked as completed')
+          }
+        }
+        
+        // Wait longer to ensure database is fully updated (PDF text storage, audit completion)
+        console.log('[AUDIT-LAB] Waiting 2 more seconds to ensure all database updates are complete...')
+        await new Promise(resolve => setTimeout(resolve, 2000))
+        
+        // Navigate to review page first to show extracted data
+        // Use window.location instead of window.open to avoid popup blockers
+        const url = `/audit-lab/review-fra-data?instanceId=${instance.id}`
+        console.log('[AUDIT-LAB] Navigating to review page:', url)
+        window.location.href = url
+      } else {
+        // Normal flow for other audit types
+        onStartAudit(instance.id, previousFailures)
+        setStartingAudit(false)
+      }
     } catch (error) {
       console.error('Error starting audit:', error)
-      alert('Failed to start audit')
-    } finally {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      alert(`Failed to start audit: ${errorMessage}`)
       setStartingAudit(false)
+      setUploadingHSAudit(false)
     }
   }
 
@@ -1434,16 +1636,72 @@ function AuditFormView({
             </div>
           )}
 
+          {/* H&S Audit Upload for FRA */}
+          {template?.category === 'fire_risk_assessment' && (
+            <div className="pt-4 border-t space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Upload H&S Audit PDF (Optional)
+                </label>
+                <p className="text-xs text-slate-500 mb-2">
+                  Upload the H&S audit PDF to automatically populate the FRA report. If not uploaded, the system will use the most recent H&S audit from the database.
+                </p>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="file"
+                    accept=".pdf"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (file) {
+                        if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+                          alert('Please select a PDF file')
+                          return
+                        }
+                        if (file.size > 10 * 1024 * 1024) {
+                          alert('File size must be less than 10MB')
+                          return
+                        }
+                        setHsAuditFile(file)
+                        
+                        // Try to auto-select store from filename
+                        if (stores.length > 0) {
+                          const matchedStoreId = findStoreFromFilename(file.name)
+                          if (matchedStoreId) {
+                            setSelectedStoreId(matchedStoreId)
+                          } else {
+                            // Show a message if we couldn't match
+                            console.log('Could not auto-detect store from filename:', file.name)
+                          }
+                        }
+                      }
+                    }}
+                    className="text-sm text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+                  />
+                  {hsAuditFile && (
+                    <div className="flex flex-col gap-1">
+                      <span className="text-sm text-slate-600">{hsAuditFile.name}</span>
+                      {selectedStoreId && stores.find(s => s.id === selectedStoreId) && (
+                        <span className="text-xs text-green-600">
+                          ✓ Auto-selected: {stores.find(s => s.id === selectedStoreId)?.store_name}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="pt-4 border-t">
             <Button 
               onClick={handleStartAudit} 
-              disabled={!selectedStoreId || startingAudit}
+              disabled={!selectedStoreId || startingAudit || uploadingHSAudit}
               className="bg-indigo-600 hover:bg-indigo-700"
             >
-              {startingAudit ? (
+              {startingAudit || uploadingHSAudit ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Starting...
+                  {uploadingHSAudit ? 'Processing H&S Audit...' : 'Starting...'}
                 </>
               ) : (
                 <>
@@ -3187,42 +3445,58 @@ function AuditExecutionView({
             <div className="space-y-3">
               <h3 className="text-lg font-semibold text-slate-900">Report Options</h3>
               <div className="flex gap-3">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    const url = `/audit-lab/view-report?instanceId=${instanceId}`
-                    window.open(url, '_blank')
-                  }}
-                  className="flex-1"
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  View Report
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={async () => {
-                    try {
-                      const response = await fetch(`/api/audit-pdfs/generate?instanceId=${instanceId}`)
-                      if (!response.ok) throw new Error('Failed to generate PDF')
-                      const blob = await response.blob()
-                      const url = window.URL.createObjectURL(blob)
-                      const a = document.createElement('a')
-                      a.href = url
-                      a.download = `inspection-report-${instanceId.slice(-8)}.pdf`
-                      document.body.appendChild(a)
-                      a.click()
-                      window.URL.revokeObjectURL(url)
-                      document.body.removeChild(a)
-                    } catch (error) {
-                      console.error('Error downloading PDF:', error)
-                      alert('Failed to download PDF. Please try again.')
-                    }
-                  }}
-                  className="flex-1"
-                >
-                  <Download className="h-4 w-4 mr-2" />
-                  Download PDF
-                </Button>
+                {template?.category === 'fire_risk_assessment' ? (
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      const url = `/audit-lab/view-fra-report?instanceId=${instanceId}`
+                      window.open(url, '_blank')
+                    }}
+                    className="flex-1"
+                  >
+                    <Flame className="h-4 w-4 mr-2" />
+                    View FRA Report
+                  </Button>
+                ) : (
+                  <>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        const url = `/audit-lab/view-report?instanceId=${instanceId}`
+                        window.open(url, '_blank')
+                      }}
+                      className="flex-1"
+                    >
+                      <FileText className="h-4 w-4 mr-2" />
+                      View Report
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={async () => {
+                        try {
+                          const response = await fetch(`/api/audit-pdfs/generate?instanceId=${instanceId}`)
+                          if (!response.ok) throw new Error('Failed to generate PDF')
+                          const blob = await response.blob()
+                          const url = window.URL.createObjectURL(blob)
+                          const a = document.createElement('a')
+                          a.href = url
+                          a.download = `inspection-report-${instanceId.slice(-8)}.pdf`
+                          document.body.appendChild(a)
+                          a.click()
+                          window.URL.revokeObjectURL(url)
+                          document.body.removeChild(a)
+                        } catch (error) {
+                          console.error('Error downloading PDF:', error)
+                          alert('Failed to download PDF. Please try again.')
+                        }
+                      }}
+                      className="flex-1"
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Download PDF
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
 
@@ -3473,8 +3747,10 @@ function AuditHistoryView({
     }
   }
 
-  const handleViewPDF = (instanceId: string) => {
-    const url = `/audit-lab/view-report?instanceId=${instanceId}`
+  const handleViewPDF = (instanceId: string, category?: string) => {
+    const url = category === 'fire_risk_assessment' 
+      ? `/audit-lab/view-fra-report?instanceId=${instanceId}`
+      : `/audit-lab/view-report?instanceId=${instanceId}`
     window.open(url, '_blank')
   }
 
@@ -3571,24 +3847,38 @@ function AuditHistoryView({
                       <div className="flex items-center justify-end gap-2">
                         {audit.status === 'completed' ? (
                           <>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleViewPDF(audit.id)}
-                              className="h-8 px-3"
-                            >
-                              <FileText className="h-3 w-3 mr-1" />
-                              View
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleDownloadPDF(audit.id)}
-                              className="h-8 px-3"
-                            >
-                              <Download className="h-3 w-3 mr-1" />
-                              PDF
-                            </Button>
+                            {(audit.fa_audit_templates as any)?.category === 'fire_risk_assessment' ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleViewPDF(audit.id, 'fire_risk_assessment')}
+                                className="h-8 px-3"
+                              >
+                                <Flame className="h-3 w-3 mr-1" />
+                                View FRA
+                              </Button>
+                            ) : (
+                              <>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleViewPDF(audit.id)}
+                                  className="h-8 px-3"
+                                >
+                                  <FileText className="h-3 w-3 mr-1" />
+                                  View
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleDownloadPDF(audit.id)}
+                                  className="h-8 px-3"
+                                >
+                                  <Download className="h-3 w-3 mr-1" />
+                                  PDF
+                                </Button>
+                              </>
+                            )}
                             <Button
                               variant="outline"
                               size="sm"
