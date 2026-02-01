@@ -474,6 +474,135 @@ export async function GET(request: NextRequest) {
       if (pdfText) {
         pdfExtractedData.managementReviewStatement = 'This assessment has been informed by recent health and safety inspections and site observations.'
       }
+
+      // HIGH PRIORITY: Number of fire exits
+      const fireExitsMatch = originalText.match(/(?:number of fire exits|fire exits)[\s:]*(\d+)/i)
+        || originalText.match(/fire exits[\s\S]{0,20}?(\d+)/i)
+      if (fireExitsMatch) {
+        pdfExtractedData.numberOfFireExits = fireExitsMatch[1]
+        console.log('[EXTRACT] ✓ Found number of fire exits:', pdfExtractedData.numberOfFireExits)
+      }
+
+      // HIGH PRIORITY: Staff numbers - multiple patterns for different formats
+      // Pattern 1: "Number of Staff employed: 9" or "Staff employed: 9"
+      // Pattern 2: "Staff: 9" or "employees: 9" 
+      // Pattern 3: Look in General Site Information section
+      const totalStaffPatterns = [
+        /(?:number of staff employed|staff employed)[\s:]*(\d+)/i,
+        /(?:total staff|total employees)[\s:]*(\d+)/i,
+        /(?:staff|employees)[\s:]+(\d+)(?!\s*(?:working|on site|at any))/i,
+        /general site information[\s\S]{0,300}(?:staff employed|number of staff)[\s:]*(\d+)/i,
+      ]
+      for (const pattern of totalStaffPatterns) {
+        const match = originalText.match(pattern)
+        if (match) {
+          pdfExtractedData.totalStaffEmployed = match[1]
+          console.log('[EXTRACT] ✓ Found total staff employed:', pdfExtractedData.totalStaffEmployed)
+          break
+        }
+      }
+
+      // Maximum staff on site - multiple patterns
+      // Pattern: "Maximum number of staff working at any one time: 3"
+      const maxStaffPatterns = [
+        /(?:maximum number of staff working|maximum staff working|max staff working)[\s\S]{0,30}?(\d+)/i,
+        /(?:maximum.*staff.*at any.*time)[\s:]*(\d+)/i,
+        /(?:max staff|maximum staff)[\s:]*(\d+)/i,
+        /(?:staff working at any one time)[\s:]*(\d+)/i,
+        /general site information[\s\S]{0,400}(?:maximum.*staff|max.*staff)[\s\S]{0,30}?(\d+)/i,
+      ]
+      for (const pattern of maxStaffPatterns) {
+        const match = originalText.match(pattern)
+        if (match) {
+          pdfExtractedData.maxStaffOnSite = match[1]
+          console.log('[EXTRACT] ✓ Found max staff on site:', pdfExtractedData.maxStaffOnSite)
+          break
+        }
+      }
+
+      // HIGH PRIORITY: Young persons - multiple patterns
+      // NOTE: Do NOT match "under 18" as it captures the 18 from the phrase itself
+      const youngPersonsPatterns = [
+        /(?:young persons employed|young persons)[\s:]*(\d+)/i,
+        /(?:young person)[\s:]+(\d+)/i,
+        /(?:number of young persons)[\s:]*(\d+)/i,
+        /general site information[\s\S]{0,400}(?:young person)[\s:]+(\d+)/i,
+      ]
+      for (const pattern of youngPersonsPatterns) {
+        const match = originalText.match(pattern)
+        if (match) {
+          pdfExtractedData.youngPersonsCount = match[1]
+          console.log('[EXTRACT] ✓ Found young persons count:', pdfExtractedData.youngPersonsCount)
+          break
+        }
+      }
+
+      // HIGH PRIORITY: Fire drill date - multiple patterns and formats
+      const fireDrillPatterns = [
+        /(?:fire drill|last drill|drill.*carried out|evacuation drill)[\s\S]{0,50}?(\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s+\d{4})/i,
+        /(?:fire drill|last drill|drill.*carried out)[\s\S]{0,50}?(\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4})/i,
+        /(?:drill|evacuation).*?(?:date|carried out|conducted)[\s\S]{0,30}?(\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s+\d{4})/i,
+        /(?:fire drill has been carried out)[\s\S]{0,100}?(\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s+\d{4})/i,
+        /(?:when was.*drill|last fire drill)[\s\S]{0,50}?(\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s+\d{4})/i,
+      ]
+      for (const pattern of fireDrillPatterns) {
+        const match = originalText.match(pattern)
+        if (match) {
+          pdfExtractedData.fireDrillDate = match[1]
+          console.log('[EXTRACT] ✓ Found fire drill date:', pdfExtractedData.fireDrillDate)
+          break
+        }
+      }
+
+      // HIGH PRIORITY: PAT/electrical testing status
+      if (originalText.match(/(?:pat|portable appliance|electrical.*test).*?(?:passed|satisfactory|up to date|completed|yes)/i)
+        || originalText.match(/(?:fixed wiring|electrical installation).*?(?:satisfactory|passed|completed)/i)
+        || originalText.match(/(?:pat testing|pat test)[\s\S]{0,30}?(?:yes|ok|satisfactory|passed)/i)) {
+        pdfExtractedData.patTestingStatus = 'Satisfactory'
+        console.log('[EXTRACT] ✓ Found PAT testing status: Satisfactory')
+      }
+
+      // MEDIUM PRIORITY: Exit signage condition - more flexible patterns
+      if (originalText.match(/(?:exit sign|signage|fire exit sign).*?(?:good|satisfactory|clear|visible|yes|ok)/i)
+        || originalText.match(/(?:signage).*?(?:installed|visible|clearly|in place)/i)
+        || originalText.match(/(?:fire exit.*sign|emergency.*sign).*?(?:good|satisfactory|visible|yes)/i)
+        || originalText.match(/(?:signs.*visible|signage.*adequate|signage.*good)/i)) {
+        pdfExtractedData.exitSignageCondition = 'Good condition'
+        console.log('[EXTRACT] ✓ Found exit signage condition: Good')
+      }
+
+      // MEDIUM PRIORITY: Ceiling tiles / compartmentation
+      if (originalText.match(/(?:ceiling tile|compartmentation|fire stopping).*?(?:no missing|intact|satisfactory|good|yes)/i)
+        || originalText.match(/(?:no missing|no breaches).*?(?:ceiling|compartment)/i)
+        || originalText.match(/(?:structure|structural).*?(?:good condition|satisfactory)/i)
+        || originalText.match(/(?:missing ceiling tiles)[\s\S]{0,30}?(?:no|none)/i)) {
+        pdfExtractedData.compartmentationStatus = 'No breaches identified'
+        console.log('[EXTRACT] ✓ Found compartmentation status: No breaches')
+      }
+
+      // MEDIUM PRIORITY: Fire extinguisher service date - more patterns
+      const extinguisherServicePatterns = [
+        /(?:extinguisher.*service|fire extinguisher.*service|last service.*extinguisher)[\s\S]{0,50}?(\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s+\d{4})/i,
+        /(?:extinguisher)[\s\S]{0,50}?serviced[\s\S]{0,30}?(\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s+\d{4})/i,
+        /(?:extinguisher.*service|fire extinguisher.*service)[\s\S]{0,50}?(\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4})/i,
+        /(?:fire extinguisher service)[\s\S]{0,100}?(\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s+\d{4})/i,
+      ]
+      for (const pattern of extinguisherServicePatterns) {
+        const match = originalText.match(pattern)
+        if (match) {
+          pdfExtractedData.extinguisherServiceDate = match[1]
+          console.log('[EXTRACT] ✓ Found extinguisher service date:', pdfExtractedData.extinguisherServiceDate)
+          break
+        }
+      }
+
+      // MEDIUM PRIORITY: Call point accessibility
+      if (originalText.match(/(?:call point|manual call point).*?(?:accessible|unobstructed|clear|yes)/i)
+        || originalText.match(/(?:call points clear|call points.*accessible)/i)
+        || originalText.match(/(?:mcp|manual call).*?(?:clear|accessible|unobstructed)/i)) {
+        pdfExtractedData.callPointAccessibility = 'Accessible and unobstructed'
+        console.log('[EXTRACT] ✓ Found call point accessibility: Accessible')
+      }
       
       console.log('[EXTRACT] Final extracted data:', pdfExtractedData)
     }
@@ -497,6 +626,18 @@ export async function GET(request: NextRequest) {
       emergencyLightingMonthlyTest: pdfExtractedData.emergencyLightingMonthlyTest || null,
       fireExtinguisherService: pdfExtractedData.fireExtinguisherService || null,
       managementReviewStatement: pdfExtractedData.managementReviewStatement || null,
+      // High priority fields
+      numberOfFireExits: pdfExtractedData.numberOfFireExits || null,
+      totalStaffEmployed: pdfExtractedData.totalStaffEmployed || null,
+      maxStaffOnSite: pdfExtractedData.maxStaffOnSite || null,
+      youngPersonsCount: pdfExtractedData.youngPersonsCount || null,
+      fireDrillDate: pdfExtractedData.fireDrillDate || null,
+      patTestingStatus: pdfExtractedData.patTestingStatus || null,
+      // Medium priority fields
+      exitSignageCondition: pdfExtractedData.exitSignageCondition || null,
+      compartmentationStatus: pdfExtractedData.compartmentationStatus || null,
+      extinguisherServiceDate: pdfExtractedData.extinguisherServiceDate || null,
+      callPointAccessibility: pdfExtractedData.callPointAccessibility || null,
       sources: {
         storeManager: pdfExtractedData.storeManager ? 'PDF' : 'NOT_FOUND',
         firePanelLocation: pdfExtractedData.firePanelLocation ? 'PDF' : 'NOT_FOUND',
@@ -514,6 +655,18 @@ export async function GET(request: NextRequest) {
         emergencyLightingMonthlyTest: pdfExtractedData.emergencyLightingMonthlyTest ? 'PDF' : 'NOT_FOUND',
         fireExtinguisherService: pdfExtractedData.fireExtinguisherService ? 'PDF' : 'NOT_FOUND',
         managementReviewStatement: pdfExtractedData.managementReviewStatement ? 'PDF' : 'NOT_FOUND',
+        // High priority fields
+        numberOfFireExits: pdfExtractedData.numberOfFireExits ? 'PDF' : 'NOT_FOUND',
+        totalStaffEmployed: pdfExtractedData.totalStaffEmployed ? 'PDF' : 'NOT_FOUND',
+        maxStaffOnSite: pdfExtractedData.maxStaffOnSite ? 'PDF' : 'NOT_FOUND',
+        youngPersonsCount: pdfExtractedData.youngPersonsCount ? 'PDF' : 'NOT_FOUND',
+        fireDrillDate: pdfExtractedData.fireDrillDate ? 'PDF' : 'NOT_FOUND',
+        patTestingStatus: pdfExtractedData.patTestingStatus ? 'PDF' : 'NOT_FOUND',
+        // Medium priority fields
+        exitSignageCondition: pdfExtractedData.exitSignageCondition ? 'PDF' : 'NOT_FOUND',
+        compartmentationStatus: pdfExtractedData.compartmentationStatus ? 'PDF' : 'NOT_FOUND',
+        extinguisherServiceDate: pdfExtractedData.extinguisherServiceDate ? 'PDF' : 'NOT_FOUND',
+        callPointAccessibility: pdfExtractedData.callPointAccessibility ? 'PDF' : 'NOT_FOUND',
       },
       hasPdfText: !!pdfText,
       hasDatabaseAudit: false, // FRA doesn't use database audits

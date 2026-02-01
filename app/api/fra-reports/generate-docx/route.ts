@@ -402,7 +402,14 @@ function buildSectionEnforcementInsurers(): (Paragraph | Table)[] {
 
 function buildSectionAboutProperty(ctx: BuildContext): (Paragraph | Table)[] {
   const { data } = ctx
-  const d = data as FRAData & { storeOpeningTimes?: string; accessDescription?: string }
+  const d = data as FRAData & { 
+    storeOpeningTimes?: string; 
+    accessDescription?: string;
+    numberOfFireExits?: string | null;
+    totalStaffEmployed?: string | null;
+    maxStaffOnSite?: string | null;
+    youngPersonsCount?: string | null;
+  }
   const out: (Paragraph | Table)[] = []
   out.push(H2('About the Property:'))
   out.push(...labelValue('Approximate build date', data.buildDate))
@@ -411,12 +418,16 @@ function buildSectionAboutProperty(ctx: BuildContext): (Paragraph | Table)[] {
   out.push(para('Description of the Premises', { bold: true }))
   out.push(para(data.description || '—'))
   out.push(...labelValue('Number of Floors', data.numberOfFloors))
+  if (d.numberOfFireExits) out.push(...labelValue('Number of Fire Exits', d.numberOfFireExits))
   out.push(...labelValue('Approximate Floor Area', data.floorArea))
   if (data.floorAreaComment) out.push(...labelValue('Floor area comment', data.floorAreaComment))
   out.push(...labelValue('Occupancy and Capacity', data.occupancy))
   if (data.occupancyComment) out.push(...labelValue('Occupancy comment', data.occupancyComment))
   out.push(...labelValue('Operating hours', data.operatingHours))
   if (data.operatingHoursComment) out.push(...labelValue('Operating hours comment', data.operatingHoursComment))
+  if (d.totalStaffEmployed) out.push(...labelValue('Total staff employed', d.totalStaffEmployed))
+  if (d.maxStaffOnSite) out.push(...labelValue('Maximum staff on site at any time', d.maxStaffOnSite))
+  if (d.youngPersonsCount && d.youngPersonsCount !== '0') out.push(...labelValue('Young persons employed', d.youngPersonsCount))
   out.push(para('Sleeping Risk', { bold: true }))
   out.push(para(data.sleepingRisk || '—'))
   out.push(para('Internal Fire Doors:', { bold: true }))
@@ -432,6 +443,7 @@ function buildSectionFireAlarm(ctx: BuildContext): (Paragraph | Table)[] {
     fireAlarmPanelFaults?: string
     fireAlarmPanelFaultsComment?: string
     fireAlarmMaintenance?: string
+    callPointAccessibility?: string | null
   }
   const out: (Paragraph | Table)[] = []
   out.push(H2('Brief description of any fire alarm or automatic fire/heat/smoke detection:'))
@@ -439,6 +451,7 @@ function buildSectionFireAlarm(ctx: BuildContext): (Paragraph | Table)[] {
   out.push(para('Location of Fire Panel:', { bold: true }))
   out.push(para(data.fireAlarmPanelLocation || '—'))
   if (d.fireAlarmPanelFaults) out.push(...labelValue('Is panel free of faults', d.fireAlarmPanelFaults))
+  if (d.callPointAccessibility) out.push(...labelValue('Call point accessibility', d.callPointAccessibility))
   if (d.fireAlarmMaintenance) out.push(para(d.fireAlarmMaintenance))
   out.push(para('(NB: This assessment is based on visual inspection and review of available records. No physical testing of the fire alarm or emergency lighting systems was undertaken as part of this Fire Risk Assessment.)'))
   return out
@@ -461,11 +474,15 @@ function buildSectionEmergencyLighting(ctx: BuildContext): (Paragraph | Table)[]
 
 function buildSectionFireExtinguishers(ctx: BuildContext): (Paragraph | Table)[] {
   const { data } = ctx
-  const d = data as FRAData & { fireExtinguisherService?: string }
+  const d = data as FRAData & { 
+    fireExtinguisherService?: string
+    extinguisherServiceDate?: string | null
+  }
   const out: (Paragraph | Table)[] = []
   out.push(H2('Brief description of any portable fire-fighting equipment:'))
   out.push(para(data.fireExtinguishersDescription || '—'))
   if (d.fireExtinguisherService) out.push(para(d.fireExtinguisherService))
+  if (d.extinguisherServiceDate) out.push(...labelValue('Last service date', d.extinguisherServiceDate))
   out.push(para('Staff receive fire safety awareness training as part of their induction and refresher training, which includes instruction on the purpose of fire extinguishers. Company fire safety arrangements place emphasis on raising the alarm and evacuation, rather than firefighting.'))
   return out
 }
@@ -494,10 +511,17 @@ function buildSectionFireRescueAccess(ctx: BuildContext): (Paragraph | Table)[] 
 
 function buildSectionStage1Stage2(ctx: BuildContext): (Paragraph | Table)[] {
   const { data } = ctx
+  const d = data as FRAData & {
+    patTestingStatus?: string | null
+    totalStaffEmployed?: string | null
+    maxStaffOnSite?: string | null
+    youngPersonsCount?: string | null
+  }
   const out: (Paragraph | Table)[] = []
   out.push(H2('Stage 1 – Fire Hazards'))
   out.push(para('Sources of ignition:', { bold: true }))
   out.push(para((data.sourcesOfIgnition?.length) ? data.sourcesOfIgnition.join('; ') : 'None identified'))
+  if (d.patTestingStatus) out.push(para(`PAT / electrical testing status: ${d.patTestingStatus}`))
   out.push(para('Sources of fuel:', { bold: true }))
   out.push(para((data.sourcesOfFuel?.length) ? data.sourcesOfFuel.join('; ') : 'None identified'))
   out.push(para('Sources of oxygen:', { bold: true }))
@@ -506,18 +530,30 @@ function buildSectionStage1Stage2(ctx: BuildContext): (Paragraph | Table)[] {
   out.push(H2('Stage 2 – People at Risk'))
   out.push(para('The following persons may be at risk in the event of a fire within the premises:'))
   out.push(para((data.peopleAtRisk?.length) ? data.peopleAtRisk.join('; ') : 'Persons in the premises.'))
+  // Staffing levels
+  const staffParts: string[] = []
+  if (d.totalStaffEmployed) staffParts.push(`Total staff employed: ${d.totalStaffEmployed}`)
+  if (d.maxStaffOnSite) staffParts.push(`Maximum on site at any time: ${d.maxStaffOnSite}`)
+  if (d.youngPersonsCount && d.youngPersonsCount !== '0') staffParts.push(`Young persons: ${d.youngPersonsCount}`)
+  if (staffParts.length > 0) out.push(para(`Staffing levels: ${staffParts.join(' • ')}`))
   out.push(para('There are no sleeping occupants within the premises.'))
   return out
 }
 
 function buildSectionStage3(ctx: BuildContext): (Paragraph | Table)[] {
   const { data } = ctx
+  const d = data as FRAData & {
+    exitSignageCondition?: string | null
+    compartmentationStatus?: string | null
+  }
   const out: (Paragraph | Table)[] = []
   out.push(H2('Stage 3 – Evaluate, remove, reduce and protect from risk'))
   out.push(para('Significant findings:', { bold: true }))
   out.push(para((data.significantFindings?.length) ? data.significantFindings.join('; ') : '—'))
   out.push(para('Recommended controls:', { bold: true }))
   out.push(para((data.recommendedControls?.length) ? data.recommendedControls.join('; ') : '—'))
+  if (d.exitSignageCondition) out.push(...labelValue('Exit signage condition', d.exitSignageCondition))
+  if (d.compartmentationStatus) out.push(...labelValue('Compartmentation / ceiling tiles', d.compartmentationStatus))
   out.push(...labelValue('Fire alarm description', data.fireAlarmDescription))
   out.push(...labelValue('Fire alarm panel location', data.fireAlarmPanelLocation))
   out.push(...labelValue('Emergency lighting description', data.emergencyLightingDescription))
@@ -531,6 +567,7 @@ function buildSectionStage3(ctx: BuildContext): (Paragraph | Table)[] {
 
 function buildSectionFirePlan(ctx: BuildContext): (Paragraph | Table)[] {
   const { data } = ctx
+  const d = data as FRAData & { fireDrillDate?: string | null }
   const out: (Paragraph | Table)[] = []
   out.push(H2('Fire Plan'))
   out.push(para('Roles and identity of employees with specific responsibilities in the event of a fire', { bold: true }))
@@ -543,6 +580,7 @@ function buildSectionFirePlan(ctx: BuildContext): (Paragraph | Table)[] {
   out.push(para('On arrival of the Fire and Rescue Service, store management will liaise with the attending officers, providing relevant information regarding the premises and fire alarm activation.'))
   out.push(para('Arrangements for fire safety training and drills', { bold: true }))
   out.push(para(data.fireSafetyTrainingNarrative ?? 'All staff receive fire safety training as part of their induction and refresher training. Fire drills are conducted at appropriate intervals and records are maintained.'))
+  if (d.fireDrillDate) out.push(...labelValue('Last fire drill', d.fireDrillDate))
   out.push(new Paragraph({ spacing: { after: 120 } }))
   out.push(para('Assessment review', { bold: true }))
   const reviewRows = [

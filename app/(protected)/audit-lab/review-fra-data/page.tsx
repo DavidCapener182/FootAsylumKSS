@@ -78,6 +78,18 @@ export default function ReviewFRADataPage({
           emergencyLightingMonthlyTest: data.emergencyLightingMonthlyTest || '',
           fireExtinguisherService: data.fireExtinguisherService || '',
           managementReviewStatement: data.managementReviewStatement || '',
+          // High priority fields
+          numberOfFireExits: data.numberOfFireExits || '',
+          totalStaffEmployed: data.totalStaffEmployed || '',
+          maxStaffOnSite: data.maxStaffOnSite || '',
+          youngPersonsCount: data.youngPersonsCount || '',
+          fireDrillDate: data.fireDrillDate || '',
+          patTestingStatus: data.patTestingStatus || '',
+          // Medium priority fields
+          exitSignageCondition: data.exitSignageCondition || '',
+          compartmentationStatus: data.compartmentationStatus || '',
+          extinguisherServiceDate: data.extinguisherServiceDate || '',
+          callPointAccessibility: data.callPointAccessibility || '',
         })
       } catch (err: any) {
         console.error('[REVIEW] Error loading extracted data:', err)
@@ -451,6 +463,146 @@ export default function ReviewFRADataPage({
                   onChange={(e) => setEditedData({ ...editedData, managementReviewStatement: e.target.value })}
                   placeholder="This assessment has been informed by recent health and safety inspections and site observations."
                   className="min-h-[60px]"
+                />
+              </div>
+
+              {/* HIGH PRIORITY: Number of fire exits */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-900 mb-2">
+                  Number of fire exits
+                  {extractedData?.sources?.numberOfFireExits && getSourceBadge(extractedData.sources.numberOfFireExits)}
+                </label>
+                <Textarea
+                  value={editedData.numberOfFireExits || ''}
+                  onChange={(e) => setEditedData({ ...editedData, numberOfFireExits: e.target.value })}
+                  placeholder="e.g., 2"
+                  className="min-h-[40px]"
+                />
+              </div>
+
+              {/* HIGH PRIORITY: Total staff employed */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-900 mb-2">
+                  Total staff employed
+                  {extractedData?.sources?.totalStaffEmployed && getSourceBadge(extractedData.sources.totalStaffEmployed)}
+                </label>
+                <Textarea
+                  value={editedData.totalStaffEmployed || ''}
+                  onChange={(e) => setEditedData({ ...editedData, totalStaffEmployed: e.target.value })}
+                  placeholder="e.g., 9"
+                  className="min-h-[40px]"
+                />
+              </div>
+
+              {/* HIGH PRIORITY: Maximum staff on site */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-900 mb-2">
+                  Maximum staff on site at any time
+                  {extractedData?.sources?.maxStaffOnSite && getSourceBadge(extractedData.sources.maxStaffOnSite)}
+                </label>
+                <Textarea
+                  value={editedData.maxStaffOnSite || ''}
+                  onChange={(e) => setEditedData({ ...editedData, maxStaffOnSite: e.target.value })}
+                  placeholder="e.g., 3"
+                  className="min-h-[40px]"
+                />
+              </div>
+
+              {/* HIGH PRIORITY: Young persons count */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-900 mb-2">
+                  Young persons employed
+                  {extractedData?.sources?.youngPersonsCount && getSourceBadge(extractedData.sources.youngPersonsCount)}
+                </label>
+                <Textarea
+                  value={editedData.youngPersonsCount || ''}
+                  onChange={(e) => setEditedData({ ...editedData, youngPersonsCount: e.target.value })}
+                  placeholder="e.g., 1"
+                  className="min-h-[40px]"
+                />
+              </div>
+
+              {/* HIGH PRIORITY: Fire drill date */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-900 mb-2">
+                  Last fire drill date
+                  {extractedData?.sources?.fireDrillDate && getSourceBadge(extractedData.sources.fireDrillDate)}
+                </label>
+                <Textarea
+                  value={editedData.fireDrillDate || ''}
+                  onChange={(e) => setEditedData({ ...editedData, fireDrillDate: e.target.value })}
+                  placeholder="e.g., 15 July 2025"
+                  className="min-h-[40px]"
+                />
+              </div>
+
+              {/* HIGH PRIORITY: PAT testing status */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-900 mb-2">
+                  PAT / electrical testing status
+                  {extractedData?.sources?.patTestingStatus && getSourceBadge(extractedData.sources.patTestingStatus)}
+                </label>
+                <Textarea
+                  value={editedData.patTestingStatus || ''}
+                  onChange={(e) => setEditedData({ ...editedData, patTestingStatus: e.target.value })}
+                  placeholder="e.g., Satisfactory"
+                  className="min-h-[40px]"
+                />
+              </div>
+
+              {/* MEDIUM PRIORITY: Exit signage condition */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-900 mb-2">
+                  Exit signage condition
+                  {extractedData?.sources?.exitSignageCondition && getSourceBadge(extractedData.sources.exitSignageCondition)}
+                </label>
+                <Textarea
+                  value={editedData.exitSignageCondition || ''}
+                  onChange={(e) => setEditedData({ ...editedData, exitSignageCondition: e.target.value })}
+                  placeholder="e.g., Good condition"
+                  className="min-h-[40px]"
+                />
+              </div>
+
+              {/* MEDIUM PRIORITY: Compartmentation status */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-900 mb-2">
+                  Compartmentation / ceiling tiles
+                  {extractedData?.sources?.compartmentationStatus && getSourceBadge(extractedData.sources.compartmentationStatus)}
+                </label>
+                <Textarea
+                  value={editedData.compartmentationStatus || ''}
+                  onChange={(e) => setEditedData({ ...editedData, compartmentationStatus: e.target.value })}
+                  placeholder="e.g., No breaches identified"
+                  className="min-h-[40px]"
+                />
+              </div>
+
+              {/* MEDIUM PRIORITY: Extinguisher service date */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-900 mb-2">
+                  Last fire extinguisher service date
+                  {extractedData?.sources?.extinguisherServiceDate && getSourceBadge(extractedData.sources.extinguisherServiceDate)}
+                </label>
+                <Textarea
+                  value={editedData.extinguisherServiceDate || ''}
+                  onChange={(e) => setEditedData({ ...editedData, extinguisherServiceDate: e.target.value })}
+                  placeholder="e.g., 10 January 2025"
+                  className="min-h-[40px]"
+                />
+              </div>
+
+              {/* MEDIUM PRIORITY: Call point accessibility */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-900 mb-2">
+                  Call point accessibility
+                  {extractedData?.sources?.callPointAccessibility && getSourceBadge(extractedData.sources.callPointAccessibility)}
+                </label>
+                <Textarea
+                  value={editedData.callPointAccessibility || ''}
+                  onChange={(e) => setEditedData({ ...editedData, callPointAccessibility: e.target.value })}
+                  placeholder="e.g., Accessible and unobstructed"
+                  className="min-h-[40px]"
                 />
               </div>
             </div>

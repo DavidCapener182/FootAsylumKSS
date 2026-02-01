@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { summarizeHSAuditForFRA } from '@/lib/ai/fra-summarize'
 import { getAuditInstance } from './safehub'
 
 /**
@@ -428,7 +429,145 @@ export async function mapHSAuditToFRAData(fraInstanceId: string) {
       console.log('[FRA] Found fire safety training shortfall from PDF')
     }
 
+    // HIGH PRIORITY: Number of fire exits
+    const fireExitsMatch = originalText.match(/(?:number of fire exits|fire exits)[\s:]*(\d+)/i)
+      || originalText.match(/fire exits[\s\S]{0,20}?(\d+)/i)
+    if (fireExitsMatch) {
+      pdfExtractedData.numberOfFireExits = fireExitsMatch[1]
+      console.log('[FRA] Found number of fire exits from PDF:', pdfExtractedData.numberOfFireExits)
+    }
+
+    // HIGH PRIORITY: Staff numbers - multiple patterns for different formats
+    const totalStaffPatterns = [
+      /(?:number of staff employed|staff employed)[\s:]*(\d+)/i,
+      /(?:total staff|total employees)[\s:]*(\d+)/i,
+      /(?:staff|employees)[\s:]+(\d+)(?!\s*(?:working|on site|at any))/i,
+      /general site information[\s\S]{0,300}(?:staff employed|number of staff)[\s:]*(\d+)/i,
+    ]
+    for (const pattern of totalStaffPatterns) {
+      const match = originalText.match(pattern)
+      if (match) {
+        pdfExtractedData.totalStaffEmployed = match[1]
+        console.log('[FRA] Found total staff employed from PDF:', pdfExtractedData.totalStaffEmployed)
+        break
+      }
+    }
+
+    // Maximum staff on site - multiple patterns
+    const maxStaffPatterns = [
+      /(?:maximum number of staff working|maximum staff working|max staff working)[\s\S]{0,30}?(\d+)/i,
+      /(?:maximum.*staff.*at any.*time)[\s:]*(\d+)/i,
+      /(?:max staff|maximum staff)[\s:]*(\d+)/i,
+      /(?:staff working at any one time)[\s:]*(\d+)/i,
+      /general site information[\s\S]{0,400}(?:maximum.*staff|max.*staff)[\s\S]{0,30}?(\d+)/i,
+    ]
+    for (const pattern of maxStaffPatterns) {
+      const match = originalText.match(pattern)
+      if (match) {
+        pdfExtractedData.maxStaffOnSite = match[1]
+        console.log('[FRA] Found max staff on site from PDF:', pdfExtractedData.maxStaffOnSite)
+        break
+      }
+    }
+
+    // HIGH PRIORITY: Young persons - multiple patterns
+    // NOTE: Do NOT match "under 18" as it captures the 18 from the phrase itself
+    const youngPersonsPatterns = [
+      /(?:young persons employed|young persons)[\s:]*(\d+)/i,
+      /(?:young person)[\s:]+(\d+)/i,
+      /(?:number of young persons)[\s:]*(\d+)/i,
+      /general site information[\s\S]{0,400}(?:young person)[\s:]+(\d+)/i,
+    ]
+    for (const pattern of youngPersonsPatterns) {
+      const match = originalText.match(pattern)
+      if (match) {
+        pdfExtractedData.youngPersonsCount = match[1]
+        console.log('[FRA] Found young persons count from PDF:', pdfExtractedData.youngPersonsCount)
+        break
+      }
+    }
+
+    // HIGH PRIORITY: Fire drill date - multiple patterns and formats
+    const fireDrillPatterns = [
+      /(?:fire drill|last drill|drill.*carried out|evacuation drill)[\s\S]{0,50}?(\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s+\d{4})/i,
+      /(?:fire drill|last drill|drill.*carried out)[\s\S]{0,50}?(\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4})/i,
+      /(?:drill|evacuation).*?(?:date|carried out|conducted)[\s\S]{0,30}?(\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s+\d{4})/i,
+      /(?:fire drill has been carried out)[\s\S]{0,100}?(\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s+\d{4})/i,
+      /(?:when was.*drill|last fire drill)[\s\S]{0,50}?(\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s+\d{4})/i,
+    ]
+    for (const pattern of fireDrillPatterns) {
+      const match = originalText.match(pattern)
+      if (match) {
+        pdfExtractedData.fireDrillDate = match[1]
+        console.log('[FRA] Found fire drill date from PDF:', pdfExtractedData.fireDrillDate)
+        break
+      }
+    }
+
+    // HIGH PRIORITY: PAT/electrical testing status
+    if (originalText.match(/(?:pat|portable appliance|electrical.*test).*?(?:passed|satisfactory|up to date|completed|yes)/i)
+      || originalText.match(/(?:fixed wiring|electrical installation).*?(?:satisfactory|passed|completed)/i)
+      || originalText.match(/(?:pat testing|pat test)[\s\S]{0,30}?(?:yes|ok|satisfactory|passed)/i)) {
+      pdfExtractedData.patTestingStatus = 'Satisfactory'
+      console.log('[FRA] Found PAT testing status from PDF: Satisfactory')
+    }
+
+    // MEDIUM PRIORITY: Exit signage condition - more flexible patterns
+    if (originalText.match(/(?:exit sign|signage|fire exit sign).*?(?:good|satisfactory|clear|visible|yes|ok)/i)
+      || originalText.match(/(?:signage).*?(?:installed|visible|clearly|in place)/i)
+      || originalText.match(/(?:fire exit.*sign|emergency.*sign).*?(?:good|satisfactory|visible|yes)/i)
+      || originalText.match(/(?:signs.*visible|signage.*adequate|signage.*good)/i)) {
+      pdfExtractedData.exitSignageCondition = 'Good condition'
+      console.log('[FRA] Found exit signage condition from PDF: Good')
+    }
+
+    // MEDIUM PRIORITY: Ceiling tiles / compartmentation
+    if (originalText.match(/(?:ceiling tile|compartmentation|fire stopping).*?(?:no missing|intact|satisfactory|good|yes)/i)
+      || originalText.match(/(?:no missing|no breaches).*?(?:ceiling|compartment)/i)
+      || originalText.match(/(?:structure|structural).*?(?:good condition|satisfactory)/i)
+      || originalText.match(/(?:missing ceiling tiles)[\s\S]{0,30}?(?:no|none)/i)) {
+      pdfExtractedData.compartmentationStatus = 'No breaches identified'
+      console.log('[FRA] Found compartmentation status from PDF: No breaches')
+    }
+
+    // MEDIUM PRIORITY: Fire extinguisher service date - more patterns
+    const extinguisherServicePatterns = [
+      /(?:extinguisher.*service|fire extinguisher.*service|last service.*extinguisher)[\s\S]{0,50}?(\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s+\d{4})/i,
+      /(?:extinguisher)[\s\S]{0,50}?serviced[\s\S]{0,30}?(\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s+\d{4})/i,
+      /(?:extinguisher.*service|fire extinguisher.*service)[\s\S]{0,50}?(\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4})/i,
+      /(?:fire extinguisher service)[\s\S]{0,100}?(\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s+\d{4})/i,
+    ]
+    for (const pattern of extinguisherServicePatterns) {
+      const match = originalText.match(pattern)
+      if (match) {
+        pdfExtractedData.extinguisherServiceDate = match[1]
+        console.log('[FRA] Found extinguisher service date from PDF:', pdfExtractedData.extinguisherServiceDate)
+        break
+      }
+    }
+
+    // MEDIUM PRIORITY: Call point accessibility
+    if (originalText.match(/(?:call point|manual call point).*?(?:accessible|unobstructed|clear|yes)/i)
+      || originalText.match(/(?:call points clear|call points.*accessible)/i)
+      || originalText.match(/(?:mcp|manual call).*?(?:clear|accessible|unobstructed)/i)) {
+      pdfExtractedData.callPointAccessibility = 'Accessible and unobstructed'
+      console.log('[FRA] Found call point accessibility from PDF: Accessible')
+    }
+
     console.log('[FRA] Final PDF Extracted Data:', pdfExtractedData)
+  }
+
+  // AI summarization of H&S audit PDF for FRA (when OpenAI is configured)
+  let aiSummaries: Awaited<ReturnType<typeof summarizeHSAuditForFRA>> = null
+  if (pdfText && pdfText.length > 200) {
+    try {
+      aiSummaries = await summarizeHSAuditForFRA(pdfText, { premisesName: store?.store_name })
+      if (aiSummaries) {
+        console.log('[FRA] ✓ AI summaries generated:', Object.keys(aiSummaries).filter(k => aiSummaries![k as keyof typeof aiSummaries]))
+      }
+    } catch (err) {
+      console.error('[FRA] AI summarization failed:', err)
+    }
   }
 
   // Debug logging - comprehensive
@@ -578,6 +717,11 @@ export async function mapHSAuditToFRAData(fraInstanceId: string) {
   const maxStaff = findAnswer('Maximum number of staff working')
   const youngPersons = findAnswer('Young persons')
   const enforcementAction = findAnswer('enforcement action')
+  const fireDrillAnswer = findAnswer('Fire drill has been carried out') || findAnswer('fire drill')
+  const patTestingAnswer = findAnswer('PAT testing') || findAnswer('portable appliance testing')
+  const exitSignageAnswer = findAnswer('Exit signage') || findAnswer('fire exit sign')
+  const compartmentationAnswer = findAnswer('compartmentation') || findAnswer('ceiling tile')
+  const callPointsAnswer = findAnswer('call points clear') || findAnswer('call point')
   const squareFootage = editedExtractedData?.squareFootage
     ? { value: editedExtractedData.squareFootage, comment: undefined }
     : pdfExtractedData.squareFootage
@@ -901,7 +1045,6 @@ export async function mapHSAuditToFRAData(fraInstanceId: string) {
       assessmentReviewDate: hsAuditConductedAt ? (pdfExtractedData.conductedDate ? 'PDF_CALCULATED' : 'H&S_AUDIT_CALCULATED') : 'FRA_INSTANCE_CALCULATED',
       buildDate: customData?.buildDate ? 'CUSTOM' : 'WEB_SEARCH', // Will be searched, fallback to default if not found
       propertyType: 'DEFAULT',
-      description: generalSiteInfo?.value || generalSiteInfo?.comment ? (pdfExtractedData.numberOfFloors ? 'PDF' : 'H&S_AUDIT') : 'DEFAULT',
       numberOfFloors: generalSiteInfo?.value || generalSiteInfo?.comment ? (pdfExtractedData.numberOfFloors ? 'PDF' : 'H&S_AUDIT') : 'DEFAULT',
       floorArea: customData?.floorArea ? 'CUSTOM' : (squareFootage?.value || squareFootage?.comment ? (pdfExtractedData.squareFootage ? 'PDF' : 'H&S_AUDIT') : 'DEFAULT'),
       occupancy: customData?.occupancy ? 'CUSTOM' : (occupancyFromFloorArea ? 'FRA_INSTANCE_CALCULATED' : (occupancyData?.value || occupancyData?.comment ? 'H&S_AUDIT' : 'DEFAULT')),
@@ -925,11 +1068,13 @@ export async function mapHSAuditToFRAData(fraInstanceId: string) {
       sourcesOfFuel: 'DEFAULT',
       sourcesOfOxygen: 'DEFAULT',
       peopleAtRisk: 'DEFAULT',
-      significantFindings: (pdfText || hsAudit) ? 'H&S_AUDIT' : 'DEFAULT',
       recommendedControls: 'H&S_AUDIT_MIXED',
-      escapeRoutesEvidence: escapeObstructed ? 'H&S_AUDIT' : 'N/A',
-      fireSafetyTrainingNarrative: fireSafetyTrainingShortfall ? 'H&S_AUDIT' : 'DEFAULT',
-      managementReviewStatement: (pdfText || hsAudit) ? 'H&S_AUDIT' : 'N/A',
+      escapeRoutesEvidence: editedExtractedData?.escapeRoutesEvidence ? 'REVIEW' : (aiSummaries?.escapeRoutesSummary ? 'AI' : (escapeObstructed ? 'H&S_AUDIT' : 'N/A')),
+      fireSafetyTrainingNarrative: editedExtractedData?.fireSafetyTrainingNarrative ? 'REVIEW' : (aiSummaries?.fireSafetyTrainingSummary ? 'AI' : (fireSafetyTrainingShortfall ? 'H&S_AUDIT' : 'DEFAULT')),
+      managementReviewStatement: editedExtractedData?.managementReviewStatement ? 'REVIEW' : (aiSummaries?.managementReviewStatement ? 'AI' : ((pdfText || hsAudit) ? 'H&S_AUDIT' : 'N/A')),
+      significantFindings: aiSummaries?.significantFindings?.length ? 'AI' : ((pdfText || hsAudit) ? 'H&S_AUDIT' : 'DEFAULT'),
+      summaryOfRiskRating: editedExtractedData?.summaryOfRiskRating ? 'REVIEW' : (aiSummaries?.riskRatingJustification ? 'AI' : 'DEFAULT'),
+      description: aiSummaries?.premisesDescription ? 'AI' : (generalSiteInfo?.value || generalSiteInfo?.comment ? (pdfExtractedData.numberOfFloors ? 'PDF' : 'H&S_AUDIT') : 'DEFAULT'),
       sourcesOfFuelCoshhNote: 'DEFAULT',
     } as Record<string, string>,
     premises: `Footasylum – ${store.store_name}`,
@@ -954,6 +1099,10 @@ export async function mapHSAuditToFRAData(fraInstanceId: string) {
     buildDate: customData?.buildDate || '2009', // Will be updated by web search if available
     propertyType: 'Retail unit used for the sale of branded fashion apparel and footwear to members of the public.',
     description: (() => {
+      // Use AI-generated premises description when available
+      if (aiSummaries?.premisesDescription?.trim()) {
+        return aiSummaries.premisesDescription.trim()
+      }
       const numFloors = generalSiteInfo?.value || generalSiteInfo?.comment || '1'
       const floorsNum = parseInt(String(numFloors).replace(/\D/g, '')) || 1
       
@@ -1064,20 +1213,23 @@ Sprinkler heads are installed throughout the premises in accordance with the ori
       'Young persons – where employed, subject to appropriate risk assessment and controls'
     ],
 
-    // Evidence-led narrative: escape routes (prefer edited from review screen)
+    // Evidence-led narrative: escape routes (prefer edited, then AI, then regex-derived)
     escapeRoutesEvidence: (editedExtractedData?.escapeRoutesEvidence?.trim())
+      || (aiSummaries?.escapeRoutesSummary?.trim())
       || (escapeObstructed
         ? 'Observed during recent inspections: fire exits and delivery doors were partially blocked by pallets and boxes (stockroom and rear fire door), restricting effective escape width during evacuation.'
         : null),
 
-    // Evidence-led narrative: fire safety training (prefer edited from review screen)
+    // Evidence-led narrative: fire safety training (prefer edited, then AI, then regex-derived)
     fireSafetyTrainingNarrative: (editedExtractedData?.fireSafetyTrainingNarrative?.trim())
+      || (aiSummaries?.fireSafetyTrainingSummary?.trim())
       || (fireSafetyTrainingShortfall
         ? 'Fire safety training is delivered via induction and toolbox talks; refresher completion is monitored, with improvements currently underway.'
         : 'Fire safety training is delivered via induction and toolbox talks; records are maintained.'),
 
-    // Management & Review: prefer edited from review screen
+    // Management & Review: prefer edited, then AI, then default
     managementReviewStatement: (editedExtractedData?.managementReviewStatement?.trim())
+      || (aiSummaries?.managementReviewStatement?.trim())
       || ((pdfText || hsAudit)
         ? 'This assessment has been informed by recent health and safety inspections and site observations.'
         : null),
@@ -1085,8 +1237,11 @@ Sprinkler heads are installed throughout the premises in accordance with the ori
     // COSHH reference for Sources of fuel (brief; detail in H&S only)
     sourcesOfFuelCoshhNote: 'Cleaning materials are low-risk and non-flammable. COSHH is managed under a separate assessment.',
 
-    // Significant Findings (evidence-led; use edited escape text from review when present)
+    // Significant Findings: prefer AI summary, else evidence-led from edited/regex
     significantFindings: (() => {
+      if (aiSummaries?.significantFindings?.length) {
+        return aiSummaries.significantFindings as string[]
+      }
       const editedEscape = editedExtractedData?.escapeRoutesEvidence?.trim()
       const escapeSentence = editedEscape
         || (escapeObstructed
@@ -1121,7 +1276,7 @@ Sprinkler heads are installed throughout the premises in accordance with the ori
     // Risk Rating (Middlesbrough FRA alignment)
     riskRatingLikelihood: (editedExtractedData as any)?.riskRatingLikelihood || 'Normal',
     riskRatingConsequences: (editedExtractedData as any)?.riskRatingConsequences || 'Moderate Harm',
-    summaryOfRiskRating: (editedExtractedData as any)?.summaryOfRiskRating || 'Taking into account the nature of the building and the occupants, as well as the fire protection and procedural arrangements observed at the time of this fire risk assessment, it is considered that the consequences for life safety in the event of fire would be: Moderate Harm. Accordingly, it is considered that the risk from fire at these premises is: Tolerable.',
+    summaryOfRiskRating: (editedExtractedData as any)?.summaryOfRiskRating || (aiSummaries?.riskRatingJustification?.trim()) || 'Taking into account the nature of the building and the occupants, as well as the fire protection and procedural arrangements observed at the time of this fire risk assessment, it is considered that the consequences for life safety in the event of fire would be: Moderate Harm. Accordingly, it is considered that the risk from fire at these premises is: Tolerable.',
     actionPlanLevel: (editedExtractedData as any)?.actionPlanLevel || 'Tolerable',
     // Recommended Actions: use edited action plan if set; otherwise derive from PDF/H&S findings
     actionPlanItems: (() => {
@@ -1177,6 +1332,20 @@ Sprinkler heads are installed throughout the premises in accordance with the ori
       return derived
     })(),
     sitePremisesPhotos: (editedExtractedData as any)?.sitePremisesPhotos || null,
+
+    // HIGH PRIORITY: New H&S audit fields
+    numberOfFireExits: editedExtractedData?.numberOfFireExits || pdfExtractedData.numberOfFireExits || fireExits?.value || fireExits?.comment || null,
+    totalStaffEmployed: editedExtractedData?.totalStaffEmployed || pdfExtractedData.totalStaffEmployed || staffCount?.value || staffCount?.comment || null,
+    maxStaffOnSite: editedExtractedData?.maxStaffOnSite || pdfExtractedData.maxStaffOnSite || maxStaff?.value || maxStaff?.comment || null,
+    youngPersonsCount: editedExtractedData?.youngPersonsCount || pdfExtractedData.youngPersonsCount || youngPersons?.value || youngPersons?.comment || null,
+    fireDrillDate: editedExtractedData?.fireDrillDate || pdfExtractedData.fireDrillDate || fireDrillAnswer?.comment || null,
+    patTestingStatus: editedExtractedData?.patTestingStatus || pdfExtractedData.patTestingStatus || patTestingAnswer?.value || patTestingAnswer?.comment || null,
+
+    // MEDIUM PRIORITY: New H&S audit fields
+    exitSignageCondition: editedExtractedData?.exitSignageCondition || pdfExtractedData.exitSignageCondition || exitSignageAnswer?.value || exitSignageAnswer?.comment || null,
+    compartmentationStatus: editedExtractedData?.compartmentationStatus || pdfExtractedData.compartmentationStatus || compartmentationAnswer?.value || compartmentationAnswer?.comment || null,
+    extinguisherServiceDate: editedExtractedData?.extinguisherServiceDate || pdfExtractedData.extinguisherServiceDate || fireExtinguisherService?.comment || null,
+    callPointAccessibility: editedExtractedData?.callPointAccessibility || pdfExtractedData.callPointAccessibility || callPointsAnswer?.value || callPointsAnswer?.comment || null,
   }
   
   // Update sources for arrays (significantFindings already set evidence-led when pdfText/hsAudit)
@@ -1187,6 +1356,18 @@ Sprinkler heads are installed throughout the premises in accordance with the ori
     sourcesOfOxygen: 'DEFAULT',
     peopleAtRisk: 'DEFAULT',
     recommendedControls: trainingInduction?.value === 'No' || trainingToolbox?.value === 'No' || contractorManagement?.value === 'No' || coshhSheets?.value === 'No' || laddersNumbered?.value === 'No' ? 'H&S_AUDIT_MIXED' : 'DEFAULT',
+    // High priority fields
+    numberOfFireExits: editedExtractedData?.numberOfFireExits ? 'REVIEW' : pdfExtractedData.numberOfFireExits ? 'PDF' : (fireExits?.value || fireExits?.comment) ? 'H&S_AUDIT' : 'NOT_FOUND',
+    totalStaffEmployed: editedExtractedData?.totalStaffEmployed ? 'REVIEW' : pdfExtractedData.totalStaffEmployed ? 'PDF' : (staffCount?.value || staffCount?.comment) ? 'H&S_AUDIT' : 'NOT_FOUND',
+    maxStaffOnSite: editedExtractedData?.maxStaffOnSite ? 'REVIEW' : pdfExtractedData.maxStaffOnSite ? 'PDF' : (maxStaff?.value || maxStaff?.comment) ? 'H&S_AUDIT' : 'NOT_FOUND',
+    youngPersonsCount: editedExtractedData?.youngPersonsCount ? 'REVIEW' : pdfExtractedData.youngPersonsCount ? 'PDF' : (youngPersons?.value || youngPersons?.comment) ? 'H&S_AUDIT' : 'NOT_FOUND',
+    fireDrillDate: editedExtractedData?.fireDrillDate ? 'REVIEW' : pdfExtractedData.fireDrillDate ? 'PDF' : fireDrillAnswer?.comment ? 'H&S_AUDIT' : 'NOT_FOUND',
+    patTestingStatus: editedExtractedData?.patTestingStatus ? 'REVIEW' : pdfExtractedData.patTestingStatus ? 'PDF' : (patTestingAnswer?.value || patTestingAnswer?.comment) ? 'H&S_AUDIT' : 'NOT_FOUND',
+    // Medium priority fields
+    exitSignageCondition: editedExtractedData?.exitSignageCondition ? 'REVIEW' : pdfExtractedData.exitSignageCondition ? 'PDF' : (exitSignageAnswer?.value || exitSignageAnswer?.comment) ? 'H&S_AUDIT' : 'NOT_FOUND',
+    compartmentationStatus: editedExtractedData?.compartmentationStatus ? 'REVIEW' : pdfExtractedData.compartmentationStatus ? 'PDF' : (compartmentationAnswer?.value || compartmentationAnswer?.comment) ? 'H&S_AUDIT' : 'NOT_FOUND',
+    extinguisherServiceDate: editedExtractedData?.extinguisherServiceDate ? 'REVIEW' : pdfExtractedData.extinguisherServiceDate ? 'PDF' : fireExtinguisherService?.comment ? 'H&S_AUDIT' : 'NOT_FOUND',
+    callPointAccessibility: editedExtractedData?.callPointAccessibility ? 'REVIEW' : pdfExtractedData.callPointAccessibility ? 'PDF' : (callPointsAnswer?.value || callPointsAnswer?.comment) ? 'H&S_AUDIT' : 'NOT_FOUND',
   }
   
   // Return the data with sources

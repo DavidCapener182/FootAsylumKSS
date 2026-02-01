@@ -87,6 +87,18 @@ interface FRAData {
   managementReviewStatement?: string | null
   /** Brief COSHH reference for Sources of fuel (e.g. "COSHH is managed under a separate assessment."). */
   sourcesOfFuelCoshhNote?: string
+  // High priority H&S audit fields
+  numberOfFireExits?: string | null
+  totalStaffEmployed?: string | null
+  maxStaffOnSite?: string | null
+  youngPersonsCount?: string | null
+  fireDrillDate?: string | null
+  patTestingStatus?: string | null
+  // Medium priority H&S audit fields
+  exitSignageCondition?: string | null
+  compartmentationStatus?: string | null
+  extinguisherServiceDate?: string | null
+  callPointAccessibility?: string | null
   store: any
   hsAuditDate: string | null
   fraInstance: any
@@ -1046,10 +1058,14 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
             <tbody>
               <tr><td className="border border-slate-300 px-3 py-1.5 font-semibold w-40 bg-slate-50">Property type</td><td className="border border-slate-300 px-3 py-1.5">{data.propertyType?.split('.')[0] || data.propertyType}</td></tr>
               <tr><td className="border border-slate-300 px-3 py-1.5 font-semibold bg-slate-50">Floors</td><td className="border border-slate-300 px-3 py-1.5">{data.numberOfFloors}</td></tr>
+              <tr><td className="border border-slate-300 px-3 py-1.5 font-semibold bg-slate-50">Number of fire exits</td><td className="border border-slate-300 px-3 py-1.5">{data.numberOfFireExits || 'To be confirmed'}</td></tr>
               <tr><td className="border border-slate-300 px-3 py-1.5 font-semibold bg-slate-50">Approx. build date</td><td className="border border-slate-300 px-3 py-1.5">{editing ? <input type="text" value={customData.buildDate} onChange={(e) => setCustomData({ ...customData, buildDate: e.target.value })} className="w-full border border-slate-300 rounded px-2 py-1 text-sm" /> : (customData.buildDate || data.buildDate)}</td></tr>
               <tr><td className="border border-slate-300 px-3 py-1.5 font-semibold bg-slate-50">Adjacent occupancies</td><td className="border border-slate-300 px-3 py-1.5">{data.description?.includes('mid-unit') || data.description?.includes('adjoining') ? 'Yes – mid-unit' : 'See description'}</td></tr>
               <tr><td className="border border-slate-300 px-3 py-1.5 font-semibold bg-slate-50">Sleeping risk</td><td className="border border-slate-300 px-3 py-1.5">{data.sleepingRisk}</td></tr>
               <tr><td className="border border-slate-300 px-3 py-1.5 font-semibold bg-slate-50">Trading hours</td><td className="border border-slate-300 px-3 py-1.5">{data.storeOpeningTimes || data.operatingHours || 'To be confirmed'}</td></tr>
+              <tr><td className="border border-slate-300 px-3 py-1.5 font-semibold bg-slate-50">Total staff employed</td><td className="border border-slate-300 px-3 py-1.5">{data.totalStaffEmployed || 'To be confirmed'}</td></tr>
+              <tr><td className="border border-slate-300 px-3 py-1.5 font-semibold bg-slate-50">Max staff on site</td><td className="border border-slate-300 px-3 py-1.5">{data.maxStaffOnSite || 'To be confirmed'}</td></tr>
+              <tr><td className="border border-slate-300 px-3 py-1.5 font-semibold bg-slate-50">Young persons employed</td><td className="border border-slate-300 px-3 py-1.5">{data.youngPersonsCount || 'None'}</td></tr>
             </tbody>
           </table>
         </div>
@@ -1267,6 +1283,13 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
               </div>
             )}
           </div>
+          {data.callPointAccessibility && (
+            <div>
+              <span className="font-semibold">Call point accessibility:</span>
+              <p className="mt-1">{data.callPointAccessibility}</p>
+              <DebugBadge source={data._sources?.callPointAccessibility} fieldName="Call Point Accessibility" />
+            </div>
+          )}
           <div className="mt-4">
             <p>{data.fireAlarmMaintenance}</p>
             <DebugBadge source={data._sources?.fireAlarmMaintenance} fieldName="Fire Alarm Maintenance" />
@@ -1320,6 +1343,12 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
           <DebugBadge source={data._sources?.fireExtinguishersDescription} fieldName="Fire Extinguishers Description" />
           <p>{data.fireExtinguisherService}</p>
           <DebugBadge source={data._sources?.fireExtinguisherService} fieldName="Fire Extinguisher Service" />
+          {data.extinguisherServiceDate && (
+            <p className="mt-2">
+              <span className="font-semibold">Last service date:</span> {data.extinguisherServiceDate}
+              <DebugBadge source={data._sources?.extinguisherServiceDate} fieldName="Extinguisher Service Date" />
+            </p>
+          )}
           <p className="mt-4">
             Staff receive fire safety awareness training as part of their induction and
             refresher training, which includes instruction on the purpose of fire
@@ -1468,6 +1497,11 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
                       <li key={idx}>{item}</li>
                     ))}
                   </ul>
+                  {data.patTestingStatus && (
+                    <p className="text-sm mt-2 text-slate-600">
+                      <span className="font-medium">PAT / electrical testing status:</span> {data.patTestingStatus}
+                    </p>
+                  )}
                 </td>
                 <td className="border border-slate-300 px-3 py-2 align-top" rowSpan={3}>
                   <PhotoPlaceholder placeholderId="fire-hazards" label="Hazard photos" maxPhotos={5} />
@@ -1512,6 +1546,11 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
             <li key={idx}>{item}</li>
           ))}
         </ul>
+        {(data.totalStaffEmployed || data.maxStaffOnSite || data.youngPersonsCount) && (
+          <p className="text-sm mt-2">
+            <strong>Staffing levels:</strong> {data.totalStaffEmployed && `Total staff employed: ${data.totalStaffEmployed}`}{data.maxStaffOnSite && ` • Maximum on site at any time: ${data.maxStaffOnSite}`}{data.youngPersonsCount && data.youngPersonsCount !== '0' && ` • Young persons: ${data.youngPersonsCount}`}
+          </p>
+        )}
         <p className="text-sm mt-2">There are no sleeping occupants within the premises.</p>
       </div>
 
@@ -1578,6 +1617,11 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
               The building is provided with fire-resisting construction, including compartmentation and internal fire doors,
               designed to restrict the spread of fire and smoke and to provide sufficient time for occupants to evacuate safely.
               Fire doors are fitted with appropriate self-closing devices and intumescent protection where required.
+              {data.compartmentationStatus && (
+                <span className="block mt-1">
+                  <span className="font-medium">Compartmentation / ceiling tiles:</span> {data.compartmentationStatus}.
+                </span>
+              )}
             </p>
             <p className="mt-1">
               Automatic fire detection and alarm systems are installed throughout the premises to provide early warning of fire
@@ -1697,6 +1741,12 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
             <p>
               {data.fireSafetyTrainingNarrative ?? 'All staff receive fire safety training as part of their induction and refresher training. Fire drills are conducted at appropriate intervals and records are maintained. Training and drills are designed to ensure staff are familiar with evacuation procedures and their responsibilities in the event of a fire.'}
             </p>
+            {data.fireDrillDate && (
+              <p className="mt-2 text-sm">
+                <span className="font-medium">Last fire drill:</span> {data.fireDrillDate}
+                <DebugBadge source={data._sources?.fireDrillDate} fieldName="Fire Drill Date" />
+              </p>
+            )}
           </div>
 
           <div className="mt-8">
@@ -1907,6 +1957,11 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
               opened easily. Fire doors are subject to routine
               management checks to ensure standards are
               maintained and any issues identified dynamically.
+              {data.exitSignageCondition && (
+                <span className="ml-1">
+                  <span className="font-medium">Exit signage condition:</span> {data.exitSignageCondition}.
+                </span>
+              )}
             </p>
             <p className="mt-2">
               Emergency lighting (EEL), as previously detailed, was
