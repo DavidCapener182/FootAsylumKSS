@@ -35,10 +35,10 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Only image files are allowed' }, { status: 400 })
       }
 
-      // Validate file size (max 5MB)
-      const maxSize = 5 * 1024 * 1024 // 5MB
+      // Validate file size (max 25MB for high-res site/premises photos)
+      const maxSize = 25 * 1024 * 1024 // 25MB
       if (file.size > maxSize) {
-        return NextResponse.json({ error: 'File size must be less than 5MB' }, { status: 400 })
+        return NextResponse.json({ error: 'File size must be less than 25MB' }, { status: 400 })
       }
 
       const fileExt = file.name.split('.').pop()
@@ -58,17 +58,17 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: `Failed to upload file: ${uploadError.message}` }, { status: 500 })
       }
 
-      // Get public URL
-      const { data: urlData } = supabase.storage
+      // Use signed URL so the image displays immediately (bucket may be private)
+      const { data: signed } = await supabase.storage
         .from('fa-attachments')
-        .getPublicUrl(filePath)
+        .createSignedUrl(filePath, 60 * 60 * 24) // 24 hours
 
       uploadedFiles.push({
         file_path: filePath,
         file_name: file.name,
         file_type: file.type,
         file_size: file.size,
-        public_url: urlData.publicUrl
+        public_url: signed?.signedUrl ?? ''
       })
     }
 

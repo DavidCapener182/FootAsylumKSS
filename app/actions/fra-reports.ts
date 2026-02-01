@@ -620,6 +620,27 @@ export async function mapHSAuditToFRAData(fraInstanceId: string) {
   
   // Try to find occupancy calculation data
   const occupancyData = findAnswer('occupancy') || findAnswer('capacity')
+
+  /** Parse floor area string to a number (m²). Handles "3000", "650 m²", "Approximately 650 m²", etc. */
+  const parseFloorAreaM2 = (s: string | null | undefined): number | null => {
+    if (!s || typeof s !== 'string') return null
+    const trimmed = s.trim()
+    const match = trimmed.match(/(\d+(?:\.\d+)?)\s*(?:m²|sq\.?\s*m|square\s*m|m2)?/i) ?? trimmed.match(/(\d+(?:\.\d+)?)/)
+    if (!match) return null
+    const n = parseFloat(match[1])
+    return Number.isFinite(n) && n > 0 ? n : null
+  }
+
+  const floorAreaStr = customData?.floorArea || squareFootage?.value || squareFootage?.comment || ''
+  const floorAreaNum = parseFloorAreaM2(floorAreaStr)
+  const hasManualOccupancy = !!(customData?.occupancy?.trim() || occupancyData?.value || occupancyData?.comment)
+  const defaultOccupancyText = 'To be calculated based on floor area'
+  const occupancyFromFloorArea =
+    !hasManualOccupancy &&
+    floorAreaNum != null &&
+    floorAreaNum >= 10
+      ? `Approximately ${Math.round(floorAreaNum / 2)} persons based on 2 m² per person`
+      : null
   
   // Try to find operating hours - prioritize edited data, then PDF, then database
   const operatingHoursData = editedExtractedData?.operatingHours
@@ -844,12 +865,12 @@ export async function mapHSAuditToFRAData(fraInstanceId: string) {
       assessmentStartTime: hsAuditConductedAt ? (pdfExtractedData.conductedDate ? 'PDF' : 'H&S_AUDIT') : 'FRA_INSTANCE',
       assessmentEndTime: 'N/A',
       assessmentReviewDate: hsAuditConductedAt ? (pdfExtractedData.conductedDate ? 'PDF_CALCULATED' : 'H&S_AUDIT_CALCULATED') : 'FRA_INSTANCE_CALCULATED',
-      buildDate: 'WEB_SEARCH', // Will be searched, fallback to default if not found
+      buildDate: customData?.buildDate ? 'CUSTOM' : 'WEB_SEARCH', // Will be searched, fallback to default if not found
       propertyType: 'DEFAULT',
       description: generalSiteInfo?.value || generalSiteInfo?.comment ? (pdfExtractedData.numberOfFloors ? 'PDF' : 'H&S_AUDIT') : 'DEFAULT',
       numberOfFloors: generalSiteInfo?.value || generalSiteInfo?.comment ? (pdfExtractedData.numberOfFloors ? 'PDF' : 'H&S_AUDIT') : 'DEFAULT',
       floorArea: customData?.floorArea ? 'CUSTOM' : (squareFootage?.value || squareFootage?.comment ? (pdfExtractedData.squareFootage ? 'PDF' : 'H&S_AUDIT') : 'DEFAULT'),
-      occupancy: customData?.occupancy ? 'CUSTOM' : (occupancyData?.value || occupancyData?.comment ? 'H&S_AUDIT' : 'DEFAULT'),
+      occupancy: customData?.occupancy ? 'CUSTOM' : (occupancyFromFloorArea ? 'FRA_INSTANCE_CALCULATED' : (occupancyData?.value || occupancyData?.comment ? 'H&S_AUDIT' : 'DEFAULT')),
       operatingHours: customData?.operatingHours ? 'CUSTOM' : (operatingHoursData?.value || operatingHoursData?.comment ? (pdfExtractedData.operatingHours ? 'PDF' : 'H&S_AUDIT') : 'WEB_SEARCH'),
       storeOpeningTimes: operatingHoursData?.value || operatingHoursData?.comment ? (pdfExtractedData.operatingHours ? 'PDF' : 'H&S_AUDIT') : 'WEB_SEARCH',
       accessDescription: 'CHATGPT',
@@ -891,8 +912,8 @@ export async function mapHSAuditToFRAData(fraInstanceId: string) {
       ? formatDate(new Date(new Date(hsAuditConductedAt).setFullYear(new Date(hsAuditConductedAt).getFullYear() + 1)).toISOString())
       : formatDate(new Date(new Date(fraInstance.conducted_at || fraInstance.created_at).setFullYear(new Date(fraInstance.conducted_at || fraInstance.created_at).getFullYear() + 1)).toISOString()),
 
-    // About the Property
-    buildDate: '2009', // Will be updated by web search if available
+    // About the Property (customData.buildDate overrides when set)
+    buildDate: customData?.buildDate || '2009', // Will be updated by web search if available
     propertyType: 'Retail unit used for the sale of branded fashion apparel and footwear to members of the public.',
     description: (() => {
       const numFloors = generalSiteInfo?.value || generalSiteInfo?.comment || '1'
@@ -920,8 +941,8 @@ The premises is a mid-unit with adjoining retail occupancies to either side.`
     numberOfFloors: generalSiteInfo?.value || generalSiteInfo?.comment || '1',
     floorArea: customData?.floorArea || squareFootage?.value || squareFootage?.comment || 'To be confirmed', // Use custom data if available
     floorAreaComment: !customData?.floorArea && !squareFootage?.value && !squareFootage?.comment ? 'Please add floor area information' : null,
-    occupancy: customData?.occupancy || occupancyData?.value || occupancyData?.comment || 'To be calculated based on floor area',
-    occupancyComment: !customData?.occupancy && !occupancyData?.value && !occupancyData?.comment ? 'Please add occupancy information or it will be calculated based on floor area (2 m² per person)' : null,
+    occupancy: customData?.occupancy || occupancyData?.value || occupancyData?.comment || occupancyFromFloorArea || 'To be calculated based on floor area',
+    occupancyComment: occupancyFromFloorArea ? null : (!customData?.occupancy && !occupancyData?.value && !occupancyData?.comment ? 'Please add occupancy information or it will be calculated based on floor area (2 m² per person)' : null),
     operatingHours: customData?.operatingHours || operatingHoursData?.value || operatingHoursData?.comment || 'To be confirmed',
     operatingHoursComment: !customData?.operatingHours && !operatingHoursData?.value && !operatingHoursData?.comment ? 'Please add operating hours information' : null,
     sleepingRisk: 'No sleeping occupants',

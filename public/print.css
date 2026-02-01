@@ -47,6 +47,25 @@ body.fra-print-document .fra-report-print-wrapper.min-h-screen {
   min-height: 0 !important;
 }
 
+/* Section-level page control: force these sections to start on a new page */
+body.fra-print-document .fra-section {
+  break-before: page !important;
+  page-break-before: always !important;
+}
+/* Keep blocks together (diagram + caption, table, photo group) – only visual blocks, not long paragraphs */
+body.fra-print-document .fra-keep {
+  break-inside: avoid !important;
+  page-break-inside: avoid !important;
+}
+body.fra-print-document .fra-diagram,
+body.fra-print-document .fra-figure,
+body.fra-print-document .fra-table,
+body.fra-print-document .fra-print-table,
+body.fra-print-document .fra-photo-block {
+  break-inside: avoid !important;
+  page-break-inside: avoid !important;
+}
+
 /* Each section = one printed page. Width 100%, no padding (@page margin provides inset). Single break rule. */
 body.fra-print-document .fra-print-page {
   display: block !important;
@@ -68,6 +87,81 @@ body.fra-print-document .fra-print-page:last-child {
 /* Kill Tailwind p-12 on print pages so we don't double-pad with @page margin */
 body.fra-print-document .fra-print-page.p-12 {
   padding: 0 !important;
+}
+
+/* Avoid orphaned headings: heading + first paragraph stay together */
+body.fra-print-document .fra-print-page h2,
+body.fra-print-document .fra-print-page h3 {
+  break-after: avoid !important;
+  page-break-after: avoid !important;
+}
+
+/* Tables: rows may not split mid-row */
+body.fra-print-document .fra-print-page table tr {
+  break-inside: avoid !important;
+  page-break-inside: avoid !important;
+}
+
+/* Figure (image + caption): keep together; if they don't fit, move both to next page */
+body.fra-print-document .fra-figure {
+  break-inside: avoid !important;
+  page-break-inside: avoid !important;
+}
+
+/* Keep section heading + intro + figure together so heading stays above image */
+body.fra-print-document .fra-section-with-figure {
+  break-inside: avoid !important;
+  page-break-inside: avoid !important;
+}
+body.fra-print-document .fra-figure figcaption {
+  margin-top: 4px !important;
+}
+
+/* Slightly reduce vertical spacing for stable pagination (~15% reduction) */
+body.fra-print-document .fra-print-page p + p {
+  margin-top: 0.65em !important;
+}
+body.fra-print-document .fra-figure + * {
+  margin-top: 0.5em !important;
+}
+
+/* Front page: no header (removed in markup to avoid duplication) */
+body.fra-print-document .fra-front-page .fra-front-page-title-band {
+  background: transparent !important;
+}
+body.fra-print-document .fra-front-page .fra-front-page-title-band hr {
+  border-width: 1px !important;
+}
+body.fra-print-document .fra-front-page .fra-front-page-premises {
+  font-size: 1.5rem !important;
+}
+/* Very light grey (5–8%) behind address block only */
+body.fra-print-document .fra-front-page .fra-front-page-address-block {
+  background: #f2f2f2 !important; /* ~6% grey */
+}
+body.fra-print-document .fra-front-page .fra-front-page-details {
+  background: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+/* Front page: body fills page height so footer sits at bottom in PDF */
+body.fra-print-document .fra-front-page .fra-front-page-body {
+  min-height: 267mm !important; /* A4 content height (297mm - 15mm*2 margins) */
+}
+/* Front page: footer fixed to bottom of page in print/PDF */
+body.fra-print-document .fra-front-page .fra-front-page-footer {
+  margin-top: auto !important;
+  padding-top: 8px !important;
+  border-top: 1px solid #cbd5e1 !important;
+}
+
+/* Last page (Additional Site Pictures): body fills page so signature sits at bottom */
+body.fra-print-document .fra-last-page .fra-last-page-body {
+  min-height: 267mm !important;
+}
+body.fra-print-document .fra-last-page .fra-signature-block {
+  margin-top: auto !important;
+  padding-top: 12px !important;
+  border-top: 1px solid #cbd5e1 !important;
 }
 
 /* Per-page header: shown at top of each printed page */
@@ -94,27 +188,62 @@ body.fra-print-document .fra-print-page-header .fra-report-print-logo {
   flex-shrink: 0;
 }
 
-/* Travel Distances: compact tables */
+/* Travel Distances: compact tables, tight row height */
 body.fra-print-document .fra-travel-distances-tables table {
-  font-size: 9pt !important;
-  margin-bottom: 4px !important;
+  font-size: 8pt !important;
+  margin-bottom: 3px !important;
 }
 body.fra-print-document .fra-travel-distances-tables th,
 body.fra-print-document .fra-travel-distances-tables td {
-  padding: 2px 5px !important;
+  padding: 2px 4px !important;
 }
 
-/* Map: constrain height so it doesn't bleed */
+/* Map: compact height so Fire & Rescue Summary + dry/wet riser, hydrant, open water fit on same page */
 body.fra-print-document .fra-map-print {
-  max-height: 180mm !important;
+  max-height: 95mm !important;
   overflow: hidden !important;
 }
 body.fra-print-document .fra-map-print .leaflet-container,
 body.fra-print-document .fra-map-print .fra-map-container {
-  height: 180mm !important;
-  max-height: 180mm !important;
+  height: 95mm !important;
+  max-height: 95mm !important;
   min-height: 0 !important;
   width: 100% !important;
+}
+
+/* Fire Safety Systems & Equipment: constrain icons image height so fire alarm text + NB note fit on same page */
+body.fra-print-document .fra-figure-equipment-icons {
+  max-height: 45mm !important;
+}
+body.fra-print-document .fra-figure-equipment-icons img {
+  max-height: 42mm !important;
+  width: auto !important;
+  object-fit: contain !important;
+}
+
+/* Fire Safety Equipment – Visual Record: 2×2 grid, smaller photo blocks so all fit on one page */
+body.fra-print-document .fra-visual-record-grid {
+  gap: 4mm !important;
+}
+body.fra-print-document .fra-visual-record-grid .fra-photo-block {
+  height: 55mm !important;
+  min-height: 55mm !important;
+}
+
+/* Property summary and action plan tables: compact for print */
+body.fra-print-document .fra-property-summary th,
+body.fra-print-document .fra-property-summary td {
+  padding: 2px 6px !important;
+  font-size: 10pt !important;
+}
+body.fra-print-document .fra-action-plan-table th,
+body.fra-print-document .fra-action-plan-table td {
+  padding: 3px 6px !important;
+  font-size: 10pt !important;
+}
+body.fra-print-document .fra-access-summary,
+body.fra-print-document .fra-risk-summary-box {
+  font-size: 10pt !important;
 }
 
 /* Table of Contents: 2-column in print, compact, avoid splitting items */

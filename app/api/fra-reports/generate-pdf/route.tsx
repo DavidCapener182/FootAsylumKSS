@@ -65,6 +65,26 @@ export async function GET(request: NextRequest) {
     await page.waitForSelector('.fra-print-page', { timeout: 10000 })
     await sleep(1500)
 
+    // If the Fire & Rescue map is present, wait for Leaflet container and tile images so map appears in PDF
+    try {
+      await page.waitForSelector('.fra-map-print .leaflet-container', { timeout: 5000 })
+      const mapTilesDeadline = Date.now() + 8000
+      while (Date.now() < mapTilesDeadline) {
+        const mapReady = await page.evaluate(() => {
+          const pane = document.querySelector('.fra-map-print .leaflet-tile-pane')
+          if (!pane) return false
+          const tileImgs = pane.querySelectorAll('img')
+          if (tileImgs.length === 0) return false
+          return Array.from(tileImgs).every((img: HTMLImageElement) => img.complete)
+        })
+        if (mapReady) break
+        await sleep(300)
+      }
+      await sleep(800)
+    } catch {
+      // No map on this report or map failed to mount; continue without blocking
+    }
+
     // Wait for all images to finish loading so PDF includes uploaded photos
     const imageWaitDeadline = Date.now() + 8000
     while (Date.now() < imageWaitDeadline) {

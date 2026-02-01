@@ -85,6 +85,7 @@ export async function POST(request: NextRequest) {
           floorArea: customData.floorArea,
           occupancy: customData.occupancy,
           operatingHours: customData.operatingHours,
+          buildDate: customData.buildDate,
           updated_at: new Date().toISOString(),
         },
       },

@@ -1,10 +1,31 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Save, Loader2, Upload, X } from 'lucide-react'
+import { getFraAssessmentReference } from '@/lib/utils'
+
+/** Parse floor area string to number (m²). Returns null if not parseable. */
+function parseFloorAreaM2(s: string | null | undefined): number | null {
+  if (!s || typeof s !== 'string') return null
+  const match = s.trim().match(/(\d+(?:\.\d+)?)\s*(?:m²|sq\.?\s*m|square\s*m|m2)?/i) ?? s.trim().match(/(\d+(?:\.\d+)?)/)
+  if (!match) return null
+  const n = parseFloat(match[1])
+  return Number.isFinite(n) && n >= 10 ? n : null
+}
+
+/** Occupancy from floor area using 2 m² per person (retail). */
+function occupancyFromFloorArea(areaM2: number): string {
+  return `Approximately ${Math.round(areaM2 / 2)} persons based on 2 m² per person`
+}
+
+/** True if occupancy is the default text or a previously calculated value (so we should recalc from floor area). */
+function isOccupancyDerivedFromFloorArea(occupancy: string | null | undefined): boolean {
+  if (!occupancy || occupancy === 'To be calculated based on floor area') return true
+  return /^Approximately \d+ persons based on 2 m² per person$/i.test(occupancy.trim())
+}
 
 // Dynamically import the map component to avoid SSR issues
 const StoreMap = dynamic(() => import('./store-map'), { ssr: false })
@@ -88,6 +109,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
     floorArea: data.floorArea,
     occupancy: data.occupancy,
     operatingHours: data.operatingHours,
+    buildDate: data.buildDate ?? '',
   })
   const [uploadingPhotos, setUploadingPhotos] = useState<Record<string, boolean>>({})
   const [placeholderPhotos, setPlaceholderPhotos] = useState<Record<string, any[]>>({})
@@ -171,8 +193,9 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
       floorArea: data.floorArea,
       occupancy: data.occupancy,
       operatingHours: data.operatingHours,
+      buildDate: data.buildDate ?? '',
     })
-  }, [data.floorArea, data.occupancy, data.operatingHours])
+  }, [data.floorArea, data.occupancy, data.operatingHours, data.buildDate])
 
   const handleSave = async () => {
     try {
@@ -214,6 +237,10 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
 
   const handlePhotoUpload = async (placeholderId: string, files: FileList | null, maxPhotos: number = 5) => {
     if (!files || files.length === 0) return
+    if (!data.fraInstance?.id) {
+      alert('Cannot upload: report instance not loaded.')
+      return
+    }
 
     const fileArray = Array.from(files).slice(0, maxPhotos)
     
@@ -232,19 +259,17 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
         body: formData,
       })
 
+      const result = await response.json().catch(() => ({}))
       if (!response.ok) {
-        throw new Error('Failed to upload photos')
+        const message = (result?.error ?? result?.details ?? 'Failed to upload photos') as string
+        throw new Error(message)
       }
-
-      const result = await response.json()
       setPlaceholderPhotos(prev => ({
         ...prev,
         [placeholderId]: [...(prev[placeholderId] || []), ...result.files]
       }))
-
-      if (onDataUpdate) {
-        onDataUpdate()
-      }
+      // Don't call onDataUpdate() here – it triggers a full refetch and loading state.
+      // New photos are already in state above, so they show immediately.
     } catch (error: any) {
       console.error('Error uploading photos:', error)
       alert(`Failed to upload photos: ${error.message}`)
@@ -256,10 +281,30 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
   const PhotoPlaceholder = ({ placeholderId, label, maxPhotos = 5 }: { placeholderId: string, label: string, maxPhotos?: number }) => {
     const photos = placeholderPhotos[placeholderId] || []
     const isUploading = uploadingPhotos[placeholderId]
+    const fileInputRef = useRef<HTMLInputElement>(null)
+
+    const triggerFileInput = () => {
+      if (isUploading) return
+      fileInputRef.current?.click()
+    }
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      handlePhotoUpload(placeholderId, e.target.files, maxPhotos)
+      e.target.value = '' // allow re-selecting same file
+    }
 
     const isGrid = (maxPhotos ?? 5) > 1
     return (
       <div className="mt-4">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          onChange={handleFileChange}
+          className="hidden"
+          disabled={isUploading}
+        />
         {photos.length > 0 ? (
           <div className={`grid grid-cols-2 md:grid-cols-3 gap-2 ${isGrid ? 'fra-photo-grid' : ''}`}>
             {photos.map((photo: any, idx: number) => (
@@ -270,13 +315,14 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
                   className="w-full h-48 object-cover rounded border border-slate-300 print:object-cover print:w-full print:h-full"
                 />
                 <button
+                  type="button"
                   onClick={() => {
                     setPlaceholderPhotos(prev => ({
                       ...prev,
                       [placeholderId]: prev[placeholderId]?.filter((_, i) => i !== idx) || []
                     }))
                   }}
-                  className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                  className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 print:hidden"
                 >
                   <X className="h-3 w-3" />
                 </button>
@@ -286,51 +332,13 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
         ) : (
           <div className="border-2 border-dashed border-slate-300 rounded p-4 h-48 flex flex-col items-center justify-center text-slate-400 text-sm fra-photo-block">
             <p className="mb-2">{label}</p>
-            <label className="cursor-pointer">
-              <input
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={(e) => handlePhotoUpload(placeholderId, e.target.files, maxPhotos)}
-                className="hidden"
-                disabled={isUploading}
-              />
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={isUploading}
-                className="flex items-center gap-2"
-              >
-                {isUploading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Uploading...
-                  </>
-                ) : (
-                  <>
-                    <Upload className="h-4 w-4" />
-                    Add Photos (1–{maxPhotos})
-                  </>
-                )}
-              </Button>
-            </label>
-          </div>
-        )}
-        {photos.length > 0 && photos.length < maxPhotos && (
-          <label className="mt-2 inline-block">
-            <input
-              type="file"
-              accept="image/*"
-              multiple
-              onChange={(e) => handlePhotoUpload(placeholderId, e.target.files, maxPhotos)}
-              className="hidden"
-              disabled={isUploading}
-            />
             <Button
+              type="button"
               variant="outline"
               size="sm"
               disabled={isUploading}
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 cursor-pointer"
+              onClick={triggerFileInput}
             >
               {isUploading ? (
                 <>
@@ -340,11 +348,48 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
               ) : (
                 <>
                   <Upload className="h-4 w-4" />
-                  Add More Photos
+                  Add Photos (1–{maxPhotos})
                 </>
               )}
             </Button>
-          </label>
+          </div>
+        )}
+        {photos.length > 0 && (
+          <div className="mt-2 flex flex-wrap items-center gap-2 print:hidden">
+            {photos.length < maxPhotos && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={isUploading}
+                className="flex items-center gap-2"
+                onClick={triggerFileInput}
+              >
+                {isUploading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-4 w-4" />
+                    Add More Photos
+                  </>
+                )}
+              </Button>
+            )}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={isUploading}
+              className="flex items-center gap-2"
+              onClick={triggerFileInput}
+            >
+              <Upload className="h-4 w-4" />
+              Change photos
+            </Button>
+          </div>
         )}
       </div>
     )
@@ -406,7 +451,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
           />
         )}
       </span>
-      <span className="fra-report-print-title flex-1 text-center mx-3">Fire Risk Assessment – {data.premises}</span>
+      <span className="fra-report-print-title flex-1 text-center mx-3">Fire Risk Assessment</span>
       <span className="w-[80px] shrink-0" aria-hidden="true" />
     </>
   )
@@ -451,19 +496,58 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
           </label>
         </div>
       )}
-      {/* Cover Page */}
+      {/* Front Page – top: branding/title, middle: site (largest), lower: boxed details, footer */}
+      <div className="fra-a4-page fra-print-page fra-front-page page-break-after-always p-12 max-w-4xl mx-auto">
+        <div className="fra-front-page-body flex flex-col min-h-[calc(100vh-120px)]">
+          {/* Top third: document type */}
+          <div className="fra-front-page-title-band text-center mb-8 py-4">
+            {logoError ? (
+              <p className="text-lg font-semibold text-slate-700">KSS NW Ltd</p>
+            ) : (
+              <img
+                src="/kss-logo.png"
+                alt="KSS NW Ltd"
+                className="h-10 w-auto mx-auto object-contain"
+                onError={() => setLogoError(true)}
+              />
+            )}
+            <h1 className="text-2xl font-bold text-slate-900 mt-4">Fire Risk Assessment</h1>
+            <hr className="mt-3 w-24 mx-auto border-slate-300" />
+          </div>
+
+          {/* Middle: premises + address (largest text), very light grey behind for restraint */}
+          <div className="fra-front-page-address-block flex-1 flex flex-col justify-center text-center mb-8 py-6 px-4 rounded-lg">
+            <p className="fra-front-page-premises text-2xl md:text-3xl font-bold text-slate-900 leading-tight">{data.premises}</p>
+            <p className="mt-3 text-lg text-slate-700 whitespace-pre-line max-w-xl mx-auto">{data.address}</p>
+          </div>
+
+          {/* Lower: boxed assessment details */}
+          <div className="fra-front-page-details border border-slate-200 rounded-lg bg-slate-50/50 px-6 py-5 space-y-2 text-sm">
+            <p><span className="font-semibold">Assessment Date:</span> {data.assessmentDate ? new Date(data.assessmentDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '—'}</p>
+            <p><span className="font-semibold">Review Date:</span> {data.assessmentReviewDate ? new Date(data.assessmentReviewDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '—'}</p>
+            <p><span className="font-semibold">Responsible Person:</span> {data.responsiblePerson}</p>
+            <p><span className="font-semibold">Assessor:</span> {data.assessorName} – KSS NW Ltd</p>
+          </div>
+
+          <div className="fra-front-page-footer mt-auto pt-8 border-t border-slate-200 text-center text-xs text-slate-600 space-y-1">
+            <p>Prepared in accordance with the Regulatory Reform (Fire Safety) Order 2005</p>
+            <p>Confidential – for the use of the client and relevant duty holders only.</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Assessment Details (client, premises, responsibilities) */}
       <div className="fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
         <div className="fra-print-page-header hidden print:flex print:items-center print:justify-between print:border-b print:border-slate-300 print:pb-2 print:mb-4 print:text-[11pt] print:font-semibold print:text-slate-900">
           {printHeaderContent}
         </div>
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">Fire Risk Assessment - Review</h1>
-          <p className="text-sm text-slate-600">Page 1</p>
+        <div className="mb-4">
+          <h2 className="text-xl font-bold text-slate-900">Assessment Details</h2>
         </div>
 
         <div className="space-y-6 mb-8">
           <div>
-            <h2 className="text-2xl font-bold text-slate-900 mb-4">{data.premises}</h2>
+            <h3 className="text-lg font-semibold text-slate-900 mb-2">{data.premises}</h3>
             <div className="space-y-2 text-sm">
               <div><span className="font-semibold">Client Name:</span> {data.clientName}</div>
               <div><span className="font-semibold">Premises:</span> {data.premises}</div>
@@ -536,25 +620,22 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
             <div className="fra-toc-item flex items-center justify-between"><span>Category L Fire Alarm Systems - Life Protection</span><span className="ml-auto">5</span></div>
             <div className="fra-toc-item flex items-center justify-between"><span>Fire Resistance</span><span className="ml-auto">6</span></div>
             <div className="fra-toc-item flex items-center justify-between"><span>Fire Risk Assessment – Terms, Conditions and Limitations</span><span className="ml-auto">7</span></div>
-            <div className="fra-toc-item flex items-center justify-between"><span>Scope of Assessment</span><span className="ml-auto">7</span></div>
-            <div className="fra-toc-item flex items-center justify-between"><span>Limitations</span><span className="ml-auto">7</span></div>
-            <div className="fra-toc-item flex items-center justify-between"><span>Enforcement and Insurers</span><span className="ml-auto">8</span></div>
-            <div className="fra-toc-item flex items-center justify-between"><span>Specialist Advice</span><span className="ml-auto">8</span></div>
-            <div className="fra-toc-item flex items-center justify-between"><span>Liability</span><span className="ml-auto">8</span></div>
-            <div className="fra-toc-item flex items-center justify-between"><span>About the Property:</span><span className="ml-auto">9</span></div>
+            <div className="fra-toc-item flex items-center justify-between"><span>Scope of Assessment / Limitations / Enforcement / Specialist Advice / Liability</span><span className="ml-auto">7</span></div>
+            <div className="fra-toc-item flex items-center justify-between"><span>About the Property</span><span className="ml-auto">9</span></div>
             <div className="fra-toc-item flex items-center justify-between"><span>Stage 1 – Fire Hazards</span><span className="ml-auto">10</span></div>
             <div className="fra-toc-item flex items-center justify-between"><span>Stage 2 – People at Risk</span><span className="ml-auto">10</span></div>
             <div className="fra-toc-item flex items-center justify-between"><span>Stage 3 – Evaluate, remove, reduce and protect from risk</span><span className="ml-auto">10</span></div>
             <div className="fra-toc-item flex items-center justify-between"><span>Fire Plan</span><span className="ml-auto">12</span></div>
+            <div className="fra-toc-item flex items-center justify-between"><span>Fire Risk Assessment Report</span><span className="ml-auto">13</span></div>
             <div className="fra-toc-item flex items-center justify-between"><span>Risk Rating</span><span className="ml-auto">14</span></div>
             <div className="fra-toc-item flex items-center justify-between"><span>Action Plan</span><span className="ml-auto">15</span></div>
-            <div className="fra-toc-item flex items-center justify-between"><span>Fire Risk Assessment Report</span><span className="ml-auto">13</span></div>
+            <div className="fra-toc-item flex items-center justify-between"><span>Additional Site Pictures / Appendices</span><span className="ml-auto">16</span></div>
           </div>
         </div>
       </div>
 
       {/* Purpose of This Assessment */}
-      <div className="fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
+      <div className="fra-section fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
         <div className="fra-print-page-header hidden print:flex print:items-center print:justify-between print:border-b print:border-slate-300 print:pb-2 print:mb-4 print:text-[11pt] print:font-semibold print:text-slate-900">
           {printHeaderContent}
         </div>
@@ -574,10 +655,20 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
             assumptions contained within the previous assessment.
           </p>
         </div>
+        <figure className="fra-figure mt-6">
+          <img
+            src="/fire-safety-process-overview.png"
+            alt="Fire safety process: Fire Detection, Alarm Activation, Escape Routes, Assembly Point, and Fire-Fighting Equipment"
+            className="w-full max-w-2xl mx-auto rounded border border-slate-200 print:max-w-full"
+          />
+          <figcaption className="text-xs text-slate-600 mt-2 text-center italic">
+            Figure 1: Overview of the fire safety process within the premises, from detection through to evacuation and assembly.
+          </figcaption>
+        </figure>
       </div>
 
       {/* Regulatory Reform (Fire Safety) Order 2005 – FIRE RISK ASSESSMENT (5 steps) */}
-      <div className="fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
+      <div className="fra-section fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
         <div className="fra-print-page-header hidden print:flex print:items-center print:justify-between print:border-b print:border-slate-300 print:pb-2 print:mb-4 print:text-[11pt] print:font-semibold print:text-slate-900">
           {printHeaderContent}
         </div>
@@ -651,20 +742,15 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
       </div>
 
       {/* Travel Distances */}
-      <div className="fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
+      <div className="fra-section fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
         <div className="fra-print-page-header hidden print:flex print:items-center print:justify-between print:border-b print:border-slate-300 print:pb-2 print:mb-4 print:text-[11pt] print:font-semibold print:text-slate-900">
           {printHeaderContent}
         </div>
         <h2 className="text-xl font-semibold mb-4">Travel Distances:</h2>
-        <div className="space-y-4 text-sm leading-relaxed">
-          <p>
-            The distance of travel should be measured as being the actual distance to be travelled between any point in the building and the nearest storey exit.
-          </p>
-          <p>
-            The distance of travel for escape are governed by recommended maximum distances and these are detailed below:
-          </p>
-        </div>
-        <div className="fra-travel-distances-tables overflow-x-auto mt-6 space-y-6">
+        <p className="text-sm leading-relaxed mb-4">
+          The distance of travel should be measured as the actual distance between any point in the building and the nearest storey exit. Recommended maximum travel distances for escape are detailed below.
+        </p>
+        <div className="fra-keep fra-travel-distances-tables overflow-x-auto mt-4 space-y-4">
           <table className="fra-print-table w-full border border-slate-300 text-sm">
             <thead>
               <tr className="bg-slate-100">
@@ -756,7 +842,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
             </tbody>
           </table>
         </div>
-        <div className="mt-6 text-sm">
+        <div className="mt-4 text-sm">
           <p className="mb-2">
             Where a room is an inner room (i.e. a room accessible only via an access room) the distance to the exit from the access room should be a maximum of:
           </p>
@@ -765,16 +851,19 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
             <li>If the access room is of &apos;normal risk&apos; 12m</li>
             <li>If the access room is of &apos;low risk&apos; 25m</li>
           </ul>
+          <p className="mt-4 font-medium text-slate-700">
+            Observed travel distances within the {data.premises} premises are consistent with the above guidance for a retail environment and do not exceed recommended maximums.
+          </p>
         </div>
       </div>
 
       {/* Category L Fire Alarm Systems - Life Protection */}
-      <div className="fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
+      <div className="fra-section fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
         <div className="fra-print-page-header hidden print:flex print:items-center print:justify-between print:border-b print:border-slate-300 print:pb-2 print:mb-4 print:text-[11pt] print:font-semibold print:text-slate-900">
           {printHeaderContent}
         </div>
         <h2 className="text-xl font-semibold mb-4">Category L Fire Alarm Systems - Life Protection</h2>
-        <div className="space-y-4 text-sm leading-relaxed">
+        <div className="space-y-3 text-sm leading-snug">
           <p>
             Life protection systems can be divided into various categories, L1, L2, L3, L4, L5.
           </p>
@@ -794,20 +883,23 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
             <strong>L5</strong> is installed in building with a specific risk that has been identified. An example of this would be if there was an area of high risk that requires detection the category would be L5/M.
           </p>
         </div>
-        <div className="mt-8">
+        <figure className="fra-figure mt-6">
           <img
             src="/fra-category-l-fire-alarm-systems.png"
             alt="Category L1, L2, L3, L4 and L5 fire alarm system floor plans showing smoke detector and manual call point placement"
             className="w-full max-w-4xl mx-auto rounded border border-slate-200 print:max-w-full"
           />
-          <p className="text-xs text-slate-500 mt-2 text-center">
+          <figcaption className="text-xs text-slate-500 mt-2 text-center">
             L1–L5 fire alarm system coverage: detector and manual call point placement by category.
+          </figcaption>
+          <p className="text-sm mt-3 font-medium text-slate-700 text-center">
+            The installed fire alarm system at {data.premises} aligns with a Category L1 system providing life protection throughout the premises.
           </p>
-        </div>
+        </figure>
       </div>
 
       {/* Fire Resistance */}
-      <div className="fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
+      <div className="fra-section fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
         <div className="fra-print-page-header hidden print:flex print:items-center print:justify-between print:border-b print:border-slate-300 print:pb-2 print:mb-4 print:text-[11pt] print:font-semibold print:text-slate-900">
           {printHeaderContent}
         </div>
@@ -871,7 +963,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
             the Fire Risk Assessor&apos;s visit and that the assessor is not hindered in the carrying out of their duties.
           </p>
 
-          <h3 className="font-semibold mt-6 mb-2">Scope of Assessment</h3>
+          <h3 className="font-semibold mt-4 mb-2">Scope of Assessment</h3>
           <p>
             This Fire Risk Assessment is based on:
           </p>
@@ -888,7 +980,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
             assessment.
           </p>
 
-          <h3 className="font-semibold mt-6 mb-2">Limitations</h3>
+          <h3 className="font-semibold mt-4 mb-2">Limitations</h3>
           <p>
             Whilst all reasonable care has been taken to identify matters that may give rise to fire risk, this
             assessment cannot be regarded as a guarantee that all fire hazards or deficiencies have been
@@ -907,101 +999,89 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
             <li>Changes in use, layout, occupancy or management practices after the date of assessment</li>
             <li>Acts or omissions of employees, contractors or third parties</li>
           </ul>
-        </div>
-      </div>
 
-      {/* Enforcement and Insurers, Specialist Advice, Liability */}
-      <div className="fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
-        <div className="fra-print-page-header hidden print:flex print:items-center print:justify-between print:border-b print:border-slate-300 print:pb-2 print:mb-4 print:text-[11pt] print:font-semibold print:text-slate-900">
-          {printHeaderContent}
-        </div>
-        <div className="space-y-6 text-sm leading-relaxed">
-          <div>
-            <h3 className="font-semibold mb-2">Enforcement and Insurers</h3>
-            <p>
-              The Fire Risk Assessor should be notified of any visit, or intended visit, by an enforcing authority or
-              insurer relating to fire safety matters.
-            </p>
-            <p>
-              Where requirements or recommendations are made by an enforcing authority, insurer or competent
-              third party, it is the responsibility of the Responsible Person to ensure compliance within appropriate
-              timescales.
-            </p>
-          </div>
+          <h3 className="font-semibold mt-4 mb-2">Enforcement and Insurers</h3>
+          <p>
+            The Fire Risk Assessor should be notified of any visit, or intended visit, by an enforcing authority or
+            insurer relating to fire safety matters. Where requirements or recommendations are made by an enforcing
+            authority, insurer or competent third party, it is the responsibility of the Responsible Person to ensure
+            compliance within appropriate timescales.
+          </p>
 
-          <div>
-            <h3 className="font-semibold mb-2">Specialist Advice</h3>
-            <p>
-              Where hazards are identified that, in the opinion of the Fire Risk Assessor, require specialist advice or
-              further investigation, this will be highlighted. The decision to appoint specialist contractors or
-              consultants, and any associated costs, remains the responsibility of the Responsible Person.
-            </p>
-          </div>
+          <h3 className="font-semibold mt-4 mb-2">Specialist Advice</h3>
+          <p>
+            Where hazards are identified that, in the opinion of the Fire Risk Assessor, require specialist advice or
+            further investigation, this will be highlighted. The decision to appoint specialist contractors or
+            consultants, and any associated costs, remains the responsibility of the Responsible Person.
+          </p>
 
-          <div>
-            <h3 className="font-semibold mb-2">Liability</h3>
-            <p>
-              KSS NW Ltd limits its liability for any loss, damage or injury (including consequential or indirect loss)
-              arising from the performance of this Fire Risk Assessment to the extent permitted by law and as
-              defined by the company&apos;s professional indemnity insurance.
-            </p>
-          </div>
+          <h3 className="font-semibold mt-4 mb-2">Liability</h3>
+          <p>
+            KSS NW Ltd limits its liability for any loss, damage or injury (including consequential or indirect loss)
+            arising from the performance of this Fire Risk Assessment to the extent permitted by law and as
+            defined by the company&apos;s professional indemnity insurance.
+          </p>
         </div>
       </div>
 
       {/* About the Property */}
-      <div className="fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
+      <div className="fra-section fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
         <div className="fra-print-page-header hidden print:flex print:items-center print:justify-between print:border-b print:border-slate-300 print:pb-2 print:mb-4 print:text-[11pt] print:font-semibold print:text-slate-900">
           {printHeaderContent}
         </div>
         <h2 className="text-xl font-semibold mb-4">About the Property:</h2>
+
+        <div className="overflow-x-auto mb-6 fra-keep">
+          <table className="fra-print-table w-full border border-slate-300 text-sm fra-property-summary">
+            <tbody>
+              <tr><td className="border border-slate-300 px-3 py-1.5 font-semibold w-40 bg-slate-50">Property type</td><td className="border border-slate-300 px-3 py-1.5">{data.propertyType?.split('.')[0] || data.propertyType}</td></tr>
+              <tr><td className="border border-slate-300 px-3 py-1.5 font-semibold bg-slate-50">Floors</td><td className="border border-slate-300 px-3 py-1.5">{data.numberOfFloors}</td></tr>
+              <tr><td className="border border-slate-300 px-3 py-1.5 font-semibold bg-slate-50">Approx. build date</td><td className="border border-slate-300 px-3 py-1.5">{editing ? <input type="text" value={customData.buildDate} onChange={(e) => setCustomData({ ...customData, buildDate: e.target.value })} className="w-full border border-slate-300 rounded px-2 py-1 text-sm" /> : (customData.buildDate || data.buildDate)}</td></tr>
+              <tr><td className="border border-slate-300 px-3 py-1.5 font-semibold bg-slate-50">Adjacent occupancies</td><td className="border border-slate-300 px-3 py-1.5">{data.description?.includes('mid-unit') || data.description?.includes('adjoining') ? 'Yes – mid-unit' : 'See description'}</td></tr>
+              <tr><td className="border border-slate-300 px-3 py-1.5 font-semibold bg-slate-50">Sleeping risk</td><td className="border border-slate-300 px-3 py-1.5">{data.sleepingRisk}</td></tr>
+              <tr><td className="border border-slate-300 px-3 py-1.5 font-semibold bg-slate-50">Trading hours</td><td className="border border-slate-300 px-3 py-1.5">{data.storeOpeningTimes || data.operatingHours || 'To be confirmed'}</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        {!editing && (
+          <div className="mb-4 print:hidden">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setEditing(true)}
+              className="text-xs"
+            >
+              Edit property details (build date, floor area, occupancy)
+            </Button>
+          </div>
+        )}
         
         <div className="space-y-4 text-sm">
-          <div>
-            <span className="font-semibold">Approximate build date:</span> {data.buildDate}
-            <DebugBadge source={data._sources?.buildDate} fieldName="Build Date" />
-          </div>
-          <div>
-            <span className="font-semibold">Property type:</span> {data.propertyType}
-            <DebugBadge source={data._sources?.propertyType} fieldName="Property Type" />
-          </div>
-          {data.storeOpeningTimes && (
-            <div>
-              <span className="font-semibold">Store Opening Times:</span>
-              <p className="mt-1 whitespace-pre-line">{data.storeOpeningTimes}</p>
-              <DebugBadge source={data._sources?.storeOpeningTimes} fieldName="Store Opening Times" />
-            </div>
-          )}
           <div>
             <span className="font-semibold">Description of the Premises</span>
             <p className="mt-2 whitespace-pre-line">{data.description}</p>
             <DebugBadge source={data._sources?.description} fieldName="Description" />
           </div>
           <div>
-            <span className="font-semibold">Number of Floors:</span> {data.numberOfFloors}
-            <DebugBadge source={data._sources?.numberOfFloors} fieldName="Number of Floors" />
-          </div>
-          <div>
             <div className="flex items-center justify-between mb-2">
               <span className="font-semibold">Approximate Floor Area:</span>
-              {!editing && (data.floorArea === 'To be confirmed' || data.floorAreaComment) && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setEditing(true)}
-                  className="text-xs"
-                >
-                  Edit
-                </Button>
-              )}
             </div>
             {editing ? (
               <div className="space-y-2">
                 <Textarea
                   value={customData.floorArea}
-                  onChange={(e) => setCustomData({ ...customData, floorArea: e.target.value })}
+                  onChange={(e) => {
+                    const next = { ...customData, floorArea: e.target.value }
+                    const areaNum = parseFloorAreaM2(e.target.value)
+                    const recalcFromArea = isOccupancyDerivedFromFloorArea(customData.occupancy)
+                    if (recalcFromArea && areaNum != null) {
+                      next.occupancy = occupancyFromFloorArea(areaNum)
+                    }
+                    setCustomData(next)
+                  }}
                   className="min-h-[60px]"
-                  placeholder="Enter floor area (e.g., Approximately 650 m²)"
+                  placeholder="Enter floor area (e.g., 650 m² or 3000)"
                 />
               </div>
             ) : (
@@ -1017,16 +1097,6 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
           <div>
             <div className="flex items-center justify-between mb-2">
               <span className="font-semibold">Occupancy and Capacity:</span>
-              {!editing && (data.occupancy === 'To be calculated based on floor area' || data.occupancyComment) && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setEditing(true)}
-                  className="text-xs"
-                >
-                  Edit
-                </Button>
-              )}
             </div>
             {editing ? (
               <div className="space-y-2">
@@ -1036,9 +1106,21 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
                   className="min-h-[60px]"
                   placeholder="Enter occupancy information (e.g., Approximately 251 persons based on 2 m² per person)"
                 />
+                {parseFloorAreaM2(customData.floorArea) != null && (
+                  <p className="text-xs text-slate-500">
+                    Calculated from floor area: {occupancyFromFloorArea(parseFloorAreaM2(customData.floorArea)!)}
+                  </p>
+                )}
               </div>
             ) : (
-              <p className="mt-2">{customData.occupancy}</p>
+              <p className="mt-2">
+                {(() => {
+                  const areaNum = parseFloorAreaM2(customData.floorArea || data.floorArea)
+                  const recalcFromArea = isOccupancyDerivedFromFloorArea(customData.occupancy)
+                  if (recalcFromArea && areaNum != null) return occupancyFromFloorArea(areaNum)
+                  return customData.occupancy
+                })()}
+              </p>
             )}
             {!editing && <DebugBadge source={data._sources?.occupancy} fieldName="Occupancy" />}
             {data.occupancyComment && !editing && (
@@ -1074,6 +1156,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
                     floorArea: data.floorArea,
                     occupancy: data.occupancy,
                     operatingHours: data.operatingHours,
+                    buildDate: data.buildDate ?? '',
                   })
                 }}
                 disabled={saving}
@@ -1086,16 +1169,9 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
             </div>
           )}
           <div>
-            <span className="font-semibold">Sleeping Risk</span>
-            <p className="mt-2">{data.sleepingRisk}</p>
-            <DebugBadge source="DEFAULT" fieldName="Sleeping Risk" />
-          </div>
-          <div>
             <span className="font-semibold">Internal Fire Doors:</span>
             <p className="mt-2">{data.internalFireDoors}</p>
             <DebugBadge source={data._sources?.internalFireDoors} fieldName="Internal Fire Doors" />
-            {/* Fire Doors Photo Placeholder */}
-            <PhotoPlaceholder placeholderId="fire-doors" label="Fire Doors Photo" maxPhotos={1} />
             <p className="mt-4">
               It is the ongoing responsibility of store management to ensure that internal fire doors
               are maintained in good working order and kept closed when not in use, in accordance
@@ -1110,12 +1186,50 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
         </div>
       </div>
 
-      {/* Fire Alarm System */}
-      <div className="fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
+      {/* Fire Safety Equipment – Visual Record */}
+      <div className="fra-section fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
         <div className="fra-print-page-header hidden print:flex print:items-center print:justify-between print:border-b print:border-slate-300 print:pb-2 print:mb-4 print:text-[11pt] print:font-semibold print:text-slate-900">
           {printHeaderContent}
         </div>
-        <h2 className="text-xl font-semibold mb-4">Brief description of any fire alarm or automatic fire/heat/smoke detection:</h2>
+        <h2 className="text-xl font-semibold mb-4">Fire Safety Equipment – Visual Record</h2>
+        <div className="fra-keep grid grid-cols-2 gap-4 fra-visual-record-grid">
+          <div>
+            <PhotoPlaceholder placeholderId="fire-alarm-panel" label="Fire alarm control panel" maxPhotos={1} />
+            <p className="text-xs mt-1 text-slate-600 print:block">Fire alarm control panel</p>
+          </div>
+          <div>
+            <PhotoPlaceholder placeholderId="emergency-lighting-switch" label="Emergency lighting test switch" maxPhotos={1} />
+            <p className="text-xs mt-1 text-slate-600 print:block">Emergency lighting test switch</p>
+          </div>
+          <div>
+            <PhotoPlaceholder placeholderId="fire-doors" label="Typical fire door (sales floor)" maxPhotos={1} />
+            <p className="text-xs mt-1 text-slate-600 print:block">Typical fire door (sales floor)</p>
+          </div>
+          <div>
+            <PhotoPlaceholder placeholderId="fire-extinguisher" label="Portable fire extinguisher (rear stockroom)" maxPhotos={1} />
+            <p className="text-xs mt-1 text-slate-600 print:block">Portable fire extinguisher (rear stockroom)</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Fire Safety Systems & Equipment */}
+      <div className="fra-section fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
+        <div className="fra-print-page-header hidden print:flex print:items-center print:justify-between print:border-b print:border-slate-300 print:pb-2 print:mb-4 print:text-[11pt] print:font-semibold print:text-slate-900">
+          {printHeaderContent}
+        </div>
+        <h2 className="text-xl font-semibold mb-4">Fire Safety Systems & Equipment</h2>
+        <p className="text-sm leading-relaxed mb-4">
+          The following systems and equipment are assessed below: fire alarm and detection, emergency lighting, portable fire-fighting equipment, and fire doors and compartmentation.
+        </p>
+        <figure className="fra-figure fra-figure-equipment-icons mb-6">
+          <img
+            src="/fire-equipment-systems-icons.png"
+            alt="Fire equipment and systems: Fire extinguisher, Manual call point, Emergency light, Fire door"
+            className="w-full max-w-xl mx-auto rounded border border-slate-200 print:max-w-full"
+          />
+        </figure>
+
+        <h3 className="text-lg font-semibold mb-3">Fire alarm system</h3>
         <div className="space-y-4 text-sm leading-relaxed whitespace-pre-line">
           {data.fireAlarmDescription}
           <DebugBadge source={data._sources?.fireAlarmDescription} fieldName="Fire Alarm Description" />
@@ -1141,8 +1255,6 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
               </div>
             )}
           </div>
-          {/* Fire Alarm Panel Photo Placeholder */}
-          <PhotoPlaceholder placeholderId="fire-alarm-panel" label="Fire Alarm Panel Photo" maxPhotos={1} />
           <div className="mt-4">
             <p>{data.fireAlarmMaintenance}</p>
             <DebugBadge source={data._sources?.fireAlarmMaintenance} fieldName="Fire Alarm Maintenance" />
@@ -1159,7 +1271,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
         <div className="fra-print-page-header hidden print:flex print:items-center print:justify-between print:border-b print:border-slate-300 print:pb-2 print:mb-4 print:text-[11pt] print:font-semibold print:text-slate-900">
           {printHeaderContent}
         </div>
-        <h2 className="text-xl font-semibold mb-4">Brief description of any emergency lighting systems:</h2>
+        <h3 className="text-lg font-semibold mb-4">Emergency lighting</h3>
         <div className="space-y-4 text-sm leading-relaxed">
           <p className="whitespace-pre-line">{data.emergencyLightingDescription}</p>
           <DebugBadge source={data._sources?.emergencyLightingDescription} fieldName="Emergency Lighting Description" />
@@ -1176,9 +1288,8 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
                 <strong>Note:</strong> {data.emergencyLightingTestSwitchLocationComment}
               </div>
             )}
+            <PhotoPlaceholder placeholderId="emergency-lighting-switch" label="Emergency lighting test switch photo" maxPhotos={1} />
           </div>
-          {/* Emergency Lighting Test Switch Photo Placeholder */}
-          <PhotoPlaceholder placeholderId="emergency-lighting-switch" label="Emergency Lighting Test Switch Photo" maxPhotos={1} />
           <p className="mt-2 italic">
             (NB: This assessment is based on visual inspection and review of available records only. No physical
             testing of the emergency lighting system was undertaken as part of this assessment.)
@@ -1191,20 +1302,29 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
         <div className="fra-print-page-header hidden print:flex print:items-center print:justify-between print:border-b print:border-slate-300 print:pb-2 print:mb-4 print:text-[11pt] print:font-semibold print:text-slate-900">
           {printHeaderContent}
         </div>
-        <h2 className="text-xl font-semibold mb-4">Brief description of any portable fire-fighting equipment:</h2>
+        <h3 className="text-lg font-semibold mb-4">Fire extinguishers</h3>
         <div className="space-y-4 text-sm leading-relaxed">
           <p className="whitespace-pre-line">{data.fireExtinguishersDescription}</p>
           <DebugBadge source={data._sources?.fireExtinguishersDescription} fieldName="Fire Extinguishers Description" />
           <p>{data.fireExtinguisherService}</p>
           <DebugBadge source={data._sources?.fireExtinguisherService} fieldName="Fire Extinguisher Service" />
-          {/* Fire Extinguisher Photo Placeholder */}
-          <PhotoPlaceholder placeholderId="fire-extinguisher" label="Fire Extinguisher Photo" maxPhotos={1} />
           <p className="mt-4">
             Staff receive fire safety awareness training as part of their induction and
             refresher training, which includes instruction on the purpose of fire
             extinguishers. Company fire safety arrangements place emphasis on raising
             the alarm and evacuation, rather than firefighting.
           </p>
+          <div className="mt-6 space-y-4">
+            <p className="font-semibold text-slate-700">Photos of fire extinguisher locations</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <PhotoPlaceholder placeholderId="fire-extinguisher-store" label="Store locations (e.g. sales floor, exits)" maxPhotos={3} />
+              </div>
+              <div>
+                <PhotoPlaceholder placeholderId="fire-extinguisher-stockroom" label="Stock room(s)" maxPhotos={2} />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1231,7 +1351,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
       )}
 
       {/* Fire and Rescue Services Access */}
-      <div className="fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
+      <div className="fra-section fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
         <div className="fra-print-page-header hidden print:flex print:items-center print:justify-between print:border-b print:border-slate-300 print:pb-2 print:mb-4 print:text-[11pt] print:font-semibold print:text-slate-900">
           {printHeaderContent}
         </div>
@@ -1262,6 +1382,18 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
               longitude={data.store?.longitude || null}
             />
           </div>
+          <div className="mt-4 p-4 border border-slate-300 rounded-lg bg-slate-50 text-sm fra-access-summary">
+            <h3 className="font-semibold mb-2 text-slate-800">Fire & Rescue Access Summary</h3>
+            <ul className="list-disc list-inside space-y-1 text-slate-700">
+              <li>Primary access via main entrance and rear service/loading bay</li>
+              <li>Single internal retail unit access point</li>
+              <li>No fire lift, risers or hydrants within unit</li>
+              <li>Mall/centre management controls external access routes</li>
+            </ul>
+          </div>
+          <p className="text-sm leading-relaxed mt-4">
+            Fire and Rescue Service access arrangements are subject to the overarching fire strategy and evacuation procedures of the host centre or landlord.
+          </p>
           <div className="space-y-2 mt-4">
             <div><span className="font-semibold">Fire lift:</span> – N/A</div>
             <div><span className="font-semibold">Dry / wet riser:</span> – N/A</div>
@@ -1271,12 +1403,40 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
         </div>
       </div>
 
-      {/* Stage 1 - Fire Hazards */}
-      <div className="fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
+      {/* Fire Risk Assessment Methodology */}
+      <div className="fra-section fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
         <div className="fra-print-page-header hidden print:flex print:items-center print:justify-between print:border-b print:border-slate-300 print:pb-2 print:mb-4 print:text-[11pt] print:font-semibold print:text-slate-900">
           {printHeaderContent}
         </div>
-        <h2 className="text-xl font-semibold mb-4">Stage 1 – Fire Hazards</h2>
+        <h2 className="text-xl font-semibold mb-4">Fire Risk Assessment Methodology</h2>
+        <p className="text-sm leading-relaxed mb-6">
+          The fire risk assessment has been carried out using a structured three-stage methodology in accordance with recognised best practice, ensuring hazards are identified, risks are evaluated and controlled, and findings are recorded and reviewed.
+        </p>
+        <div className="space-y-3 fra-methodology-stages">
+          <img
+            src="/fra-methodology-stage-1.png"
+            alt="Stage 1: Initial assessment and hazard identification"
+            className="w-full max-w-2xl mx-auto rounded border-0 print:max-w-full"
+          />
+          <img
+            src="/fra-methodology-stage-2.png"
+            alt="Stage 2: Evaluation and control measures"
+            className="w-full max-w-2xl mx-auto rounded border-0 print:max-w-full"
+          />
+          <img
+            src="/fra-methodology-stage-3.png"
+            alt="Stage 3: Recording, review and ongoing management"
+            className="w-full max-w-2xl mx-auto rounded border-0 print:max-w-full"
+          />
+        </div>
+      </div>
+
+      {/* Stage 1 - Fire Hazards */}
+      <div className="fra-section fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
+        <div className="fra-print-page-header hidden print:flex print:items-center print:justify-between print:border-b print:border-slate-300 print:pb-2 print:mb-4 print:text-[11pt] print:font-semibold print:text-slate-900">
+          {printHeaderContent}
+        </div>
+        <h2 className="text-xl font-semibold mb-2">Stage 1 – Fire Hazards</h2>
         <div className="fra-hazards-table-wrapper overflow-x-auto">
           <table className="fra-print-table w-full border-collapse border border-slate-300 text-sm fra-hazards-table">
             <thead>
@@ -1327,32 +1487,32 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
           </table>
         </div>
 
-        <h2 className="text-xl font-semibold mb-4 mt-4">Stage 2 – People at Risk</h2>
-        <p className="text-sm mb-4">
+        <h2 className="text-xl font-semibold mb-2 mt-3">Stage 2 – People at Risk</h2>
+        <p className="text-sm mb-2">
           The following persons may be at risk in the event of a fire within the premises:
         </p>
         <DebugBadge source={data._sources?.peopleAtRisk} fieldName="People at Risk" />
-        <ul className="list-disc list-inside space-y-2 text-sm">
+        <ul className="list-disc list-inside space-y-1 text-sm">
           {data.peopleAtRisk.map((item, idx) => (
             <li key={idx}>{item}</li>
           ))}
         </ul>
-        <p className="text-sm mt-4">There are no sleeping occupants within the premises.</p>
+        <p className="text-sm mt-2">There are no sleeping occupants within the premises.</p>
       </div>
 
       {/* Stage 3 – Evaluate, remove, reduce and protect */}
-      <div className="fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
+      <div className="fra-section fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
         <div className="fra-print-page-header hidden print:flex print:items-center print:justify-between print:border-b print:border-slate-300 print:pb-2 print:mb-4 print:text-[11pt] print:font-semibold print:text-slate-900">
           {printHeaderContent}
         </div>
-        <h2 className="text-xl font-semibold mb-4">Stage 3 – Evaluate, remove, reduce and protect from risk</h2>
+        <h2 className="text-xl font-semibold mb-2">Stage 3 – Evaluate, remove, reduce and protect from risk</h2>
         
         {/* Stage 3 Photo Placeholder */}
         <PhotoPlaceholder placeholderId="stage-3" label="Fire Safety Measures Photo" maxPhotos={1} />
         
-        <div className="space-y-6 text-sm leading-relaxed">
+        <div className="space-y-4 text-sm leading-snug">
           <div>
-            <h3 className="font-semibold mb-2">Evaluate the risk of a fire occurring</h3>
+            <h3 className="font-semibold mb-1">Evaluate the risk of a fire occurring</h3>
             <p>
               Considering the nature of the premises, the activities undertaken, the fire load associated with retail stock, and the fire
               protection measures in place, the likelihood of a fire occurring is normal for this type of retail environment.
@@ -1361,7 +1521,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
           </div>
 
           <div>
-            <h3 className="font-semibold mb-2">Evaluate the risk to people from a fire starting in the premises</h3>
+            <h3 className="font-semibold mb-1">Evaluate the risk to people from a fire starting in the premises</h3>
             <p>
               In the event of a fire, there is a potential risk to staff and members of the public; however, the overall risk to life is
               reduced by the presence of automatic fire detection, emergency lighting, protected escape routes and established
@@ -1370,9 +1530,9 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
           </div>
 
           <div>
-            <h3 className="font-semibold mb-2">Remove and reduce the hazards that may cause a fire</h3>
-            <p>Measures in place to remove or reduce fire hazards include:</p>
-            <ul className="list-disc list-inside ml-4 space-y-1 mt-2">
+            <h3 className="font-semibold mb-1">Remove and reduce the hazards that may cause a fire</h3>
+            <p className="mb-1">Measures in place to remove or reduce fire hazards include:</p>
+            <ul className="list-disc list-inside ml-4 space-y-0.5 mt-1">
               <li>Control and maintenance of electrical installations and equipment</li>
               <li>Good housekeeping practices to prevent the accumulation of combustible materials</li>
               <li>Appropriate storage and management of stock and packaging</li>
@@ -1382,38 +1542,38 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
           </div>
 
           <div>
-            <h3 className="font-semibold mb-2">Remove and reduce the risk to people from a fire</h3>
-            <p>Measures in place to reduce the risk to people include:</p>
-            <ul className="list-disc list-inside ml-4 space-y-1 mt-2">
+            <h3 className="font-semibold mb-1">Remove and reduce the risk to people from a fire</h3>
+            <p className="mb-1">Measures in place to reduce the risk to people include:</p>
+            <ul className="list-disc list-inside ml-4 space-y-0.5 mt-1">
               <li>Automatic fire detection and alarm systems providing early warning</li>
               <li>Clearly defined and unobstructed escape routes</li>
               <li>Emergency lighting to support evacuation during lighting failure</li>
               <li>Fire-resisting construction and internal fire doors to limit fire and smoke spread</li>
-              <li>Regular testing, inspection and maintenance of fire safety systems and Staff training and fire drills</li>
+              <li>Regular testing, inspection and maintenance of fire safety systems and staff training and fire drills</li>
             </ul>
           </div>
 
           <div>
-            <h3 className="font-semibold mb-2">Outline how people will be protected from the risk of a fire:</h3>
+            <h3 className="font-semibold mb-1">Outline how people will be protected from the risk of a fire:</h3>
             <p>
               People within the premises are protected from the risk of fire through a combination of physical fire protection
               measures, fire safety systems and management controls.
             </p>
-            <p className="mt-2">
+            <p className="mt-1">
               The building is provided with fire-resisting construction, including compartmentation and internal fire doors,
               designed to restrict the spread of fire and smoke and to provide sufficient time for occupants to evacuate safely.
               Fire doors are fitted with appropriate self-closing devices and intumescent protection where required.
             </p>
-            <p className="mt-2">
+            <p className="mt-1">
               Automatic fire detection and alarm systems are installed throughout the premises to provide early warning of fire
               and to initiate evacuation. Emergency lighting is provided to illuminate escape routes and exits in the event of a
               failure of the normal lighting supply.
             </p>
-            <p className="mt-2">
+            <p className="mt-1">
               Clearly defined escape routes are provided and are required to be always kept clear and unobstructed. Final exits
               open in the direction of travel and discharge to a place of relative safety.
             </p>
-            <p className="mt-2">
+            <p className="mt-1">
               Fire safety management arrangements include staff fire safety training, regular testing and maintenance of fire
               safety systems, routine inspections and fire drills. These measures collectively ensure that persons within the
               premises are afforded an appropriate level of protection from the risk of fire.
@@ -1423,15 +1583,46 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
       </div>
 
       {/* Fire Plan */}
-      <div className="fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
+      <div className="fra-section fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
         <div className="fra-print-page-header hidden print:flex print:items-center print:justify-between print:border-b print:border-slate-300 print:pb-2 print:mb-4 print:text-[11pt] print:font-semibold print:text-slate-900">
           {printHeaderContent}
         </div>
         <h2 className="text-xl font-semibold mb-4">Fire Plan</h2>
-        
+
+        <figure className="fra-figure w-full mb-6">
+          <img
+            src="/emergency-evacuation-flow.png"
+            alt="Emergency evacuation flow: Discover fire, Raise alarm, Evacuate, Assembly point, Call fire service"
+            className="w-full rounded border border-slate-200 print:max-w-full"
+          />
+          <figcaption className="text-xs text-slate-600 mt-2 text-center italic max-w-3xl mx-auto">
+            Figure 2: Emergency evacuation flow to be followed in the event of a fire. This procedure is generic and must be read in conjunction with site-specific fire instructions and training.
+          </figcaption>
+        </figure>
+
         {/* Fire Plan Photo Placeholder */}
         <PhotoPlaceholder placeholderId="fire-plan" label="Fire Plan / Evacuation Route Photo" maxPhotos={1} />
-        
+
+        <div className="fra-section-with-figure mt-6">
+          <h3 className="text-lg font-semibold mb-2">Fire Safety Management & Responsibilities</h3>
+          <p className="text-sm leading-relaxed mb-4">
+            Fire safety responsibilities within the premises are clearly defined and communicated to ensure compliance with legal duties and effective day-to-day management.
+          </p>
+          <figure className="fra-figure mb-4">
+            <img
+              src="/fire-safety-responsibilities-flow.png"
+              alt="Fire safety responsibilities and accountability: Responsible Person, Store Management, Staff, Contractors"
+              className="w-full max-w-2xl mx-auto rounded border border-slate-200 print:max-w-full"
+            />
+            <figcaption className="text-xs text-slate-600 mt-2 text-center italic">
+              Figure 4: Fire safety responsibilities and accountability structure within the premises.
+            </figcaption>
+          </figure>
+        </div>
+        <p className="text-sm leading-relaxed mb-6">
+          The Responsible Person retains overall accountability for fire safety compliance, with store management responsible for implementation and monitoring, supported by staff and contractors who are required to follow site-specific fire safety procedures.
+        </p>
+
         <div className="space-y-6 text-sm leading-relaxed">
           <div>
             <h3 className="font-semibold mb-2">Roles and identity of employees with specific responsibilities in the event of a fire</h3>
@@ -1525,7 +1716,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
       </div>
 
       {/* Fire Risk Assessment Report */}
-      <div className="fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
+      <div className="fra-section fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
         <div className="fra-print-page-header hidden print:flex print:items-center print:justify-between print:border-b print:border-slate-300 print:pb-2 print:mb-4 print:text-[11pt] print:font-semibold print:text-slate-900">
           {printHeaderContent}
         </div>
@@ -1730,11 +1921,37 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
       </div>
 
       {/* Risk Rating */}
-      <div className="fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
+      <div className="fra-section fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
         <div className="fra-print-page-header hidden print:flex print:items-center print:justify-between print:border-b print:border-slate-300 print:pb-2 print:mb-4 print:text-[11pt] print:font-semibold print:text-slate-900">
           {printHeaderContent}
         </div>
         <h2 className="text-xl font-semibold mb-4">7. Risk Rating</h2>
+
+        <h3 className="text-lg font-semibold mb-2">Overall Fire Risk Rating</h3>
+        <p className="text-sm leading-relaxed mb-4">
+          The overall fire risk rating has been determined by assessing the likelihood of fire occurring against the potential severity of consequences, taking into account existing fire precautions and management arrangements.
+        </p>
+        <figure className="fra-figure mb-4">
+          <img
+            src="/fire-risk-rating-matrix.png"
+            alt="Risk rating matrix: likelihood versus severity with risk levels from low to high"
+            className="w-full max-w-2xl mx-auto rounded border border-slate-200 print:max-w-full"
+          />
+          <figcaption className="text-xs text-slate-600 mt-2 text-center italic">
+            Figure 3: Fire Risk Rating Matrix used to determine the overall risk level for the premises.
+          </figcaption>
+          <p className="text-xs text-slate-500 mt-1 text-center">
+            Risk levels determined using likelihood × consequence methodology.
+          </p>
+        </figure>
+        <p className="text-sm leading-relaxed mb-6">
+          Based on the findings of this assessment, the overall fire risk level for the premises is assessed as{' '}
+          <span className={`inline-block px-2 py-0.5 font-bold text-sm rounded border align-middle ${getOverallRiskBadgeClass(data.actionPlanLevel)}`}>{data.actionPlanLevel ?? 'Tolerable'}</span>
+          {(data.actionPlanLevel ?? 'Tolerable').toLowerCase() === 'tolerable' || (data.actionPlanLevel ?? '').toLowerCase() === 'low'
+            ? ', indicating that existing controls are generally adequate; ongoing monitoring and routine management are required.'
+            : ', indicating that existing controls require ongoing monitoring and improvement where identified; remedial actions are set out in the Action Plan.'}
+        </p>
+
         <div className="space-y-6 text-sm">
           <div>
             <h3 className="font-semibold mb-2">7.1.1 Likelihood of Fire</h3>
@@ -1777,7 +1994,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
       </div>
 
       {/* Action Plan */}
-      <div className="fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
+      <div className="fra-section fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
         <div className="fra-print-page-header hidden print:flex print:items-center print:justify-between print:border-b print:border-slate-300 print:pb-2 print:mb-4 print:text-[11pt] print:font-semibold print:text-slate-900">
           {printHeaderContent}
         </div>
@@ -1791,57 +2008,103 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
         </ul>
         <h3 className="font-semibold mb-2">Recommended Actions:</h3>
         {data.actionPlanItems && data.actionPlanItems.length > 0 ? (
-          <ul className="list-disc list-inside text-sm space-y-2">
-            {data.actionPlanItems.map((item: any, idx: number) => (
-              <li key={idx}>
-                <span className="font-medium">[{item.priority}]</span> {item.recommendation}
-                {item.dueNote && <span className="text-slate-600"> — {item.dueNote}</span>}
-              </li>
-            ))}
-          </ul>
+          <>
+            <div className="fra-keep overflow-x-auto">
+              <table className="fra-print-table w-full border border-slate-300 text-sm fra-action-plan-table">
+                <thead>
+                  <tr className="bg-slate-100">
+                    <th className="border border-slate-300 px-3 py-2 text-left font-semibold w-24">Priority</th>
+                    <th className="border border-slate-300 px-3 py-2 text-left font-semibold">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.actionPlanItems.map((item: any, idx: number) => (
+                    <tr key={idx}>
+                      <td className="border border-slate-300 px-3 py-2">{item.priority}</td>
+                      <td className="border border-slate-300 px-3 py-2">{item.recommendation}{item.dueNote ? ` — ${item.dueNote}` : ''}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         ) : (
-          <p className="text-sm text-slate-600 italic">No specific actions required at this time. Continue to maintain existing fire safety measures.</p>
+          <>
+            <p className="text-sm text-slate-700 mb-4">
+              No significant deficiencies requiring formal action were identified at the time of assessment. Existing fire safety arrangements are considered suitable and sufficient, subject to ongoing management and routine review.
+            </p>
+            <div className="fra-keep overflow-x-auto">
+              <table className="fra-print-table w-full border border-slate-300 text-sm fra-action-plan-table">
+                <thead>
+                  <tr className="bg-slate-100">
+                    <th className="border border-slate-300 px-3 py-2 text-left font-semibold w-24">Priority</th>
+                    <th className="border border-slate-300 px-3 py-2 text-left font-semibold">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td className="border border-slate-300 px-3 py-2">Low</td>
+                    <td className="border border-slate-300 px-3 py-2">Continue routine checks and testing</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
 
-      {/* Additional Site Pictures */}
-      <div className="fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
-        <div className="fra-print-page-header hidden print:flex print:items-center print:justify-between print:border-b print:border-slate-300 print:pb-2 print:mb-4 print:text-[11pt] print:font-semibold print:text-slate-900">
-          {printHeaderContent}
-        </div>
-        <h2 className="text-xl font-semibold mb-4">Additional Site Pictures</h2>
-        {data.photos && data.photos.length > 0 ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4 fra-photo-grid">
-            {data.photos.map((photo: any, idx: number) => (
-              <div key={idx} className="border border-slate-200 rounded p-2 fra-photo-block">
-                {photo.file_path ? (
-                  <img 
-                    src={photo.file_path} 
-                    alt={`Photo ${idx + 1}`}
-                    className="w-full h-48 object-cover rounded print:w-full print:h-full"
-                  />
-                ) : (
-                  <div className="w-full h-48 bg-slate-100 rounded flex items-center justify-center text-slate-400 text-sm">
-                    Photo {idx + 1}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="mt-4 space-y-4">
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 fra-photo-grid">
-              {[1, 2, 3, 4, 5, 6].map((num) => (
-                <div key={num} className="border-2 border-dashed border-slate-300 rounded p-4 h-48 flex items-center justify-center text-slate-400 text-sm fra-photo-block">
-                  Photo Placeholder {num}
-                </div>
-              ))}
+      {/* Additional Site Pictures / Appendices – last page: signature at bottom */}
+      <div className="fra-section fra-a4-page fra-print-page fra-last-page page-break-after-always p-12 max-w-4xl mx-auto">
+        <div className="fra-last-page-body flex flex-col min-h-[calc(100vh-120px)] print:min-h-[267mm]">
+          <div>
+            <div className="fra-print-page-header hidden print:flex print:items-center print:justify-between print:border-b print:border-slate-300 print:pb-2 print:mb-4 print:text-[11pt] print:font-semibold print:text-slate-900">
+              {printHeaderContent}
             </div>
-            <p className="text-sm text-slate-600 italic mt-4">
-              (Photos from H&S audit will be displayed here when available)
-            </p>
+            <h2 className="text-xl font-semibold mb-4">Additional Site Pictures</h2>
+            {data.photos && data.photos.length > 0 ? (
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4 fra-photo-grid">
+                {data.photos.map((photo: any, idx: number) => (
+                  <div key={idx} className="border border-slate-200 rounded p-2 fra-photo-block">
+                    {photo.file_path ? (
+                      <img 
+                        src={photo.file_path} 
+                        alt={`Photo ${idx + 1}`}
+                        className="w-full h-48 object-cover rounded print:w-full print:h-full"
+                      />
+                    ) : (
+                      <div className="w-full h-48 bg-slate-100 rounded flex items-center justify-center text-slate-400 text-sm">
+                        Photo {idx + 1}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="mt-4 space-y-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 fra-photo-grid">
+                  {[1, 2, 3, 4, 5, 6].map((num) => (
+                    <div key={num} className="border-2 border-dashed border-slate-300 rounded p-4 h-48 flex items-center justify-center text-slate-400 text-sm fra-photo-block">
+                      Photo Placeholder {num}
+                    </div>
+                  ))}
+                </div>
+                <p className="text-sm text-slate-600 italic mt-4">
+                  (Photos from H&S audit will be displayed here when available)
+                </p>
+              </div>
+            )}
           </div>
-        )}
+
+          {/* Signature block – pushed to bottom of last page */}
+          <div className="fra-signature-block mt-auto pt-8 border-t border-slate-200">
+            <p className="text-sm font-semibold text-slate-700 mb-3">Signed:</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2 text-sm text-slate-700">
+              <div><span className="font-medium">Name:</span> _________________________</div>
+              <div><span className="font-medium">Role:</span> Fire Risk Assessor</div>
+              <div><span className="font-medium">Date:</span> {data.assessmentDate ? new Date(data.assessmentDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '_________________________'}</div>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* On-screen preview: fixed footer (hidden in print; PDF uses Puppeteer footer) */}

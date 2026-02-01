@@ -89,4 +89,22 @@ export function getFraReportFilename(
   return `FRA - ${sanitized} ${datePart}.${extension}`
 }
 
+/**
+ * Build FRA assessment reference for display: "FRA - Footasylum - (Store Name) - (Date)"
+ * Date format: DD-MMM-YYYY when present, otherwise "—".
+ */
+export function getFraAssessmentReference(
+  premises: string | null | undefined,
+  assessmentDate: string | null | undefined
+): string {
+  const storeName = (premises || '').trim() || '—'
+  const dateFormatted =
+    assessmentDate && typeof assessmentDate === 'string' && assessmentDate.trim()
+      ? formatDateForFilename(assessmentDate) !== 'no-date'
+        ? formatDateForFilename(assessmentDate)
+        : '—'
+      : '—'
+  return `FRA - Footasylum - ${storeName} - ${dateFormatted}`
+}
+
 
