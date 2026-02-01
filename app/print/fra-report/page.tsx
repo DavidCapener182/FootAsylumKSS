@@ -149,7 +149,7 @@ export default function FRAPrintReportPage({
           <X className="h-4 w-4 mr-2" />Close preview
         </Button>
       </div>
-      <div className="fra-print-page-content flex-1 min-h-0 overflow-auto">
+      <div className="fra-print-page-content flex-1 min-h-0 overflow-auto bg-white">
         {loading ? (
           <div className="flex items-center justify-center min-h-[50vh]"><Loader2 className="h-8 w-8 animate-spin text-indigo-600" /></div>
         ) : error ? (

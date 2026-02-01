@@ -79,6 +79,14 @@ interface FRAData {
   peopleAtRisk: string[]
   significantFindings: string[]
   recommendedControls: string[]
+  /** Evidence-led: obstructed escape routes observation (from H&S audit/PDF). When set, shown in FRA Report. */
+  escapeRoutesEvidence?: string | null
+  /** Evidence-led: fire safety training narrative (shortfall vs standard). */
+  fireSafetyTrainingNarrative?: string
+  /** When set, shown under Assessment review: "This assessment has been informed by recent health and safety inspections and site observations." */
+  managementReviewStatement?: string | null
+  /** Brief COSHH reference for Sources of fuel (e.g. "COSHH is managed under a separate assessment."). */
+  sourcesOfFuelCoshhNote?: string
   store: any
   hsAuditDate: string | null
   fraInstance: any
@@ -512,6 +520,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
               />
             )}
             <h1 className="text-2xl font-bold text-slate-900 mt-4">Fire Risk Assessment</h1>
+            <p className="text-base font-medium text-slate-600 mt-2">Life Safety Assessment – Retail Premises</p>
             <hr className="mt-3 w-24 mx-auto border-slate-300" />
           </div>
 
@@ -531,6 +540,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
 
           <div className="fra-front-page-footer mt-auto pt-8 border-t border-slate-200 text-center text-xs text-slate-600 space-y-1">
             <p>Prepared in accordance with the Regulatory Reform (Fire Safety) Order 2005</p>
+            <p>Prepared by KSS NW Ltd | Confidential</p>
             <p>Confidential – for the use of the client and relevant duty holders only.</p>
           </div>
         </div>
@@ -1222,11 +1232,13 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
           The following systems and equipment are assessed below: fire alarm and detection, emergency lighting, portable fire-fighting equipment, and fire doors and compartmentation.
         </p>
         <figure className="fra-figure fra-figure-equipment-icons mb-6">
-          <img
-            src="/fire-equipment-systems-icons.png"
-            alt="Fire equipment and systems: Fire extinguisher, Manual call point, Emergency light, Fire door"
-            className="w-full max-w-xl mx-auto rounded border border-slate-200 print:max-w-full"
-          />
+          <div className="w-full max-w-[280px] mx-auto aspect-square overflow-hidden rounded border border-slate-200">
+            <img
+              src="/fire-equipment-systems-icons.png"
+              alt="Fire equipment and systems: Fire extinguisher, Manual call point, Emergency light, Fire door"
+              className="w-full h-full object-cover object-center"
+            />
+          </div>
         </figure>
 
         <h3 className="text-lg font-semibold mb-3">Fire alarm system</h3>
@@ -1470,6 +1482,9 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
                       <li key={idx}>{item}</li>
                     ))}
                   </ul>
+                  {data.sourcesOfFuelCoshhNote && (
+                    <p className="text-sm mt-2 text-slate-600">{data.sourcesOfFuelCoshhNote}</p>
+                  )}
                 </td>
               </tr>
               <tr>
@@ -1599,6 +1614,9 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
             Figure 2: Emergency evacuation flow to be followed in the event of a fire. This procedure is generic and must be read in conjunction with site-specific fire instructions and training.
           </figcaption>
         </figure>
+        <p className="text-sm text-slate-700 mb-6 max-w-3xl mx-auto">
+          This evacuation procedure reflects the current store layout and must be followed by all staff and contractors.
+        </p>
 
         {/* Fire Plan Photo Placeholder */}
         <PhotoPlaceholder placeholderId="fire-plan" label="Fire Plan / Evacuation Route Photo" maxPhotos={1} />
@@ -1677,9 +1695,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
           <div>
             <h3 className="font-semibold mb-2">Arrangements for fire safety training and drills</h3>
             <p>
-              All staff receive fire safety training as part of their induction and refresher training. Fire drills are
-              conducted at appropriate intervals and records are maintained. Training and drills are designed to
-              ensure staff are familiar with evacuation procedures and their responsibilities in the event of a fire.
+              {data.fireSafetyTrainingNarrative ?? 'All staff receive fire safety training as part of their induction and refresher training. Fire drills are conducted at appropriate intervals and records are maintained. Training and drills are designed to ensure staff are familiar with evacuation procedures and their responsibilities in the event of a fire.'}
             </p>
           </div>
 
@@ -1711,6 +1727,11 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
                 )}
               </tbody>
             </table>
+            {data.managementReviewStatement && (
+              <p className="text-sm leading-relaxed mt-4 italic">
+                {data.managementReviewStatement}
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -1860,13 +1881,23 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
               relevant).</li>
             </ul>
             <p className="mt-4">
-              At the time of conducting this assessment, fire escape routes were found to be generally clear and
-              unobstructed internally and externally (as required under Article 14(1) of the Regulatory Reform
-              (Fire Safety) Order 2005, herein referred to as the FSO 2005), and provision and accessibility to
-              portable fire extinguishers was found to be satisfactory (as required under Article 13(1)(b)). The
-              premises is fully operational and it remains important for store management to ensure that these
-              standards are always maintained during trading and non-trading periods, including deliveries,
-              replenishment and peak trading activity.
+              {data.escapeRoutesEvidence ? (
+                <>
+                  {data.escapeRoutesEvidence} The premises is fully operational and it remains important for store
+                  management to ensure that escape routes and final exits are always kept clear during trading and
+                  non-trading periods, including deliveries, replenishment and peak trading activity.
+                </>
+              ) : (
+                <>
+                  At the time of conducting this assessment, fire escape routes were found to be generally clear and
+                  unobstructed internally and externally (as required under Article 14(1) of the Regulatory Reform
+                  (Fire Safety) Order 2005, herein referred to as the FSO 2005), and provision and accessibility to
+                  portable fire extinguishers was found to be satisfactory (as required under Article 13(1)(b)). The
+                  premises is fully operational and it remains important for store management to ensure that these
+                  standards are always maintained during trading and non-trading periods, including deliveries,
+                  replenishment and peak trading activity.
+                </>
+              )}
             </p>
             <p className="mt-2">
               Signage throughout was installed and clearly visible
@@ -1942,6 +1973,9 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
           </figcaption>
           <p className="text-xs text-slate-500 mt-1 text-center">
             Risk levels determined using likelihood × consequence methodology.
+          </p>
+          <p className="text-xs text-slate-600 mt-2 text-center italic">
+            This risk rating reflects conditions observed at the time of assessment and is subject to review if site conditions change.
           </p>
         </figure>
         <p className="text-sm leading-relaxed mb-6">
@@ -2096,7 +2130,8 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
           </div>
 
           {/* Signature block – pushed to bottom of last page */}
-          <div className="fra-signature-block mt-auto pt-8 border-t border-slate-200">
+          <hr className="mt-8 border-slate-200" aria-hidden="true" />
+          <div className="fra-signature-block mt-6 pt-6 border-t border-slate-200">
             <p className="text-sm font-semibold text-slate-700 mb-3">Signed:</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2 text-sm text-slate-700">
               <div><span className="font-medium">Name:</span> _________________________</div>

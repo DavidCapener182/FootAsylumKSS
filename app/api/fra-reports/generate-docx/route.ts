@@ -62,7 +62,7 @@ interface BuildContext {
 }
 
 /** Paragraph alias */
-function para(text: string, options?: { bold?: boolean }) {
+function para(text: string, options?: { bold?: boolean; italics?: boolean }) {
   return P(text, options)
 }
 
@@ -542,7 +542,7 @@ function buildSectionFirePlan(ctx: BuildContext): (Paragraph | Table)[] {
   out.push(para('Procedures for liaising with the Fire and Rescue Service', { bold: true }))
   out.push(para('On arrival of the Fire and Rescue Service, store management will liaise with the attending officers, providing relevant information regarding the premises and fire alarm activation.'))
   out.push(para('Arrangements for fire safety training and drills', { bold: true }))
-  out.push(para('All staff receive fire safety training as part of their induction and refresher training. Fire drills are conducted at appropriate intervals and records are maintained.'))
+  out.push(para(data.fireSafetyTrainingNarrative ?? 'All staff receive fire safety training as part of their induction and refresher training. Fire drills are conducted at appropriate intervals and records are maintained.'))
   out.push(new Paragraph({ spacing: { after: 120 } }))
   out.push(para('Assessment review', { bold: true }))
   const reviewRows = [
@@ -563,6 +563,10 @@ function buildSectionFirePlan(ctx: BuildContext): (Paragraph | Table)[] {
     }),
   ]
   out.push(new Table({ rows: reviewRows, ...TABLE_GRID_OPTS }))
+  if (data.managementReviewStatement) {
+    out.push(new Paragraph({ spacing: { before: 120 } }))
+    out.push(para(data.managementReviewStatement, { italics: true }))
+  }
   return out
 }
 

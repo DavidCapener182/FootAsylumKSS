@@ -423,6 +423,57 @@ export async function GET(request: NextRequest) {
       if (!squareFootageMatch || !pdfExtractedData.squareFootage) {
         console.log('[EXTRACT] ✗ No square footage found')
       }
+
+      // Evidence-led FRA fields (same patterns as fra-reports.ts)
+      const escapeObstructedMatch = originalText.match(/(?:fire\s+exit|escape\s+route|delivery\s+door).*?(?:blocked|obstructed|partially\s+blocked|restricted|pallets|boxes)/i)
+        || originalText.match(/(?:blocked|obstructed|partially\s+blocked).*?(?:fire\s+exit|escape\s+route|delivery\s+door|stockroom|rear\s+fire\s+door)/i)
+        || originalText.match(/(?:pallets|boxes).*?(?:fire\s+exit|delivery\s+door|stockroom|escape)/i)
+      if (escapeObstructedMatch) {
+        pdfExtractedData.escapeRoutesEvidence = 'Observed during recent inspections: fire exits and delivery doors were partially blocked by pallets and boxes (stockroom and rear fire door), restricting effective escape width during evacuation.'
+        console.log('[EXTRACT] ✓ Found escape route obstruction from PDF')
+      }
+
+      const combustibleEscapeMatch = originalText.match(/(?:combustible|storage).*?(?:escape\s+route|compromised)/i)
+        || originalText.match(/(?:escape\s+route).*?(?:compromised|combustible)/i)
+      if (combustibleEscapeMatch) {
+        pdfExtractedData.combustibleStorageEscapeCompromise = 'Escape routes compromised'
+      } else if (originalText.match(/(?:combustible|storage).*?(?:correct|ok|stored correctly)/i)) {
+        pdfExtractedData.combustibleStorageEscapeCompromise = 'OK'
+      }
+
+      const trainingShortfallMatch = originalText.match(/(?:toolbox|fire\s+safety\s+training).*?(?:not\s+100%|incomplete)/i)
+        || originalText.match(/(?:induction\s+training).*?incomplete/i)
+        || originalText.match(/training\s+not\s+at\s+100%|incomplete\s+for\s+(?:two\s+)?staff/i)
+      if (trainingShortfallMatch) {
+        pdfExtractedData.fireSafetyTrainingNarrative = 'Fire safety training is delivered via induction and toolbox talks; refresher completion is monitored, with improvements currently underway.'
+      } else if (originalText.match(/(?:toolbox|fire\s+safety\s+training).*?100%|100%\s+completion/i)) {
+        pdfExtractedData.fireSafetyTrainingNarrative = 'Fire safety training is delivered via induction and toolbox talks; records are maintained.'
+      }
+
+      const fireDoorsGoodMatch = originalText.match(/(?:fire\s+door|fire doors).*?(?:good\s+condition|in good condition)/i)
+        || originalText.match(/(?:intumescent|intact).*?(?:strip|door)/i)
+        || originalText.match(/(?:not\s+wedged|doors not wedged)/i)
+      if (fireDoorsGoodMatch) {
+        pdfExtractedData.fireDoorsCondition = 'Good condition; intumescent strips present; doors not wedged open.'
+      }
+
+      if (originalText.match(/(?:weekly\s+fire\s+alarm|fire\s+alarm\s+test).*?(?:documented|conducted|yes)/i)
+        || originalText.match(/(?:fire\s+alarm).*?weekly/i)) {
+        pdfExtractedData.weeklyFireTests = 'Documented'
+      }
+
+      if (originalText.match(/(?:monthly\s+emergency\s+lighting|emergency\s+lighting\s+test).*?(?:conducted|documented|yes)/i)
+        || originalText.match(/(?:emergency\s+lighting).*?monthly/i)) {
+        pdfExtractedData.emergencyLightingMonthlyTest = 'Conducted'
+      }
+
+      if (originalText.match(/(?:fire\s+extinguisher|extinguisher).*?(?:serviced|accessible|in position)/i)) {
+        pdfExtractedData.fireExtinguisherService = 'Serviced and accessible'
+      }
+
+      if (pdfText) {
+        pdfExtractedData.managementReviewStatement = 'This assessment has been informed by recent health and safety inspections and site observations.'
+      }
       
       console.log('[EXTRACT] Final extracted data:', pdfExtractedData)
     }
@@ -438,6 +489,14 @@ export async function GET(request: NextRequest) {
       operatingHours: pdfExtractedData.operatingHours || null,
       conductedDate: pdfExtractedData.conductedDate || null,
       squareFootage: pdfExtractedData.squareFootage || null,
+      escapeRoutesEvidence: pdfExtractedData.escapeRoutesEvidence || null,
+      combustibleStorageEscapeCompromise: pdfExtractedData.combustibleStorageEscapeCompromise || null,
+      fireSafetyTrainingNarrative: pdfExtractedData.fireSafetyTrainingNarrative || null,
+      fireDoorsCondition: pdfExtractedData.fireDoorsCondition || null,
+      weeklyFireTests: pdfExtractedData.weeklyFireTests || null,
+      emergencyLightingMonthlyTest: pdfExtractedData.emergencyLightingMonthlyTest || null,
+      fireExtinguisherService: pdfExtractedData.fireExtinguisherService || null,
+      managementReviewStatement: pdfExtractedData.managementReviewStatement || null,
       sources: {
         storeManager: pdfExtractedData.storeManager ? 'PDF' : 'NOT_FOUND',
         firePanelLocation: pdfExtractedData.firePanelLocation ? 'PDF' : 'NOT_FOUND',
@@ -447,6 +506,14 @@ export async function GET(request: NextRequest) {
         operatingHours: pdfExtractedData.operatingHours ? 'PDF' : 'NOT_FOUND',
         conductedDate: pdfExtractedData.conductedDate ? 'PDF' : 'NOT_FOUND',
         squareFootage: pdfExtractedData.squareFootage ? 'PDF' : 'NOT_FOUND',
+        escapeRoutesEvidence: pdfExtractedData.escapeRoutesEvidence ? 'PDF' : 'NOT_FOUND',
+        combustibleStorageEscapeCompromise: pdfExtractedData.combustibleStorageEscapeCompromise ? 'PDF' : 'NOT_FOUND',
+        fireSafetyTrainingNarrative: pdfExtractedData.fireSafetyTrainingNarrative ? 'PDF' : 'NOT_FOUND',
+        fireDoorsCondition: pdfExtractedData.fireDoorsCondition ? 'PDF' : 'NOT_FOUND',
+        weeklyFireTests: pdfExtractedData.weeklyFireTests ? 'PDF' : 'NOT_FOUND',
+        emergencyLightingMonthlyTest: pdfExtractedData.emergencyLightingMonthlyTest ? 'PDF' : 'NOT_FOUND',
+        fireExtinguisherService: pdfExtractedData.fireExtinguisherService ? 'PDF' : 'NOT_FOUND',
+        managementReviewStatement: pdfExtractedData.managementReviewStatement ? 'PDF' : 'NOT_FOUND',
       },
       hasPdfText: !!pdfText,
       hasDatabaseAudit: false, // FRA doesn't use database audits

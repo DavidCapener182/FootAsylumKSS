@@ -205,7 +205,7 @@ export default function FRAReportViewPage({
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 print:bg-white print:min-h-0">
+    <div className="min-h-screen bg-white print:bg-white print:min-h-0">
       <div className="no-print sticky top-0 z-10 flex items-center justify-between gap-4 bg-slate-900 text-white px-4 py-3 shadow">
         <div className="flex items-center gap-4">
           <Link href="/audit-lab" className="text-sm font-semibold uppercase tracking-wide">
@@ -269,18 +269,20 @@ export default function FRAReportViewPage({
           </Button>
         </div>
       </div>
-      <div className="fra-view-scroll-container h-[calc(100vh-48px)] overflow-auto print:h-auto print:overflow-visible print:min-h-0">
-        {loading ? (
-          <div className="flex items-center justify-center h-full">
-            <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
-          </div>
-        ) : error ? (
-          <div className="p-6 text-sm text-red-600">{error}</div>
-        ) : fraData ? (
-          <FRAReportView data={fraData} onDataUpdate={fetchData} />
-        ) : (
-          <div className="p-6 text-sm text-slate-600">No data available.</div>
-        )}
+      <div className="fra-view-scroll-container h-[calc(100vh-48px)] flex items-center justify-center bg-white print:block print:h-auto">
+        <div className="w-[min(90vw,calc(100vh-48px))] h-[min(90vw,calc(100vh-48px))] overflow-auto print:w-full print:max-w-none print:h-auto print:overflow-visible print:min-h-0">
+          {loading ? (
+            <div className="flex items-center justify-center h-full min-h-[400px]">
+              <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+            </div>
+          ) : error ? (
+            <div className="p-6 text-sm text-red-600">{error}</div>
+          ) : fraData ? (
+            <FRAReportView data={fraData} onDataUpdate={fetchData} />
+          ) : (
+            <div className="p-6 text-sm text-slate-600">No data available.</div>
+          )}
+        </div>
       </div>
     </div>
   )

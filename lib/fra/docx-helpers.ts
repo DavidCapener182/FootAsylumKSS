@@ -64,9 +64,9 @@ export function H2(text: string): Paragraph {
   })
 }
 
-export function P(text: string, options?: { bold?: boolean }): Paragraph {
+export function P(text: string, options?: { bold?: boolean; italics?: boolean }): Paragraph {
   return new Paragraph({
-    children: [new TextRun({ text, bold: options?.bold, size: FONT_11, font: 'Calibri' })],
+    children: [new TextRun({ text, bold: options?.bold, italics: options?.italics, size: FONT_11, font: 'Calibri' })],
     spacing: { after: SPACE_6PT },
   })
 }

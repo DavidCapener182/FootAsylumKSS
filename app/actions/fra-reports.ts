@@ -401,7 +401,33 @@ export async function mapHSAuditToFRAData(fraInstanceId: string) {
       pdfExtractedData.squareFootage = squareFootageMatch[1]?.trim() || null
       console.log('[FRA] Found square footage from PDF:', pdfExtractedData.squareFootage)
     }
-    
+
+    // H&S audit evidence for FRA: obstructed fire exits / escape routes
+    const escapeObstructedMatch = originalText.match(/(?:fire\s+exit|escape\s+route|delivery\s+door).*?(?:blocked|obstructed|partially\s+blocked|restricted|pallets|boxes)/i)
+      || originalText.match(/(?:blocked|obstructed|partially\s+blocked).*?(?:fire\s+exit|escape\s+route|delivery\s+door|stockroom|rear\s+fire\s+door)/i)
+      || originalText.match(/(?:pallets|boxes).*?(?:fire\s+exit|delivery\s+door|stockroom|escape)/i)
+    if (escapeObstructedMatch) {
+      pdfExtractedData.escapeRoutesObstructed = 'yes'
+      console.log('[FRA] Found escape route obstruction from PDF (evidence-led FRA)')
+    }
+
+    // Combustible storage / escape route compromise
+    const combustibleEscapeMatch = originalText.match(/(?:combustible|storage).*?(?:escape\s+route|compromised)/i)
+      || originalText.match(/(?:escape\s+route).*?(?:compromised|combustible)/i)
+    if (combustibleEscapeMatch) {
+      pdfExtractedData.combustibleStorageEscapeCompromise = 'yes'
+      console.log('[FRA] Found combustible storage / escape compromise from PDF')
+    }
+
+    // Fire safety training shortfall (toolbox not 100%, induction incomplete)
+    const trainingShortfallMatch = originalText.match(/(?:toolbox|fire\s+safety\s+training).*?(?:not\s+100%|incomplete)/i)
+      || originalText.match(/(?:induction\s+training).*?incomplete/i)
+      || originalText.match(/training\s+not\s+at\s+100%|incomplete\s+for\s+(?:two\s+)?staff/i)
+    if (trainingShortfallMatch) {
+      pdfExtractedData.fireSafetyTrainingShortfall = 'yes'
+      console.log('[FRA] Found fire safety training shortfall from PDF')
+    }
+
     console.log('[FRA] Final PDF Extracted Data:', pdfExtractedData)
   }
 
@@ -692,6 +718,14 @@ export async function mapHSAuditToFRAData(fraInstanceId: string) {
   // Working at Height
   const laddersNumbered = findAnswer('ladders clearly numbered')
 
+  // Evidence-led flags from PDF or H&S audit responses
+  const escapeObstructed = pdfExtractedData.escapeRoutesObstructed === 'yes' ||
+    (fireExitRoutes && String(fireExitRoutes.value).toLowerCase() === 'no')
+  const combustibleEscapeCompromise = pdfExtractedData.combustibleStorageEscapeCompromise === 'yes' ||
+    (combustibleMaterials && String(combustibleMaterials.value).toLowerCase() === 'no')
+  const fireSafetyTrainingShortfall = pdfExtractedData.fireSafetyTrainingShortfall === 'yes' ||
+    trainingInduction?.value === 'No' || trainingToolbox?.value === 'No'
+
   // Get auditor name
   let auditorName = 'Admin User'
   if (fraInstance.conducted_by_user_id) {
@@ -891,8 +925,12 @@ export async function mapHSAuditToFRAData(fraInstanceId: string) {
       sourcesOfFuel: 'DEFAULT',
       sourcesOfOxygen: 'DEFAULT',
       peopleAtRisk: 'DEFAULT',
-      significantFindings: 'DEFAULT',
+      significantFindings: (pdfText || hsAudit) ? 'H&S_AUDIT' : 'DEFAULT',
       recommendedControls: 'H&S_AUDIT_MIXED',
+      escapeRoutesEvidence: escapeObstructed ? 'H&S_AUDIT' : 'N/A',
+      fireSafetyTrainingNarrative: fireSafetyTrainingShortfall ? 'H&S_AUDIT' : 'DEFAULT',
+      managementReviewStatement: (pdfText || hsAudit) ? 'H&S_AUDIT' : 'N/A',
+      sourcesOfFuelCoshhNote: 'DEFAULT',
     } as Record<string, string>,
     premises: `Footasylum – ${store.store_name}`,
     address: [
@@ -1026,22 +1064,49 @@ Sprinkler heads are installed throughout the premises in accordance with the ori
       'Young persons – where employed, subject to appropriate risk assessment and controls'
     ],
 
-    // Significant Findings
-    significantFindings: [
-      'The premises is provided with appropriate fire detection and alarm systems, emergency lighting, fire-fighting equipment and clearly defined escape routes. These systems were observed to be in place and operational, supporting safe evacuation in the event of a fire.',
-      'Fire doors and compartmentation arrangements were observed to be in satisfactory condition, with doors not wedged open and fitted with intact intumescent protection. Escape routes were clearly identifiable and generally maintained free from obstruction.',
-      'Routine fire safety management arrangements are in place, including weekly fire alarm testing, monthly emergency lighting checks and scheduled servicing of fire safety systems by competent contractors. Fire drills have been conducted, and records are maintained.'
-    ],
+    // Evidence-led narrative: escape routes (prefer edited from review screen)
+    escapeRoutesEvidence: (editedExtractedData?.escapeRoutesEvidence?.trim())
+      || (escapeObstructed
+        ? 'Observed during recent inspections: fire exits and delivery doors were partially blocked by pallets and boxes (stockroom and rear fire door), restricting effective escape width during evacuation.'
+        : null),
 
-    // Recommended Controls
+    // Evidence-led narrative: fire safety training (prefer edited from review screen)
+    fireSafetyTrainingNarrative: (editedExtractedData?.fireSafetyTrainingNarrative?.trim())
+      || (fireSafetyTrainingShortfall
+        ? 'Fire safety training is delivered via induction and toolbox talks; refresher completion is monitored, with improvements currently underway.'
+        : 'Fire safety training is delivered via induction and toolbox talks; records are maintained.'),
+
+    // Management & Review: prefer edited from review screen
+    managementReviewStatement: (editedExtractedData?.managementReviewStatement?.trim())
+      || ((pdfText || hsAudit)
+        ? 'This assessment has been informed by recent health and safety inspections and site observations.'
+        : null),
+
+    // COSHH reference for Sources of fuel (brief; detail in H&S only)
+    sourcesOfFuelCoshhNote: 'Cleaning materials are low-risk and non-flammable. COSHH is managed under a separate assessment.',
+
+    // Significant Findings (evidence-led; use edited escape text from review when present)
+    significantFindings: (() => {
+      const editedEscape = editedExtractedData?.escapeRoutesEvidence?.trim()
+      const escapeSentence = editedEscape
+        || (escapeObstructed
+          ? 'Observed during recent inspections: fire exits and delivery doors were partially blocked by pallets and boxes (stockroom and rear fire door), restricting effective escape width during evacuation.'
+          : 'Escape routes were clearly identifiable and generally maintained free from obstruction.')
+      const detectionFinding = 'The premises is provided with appropriate fire detection and alarm systems, emergency lighting, fire-fighting equipment and clearly defined escape routes. These systems were observed to be in place and operational, supporting safe evacuation in the event of a fire.'
+      const fireDoorsFinding = 'Fire doors and compartmentation arrangements were observed to be in satisfactory condition, with doors not wedged open and fitted with intact intumescent protection. ' + escapeSentence
+      const managementFinding = 'Routine fire safety management arrangements are in place, including weekly fire alarm testing, monthly emergency lighting checks and scheduled servicing of fire safety systems by competent contractors. Fire drills have been conducted, and records are maintained.'
+      return [detectionFinding, fireDoorsFinding, managementFinding]
+    })(),
+
+    // Recommended Controls (obstruction when edited text or PDF/findAnswer)
     recommendedControls: [
       trainingInduction?.value === 'No' ? 'Ensure all staff fire safety training is completed, recorded and kept up to date, including induction training for new starters and periodic refresher training.' : null,
       trainingToolbox?.value === 'No' ? 'Reinforce toolbox refresher training completion to meet the 100% target for the last 12 months.' : null,
       contractorManagement?.value === 'No' ? 'Reinforce contractor and visitor management procedures, including signing-in arrangements and briefing on emergency procedures.' : null,
       coshhSheets?.value === 'No' ? 'Ensure fire safety documentation relevant to the premises is available on site and maintained in an accessible format, including COSHH safety data sheets.' : null,
       laddersNumbered?.value === 'No' ? 'Ensure all ladders and steps are clearly numbered for identification purposes.' : null,
-      'Continue to ensure escape routes and final exits are always kept clear and unobstructed.',
-      'Maintain good housekeeping standards, particularly in relation to the control and storage of combustible materials and packaging.',
+      (editedExtractedData?.escapeRoutesEvidence?.trim() || escapeObstructed) ? 'Address obstruction of fire exits and delivery doors (e.g. pallets, boxes) to maintain effective escape width; ensure escape routes and final exits are always kept clear and unobstructed.' : 'Continue to ensure escape routes and final exits are always kept clear and unobstructed.',
+      combustibleEscapeCompromise ? 'Maintain good housekeeping standards; ensure combustible materials and packaging do not compromise escape routes.' : 'Maintain good housekeeping standards, particularly in relation to the control and storage of combustible materials and packaging.',
       'Continue routine testing, inspection and servicing of fire alarm systems, emergency lighting and fire-fighting equipment in accordance with statutory requirements and British Standards.',
       'Ensure internal fire doors are maintained in effective working order and are not wedged or held open.',
       'Continue to conduct and record fire drills at appropriate intervals to ensure staff familiarity with evacuation procedures.'
@@ -1058,18 +1123,69 @@ Sprinkler heads are installed throughout the premises in accordance with the ori
     riskRatingConsequences: (editedExtractedData as any)?.riskRatingConsequences || 'Moderate Harm',
     summaryOfRiskRating: (editedExtractedData as any)?.summaryOfRiskRating || 'Taking into account the nature of the building and the occupants, as well as the fire protection and procedural arrangements observed at the time of this fire risk assessment, it is considered that the consequences for life safety in the event of fire would be: Moderate Harm. Accordingly, it is considered that the risk from fire at these premises is: Tolerable.',
     actionPlanLevel: (editedExtractedData as any)?.actionPlanLevel || 'Tolerable',
-    actionPlanItems: (editedExtractedData as any)?.actionPlanItems || [],
+    // Recommended Actions: use edited action plan if set; otherwise derive from PDF/H&S findings
+    actionPlanItems: (() => {
+      const edited = (editedExtractedData as any)?.actionPlanItems
+      if (edited && Array.isArray(edited) && edited.length > 0) {
+        return edited
+      }
+      type ActionItem = { recommendation: string; priority: 'Low' | 'Medium' | 'High'; dueNote?: string }
+      const derived: ActionItem[] = []
+      const hasEscapeIssue = !!(editedExtractedData?.escapeRoutesEvidence?.trim() || escapeObstructed)
+      if (hasEscapeIssue) {
+        derived.push({
+          priority: 'High',
+          recommendation: 'Address obstruction of fire exits and delivery doors (e.g. pallets, boxes); ensure escape routes and final exits are kept clear and unobstructed.',
+        })
+      }
+      if (trainingInduction?.value === 'No') {
+        derived.push({
+          priority: 'Medium',
+          recommendation: 'Ensure all staff fire safety training is completed, including induction training for new starters and periodic refresher training.',
+        })
+      }
+      if (trainingToolbox?.value === 'No') {
+        derived.push({
+          priority: 'Medium',
+          recommendation: 'Reinforce toolbox refresher training completion to meet the 100% target for the last 12 months.',
+        })
+      }
+      if (combustibleEscapeCompromise) {
+        derived.push({
+          priority: 'Medium',
+          recommendation: 'Maintain good housekeeping; ensure combustible materials and packaging do not compromise escape routes.',
+        })
+      }
+      if (coshhSheets?.value === 'No') {
+        derived.push({
+          priority: 'Low',
+          recommendation: 'Ensure fire safety documentation including COSHH safety data sheets is available on site and maintained.',
+        })
+      }
+      if (laddersNumbered?.value === 'No') {
+        derived.push({
+          priority: 'Low',
+          recommendation: 'Ensure all ladders and steps are clearly numbered for identification purposes.',
+        })
+      }
+      const priorityOrder = { High: 0, Medium: 1, Low: 2 }
+      derived.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority])
+      derived.push({
+        priority: 'Low',
+        recommendation: 'Continue routine checks and testing of fire alarm, emergency lighting and fire-fighting equipment.',
+      })
+      return derived
+    })(),
     sitePremisesPhotos: (editedExtractedData as any)?.sitePremisesPhotos || null,
   }
   
-  // Update sources for arrays
+  // Update sources for arrays (significantFindings already set evidence-led when pdfText/hsAudit)
   returnData._sources = {
     ...returnData._sources,
     sourcesOfIgnition: 'DEFAULT',
     sourcesOfFuel: 'DEFAULT',
     sourcesOfOxygen: 'DEFAULT',
     peopleAtRisk: 'DEFAULT',
-    significantFindings: 'DEFAULT',
     recommendedControls: trainingInduction?.value === 'No' || trainingToolbox?.value === 'No' || contractorManagement?.value === 'No' || coshhSheets?.value === 'No' || laddersNumbered?.value === 'No' ? 'H&S_AUDIT_MIXED' : 'DEFAULT',
   }
   

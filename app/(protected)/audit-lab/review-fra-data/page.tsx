@@ -70,6 +70,14 @@ export default function ReviewFRADataPage({
           operatingHours: data.operatingHours || '',
           conductedDate: data.conductedDate || '',
           squareFootage: data.squareFootage || '',
+          escapeRoutesEvidence: data.escapeRoutesEvidence || '',
+          combustibleStorageEscapeCompromise: data.combustibleStorageEscapeCompromise || '',
+          fireSafetyTrainingNarrative: data.fireSafetyTrainingNarrative || '',
+          fireDoorsCondition: data.fireDoorsCondition || '',
+          weeklyFireTests: data.weeklyFireTests || '',
+          emergencyLightingMonthlyTest: data.emergencyLightingMonthlyTest || '',
+          fireExtinguisherService: data.fireExtinguisherService || '',
+          managementReviewStatement: data.managementReviewStatement || '',
         })
       } catch (err: any) {
         console.error('[REVIEW] Error loading extracted data:', err)
@@ -330,6 +338,118 @@ export default function ReviewFRADataPage({
                   value={editedData.emergencyLightingSwitch || ''}
                   onChange={(e) => setEditedData({ ...editedData, emergencyLightingSwitch: e.target.value })}
                   placeholder="e.g., Electrical cupboard by the rear fire doors"
+                  className="min-h-[60px]"
+                />
+              </div>
+
+              {/* Fire exit routes / escape routes */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-900 mb-2">
+                  Fire exit routes / escape routes
+                  {extractedData?.sources?.escapeRoutesEvidence && getSourceBadge(extractedData.sources.escapeRoutesEvidence)}
+                </label>
+                <Textarea
+                  value={editedData.escapeRoutesEvidence || ''}
+                  onChange={(e) => setEditedData({ ...editedData, escapeRoutesEvidence: e.target.value })}
+                  placeholder="e.g., Observed during recent inspections: fire exits partially blocked... or leave blank if clear"
+                  className="min-h-[60px]"
+                />
+              </div>
+
+              {/* Combustible storage & escape routes */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-900 mb-2">
+                  Combustible storage & escape routes
+                  {extractedData?.sources?.combustibleStorageEscapeCompromise && getSourceBadge(extractedData.sources.combustibleStorageEscapeCompromise)}
+                </label>
+                <Textarea
+                  value={editedData.combustibleStorageEscapeCompromise || ''}
+                  onChange={(e) => setEditedData({ ...editedData, combustibleStorageEscapeCompromise: e.target.value })}
+                  placeholder="e.g., OK or Escape routes compromised"
+                  className="min-h-[40px]"
+                />
+              </div>
+
+              {/* Fire safety training */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-900 mb-2">
+                  Fire safety training
+                  {extractedData?.sources?.fireSafetyTrainingNarrative && getSourceBadge(extractedData.sources.fireSafetyTrainingNarrative)}
+                </label>
+                <Textarea
+                  value={editedData.fireSafetyTrainingNarrative || ''}
+                  onChange={(e) => setEditedData({ ...editedData, fireSafetyTrainingNarrative: e.target.value })}
+                  placeholder="e.g., Fire safety training is delivered via induction and toolbox talks; improvements currently underway."
+                  className="min-h-[60px]"
+                />
+              </div>
+
+              {/* Fire doors & compartmentation */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-900 mb-2">
+                  Fire doors & compartmentation
+                  {extractedData?.sources?.fireDoorsCondition && getSourceBadge(extractedData.sources.fireDoorsCondition)}
+                </label>
+                <Textarea
+                  value={editedData.fireDoorsCondition || ''}
+                  onChange={(e) => setEditedData({ ...editedData, fireDoorsCondition: e.target.value })}
+                  placeholder="e.g., Good condition; intumescent strips present; not wedged open"
+                  className="min-h-[60px]"
+                />
+              </div>
+
+              {/* Weekly fire alarm tests */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-900 mb-2">
+                  Weekly fire alarm tests
+                  {extractedData?.sources?.weeklyFireTests && getSourceBadge(extractedData.sources.weeklyFireTests)}
+                </label>
+                <Textarea
+                  value={editedData.weeklyFireTests || ''}
+                  onChange={(e) => setEditedData({ ...editedData, weeklyFireTests: e.target.value })}
+                  placeholder="e.g., Documented or Yes"
+                  className="min-h-[40px]"
+                />
+              </div>
+
+              {/* Monthly emergency lighting tests */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-900 mb-2">
+                  Monthly emergency lighting tests
+                  {extractedData?.sources?.emergencyLightingMonthlyTest && getSourceBadge(extractedData.sources.emergencyLightingMonthlyTest)}
+                </label>
+                <Textarea
+                  value={editedData.emergencyLightingMonthlyTest || ''}
+                  onChange={(e) => setEditedData({ ...editedData, emergencyLightingMonthlyTest: e.target.value })}
+                  placeholder="e.g., Conducted or Yes"
+                  className="min-h-[40px]"
+                />
+              </div>
+
+              {/* Fire extinguishers serviced */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-900 mb-2">
+                  Fire extinguishers serviced
+                  {extractedData?.sources?.fireExtinguisherService && getSourceBadge(extractedData.sources.fireExtinguisherService)}
+                </label>
+                <Textarea
+                  value={editedData.fireExtinguisherService || ''}
+                  onChange={(e) => setEditedData({ ...editedData, fireExtinguisherService: e.target.value })}
+                  placeholder="e.g., Serviced and accessible"
+                  className="min-h-[40px]"
+                />
+              </div>
+
+              {/* Management review statement */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-900 mb-2">
+                  Management review statement
+                  {extractedData?.sources?.managementReviewStatement && getSourceBadge(extractedData.sources.managementReviewStatement)}
+                </label>
+                <Textarea
+                  value={editedData.managementReviewStatement || ''}
+                  onChange={(e) => setEditedData({ ...editedData, managementReviewStatement: e.target.value })}
+                  placeholder="This assessment has been informed by recent health and safety inspections and site observations."
                   className="min-h-[60px]"
                 />
               </div>
