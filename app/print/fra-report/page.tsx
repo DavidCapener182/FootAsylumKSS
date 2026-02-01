@@ -12,7 +12,6 @@ import { getFraReportFilename } from '@/lib/utils'
  * Used for print preview and PDF generation so content can flow across A4 pages.
  * Print: use Cmd+P / Ctrl+P from this page for correct A4 pagination.
  * PDF: generated server-side via Puppeteer loading this URL with print media.
- * DOCX: generated server-side from FRA structured data (mapHSAuditToFRAData) using the docx library.
  */
 export default function FRAPrintReportPage({
   searchParams,
@@ -25,7 +24,6 @@ export default function FRAPrintReportPage({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [generatingPdf, setGeneratingPdf] = useState(false)
-  const [generatingDocx, setGeneratingDocx] = useState(false)
 
   const fetchData = async () => {
     if (!instanceId) {
@@ -131,39 +129,6 @@ export default function FRAPrintReportPage({
       setGeneratingPdf(false)
     }
   }
-  const handleDownloadDOCX = async () => {
-    if (!instanceId) return
-    setGeneratingDocx(true)
-    try {
-      const url = `/api/fra-reports/generate-docx?instanceId=${instanceId}&t=${Date.now()}`
-      const response = await fetch(url, { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } })
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        const msg = errorData.details || errorData.error || 'Failed to generate DOCX'
-        throw new Error(msg)
-      }
-      const blob = await response.blob()
-      const cd = response.headers.get('Content-Disposition')
-      let filename = `FRA-${(fraData?.premises ?? 'Report').replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '-').slice(0, 40)}-${Date.now()}.docx`
-      if (cd) {
-        const match = cd.match(/filename[*]?=(?:UTF-8'')?"?([^";\n]+)"?/i)
-        if (match?.[1]) filename = match[1].trim().replace(/^["']|["']$/g, '')
-      }
-      const objectUrl = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = objectUrl
-      a.download = filename
-      a.style.display = 'none'
-      document.body.appendChild(a)
-      a.click()
-      window.URL.revokeObjectURL(objectUrl)
-      document.body.removeChild(a)
-    } catch (err: any) {
-      alert(`Failed to download DOCX: ${err?.message || 'Unknown error'}`)
-    } finally {
-      setGeneratingDocx(false)
-    }
-  }
   const handleClosePreview = () => {
     if (instanceId) router.push(`/audit-lab/view-fra-report?instanceId=${instanceId}`)
   }
@@ -172,13 +137,10 @@ export default function FRAPrintReportPage({
     <div className="fra-print-page-root min-h-screen flex flex-col bg-white">
       <div className="no-print flex items-center justify-center gap-4 bg-slate-200 py-2 px-4 border-b border-slate-300 shrink-0">
         <span className="text-sm text-slate-600">
-          Use <strong>Print</strong> (or Cmd+P / Ctrl+P) to print multiple A4 pages. Use <strong>Download PDF</strong> or <strong>Download DOCX</strong>. This toolbar will not appear on the printed document.
+          Use <strong>Print</strong> (or Cmd+P / Ctrl+P) to print multiple A4 pages. Use <strong>Download PDF</strong> to export. This toolbar will not appear on the printed document.
         </span>
-        <Button variant="default" size="sm" onClick={handleDownloadPDF} disabled={generatingPdf || generatingDocx} className="bg-indigo-600 hover:bg-indigo-500">
+        <Button variant="default" size="sm" onClick={handleDownloadPDF} disabled={generatingPdf} className="bg-indigo-600 hover:bg-indigo-500">
           {generatingPdf ? (<><Loader2 className="h-4 w-4 mr-2 animate-spin" />Generating...</>) : (<><Download className="h-4 w-4 mr-2" />Download PDF</>)}
-        </Button>
-        <Button variant="default" size="sm" onClick={handleDownloadDOCX} disabled={generatingPdf || generatingDocx} className="bg-indigo-600 hover:bg-indigo-500">
-          {generatingDocx ? (<><Loader2 className="h-4 w-4 mr-2 animate-spin" />Generating...</>) : (<><Download className="h-4 w-4 mr-2" />Download DOCX</>)}
         </Button>
         <Button variant="default" size="sm" onClick={handlePrint} className="bg-slate-700 hover:bg-slate-600">
           <Printer className="h-4 w-4 mr-2" />Print

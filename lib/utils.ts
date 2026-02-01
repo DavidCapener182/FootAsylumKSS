@@ -50,6 +50,32 @@ function formatDateForFilename(dateStr: string | null | undefined): string {
 }
 
 /**
+ * Parse filename from Content-Disposition header.
+ * Supports RFC 5987 (filename*=UTF-8''...) and legacy filename="..." or filename=...
+ */
+export function parseContentDispositionFilename(
+  contentDisposition: string | null,
+  fallback: string
+): string {
+  if (!contentDisposition || typeof contentDisposition !== 'string') return fallback
+  const cd = contentDisposition.trim()
+  const matchStar = cd.match(/filename\*=UTF-8''([^;\s]+)/i)
+  if (matchStar?.[1]) {
+    try {
+      return decodeURIComponent(matchStar[1].replace(/"/g, ''))
+    } catch {
+      return fallback
+    }
+  }
+  const matchQuoted = cd.match(/filename=([^;]*)/i)
+  if (matchQuoted?.[1]) {
+    const v = matchQuoted[1].trim().replace(/^["']|["']$/g, '')
+    if (v) return v
+  }
+  return fallback
+}
+
+/**
  * Build FRA report download filename: "FRA - (Store name) (DD-MMM-YYYY).pdf" or ".docx"
  */
 export function getFraReportFilename(

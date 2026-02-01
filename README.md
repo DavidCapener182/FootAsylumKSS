@@ -191,9 +191,20 @@ Fire Risk Assessments (FRA) support A4 print, PDF download, and DOCX download.
 
 - **Print**: FRA is designed to be printed from the standalone `/print/fra-report` page (or after “Print preview”). The scroll container on the main view page is expanded in `@media print` so printing from the view page still includes all content; for best results, use “Print preview”, which uses the print-document body class and A4 section layout.
 - **PDF**: Generated server-side via Puppeteer loading `/print/fra-report` with print media and exporting to PDF; margins and page size match A4 and `@page` (15mm).
-- **DOCX**: Generated server-side from the same FRA structured data (`mapHSAuditToFRAData`) using the `docx` library; page breaks are inserted between major sections; filename format is `FRA - (Store Name) (DD-MMM-YYYY).docx`.
+- **DOCX**: Generated server-side from the same FRA structured data (`mapHSAuditToFRAData`) using the `docx` library; page breaks are inserted between major sections; filename format is timestamped `FRA-{StoreName}-{ISO}.docx`.
 
-Download filenames follow: `FRA - (Store Name) (DD-MMM-YYYY).pdf` or `.docx`.
+Download filenames follow: `FRA - (Store Name) (DD-MMM-YYYY).pdf` or `FRA-{StoreName}-{timestamp}.docx`.
+
+### Verifying DOCX in DevTools
+
+To confirm the DOCX download is correctly generated and served (no stale cache, no HTML error page):
+
+1. Open DevTools → Network tab, trigger "Download DOCX"
+2. **Content-Type**: Response header should be `application/vnd.openxmlformats-officedocument.wordprocessingml.document`
+3. **Response**: Binary; first bytes should be `PK` (ZIP/DOCX magic)
+4. **Size**: Response body > 10 KB (HTML error pages are typically smaller)
+5. **Content-Disposition**: Header includes `attachment; filename="FRA-...-...docx"`; filename changes each download (timestamp)
+6. **Build stamp**: Open the DOCX in Microsoft Word and scroll to the end; the document includes a final line `Generated: {ISO} | Instance: {id} | Build: {hash}` that updates on each generation
 
 ## Notes
 

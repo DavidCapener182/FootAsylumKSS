@@ -29,7 +29,6 @@ export default function FRAReportViewPage({
   const [saveSuccess, setSaveSuccess] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [generatingPdf, setGeneratingPdf] = useState(false)
-  const [generatingDocx, setGeneratingDocx] = useState(false)
 
   const fetchData = async () => {
     if (!instanceId) {
@@ -186,40 +185,6 @@ export default function FRAReportViewPage({
     }
   }
 
-  const handleDownloadDOCX = async () => {
-    if (!instanceId) return
-    setGeneratingDocx(true)
-    try {
-      const url = `/api/fra-reports/generate-docx?instanceId=${instanceId}&t=${Date.now()}`
-      const response = await fetch(url, { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } })
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.details || errorData.error || 'Failed to generate DOCX')
-      }
-      const blob = await response.blob()
-      const cd = response.headers.get('Content-Disposition')
-      let filename = `FRA-${(fraData?.premises ?? 'Report').replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '-').slice(0, 40)}-${Date.now()}.docx`
-      if (cd) {
-        const match = cd.match(/filename[*]?=(?:UTF-8'')?"?([^";\n]+)"?/i)
-        if (match?.[1]) filename = match[1].trim().replace(/^["']|["']$/g, '')
-      }
-      const objectUrl = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = objectUrl
-      a.download = filename
-      a.style.display = 'none'
-      document.body.appendChild(a)
-      a.click()
-      window.URL.revokeObjectURL(objectUrl)
-      document.body.removeChild(a)
-    } catch (err: any) {
-      console.error('Error downloading DOCX:', err)
-      alert(`Failed to download DOCX: ${err.message || 'Unknown error'}`)
-    } finally {
-      setGeneratingDocx(false)
-    }
-  }
-
   const handlePrintPreview = () => {
     if (!instanceId) return
     const base = typeof window !== 'undefined' ? window.location.origin : ''
@@ -267,7 +232,7 @@ export default function FRAReportViewPage({
             variant="default"
             size="sm"
             onClick={handleDownloadPDF}
-            disabled={generatingPdf || generatingDocx || !fraData}
+            disabled={generatingPdf || !fraData}
             className="bg-indigo-600 hover:bg-indigo-500"
           >
             {generatingPdf ? (
@@ -279,25 +244,6 @@ export default function FRAReportViewPage({
               <>
                 <Download className="h-4 w-4 mr-2" />
                 Download PDF
-              </>
-            )}
-          </Button>
-          <Button
-            variant="default"
-            size="sm"
-            onClick={handleDownloadDOCX}
-            disabled={generatingPdf || generatingDocx || !fraData}
-            className="bg-indigo-600 hover:bg-indigo-500"
-          >
-            {generatingDocx ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Generating...
-              </>
-            ) : (
-              <>
-                <Download className="h-4 w-4 mr-2" />
-                Download DOCX
               </>
             )}
           </Button>
