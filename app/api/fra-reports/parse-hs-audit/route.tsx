@@ -3,21 +3,9 @@ import { createClient } from '@/lib/supabase/server'
 import { getLatestHSAuditForStore } from '@/app/actions/fra-reports'
 
 export const dynamic = 'force-dynamic'
-export const runtime = 'nodejs'
 
 export async function POST(request: NextRequest) {
   try {
-    // Polyfill DOMMatrix for Node (pdf.js / pdf-parse can require it; avoids "DOMMatrix is not defined")
-    if (typeof (globalThis as any).DOMMatrix === 'undefined') {
-      try {
-        const dommatrix = await import('@thednp/dommatrix')
-        const DOMMatrixClass = (dommatrix as any).default ?? (dommatrix as any).DOMMatrix
-        if (DOMMatrixClass) (globalThis as any).DOMMatrix = DOMMatrixClass
-      } catch (_) {
-        // ignore polyfill failure
-      }
-    }
-
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
@@ -45,131 +33,137 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'File size must be less than 10MB' }, { status: 400 })
     }
 
-    // Parse PDF to extract text. Option A: pdf-parse first (Node-friendly, no worker/bundle issues).
-    // Fallback to PDF.js only if pdf-parse fails or returns empty.
+    // Parse PDF to extract text - use the same robust parsing logic as audit-import
+    // If parsing fails, we'll still upload the PDF and use database H&S audit
     let pdfText = ''
     let parseError: string | null = null
-
-    const runPdfParse = async (buffer: Buffer): Promise<string> => {
-      // CJS require() so pdf-parse is callable in prod (ESM default-export interop can break)
-      const { createRequire } = await import('module')
-      const requireMod = createRequire(process.cwd() + '/package.json')
-      const pdfParse = requireMod('pdf-parse') as (buffer: Buffer) => Promise<{ text: string; numpages?: number }>
-      const data = await pdfParse(buffer)
-      return data?.text ?? ''
-    }
-
-    const runPdfJsExtraction = async (pdfjsMod: any, buffer: Buffer): Promise<string> => {
-      const pdfjs = pdfjsMod?.default ?? pdfjsMod
-      if (!pdfjs?.getDocument) throw new Error('getDocument not found on pdfjs module')
-      if (pdfjs.GlobalWorkerOptions) {
-        const { createRequire } = await import('module')
-        const { pathToFileURL } = await import('url')
-        const require = createRequire(process.cwd() + '/package.json')
-        const workerPath = (() => {
-          try { return require.resolve('pdfjs-dist/legacy/build/pdf.worker.min.mjs') } catch { }
-          try { return require.resolve('pdfjs-dist/build/pdf.worker.min.mjs') } catch { }
-          try { return require.resolve('pdfjs-dist/legacy/build/pdf.worker.mjs') } catch { }
-          try { return require.resolve('pdfjs-dist/build/pdf.worker.mjs') } catch { }
-          return null
-        })()
-        if (workerPath) {
-          console.log('[PARSE] pdfjs worker resolved to:', workerPath)
-          pdfjs.GlobalWorkerOptions.workerSrc = pathToFileURL(workerPath).href
-        }
-      }
-      const loadingTask = pdfjs.getDocument({ data: new Uint8Array(buffer), disableWorker: true })
-      const pdf = await loadingTask.promise
-      const pageLimit = Math.min(pdf.numPages, 50)
-      const pages: string[] = []
-      for (let i = 1; i <= pageLimit; i++) {
-        const page = await pdf.getPage(i)
-        const content = await page.getTextContent()
-        const strings = (content?.items ?? []).map((item: any) => item?.str ?? '')
-        pages.push(strings.join(' '))
-      }
-      return pages.join('\n\n')
-    }
-
+    
     try {
       const arrayBuffer = await file.arrayBuffer()
       const buffer = Buffer.from(arrayBuffer)
+      
+      const resolveParser = (mod: any) => {
+        // Match EXACTLY the audit-import route which works
+        if (typeof mod === 'function') return mod
+        if (typeof mod?.default === 'function') return mod.default
+        if (typeof mod?.default === 'object') {
+          if (typeof mod.default.parse === 'function') return mod.default.parse
+          if (typeof mod.default.PDFParse === 'function') return mod.default.PDFParse
+        }
+        if (typeof mod?.parse === 'function') return mod.parse
+        if (typeof mod?.pdfParse === 'function') return mod.pdfParse
+        if (typeof mod?.PDFParse === 'function') return mod.PDFParse
+        return null
+      }
 
-      if (buffer.length > 0) {
-        // 1) pdf-parse first (recommended for server-side; avoids "e is not a function" in prod)
+      const runParser = async (parser: any, input: Buffer) => {
+        // If parser is a function, try calling it (for default export that's a function)
+        if (typeof parser === 'function') {
+          try {
+            return await parser(input)
+          } catch (error: any) {
+            // "Class constructor PDFParse cannot be invoked without 'new'"
+            // PDFParse is a class: use new parser({ data: input }) then instance.getText()
+            if (String(error?.message || '').includes('cannot be invoked without') || 
+                String(error?.message || '').includes('Class constructor')) {
+              const instance = new parser({ data: input })
+              if (typeof instance.getText === 'function') {
+                const result = await instance.getText()
+                return result // { text: string, ... }
+              }
+            }
+            throw error
+          }
+        }
+        if (parser && typeof parser.parse === 'function') {
+          return await parser.parse(input)
+        }
+        if (parser && typeof parser.PDFParse === 'function') {
+          const instance = new parser.PDFParse({ data: input })
+          if (typeof instance.getText === 'function') {
+            return await instance.getText()
+          }
+          throw new Error('PDFParse instance has no getText method')
+        }
+        throw new Error('No valid pdf parser function found')
+      }
+
+      let parser: any = null
+      try {
+        const mod = await import('pdf-parse/node')
+        parser = resolveParser(mod)
+        if (!parser) {
+          throw new Error(`pdf-parse/node export not callable. Keys: ${Object.keys(mod || {}).join(', ')}`)
+        }
+      } catch (error: any) {
+        console.error('[PARSE] pdf-parse/node load failed:', error)
         try {
-          console.log('[PARSE] Trying pdf-parse...')
-          pdfText = await runPdfParse(buffer)
+          const mod = await import('pdf-parse')
+          parser = resolveParser(mod)
+          if (!parser) {
+            throw new Error(`pdf-parse export not callable. Keys: ${Object.keys(mod || {}).join(', ')}`)
+          }
+        } catch (fallbackError: any) {
+          console.error('[PARSE] pdf-parse fallback failed, will try pdfjs-dist:', fallbackError)
+          parseError = `pdf-parse failed: ${fallbackError.message}`
+          parser = null
+        }
+      }
+      
+      if (parser) {
+        console.log('[PARSE] Calling runParser with buffer length:', buffer.length)
+        try {
+          const parsed = await runParser(parser, buffer)
+          console.log('[PARSE] runParser completed, result type:', typeof parsed, 'has text:', !!parsed?.text)
+          pdfText = parsed?.text || parsed || ''
+          console.log('[PARSE] Extracted text length:', pdfText.length)
+        } catch (runError: any) {
+          console.error('[PARSE] runParser failed:', runError.message, runError.stack)
+          parseError = `Parser execution failed: ${runError.message}`
+          parser = null
+        }
+      }
+
+      // Fallback: use pdfjs-dist (pure JS, works on Windows when pdf-parse fails)
+      if ((!pdfText || pdfText.trim().length === 0) && buffer && buffer.length > 0) {
+        try {
+          console.log('[PARSE] Trying pdfjs-dist fallback (cross-platform)...')
+          const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs')
+          const loadingTask = (pdfjs as any).getDocument({
+            data: new Uint8Array(buffer),
+            disableWorker: true,
+          })
+          const pdf = await loadingTask.promise
+          const numPages = pdf.numPages
+          const pageLimit = Math.min(numPages, 50)
+          const pages: string[] = []
+          for (let i = 1; i <= pageLimit; i += 1) {
+            const page = await pdf.getPage(i)
+            const content = await page.getTextContent()
+            const strings = (content.items as { str?: string }[]).map((item) => item.str ?? '')
+            pages.push(strings.join(' '))
+          }
+          pdfText = pages.join('\n\n')
           if (pdfText.trim().length > 0) {
-            console.log('[PARSE] ✓ pdf-parse extracted text length:', pdfText.length)
+            console.log('[PARSE] ✓ pdfjs-dist extracted text length:', pdfText.length, 'pages:', pageLimit)
             parseError = null
           }
-        } catch (pdfParseErr: any) {
-          console.error('[PARSE] pdf-parse failed', pdfParseErr, {
-            name: pdfParseErr?.name,
-            message: pdfParseErr?.message,
-            stack: pdfParseErr?.stack,
-          })
-          parseError = String(pdfParseErr?.stack || pdfParseErr?.message || pdfParseErr)
+        } catch (pdfjsError: any) {
+          console.error('[PARSE] pdfjs-dist fallback failed:', pdfjsError?.message)
+          if (!parseError) parseError = pdfjsError?.message || 'PDF text extraction failed'
         }
-
-        // 2) Fallback: PDF.js only if pdf-parse failed or returned no text
-        if (pdfText.trim().length === 0) {
-          try {
-            console.log('[PARSE] Trying pdfjs-dist (legacy build)...')
-            const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs')
-            pdfText = await runPdfJsExtraction(pdfjs, buffer)
-            if (pdfText.trim().length > 0) {
-              console.log('[PARSE] ✓ pdfjs-dist extracted text length:', pdfText.length)
-              parseError = null
-            }
-          } catch (legacyErr: any) {
-            console.error('[PARSE] pdfjs-dist/legacy failed', legacyErr, {
-              name: legacyErr?.name,
-              message: legacyErr?.message,
-              stack: legacyErr?.stack,
-            })
-            if (!parseError) parseError = String(legacyErr?.stack || legacyErr?.message || legacyErr)
-          }
-          if (pdfText.trim().length === 0) {
-            try {
-              console.log('[PARSE] Trying pdfjs-dist (main build)...')
-              const pdfjs = await import('pdfjs-dist/build/pdf.mjs')
-              pdfText = await runPdfJsExtraction(pdfjs, buffer)
-              if (pdfText.trim().length > 0) {
-                console.log('[PARSE] ✓ pdfjs-dist extracted text length:', pdfText.length)
-                parseError = null
-              }
-            } catch (mainErr: any) {
-              console.error('[PARSE] pdfjs-dist/build failed', mainErr, {
-                name: mainErr?.name,
-                message: mainErr?.message,
-                stack: mainErr?.stack,
-              })
-              if (!parseError) parseError = String(mainErr?.stack || mainErr?.message || mainErr)
-            }
-          }
-        }
-      }
-
-      if (!pdfText?.trim() && !parseError) {
-        parseError = 'PDF text extraction failed. Try re-uploading a text-based PDF or enter data manually.'
       }
     } catch (error: any) {
-      console.error('[PARSE] Error parsing PDF (will continue anyway)', error, {
-        name: error?.name,
-        message: error?.message,
-        stack: error?.stack,
-      })
-      parseError = String(error?.stack || error?.message || error)
+      console.error('[PARSE] Error parsing PDF (will continue anyway):', error.message, error.stack)
+      parseError = error.message || 'Unknown parsing error'
+      // Don't return error - continue to upload the PDF anyway
     }
 
-    // Sanity check: extracted length + first 200 chars (if still 0, next suspect is image-only PDF / OCR)
     console.log('[PARSE] PDF parsing result:', {
       pdfTextLength: pdfText?.length || 0,
       hasText: !!(pdfText && pdfText.trim().length > 0),
       parseError: parseError || null,
-      first200Chars: pdfText ? pdfText.substring(0, 200).replace(/\s+/g, ' ').trim() : null
+      firstChars: pdfText ? pdfText.substring(0, 100) : null
     })
     
     if (!pdfText || pdfText.trim().length === 0) {
