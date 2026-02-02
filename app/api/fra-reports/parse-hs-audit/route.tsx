@@ -112,7 +112,11 @@ export async function POST(request: NextRequest) {
             parseError = null
           }
         } catch (legacyErr: any) {
-          console.warn('[PARSE] pdfjs-dist/legacy failed:', legacyErr?.message, legacyErr?.stack?.slice(0, 200))
+          console.error('[PARSE] pdfjs-dist/legacy failed', legacyErr, {
+            name: legacyErr?.name,
+            message: legacyErr?.message,
+            stack: legacyErr?.stack,
+          })
           if (!parseError) parseError = legacyErr?.message || 'pdfjs-dist extraction failed'
         }
         if (pdfText.trim().length === 0) {
@@ -125,7 +129,11 @@ export async function POST(request: NextRequest) {
               parseError = null
             }
           } catch (mainErr: any) {
-            console.warn('[PARSE] pdfjs-dist/build failed:', mainErr?.message, mainErr?.stack?.slice(0, 200))
+            console.error('[PARSE] pdfjs-dist/build failed', mainErr, {
+              name: mainErr?.name,
+              message: mainErr?.message,
+              stack: mainErr?.stack,
+            })
             if (!parseError) parseError = mainErr?.message || 'pdfjs-dist extraction failed'
           }
         }
@@ -198,7 +206,11 @@ export async function POST(request: NextRequest) {
         parseError = 'PDF text extraction failed. Try re-uploading a text-based PDF or enter data manually.'
       }
     } catch (error: any) {
-      console.error('[PARSE] Error parsing PDF (will continue anyway):', error.message, error.stack)
+      console.error('[PARSE] Error parsing PDF (will continue anyway)', error, {
+        name: error?.name,
+        message: error?.message,
+        stack: error?.stack,
+      })
       parseError = parseError || error.message || 'Unknown parsing error'
     }
 
