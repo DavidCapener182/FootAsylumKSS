@@ -90,37 +90,45 @@ export async function POST(request: NextRequest) {
       }
 
       let parser: any = null
-      try {
-        const mod = await import('pdf-parse/node')
-        parser = resolveParser(mod)
-        if (!parser) {
-          throw new Error(`pdf-parse/node export not callable. Keys: ${Object.keys(mod || {}).join(', ')}`)
-        }
-      } catch (error: any) {
-        console.error('[PARSE] pdf-parse/node load failed:', error)
-        try {
-          const mod = await import('pdf-parse')
-          parser = resolveParser(mod)
-          if (!parser) {
-            throw new Error(`pdf-parse export not callable. Keys: ${Object.keys(mod || {}).join(', ')}`)
-          }
-        } catch (fallbackError: any) {
-          console.error('[PARSE] pdf-parse fallback failed, will try pdfjs-dist:', fallbackError)
-          parseError = `pdf-parse failed: ${fallbackError.message}`
-          parser = null
-        }
-      }
 
-      // Prod: dynamic import can return non-callable (ESM interop). Use require() so parser is callable.
-      if (!parser && process.env.NODE_ENV === 'production') {
+      // Production: use require() first so we always get a callable (avoids "t is not a function" from ESM bundle).
+      if (process.env.NODE_ENV === 'production') {
         try {
           const { createRequire } = await import('module')
           const requireMod = createRequire(process.cwd() + '/package.json')
           const mod = requireMod('pdf-parse')
           parser = resolveParser(mod)
-          if (parser) console.log('[PARSE] pdf-parse loaded via require (production)')
+          if (parser && typeof parser === 'function') {
+            console.log('[PARSE] pdf-parse loaded via require (production)')
+          } else {
+            parser = null
+          }
         } catch (e: any) {
           console.warn('[PARSE] require("pdf-parse") in prod failed:', e?.message)
+        }
+      }
+
+      // Dev (or prod if require failed): dynamic import
+      if (!parser) {
+        try {
+          const mod = await import('pdf-parse/node')
+          parser = resolveParser(mod)
+          if (!parser) {
+            throw new Error(`pdf-parse/node export not callable. Keys: ${Object.keys(mod || {}).join(', ')}`)
+          }
+        } catch (error: any) {
+          console.error('[PARSE] pdf-parse/node load failed:', error)
+          try {
+            const mod = await import('pdf-parse')
+            parser = resolveParser(mod)
+            if (!parser) {
+              throw new Error(`pdf-parse export not callable. Keys: ${Object.keys(mod || {}).join(', ')}`)
+            }
+          } catch (fallbackError: any) {
+            console.error('[PARSE] pdf-parse fallback failed, will try pdfjs-dist:', fallbackError)
+            parseError = `pdf-parse failed: ${fallbackError.message}`
+            parser = null
+          }
         }
       }
 
