@@ -51,52 +51,12 @@ export async function POST(request: NextRequest) {
     let parseError: string | null = null
 
     const runPdfParse = async (buffer: Buffer): Promise<string> => {
-      const resolveParser = (mod: any) => {
-        if (typeof mod === 'function') return mod
-        if (typeof mod?.default === 'function') return mod.default
-        if (typeof mod?.default === 'object') {
-          if (typeof mod.default.parse === 'function') return mod.default.parse
-          if (typeof mod.default.PDFParse === 'function') return mod.default.PDFParse
-        }
-        if (typeof mod?.parse === 'function') return mod.parse
-        if (typeof mod?.pdfParse === 'function') return mod.pdfParse
-        if (typeof mod?.PDFParse === 'function') return mod.PDFParse
-        return null
-      }
-      const runParser = async (parser: any, input: Buffer) => {
-        if (typeof parser === 'function') {
-          try {
-            return await parser(input)
-          } catch (err: any) {
-            if (String(err?.message || '').includes('cannot be invoked without') ||
-                String(err?.message || '').includes('Class constructor')) {
-              const instance = new parser({ data: input })
-              if (typeof instance.getText === 'function') return await instance.getText()
-              throw err
-            }
-            throw err
-          }
-        }
-        if (parser && typeof parser.parse === 'function') return await parser.parse(input)
-        if (parser && typeof parser.PDFParse === 'function') {
-          const instance = new parser.PDFParse({ data: input })
-          if (typeof instance.getText === 'function') return await instance.getText()
-          throw new Error('PDFParse instance has no getText method')
-        }
-        throw new Error('No valid pdf parser function found')
-      }
-      let parser: any = null
-      try {
-        const mod = await import('pdf-parse/node')
-        parser = resolveParser(mod)
-      } catch {
-        const mod = await import('pdf-parse')
-        parser = resolveParser(mod)
-      }
-      if (!parser) throw new Error('pdf-parse export not callable')
-      const parsed = await runParser(parser, buffer)
-      const text = parsed?.text ?? (typeof parsed === 'string' ? parsed : '')
-      return text || ''
+      // CJS require() so pdf-parse is callable in prod (ESM default-export interop can break)
+      const { createRequire } = await import('module')
+      const requireMod = createRequire(process.cwd() + '/package.json')
+      const pdfParse = requireMod('pdf-parse') as (buffer: Buffer) => Promise<{ text: string; numpages?: number }>
+      const data = await pdfParse(buffer)
+      return data?.text ?? ''
     }
 
     const runPdfJsExtraction = async (pdfjsMod: any, buffer: Buffer): Promise<string> => {
