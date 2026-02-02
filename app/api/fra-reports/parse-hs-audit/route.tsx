@@ -104,9 +104,9 @@ export async function POST(request: NextRequest) {
             throw new Error(`pdf-parse export not callable. Keys: ${Object.keys(mod || {}).join(', ')}`)
           }
         } catch (fallbackError: any) {
-          console.error('[PARSE] pdf-parse fallback failed:', fallbackError)
-          parseError = `Failed to load PDF parser: ${fallbackError.message}`
-          throw fallbackError
+          console.error('[PARSE] pdf-parse fallback failed, will try pdfjs-dist:', fallbackError)
+          parseError = `pdf-parse failed: ${fallbackError.message}`
+          parser = null
         }
       }
       
@@ -120,10 +120,38 @@ export async function POST(request: NextRequest) {
         } catch (runError: any) {
           console.error('[PARSE] runParser failed:', runError.message, runError.stack)
           parseError = `Parser execution failed: ${runError.message}`
-          throw runError
+          parser = null
         }
-      } else {
-        parseError = 'No PDF parser available'
+      }
+
+      // Fallback: use pdfjs-dist (pure JS, works on Windows when pdf-parse fails)
+      if ((!pdfText || pdfText.trim().length === 0) && buffer && buffer.length > 0) {
+        try {
+          console.log('[PARSE] Trying pdfjs-dist fallback (cross-platform)...')
+          const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs')
+          const loadingTask = (pdfjs as any).getDocument({
+            data: new Uint8Array(buffer),
+            disableWorker: true,
+          })
+          const pdf = await loadingTask.promise
+          const numPages = pdf.numPages
+          const pageLimit = Math.min(numPages, 50)
+          const pages: string[] = []
+          for (let i = 1; i <= pageLimit; i += 1) {
+            const page = await pdf.getPage(i)
+            const content = await page.getTextContent()
+            const strings = (content.items as { str?: string }[]).map((item) => item.str ?? '')
+            pages.push(strings.join(' '))
+          }
+          pdfText = pages.join('\n\n')
+          if (pdfText.trim().length > 0) {
+            console.log('[PARSE] ✓ pdfjs-dist extracted text length:', pdfText.length, 'pages:', pageLimit)
+            parseError = null
+          }
+        } catch (pdfjsError: any) {
+          console.error('[PARSE] pdfjs-dist fallback failed:', pdfjsError?.message)
+          if (!parseError) parseError = pdfjsError?.message || 'PDF text extraction failed'
+        }
       }
     } catch (error: any) {
       console.error('[PARSE] Error parsing PDF (will continue anyway):', error.message, error.stack)
