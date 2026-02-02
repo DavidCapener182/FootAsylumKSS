@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getLatestHSAuditForStore } from '@/app/actions/fra-reports'
 
 export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 
 export async function POST(request: NextRequest) {
   try {
@@ -109,7 +110,20 @@ export async function POST(request: NextRequest) {
           parser = null
         }
       }
-      
+
+      // Prod: dynamic import can return non-callable (ESM interop). Use require() so parser is callable.
+      if (!parser && process.env.NODE_ENV === 'production') {
+        try {
+          const { createRequire } = await import('module')
+          const requireMod = createRequire(process.cwd() + '/package.json')
+          const mod = requireMod('pdf-parse')
+          parser = resolveParser(mod)
+          if (parser) console.log('[PARSE] pdf-parse loaded via require (production)')
+        } catch (e: any) {
+          console.warn('[PARSE] require("pdf-parse") in prod failed:', e?.message)
+        }
+      }
+
       if (parser) {
         console.log('[PARSE] Calling runParser with buffer length:', buffer.length)
         try {
