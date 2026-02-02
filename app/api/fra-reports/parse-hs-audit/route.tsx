@@ -45,23 +45,67 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'File size must be less than 10MB' }, { status: 400 })
     }
 
-    // Parse PDF to extract text. Use pdfjs-dist FIRST (pure JS, no DOMMatrix) so we avoid
-    // "DOMMatrix is not defined" on some environments; fall back to pdf-parse only if needed.
+    // Parse PDF to extract text. Option A: pdf-parse first (Node-friendly, no worker/bundle issues).
+    // Fallback to PDF.js only if pdf-parse fails or returns empty.
     let pdfText = ''
     let parseError: string | null = null
 
+    const runPdfParse = async (buffer: Buffer): Promise<string> => {
+      const resolveParser = (mod: any) => {
+        if (typeof mod === 'function') return mod
+        if (typeof mod?.default === 'function') return mod.default
+        if (typeof mod?.default === 'object') {
+          if (typeof mod.default.parse === 'function') return mod.default.parse
+          if (typeof mod.default.PDFParse === 'function') return mod.default.PDFParse
+        }
+        if (typeof mod?.parse === 'function') return mod.parse
+        if (typeof mod?.pdfParse === 'function') return mod.pdfParse
+        if (typeof mod?.PDFParse === 'function') return mod.PDFParse
+        return null
+      }
+      const runParser = async (parser: any, input: Buffer) => {
+        if (typeof parser === 'function') {
+          try {
+            return await parser(input)
+          } catch (err: any) {
+            if (String(err?.message || '').includes('cannot be invoked without') ||
+                String(err?.message || '').includes('Class constructor')) {
+              const instance = new parser({ data: input })
+              if (typeof instance.getText === 'function') return await instance.getText()
+              throw err
+            }
+            throw err
+          }
+        }
+        if (parser && typeof parser.parse === 'function') return await parser.parse(input)
+        if (parser && typeof parser.PDFParse === 'function') {
+          const instance = new parser.PDFParse({ data: input })
+          if (typeof instance.getText === 'function') return await instance.getText()
+          throw new Error('PDFParse instance has no getText method')
+        }
+        throw new Error('No valid pdf parser function found')
+      }
+      let parser: any = null
+      try {
+        const mod = await import('pdf-parse/node')
+        parser = resolveParser(mod)
+      } catch {
+        const mod = await import('pdf-parse')
+        parser = resolveParser(mod)
+      }
+      if (!parser) throw new Error('pdf-parse export not callable')
+      const parsed = await runParser(parser, buffer)
+      const text = parsed?.text ?? (typeof parsed === 'string' ? parsed : '')
+      return text || ''
+    }
+
     const runPdfJsExtraction = async (pdfjsMod: any, buffer: Buffer): Promise<string> => {
       const pdfjs = pdfjsMod?.default ?? pdfjsMod
-
-      if (!pdfjs?.getDocument) {
-        throw new Error('getDocument not found on pdfjs module')
-      }
-
+      if (!pdfjs?.getDocument) throw new Error('getDocument not found on pdfjs module')
       if (pdfjs.GlobalWorkerOptions) {
         const { createRequire } = await import('module')
         const { pathToFileURL } = await import('url')
         const require = createRequire(process.cwd() + '/package.json')
-
         const workerPath = (() => {
           try { return require.resolve('pdfjs-dist/legacy/build/pdf.worker.min.mjs') } catch { }
           try { return require.resolve('pdfjs-dist/build/pdf.worker.min.mjs') } catch { }
@@ -69,31 +113,21 @@ export async function POST(request: NextRequest) {
           try { return require.resolve('pdfjs-dist/build/pdf.worker.mjs') } catch { }
           return null
         })()
-
-        if (!workerPath) {
-          throw new Error('PDF.js worker file not found in pdfjs-dist. Check installed version/paths.')
+        if (workerPath) {
+          console.log('[PARSE] pdfjs worker resolved to:', workerPath)
+          pdfjs.GlobalWorkerOptions.workerSrc = pathToFileURL(workerPath).href
         }
-
-        console.log('[PARSE] pdfjs worker resolved to:', workerPath)
-        pdfjs.GlobalWorkerOptions.workerSrc = pathToFileURL(workerPath).href
       }
-
-      const loadingTask = pdfjs.getDocument({
-        data: new Uint8Array(buffer),
-        disableWorker: true,
-      })
-
+      const loadingTask = pdfjs.getDocument({ data: new Uint8Array(buffer), disableWorker: true })
       const pdf = await loadingTask.promise
       const pageLimit = Math.min(pdf.numPages, 50)
       const pages: string[] = []
-
       for (let i = 1; i <= pageLimit; i++) {
         const page = await pdf.getPage(i)
         const content = await page.getTextContent()
         const strings = (content?.items ?? []).map((item: any) => item?.str ?? '')
         pages.push(strings.join(' '))
       }
-
       return pages.join('\n\n')
     }
 
@@ -101,107 +135,63 @@ export async function POST(request: NextRequest) {
       const arrayBuffer = await file.arrayBuffer()
       const buffer = Buffer.from(arrayBuffer)
 
-      // 1) Try pdfjs-dist first (avoids pdf-parse / DOMMatrix issues)
       if (buffer.length > 0) {
+        // 1) pdf-parse first (recommended for server-side; avoids "e is not a function" in prod)
         try {
-          console.log('[PARSE] Trying pdfjs-dist (legacy build)...')
-          const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs')
-          pdfText = await runPdfJsExtraction(pdfjs, buffer)
+          console.log('[PARSE] Trying pdf-parse...')
+          pdfText = await runPdfParse(buffer)
           if (pdfText.trim().length > 0) {
-            console.log('[PARSE] ✓ pdfjs-dist extracted text length:', pdfText.length)
+            console.log('[PARSE] ✓ pdf-parse extracted text length:', pdfText.length)
             parseError = null
           }
-        } catch (legacyErr: any) {
-          console.error('[PARSE] pdfjs-dist/legacy failed', legacyErr, {
-            name: legacyErr?.name,
-            message: legacyErr?.message,
-            stack: legacyErr?.stack,
+        } catch (pdfParseErr: any) {
+          console.error('[PARSE] pdf-parse failed', pdfParseErr, {
+            name: pdfParseErr?.name,
+            message: pdfParseErr?.message,
+            stack: pdfParseErr?.stack,
           })
-          if (!parseError) parseError = legacyErr?.message || 'pdfjs-dist extraction failed'
+          parseError = String(pdfParseErr?.stack || pdfParseErr?.message || pdfParseErr)
         }
+
+        // 2) Fallback: PDF.js only if pdf-parse failed or returned no text
         if (pdfText.trim().length === 0) {
           try {
-            console.log('[PARSE] Trying pdfjs-dist (main build)...')
-            const pdfjs = await import('pdfjs-dist/build/pdf.mjs')
+            console.log('[PARSE] Trying pdfjs-dist (legacy build)...')
+            const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs')
             pdfText = await runPdfJsExtraction(pdfjs, buffer)
             if (pdfText.trim().length > 0) {
               console.log('[PARSE] ✓ pdfjs-dist extracted text length:', pdfText.length)
               parseError = null
             }
-          } catch (mainErr: any) {
-            console.error('[PARSE] pdfjs-dist/build failed', mainErr, {
-              name: mainErr?.name,
-              message: mainErr?.message,
-              stack: mainErr?.stack,
+          } catch (legacyErr: any) {
+            console.error('[PARSE] pdfjs-dist/legacy failed', legacyErr, {
+              name: legacyErr?.name,
+              message: legacyErr?.message,
+              stack: legacyErr?.stack,
             })
-            if (!parseError) parseError = mainErr?.message || 'pdfjs-dist extraction failed'
+            if (!parseError) parseError = String(legacyErr?.stack || legacyErr?.message || legacyErr)
+          }
+          if (pdfText.trim().length === 0) {
+            try {
+              console.log('[PARSE] Trying pdfjs-dist (main build)...')
+              const pdfjs = await import('pdfjs-dist/build/pdf.mjs')
+              pdfText = await runPdfJsExtraction(pdfjs, buffer)
+              if (pdfText.trim().length > 0) {
+                console.log('[PARSE] ✓ pdfjs-dist extracted text length:', pdfText.length)
+                parseError = null
+              }
+            } catch (mainErr: any) {
+              console.error('[PARSE] pdfjs-dist/build failed', mainErr, {
+                name: mainErr?.name,
+                message: mainErr?.message,
+                stack: mainErr?.stack,
+              })
+              if (!parseError) parseError = String(mainErr?.stack || mainErr?.message || mainErr)
+            }
           }
         }
       }
 
-      // Fallback: pdf-parse (Node-friendly; needs DOMMatrix polyfill above in Node/Edge)
-      if ((!pdfText || pdfText.trim().length === 0) && buffer.length > 0) {
-        const resolveParser = (mod: any) => {
-          if (typeof mod === 'function') return mod
-          if (typeof mod?.default === 'function') return mod.default
-          if (typeof mod?.default === 'object') {
-            if (typeof mod.default.parse === 'function') return mod.default.parse
-            if (typeof mod.default.PDFParse === 'function') return mod.default.PDFParse
-          }
-          if (typeof mod?.parse === 'function') return mod.parse
-          if (typeof mod?.pdfParse === 'function') return mod.pdfParse
-          if (typeof mod?.PDFParse === 'function') return mod.PDFParse
-          return null
-        }
-        const runParser = async (parser: any, input: Buffer) => {
-          if (typeof parser === 'function') {
-            try {
-              return await parser(input)
-            } catch (error: any) {
-              if (String(error?.message || '').includes('cannot be invoked without') ||
-                  String(error?.message || '').includes('Class constructor')) {
-                const instance = new parser({ data: input })
-                if (typeof instance.getText === 'function') return await instance.getText()
-                throw error
-              }
-              throw error
-            }
-          }
-          if (parser && typeof parser.parse === 'function') return await parser.parse(input)
-          if (parser && typeof parser.PDFParse === 'function') {
-            const instance = new parser.PDFParse({ data: input })
-            if (typeof instance.getText === 'function') return await instance.getText()
-            throw new Error('PDFParse instance has no getText method')
-          }
-          throw new Error('No valid pdf parser function found')
-        }
-        let parser: any = null
-        try {
-          const mod = await import('pdf-parse/node')
-          parser = resolveParser(mod)
-          if (!parser) throw new Error('pdf-parse/node export not callable')
-        } catch (_) {
-          try {
-            const mod = await import('pdf-parse')
-            parser = resolveParser(mod)
-          } catch (e: any) {
-            if (!parseError) parseError = `pdf-parse load failed: ${e?.message || 'unknown'}`
-          }
-        }
-        if (parser) {
-          try {
-            const parsed = await runParser(parser, buffer)
-            const text = parsed?.text ?? (typeof parsed === 'string' ? parsed : '')
-            if (text?.trim().length > 0) {
-              pdfText = text
-              parseError = null
-              console.log('[PARSE] ✓ pdf-parse extracted text length:', pdfText.length)
-            }
-          } catch (runError: any) {
-            if (!parseError) parseError = `pdf-parse failed: ${runError.message}`
-          }
-        }
-      }
       if (!pdfText?.trim() && !parseError) {
         parseError = 'PDF text extraction failed. Try re-uploading a text-based PDF or enter data manually.'
       }
@@ -211,7 +201,7 @@ export async function POST(request: NextRequest) {
         message: error?.message,
         stack: error?.stack,
       })
-      parseError = parseError || error.message || 'Unknown parsing error'
+      parseError = String(error?.stack || error?.message || error)
     }
 
     // Sanity check: extracted length + first 200 chars (if still 0, next suspect is image-only PDF / OCR)
