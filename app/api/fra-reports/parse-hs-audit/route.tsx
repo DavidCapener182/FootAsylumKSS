@@ -39,7 +39,15 @@ export async function POST(request: NextRequest) {
     let parseError: string | null = null
 
     const runPdfJsExtraction = async (pdfjs: any, buffer: Buffer): Promise<string> => {
-      const loadingTask = pdfjs.getDocument({
+      const getDocumentFn = (pdfjs.default && typeof pdfjs.default.getDocument === 'function')
+        ? pdfjs.default.getDocument
+        : typeof pdfjs.getDocument === 'function'
+          ? pdfjs.getDocument
+          : null
+      if (!getDocumentFn) {
+        throw new Error('getDocument not found on pdfjs module')
+      }
+      const loadingTask = getDocumentFn({
         data: new Uint8Array(buffer),
         disableWorker: true,
       })
@@ -72,7 +80,7 @@ export async function POST(request: NextRequest) {
             parseError = null
           }
         } catch (legacyErr: any) {
-          console.warn('[PARSE] pdfjs-dist/legacy failed:', legacyErr?.message)
+          console.warn('[PARSE] pdfjs-dist/legacy failed:', legacyErr?.message, legacyErr?.stack?.slice(0, 200))
           if (!parseError) parseError = legacyErr?.message || 'pdfjs-dist extraction failed'
         }
         if (pdfText.trim().length === 0) {
@@ -85,74 +93,16 @@ export async function POST(request: NextRequest) {
               parseError = null
             }
           } catch (mainErr: any) {
-            console.warn('[PARSE] pdfjs-dist/build failed:', mainErr?.message)
+            console.warn('[PARSE] pdfjs-dist/build failed:', mainErr?.message, mainErr?.stack?.slice(0, 200))
             if (!parseError) parseError = mainErr?.message || 'pdfjs-dist extraction failed'
           }
         }
       }
 
-      // 2) Fallback to pdf-parse only if pdfjs-dist yielded no text
-      if ((!pdfText || pdfText.trim().length === 0) && buffer.length > 0) {
-        const resolveParser = (mod: any) => {
-          if (typeof mod === 'function') return mod
-          if (typeof mod?.default === 'function') return mod.default
-          if (typeof mod?.default === 'object') {
-            if (typeof mod.default.parse === 'function') return mod.default.parse
-            if (typeof mod.default.PDFParse === 'function') return mod.default.PDFParse
-          }
-          if (typeof mod?.parse === 'function') return mod.parse
-          if (typeof mod?.pdfParse === 'function') return mod.pdfParse
-          if (typeof mod?.PDFParse === 'function') return mod.PDFParse
-          return null
-        }
-        const runParser = async (parser: any, input: Buffer) => {
-          if (typeof parser === 'function') {
-            try {
-              return await parser(input)
-            } catch (error: any) {
-              if (String(error?.message || '').includes('cannot be invoked without') ||
-                  String(error?.message || '').includes('Class constructor')) {
-                const instance = new parser({ data: input })
-                if (typeof instance.getText === 'function') {
-                  return await instance.getText()
-                }
-              }
-              throw error
-            }
-          }
-          if (parser && typeof parser.parse === 'function') return await parser.parse(input)
-          if (parser && typeof parser.PDFParse === 'function') {
-            const instance = new parser.PDFParse({ data: input })
-            if (typeof instance.getText === 'function') return await instance.getText()
-            throw new Error('PDFParse instance has no getText method')
-          }
-          throw new Error('No valid pdf parser function found')
-        }
-        let parser: any = null
-        try {
-          const mod = await import('pdf-parse/node')
-          parser = resolveParser(mod)
-          if (!parser) throw new Error(`pdf-parse/node export not callable`)
-        } catch (_) {
-          try {
-            const mod = await import('pdf-parse')
-            parser = resolveParser(mod)
-          } catch (e: any) {
-            parseError = parseError || `pdf-parse failed: ${e?.message || 'unknown'}`
-          }
-        }
-        if (parser) {
-          try {
-            const parsed = await runParser(parser, buffer)
-            const text = parsed?.text ?? (typeof parsed === 'string' ? parsed : '')
-            if (text?.trim().length > 0) {
-              pdfText = text
-              parseError = null
-            }
-          } catch (runError: any) {
-            if (!parseError) parseError = `Parser execution failed: ${runError.message}`
-          }
-        }
+      // No pdf-parse fallback: it throws "DOMMatrix is not defined" in many environments.
+      // If pdfjs-dist failed, we keep parseError and empty pdfText.
+      if (!pdfText?.trim() && !parseError) {
+        parseError = 'PDF text extraction failed. Try re-uploading a text-based PDF or enter data manually.'
       }
     } catch (error: any) {
       console.error('[PARSE] Error parsing PDF (will continue anyway):', error.message, error.stack)

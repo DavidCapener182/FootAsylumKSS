@@ -52,12 +52,13 @@ export default function ReviewFRADataPage({
           fields: Object.keys(data).filter(k => !k.startsWith('_') && k !== 'sources' && k !== 'hasPdfText' && k !== 'hasDatabaseAudit' && k !== 'pdfTextLength' && k !== 'rawPdfText' && k !== 'pdfExtractedCount' && k !== 'dbExtractedCount')
         })
         
-        // If no PDF text found and this is the first attempt, wait a bit and retry (PDF might still be processing)
-        if (!data.hasPdfText && !data.hasDatabaseAudit && retryCount < 2) {
-          console.log('[REVIEW] No data found, retrying in 1 second...')
-          await new Promise(resolve => setTimeout(resolve, 1000))
+        // If no PDF text found, retry once after a short delay (PDF might still be processing after upload)
+        if (!data.hasPdfText && !data.hasDatabaseAudit && retryCount < 1) {
+          console.log('[REVIEW] No data yet, retrying once in 2 seconds...')
+          await new Promise(resolve => setTimeout(resolve, 2000))
           return fetchData(retryCount + 1)
         }
+        // After retries (or when we have data), show the page; do not retry again
         
         setExtractedData(data)
         // Initialize edited data with extracted values
@@ -231,14 +232,13 @@ export default function ReviewFRADataPage({
                     )}
                   </div>
                   {extractedData && !extractedData.hasPdfText && (
-                    <div className="mt-2 p-2 bg-yellow-50 border border-yellow-300 rounded text-xs text-yellow-900">
-                      <strong>⚠️ No PDF text found.</strong> This could mean:
-                      <ul className="list-disc list-inside mt-1 space-y-0.5">
-                        <li>No H&S audit PDF was uploaded when starting the audit</li>
-                        <li>PDF parsing failed (check server/terminal logs for details)</li>
-                        <li>The PDF might be image-based (no extractable text)</li>
+                    <div className="mt-2 p-3 bg-amber-50 border border-amber-300 rounded text-sm text-amber-900">
+                      <strong>No PDF text was extracted from the H&S audit.</strong>
+                      <ul className="list-disc list-inside mt-2 space-y-0.5">
+                        <li>Go back to the audit, remove the current PDF and upload the H&S audit PDF again (parsing works on Windows and Mac).</li>
+                        <li>Or enter the information below manually and create the report.</li>
                       </ul>
-                      <p className="mt-2">You can manually enter the information below and create the report.</p>
+                      <p className="mt-2">If you re-upload the same PDF and text still does not appear, check the server or browser console for errors.</p>
                     </div>
                   )}
                 </div>
