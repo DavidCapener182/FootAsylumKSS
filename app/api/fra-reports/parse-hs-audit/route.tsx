@@ -59,6 +59,25 @@ export async function POST(request: NextRequest) {
       if (!getDocumentFn) {
         throw new Error('getDocument not found on pdfjs module')
       }
+      // Server-side: PDF.js "fake" worker still does import(workerSrc). Default "./pdf.worker.mjs"
+      // does not resolve in Node/Next → "Cannot find module '.../pdf.worker.mjs'".
+      // Set workerSrc to a resolvable file:// URL before getDocument (Option 1).
+      if (pdfjs.GlobalWorkerOptions) {
+        try {
+          const { createRequire } = await import('module')
+          const { pathToFileURL } = await import('url')
+          const requireMod = createRequire(process.cwd() + '/package.json')
+          const workerPath =
+            (() => {
+              try { return requireMod.resolve('pdfjs-dist/legacy/build/pdf.worker.mjs') } catch { }
+              try { return requireMod.resolve('pdfjs-dist/build/pdf.worker.mjs') } catch { }
+              return null
+            })()
+          if (workerPath) pdfjs.GlobalWorkerOptions.workerSrc = pathToFileURL(workerPath).href
+        } catch (_) {
+          // if resolve fails, leave as-is
+        }
+      }
       const loadingTask = getDocumentFn({
         data: new Uint8Array(buffer),
         disableWorker: true,
