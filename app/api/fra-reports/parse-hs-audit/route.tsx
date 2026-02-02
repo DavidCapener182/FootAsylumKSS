@@ -50,49 +50,50 @@ export async function POST(request: NextRequest) {
     let pdfText = ''
     let parseError: string | null = null
 
-    const runPdfJsExtraction = async (pdfjs: any, buffer: Buffer): Promise<string> => {
-      const getDocumentFn = (pdfjs.default && typeof pdfjs.default.getDocument === 'function')
-        ? pdfjs.default.getDocument
-        : typeof pdfjs.getDocument === 'function'
-          ? pdfjs.getDocument
-          : null
-      if (!getDocumentFn) {
+    const runPdfJsExtraction = async (pdfjsMod: any, buffer: Buffer): Promise<string> => {
+      const pdfjs = pdfjsMod?.default ?? pdfjsMod
+
+      if (!pdfjs?.getDocument) {
         throw new Error('getDocument not found on pdfjs module')
       }
-      // Server-side: PDF.js "fake" worker still does import(workerSrc). Default "./pdf.worker.mjs"
-      // does not resolve in Node/Next → "Cannot find module '.../pdf.worker.mjs'".
-      // Set workerSrc to a resolvable file:// URL before getDocument (Option 1).
+
       if (pdfjs.GlobalWorkerOptions) {
-        try {
-          const { createRequire } = await import('module')
-          const { pathToFileURL } = await import('url')
-          const requireMod = createRequire(process.cwd() + '/package.json')
-          const workerPath =
-            (() => {
-              try { return requireMod.resolve('pdfjs-dist/legacy/build/pdf.worker.mjs') } catch { }
-              try { return requireMod.resolve('pdfjs-dist/build/pdf.worker.mjs') } catch { }
-              return null
-            })()
-          if (workerPath) pdfjs.GlobalWorkerOptions.workerSrc = pathToFileURL(workerPath).href
-        } catch (_) {
-          // if resolve fails, leave as-is
+        const { createRequire } = await import('module')
+        const { pathToFileURL } = await import('url')
+        const require = createRequire(process.cwd() + '/package.json')
+
+        const workerPath = (() => {
+          try { return require.resolve('pdfjs-dist/legacy/build/pdf.worker.min.mjs') } catch { }
+          try { return require.resolve('pdfjs-dist/build/pdf.worker.min.mjs') } catch { }
+          try { return require.resolve('pdfjs-dist/legacy/build/pdf.worker.mjs') } catch { }
+          try { return require.resolve('pdfjs-dist/build/pdf.worker.mjs') } catch { }
+          return null
+        })()
+
+        if (!workerPath) {
+          throw new Error('PDF.js worker file not found in pdfjs-dist. Check installed version/paths.')
         }
+
+        console.log('[PARSE] pdfjs worker resolved to:', workerPath)
+        pdfjs.GlobalWorkerOptions.workerSrc = pathToFileURL(workerPath).href
       }
-      const loadingTask = getDocumentFn({
+
+      const loadingTask = pdfjs.getDocument({
         data: new Uint8Array(buffer),
         disableWorker: true,
       })
+
       const pdf = await loadingTask.promise
-      const numPages = pdf.numPages
-      const pageLimit = Math.min(numPages, 50)
+      const pageLimit = Math.min(pdf.numPages, 50)
       const pages: string[] = []
-      for (let i = 1; i <= pageLimit; i += 1) {
+
+      for (let i = 1; i <= pageLimit; i++) {
         const page = await pdf.getPage(i)
         const content = await page.getTextContent()
-        const items = content?.items ?? []
-        const strings = items.map((item: { str?: string }) => item?.str ?? '')
+        const strings = (content?.items ?? []).map((item: any) => item?.str ?? '')
         pages.push(strings.join(' '))
       }
+
       return pages.join('\n\n')
     }
 
