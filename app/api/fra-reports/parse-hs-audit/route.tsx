@@ -201,11 +201,12 @@ export async function POST(request: NextRequest) {
       parseError = parseError || error.message || 'Unknown parsing error'
     }
 
+    // Sanity check: extracted length + first 200 chars (if still 0, next suspect is image-only PDF / OCR)
     console.log('[PARSE] PDF parsing result:', {
       pdfTextLength: pdfText?.length || 0,
       hasText: !!(pdfText && pdfText.trim().length > 0),
       parseError: parseError || null,
-      firstChars: pdfText ? pdfText.substring(0, 100) : null
+      first200Chars: pdfText ? pdfText.substring(0, 200).replace(/\s+/g, ' ').trim() : null
     })
     
     if (!pdfText || pdfText.trim().length === 0) {
