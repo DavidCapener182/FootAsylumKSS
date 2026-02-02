@@ -391,16 +391,16 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      // Square Footage - look for numbers with units, more flexible patterns
+      // Square Footage - "Square Footage or Square Meterage of site" (value may be on same or next line, or empty)
       let squareFootageMatch = null
       const squareFootagePatterns = [
-        // Pattern 1: "Square Footage" or "Square Meterage"
+        // "Square Footage or Square Meterage of site" then number or N/A
+        /(?:square footage or square meterage of site|square footage or square meterage)[\s:]*([^\n\r]*?\d+[,\d]*[^\n\r]*?)(?:\n|$)/i,
+        /(?:square footage or square meterage of site)[\s:]*(\d+[,\d]*)/i,
+        // Standard "Square Footage" or "Square Meterage"
         /(?:square footage|square meterage|floor area|site area)[\s:]*([^\n\r]*?\d+[,\d]*(?:\s*(?:sq\s*ft|sq\s*m|m²|ft²|square\s*(?:feet|meters|metres))))/i,
-        // Pattern 2: Number followed by units
         /(?:square footage|square meterage|floor area)[\s:]*(\d+[,\d]*)\s*(?:sq\s*ft|sq\s*m|m²|ft²|square\s*(?:feet|meters|metres))/i,
-        // Pattern 3: Just number with units nearby
         /(\d+[,\d]*)\s*(?:sq\s*ft|sq\s*m|m²|ft²|square\s*(?:feet|meters|metres))(?:\s+or\s+\d+)?/i,
-        // Pattern 4: Look in general site section
         /general site information[\s\S]{0,500}(?:square footage|square meterage|floor area)[\s:]*([^\n\r]*?\d+[^\n\r]*?)(?:\n|$)/i,
       ]
       
@@ -446,8 +446,14 @@ export async function GET(request: NextRequest) {
         || originalText.match(/training\s+not\s+at\s+100%|incomplete\s+for\s+(?:two\s+)?staff/i)
       if (trainingShortfallMatch) {
         pdfExtractedData.fireSafetyTrainingNarrative = 'Fire safety training is delivered via induction and toolbox talks; refresher completion is monitored, with improvements currently underway.'
-      } else if (originalText.match(/(?:toolbox|fire\s+safety\s+training).*?100%|100%\s+completion/i)) {
-        pdfExtractedData.fireSafetyTrainingNarrative = 'Fire safety training is delivered via induction and toolbox talks; records are maintained.'
+      } else if (
+        originalText.match(/(?:toolbox|fire\s+safety\s+training).*?100%|100%\s+completion/i)
+        || originalText.match(/(?:h&s\s+induction\s+training|induction\s+training)\s+onboarding\s+up to date at 100%/i)
+        || originalText.match(/(?:induction\s+training|onboarding).*?(?:up to date at 100%|100%)/i)
+        || originalText.match(/onboarding\s+up to date at 100%/i)
+      ) {
+        pdfExtractedData.fireSafetyTrainingNarrative = 'Fire safety training is delivered via induction and toolbox talks; H&S Induction Training / Onboarding up to date at 100%.'
+        console.log('[EXTRACT] ✓ Found fire safety training (induction/onboarding 100%)')
       }
 
       const fireDoorsGoodMatch = originalText.match(/(?:fire\s+door|fire doors).*?(?:good\s+condition|in good condition)/i)
@@ -462,9 +468,14 @@ export async function GET(request: NextRequest) {
         pdfExtractedData.weeklyFireTests = 'Documented'
       }
 
-      if (originalText.match(/(?:monthly\s+emergency\s+lighting|emergency\s+lighting\s+test).*?(?:conducted|documented|yes)/i)
-        || originalText.match(/(?:emergency\s+lighting).*?monthly/i)) {
-        pdfExtractedData.emergencyLightingMonthlyTest = 'Conducted'
+      // Monthly emergency lighting - "Emergency Lighting Maintenance? Yes, Last conducted 07/10/2025"
+      const emergencyLightingMonthlyMatch = originalText.match(/(?:emergency\s+lighting\s+maintenance|monthly\s+emergency\s+lighting|emergency\s+lighting\s+test)[\s\S]{0,80}?(?:yes|conducted|documented)/i)
+        || originalText.match(/(?:emergency\s+lighting).*?monthly/i)
+        || originalText.match(/(?:emergency\s+lighting)[\s\S]{0,120}?last conducted[\s\S]{0,30}?(\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4})/i)
+      if (emergencyLightingMonthlyMatch) {
+        const datePart = emergencyLightingMonthlyMatch[1]
+        pdfExtractedData.emergencyLightingMonthlyTest = datePart ? `Conducted ${datePart}` : 'Conducted'
+        console.log('[EXTRACT] ✓ Found emergency lighting monthly test:', pdfExtractedData.emergencyLightingMonthlyTest)
       }
 
       if (originalText.match(/(?:fire\s+extinguisher|extinguisher).*?(?:serviced|accessible|in position)/i)) {
@@ -475,23 +486,29 @@ export async function GET(request: NextRequest) {
         pdfExtractedData.managementReviewStatement = 'This assessment has been informed by recent health and safety inspections and site observations.'
       }
 
-      // HIGH PRIORITY: Number of fire exits
-      const fireExitsMatch = originalText.match(/(?:number of fire exits|fire exits)[\s:]*(\d+)/i)
+      // HIGH PRIORITY: Number of fire exits (accept number or "Other" / text)
+      const fireExitsNumMatch = originalText.match(/(?:number of fire exits|fire exits)[\s:]*(\d+)/i)
         || originalText.match(/fire exits[\s\S]{0,20}?(\d+)/i)
-      if (fireExitsMatch) {
-        pdfExtractedData.numberOfFireExits = fireExitsMatch[1]
+      const fireExitsTextMatch = originalText.match(/(?:number of fire exits|fire exits)[\s:]*([^\n\r]+?)(?:\n|$)/i)
+      if (fireExitsNumMatch) {
+        pdfExtractedData.numberOfFireExits = fireExitsNumMatch[1]
         console.log('[EXTRACT] ✓ Found number of fire exits:', pdfExtractedData.numberOfFireExits)
+      } else if (fireExitsTextMatch) {
+        const value = fireExitsTextMatch[1].trim()
+        if (value && value.length < 50) {
+          pdfExtractedData.numberOfFireExits = value
+          console.log('[EXTRACT] ✓ Found number of fire exits (text):', pdfExtractedData.numberOfFireExits)
+        }
       }
 
       // HIGH PRIORITY: Staff numbers - multiple patterns for different formats
-      // Pattern 1: "Number of Staff employed: 9" or "Staff employed: 9"
-      // Pattern 2: "Staff: 9" or "employees: 9" 
-      // Pattern 3: Look in General Site Information section
+      // e.g. "Number of Staff employed at the site" 18, "Staff employed: 9"
       const totalStaffPatterns = [
+        /(?:number of staff employed at the site|staff employed at the site)[\s:]*(\d+)/i,
         /(?:number of staff employed|staff employed)[\s:]*(\d+)/i,
         /(?:total staff|total employees)[\s:]*(\d+)/i,
         /(?:staff|employees)[\s:]+(\d+)(?!\s*(?:working|on site|at any))/i,
-        /general site information[\s\S]{0,300}(?:staff employed|number of staff)[\s:]*(\d+)/i,
+        /general site information[\s\S]{0,400}(?:staff employed|number of staff)[\s:]*(\d+)/i,
       ]
       for (const pattern of totalStaffPatterns) {
         const match = originalText.match(pattern)
@@ -502,14 +519,14 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      // Maximum staff on site - multiple patterns
-      // Pattern: "Maximum number of staff working at any one time: 3"
+      // Maximum staff on site - "Maximum number of staff working on site at any one time" 8
       const maxStaffPatterns = [
+        /(?:maximum number of staff working on site at any one time|maximum number of staff working at any one time)[\s:]*(\d+)/i,
         /(?:maximum number of staff working|maximum staff working|max staff working)[\s\S]{0,30}?(\d+)/i,
         /(?:maximum.*staff.*at any.*time)[\s:]*(\d+)/i,
         /(?:max staff|maximum staff)[\s:]*(\d+)/i,
         /(?:staff working at any one time)[\s:]*(\d+)/i,
-        /general site information[\s\S]{0,400}(?:maximum.*staff|max.*staff)[\s\S]{0,30}?(\d+)/i,
+        /general site information[\s\S]{0,500}(?:maximum.*staff|max.*staff)[\s\S]{0,30}?(\d+)/i,
       ]
       for (const pattern of maxStaffPatterns) {
         const match = originalText.match(pattern)
@@ -520,13 +537,15 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      // HIGH PRIORITY: Young persons - multiple patterns
-      // NOTE: Do NOT match "under 18" as it captures the 18 from the phrase itself
+      // HIGH PRIORITY: Young persons - "Number of Young persons (under the age of 18 yrs) employed at the site" 0
       const youngPersonsPatterns = [
+        /(?:number of young persons?\s*\(under the age of 18[^)]*\)\s*employed[^\n\r]*)[\s:]*(\d+)/i,
+        /(?:young persons?\s*\(under[^)]*\)[^\n\r]*employed[^\n\r]*)[\s:]*(\d+)/i,
         /(?:young persons employed|young persons)[\s:]*(\d+)/i,
         /(?:young person)[\s:]+(\d+)/i,
         /(?:number of young persons)[\s:]*(\d+)/i,
-        /general site information[\s\S]{0,400}(?:young person)[\s:]+(\d+)/i,
+        /under the age of 18\s*yrs?[^\n\r]*employed[^\n\r]*[\s:]*(\d+)/i,
+        /general site information[\s\S]{0,500}(?:young person)[\s:]+(\d+)/i,
       ]
       for (const pattern of youngPersonsPatterns) {
         const match = originalText.match(pattern)
@@ -554,12 +573,15 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      // HIGH PRIORITY: PAT/electrical testing status
-      if (originalText.match(/(?:pat|portable appliance|electrical.*test).*?(?:passed|satisfactory|up to date|completed|yes)/i)
+      // HIGH PRIORITY: PAT/electrical testing - "PAT? Yes, Last conducted 01/09/2025" in Statutory Testing
+      const patYesMatch = originalText.match(/\bPAT\??[\s\S]{0,60}?(?:yes|satisfactory|passed|ok)/i)
+        || originalText.match(/(?:pat|portable appliance|electrical.*test).*?(?:passed|satisfactory|up to date|completed|yes)/i)
         || originalText.match(/(?:fixed wiring|electrical installation).*?(?:satisfactory|passed|completed)/i)
-        || originalText.match(/(?:pat testing|pat test)[\s\S]{0,30}?(?:yes|ok|satisfactory|passed)/i)) {
-        pdfExtractedData.patTestingStatus = 'Satisfactory'
-        console.log('[EXTRACT] ✓ Found PAT testing status: Satisfactory')
+        || originalText.match(/(?:pat testing|pat test)[\s\S]{0,30}?(?:yes|ok|satisfactory|passed)/i)
+      const patDateMatch = originalText.match(/\bPAT\??[\s\S]{0,100}?last conducted[\s\S]{0,30}?(\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4})/i)
+      if (patYesMatch) {
+        pdfExtractedData.patTestingStatus = patDateMatch?.[1] ? `Satisfactory, last conducted ${patDateMatch[1]}` : 'Satisfactory'
+        console.log('[EXTRACT] ✓ Found PAT testing status:', pdfExtractedData.patTestingStatus)
       }
 
       // MEDIUM PRIORITY: Exit signage condition - more flexible patterns
