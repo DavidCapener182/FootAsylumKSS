@@ -7,6 +7,17 @@ export const runtime = 'nodejs'
 
 export async function POST(request: NextRequest) {
   try {
+    // Polyfill DOMMatrix for Node (pdf-parse/pdf.js can reference it; avoids "DOMMatrix is not defined" in prod)
+    if (typeof (globalThis as any).DOMMatrix === 'undefined') {
+      try {
+        const dommatrix = await import('@thednp/dommatrix')
+        const DOMMatrixClass = (dommatrix as any).default ?? (dommatrix as any).DOMMatrix
+        if (DOMMatrixClass) (globalThis as any).DOMMatrix = DOMMatrixClass
+      } catch (_) {
+        // ignore polyfill failure
+      }
+    }
+
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
