@@ -95,9 +95,13 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
 
 // Estimate travel time based on distance (assuming average speed of 31 mph in urban areas)
 function estimateTravelTime(distanceMiles: number): number {
-  // Average speed: 31 mph = 0.517 miles/min
-  // Add 10 minutes buffer for traffic, parking, etc.
-  return Math.round((distanceMiles / 0.517) + 10)
+  // Treat effectively same-site moves as no drive time.
+  if (distanceMiles <= 0.05) return 0
+
+  // Average speed: 31 mph = 0.517 miles/min.
+  const baseMinutes = distanceMiles / 0.517
+  const bufferMinutes = distanceMiles < 1 ? 4 : 10
+  return Math.max(1, Math.round(baseMinutes + bufferMinutes))
 }
 
 // Format date for ICS format (YYYYMMDDTHHMMSS)
@@ -1145,11 +1149,13 @@ export function RouteDirectionsModal({
   }
 
   const totalTravelDistance = schedule.reduce((total, item) => {
-    if (item.action !== 'Travel' || !item.travelDistance) return total
+    const isCountedTravel = item.action === 'Travel' || item.action === 'Leave home'
+    if (!isCountedTravel || !item.travelDistance) return total
     return total + item.travelDistance
   }, 0)
   const totalTravelMinutes = schedule.reduce((total, item) => {
-    if (item.action !== 'Travel' || !item.travelTime) return total
+    const isCountedTravel = item.action === 'Travel' || item.action === 'Leave home'
+    if (!isCountedTravel || !item.travelTime) return total
     return total + item.travelTime
   }, 0)
   const visitCount = schedule.filter((item) => item.action === 'Visit').length
