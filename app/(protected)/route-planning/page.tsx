@@ -99,15 +99,15 @@ async function getRoutePlanningData() {
     console.error('Error fetching profiles:', profilesError)
   }
 
-  // Filter out stores that have completed Audit 1 with score > 80% within the last 6 months
+  // Filter out stores that have completed Audit 1 with score >= 80% within the last 6 months
   // These stores don't need a second audit for 6 months
   const filteredStores = (stores || []).filter((store: any) => {
-    // If store has completed Audit 1 with score > 80%
-    if (store.compliance_audit_1_date && store.compliance_audit_1_overall_pct !== null && store.compliance_audit_1_overall_pct > 80) {
+    // If store has completed Audit 1 with score >= 80%
+    if (store.compliance_audit_1_date && store.compliance_audit_1_overall_pct !== null && store.compliance_audit_1_overall_pct >= 80) {
       const audit1Date = new Date(store.compliance_audit_1_date)
       audit1Date.setHours(0, 0, 0, 0)
       
-      // Hide if Audit 1 was completed within the last 6 months (stores with >80% don't need second audit for 6 months)
+      // Hide if Audit 1 was completed within the last 6 months (stores with >=80% don't need second audit for 6 months)
       if (audit1Date >= sixMonthsAgo) {
         return false // Exclude this store from route planning
       }

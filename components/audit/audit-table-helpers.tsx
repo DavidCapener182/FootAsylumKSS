@@ -23,19 +23,39 @@ export interface AuditRow {
 }
 
 export function pctBadge(value: number | null) {
-  if (value === null || value === undefined || isNaN(value)) return <span className="text-muted-foreground text-xs">—</span>
+  if (value === null || value === undefined || isNaN(value)) {
+    return <span className="text-xs text-slate-400">—</span>
+  }
   const pct = Number(value)
   const tone =
-    pct >= 90 ? 'bg-emerald-100 text-emerald-800 border-emerald-200' :
-    pct >= 80 ? 'bg-amber-100 text-amber-800 border-amber-200' :
-    'bg-rose-100 text-rose-800 border-rose-200'
-  return <Badge variant="outline" className={cn('font-mono font-normal', tone)}>{formatPercent(pct)}</Badge>
+    pct >= 90 ? 'bg-emerald-50 text-emerald-800 border-emerald-300' :
+    pct >= 80 ? 'bg-amber-50 text-amber-800 border-amber-300' :
+    'bg-rose-50 text-rose-800 border-rose-300'
+  return (
+    <Badge
+      variant="outline"
+      className={cn(
+        'h-6 rounded-full border px-2.5 font-mono text-[11px] font-semibold tabular-nums leading-none shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]',
+        tone
+      )}
+    >
+      {formatPercent(pct)}
+    </Badge>
+  )
 }
 
 export function boolBadge(value: boolean | null) {
-  if (value === null || value === undefined) return <span className="text-muted-foreground">—</span>
+  if (value === null || value === undefined) return <span className="text-xs text-slate-400">—</span>
   return (
-    <Badge variant="outline" className={cn('font-normal', value ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-50 text-slate-600 border-slate-200')}>
+    <Badge
+      variant="outline"
+      className={cn(
+        'h-6 rounded-full border px-2.5 text-[11px] font-semibold leading-none shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]',
+        value
+          ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+          : 'bg-slate-50 text-slate-700 border-slate-300'
+      )}
+    >
       {value ? 'Yes' : 'No'}
     </Badge>
   )
@@ -58,4 +78,3 @@ export function getLatestPctForSort(row: AuditRow): number {
   const val = getLatestPct(row)
   return val === null ? -1 : val
 }
-

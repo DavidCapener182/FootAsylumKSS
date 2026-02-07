@@ -1,6 +1,6 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
@@ -28,7 +28,21 @@ type IncidentFormValues = z.infer<typeof incidentSchema>
 
 export default function NewIncidentPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [stores, setStores] = useState<Array<{ id: string; store_name: string; store_code: string | null }>>([])
+
+  const form = useForm<IncidentFormValues>({
+    resolver: zodResolver(incidentSchema),
+    defaultValues: {
+      store_id: '',
+      incident_category: 'other',
+      severity: 'medium',
+      summary: '',
+      description: '',
+      occurred_at: new Date().toISOString().slice(0, 16),
+      riddor_reportable: false,
+    },
+  })
 
   useEffect(() => {
     async function fetchStores() {
@@ -46,18 +60,14 @@ export default function NewIncidentPage() {
     fetchStores()
   }, [])
 
-  const form = useForm<IncidentFormValues>({
-    resolver: zodResolver(incidentSchema),
-    defaultValues: {
-      store_id: '',
-      incident_category: 'other',
-      severity: 'medium',
-      summary: '',
-      description: '',
-      occurred_at: new Date().toISOString().slice(0, 16),
-      riddor_reportable: false,
-    },
-  })
+  useEffect(() => {
+    const presetStoreId = searchParams.get('storeId')
+    if (!presetStoreId) return
+
+    if (stores.some((store) => store.id === presetStoreId)) {
+      form.setValue('store_id', presetStoreId)
+    }
+  }, [searchParams, stores, form])
 
   const onSubmit = async (values: IncidentFormValues) => {
     try {
@@ -92,7 +102,7 @@ export default function NewIncidentPage() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Store</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select a store" />
@@ -216,4 +226,3 @@ export default function NewIncidentPage() {
     </div>
   )
 }
-

@@ -437,3 +437,103 @@ export async function deleteAllRouteOperationalItems(
   revalidatePath('/route-planning')
   return { error: null }
 }
+
+export async function getCompletedRouteVisits(
+  managerUserId: string,
+  plannedDate: string,
+  region: string | null,
+  storeIds: string[]
+): Promise<{ data: string[] | null; error: string | null }> {
+  const supabase = createClient()
+
+  let query = supabase
+    .from('fa_activity_log')
+    .select('entity_id, details')
+    .eq('entity_type', 'store')
+    .eq('action', 'ROUTE_VISIT_COMPLETED')
+    .contains('details', {
+      manager_user_id: managerUserId,
+      planned_date: plannedDate,
+      region: region,
+    })
+
+  if (storeIds.length > 0) {
+    query = query.in('entity_id', storeIds)
+  }
+
+  const { data, error } = await query
+
+  if (error) {
+    console.error('Error fetching completed route visits:', error)
+    return { data: null, error: error.message }
+  }
+
+  const completedStoreIds = Array.from(
+    new Set((data || []).map((row: any) => row.entity_id).filter(Boolean))
+  )
+
+  return { data: completedStoreIds, error: null }
+}
+
+export async function markRouteVisitComplete(
+  storeId: string,
+  managerUserId: string,
+  plannedDate: string,
+  region: string | null
+): Promise<{ success: boolean; alreadyCompleted?: boolean; error?: string }> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { success: false, error: 'Unauthorized' }
+  }
+
+  const { data: existing, error: existingError } = await supabase
+    .from('fa_activity_log')
+    .select('id')
+    .eq('entity_type', 'store')
+    .eq('entity_id', storeId)
+    .eq('action', 'ROUTE_VISIT_COMPLETED')
+    .contains('details', {
+      manager_user_id: managerUserId,
+      planned_date: plannedDate,
+      region: region,
+    })
+    .limit(1)
+
+  if (existingError) {
+    console.error('Error checking completed route visit:', existingError)
+    return { success: false, error: existingError.message }
+  }
+
+  if (existing && existing.length > 0) {
+    return { success: true, alreadyCompleted: true }
+  }
+
+  const { error } = await supabase
+    .from('fa_activity_log')
+    .insert({
+      entity_type: 'store',
+      entity_id: storeId,
+      action: 'ROUTE_VISIT_COMPLETED',
+      performed_by_user_id: user.id,
+      details: {
+        manager_user_id: managerUserId,
+        planned_date: plannedDate,
+        region: region,
+        completed_at: new Date().toISOString(),
+      },
+    })
+
+  if (error) {
+    console.error('Error marking route visit complete:', error)
+    return { success: false, error: error.message }
+  }
+
+  revalidatePath('/route-planning')
+  revalidatePath('/dashboard')
+  revalidatePath('/calendar')
+  revalidatePath('/activity')
+
+  return { success: true }
+}

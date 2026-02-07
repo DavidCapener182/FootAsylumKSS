@@ -1,9 +1,10 @@
 'use client'
 
-import React from 'react'
+import React, { useMemo, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { FileText, Download, Sparkles, FileSpreadsheet, ChevronRight, BarChart3, PieChart } from 'lucide-react'
+import { FileText, Download, Sparkles, FileSpreadsheet, ChevronRight, BarChart3, PieChart, ClipboardCopy, CalendarClock } from 'lucide-react'
+import { endOfWeek, format, startOfWeek } from 'date-fns'
 
 // --- REAL IMPORTS (Uncomment these in your project) ---
 // import { requireAuth } from '@/lib/auth'
@@ -18,6 +19,58 @@ const requireAuth = async () => {};
 
 export default function ReportsPage() {
   // useEffect(() => { requireAuth(); }, []); // Simulate auth check
+  const [digestContent, setDigestContent] = useState<string>('')
+  const [digestLoading, setDigestLoading] = useState(false)
+  const [digestError, setDigestError] = useState<string | null>(null)
+
+  const currentWeekStart = useMemo(() => startOfWeek(new Date(), { weekStartsOn: 1 }), [])
+  const currentWeekEnd = useMemo(() => endOfWeek(currentWeekStart, { weekStartsOn: 1 }), [currentWeekStart])
+  const currentWeekLabel = `${format(currentWeekStart, 'd MMM yyyy')} - ${format(currentWeekEnd, 'd MMM yyyy')}`
+
+  const handleGenerateDigest = async () => {
+    setDigestLoading(true)
+    setDigestError(null)
+
+    try {
+      const weekStartStr = format(currentWeekStart, 'yyyy-MM-dd')
+      const response = await fetch(`/api/reports/weekly-digest?start=${weekStartStr}`)
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data?.error || 'Failed to generate weekly digest')
+      }
+
+      setDigestContent(data.digestMarkdown || '')
+    } catch (error) {
+      setDigestError(error instanceof Error ? error.message : 'Failed to generate weekly digest')
+    } finally {
+      setDigestLoading(false)
+    }
+  }
+
+  const handleDownloadDigest = () => {
+    if (!digestContent) return
+    const filename = `weekly-executive-digest-${format(currentWeekStart, 'yyyy-MM-dd')}.txt`
+    const blob = new Blob([digestContent], { type: 'text/plain;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = filename
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
+
+  const handleCopyDigest = async () => {
+    if (!digestContent) return
+    try {
+      await navigator.clipboard.writeText(digestContent)
+      alert('Weekly digest copied to clipboard.')
+    } catch {
+      alert('Unable to copy digest. Please copy manually.')
+    }
+  }
 
   return (
     <div className="flex flex-col gap-8 p-6 md:p-8 bg-slate-50/50 min-h-screen">
@@ -39,6 +92,64 @@ export default function ReportsPage() {
 
       {/* Main Grid */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <Card className="md:col-span-2 lg:col-span-3 border-slate-200 bg-white shadow-sm">
+          <CardHeader className="border-b border-slate-200 bg-slate-50/70">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2 text-slate-900">
+                  <CalendarClock className="h-5 w-5 text-indigo-600" />
+                  Weekly Executive Digest
+                </CardTitle>
+                <CardDescription className="text-slate-500 mt-1">
+                  Generate a one-click weekly leadership summary for {currentWeekLabel}.
+                </CardDescription>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  onClick={handleGenerateDigest}
+                  disabled={digestLoading}
+                  className="min-h-[44px] bg-indigo-600 hover:bg-indigo-700"
+                >
+                  {digestLoading ? 'Generating...' : 'Generate Digest'}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleCopyDigest}
+                  disabled={!digestContent}
+                  className="min-h-[44px]"
+                >
+                  <ClipboardCopy className="h-4 w-4 mr-2" />
+                  Copy
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleDownloadDigest}
+                  disabled={!digestContent}
+                  className="min-h-[44px]"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download TXT
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-4">
+            {digestError && (
+              <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {digestError}
+              </div>
+            )}
+            {digestContent ? (
+              <pre className="max-h-[380px] overflow-auto rounded-xl border border-slate-200 bg-slate-50/70 p-3 text-xs text-slate-700 whitespace-pre-wrap leading-relaxed">
+                {digestContent}
+              </pre>
+            ) : (
+              <p className="text-sm text-slate-500">
+                No digest generated yet. Use <strong>Generate Digest</strong> to build this week&apos;s report.
+              </p>
+            )}
+          </CardContent>
+        </Card>
         
         {/* Incidents Report Card */}
         <Card className="group relative overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 border-slate-200 bg-white">

@@ -1,5 +1,68 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+interface StoreNode {
+  id: string
+  name: string
+  code: string
+  latitude: number
+  longitude: number
+  distanceFromHome: number | null
+  distances: Record<string, number>
+}
+
+interface OptimizationConstraints {
+  stopLimit: number
+  maxDriveMinutes: number | null
+  maxRouteMinutes: number | null
+  prioritize: 'balanced' | 'min_drive' | 'tight_cluster'
+  requireHomeStart: boolean
+  requireHomeEnd: boolean
+}
+
+interface RouteEstimate {
+  order: StoreNode[]
+  totalDistanceKm: number
+  totalDriveMinutes: number
+  totalRouteMinutes: number
+  maxInterStoreDistanceKm: number
+  avgInterStoreDistanceKm: number
+  score: number
+}
+
+function parseNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string') {
+    const parsed = Number(value)
+    if (Number.isFinite(parsed)) return parsed
+  }
+  return null
+}
+
+function parseConstraints(requestBody: any, storeCount: number): OptimizationConstraints {
+  const rawStopLimit = parseNumber(requestBody?.constraints?.stopLimit)
+  const stopLimit = Math.max(1, Math.min(6, Math.round(rawStopLimit || 3), storeCount))
+
+  const maxDriveMinutesRaw = parseNumber(requestBody?.constraints?.maxDriveMinutes)
+  const maxRouteHoursRaw = parseNumber(requestBody?.constraints?.maxRouteHours)
+
+  const prioritize = requestBody?.constraints?.prioritize
+  const normalizedPrioritize: OptimizationConstraints['prioritize'] =
+    prioritize === 'min_drive' || prioritize === 'tight_cluster' ? prioritize : 'balanced'
+
+  return {
+    stopLimit,
+    maxDriveMinutes: maxDriveMinutesRaw && maxDriveMinutesRaw > 0 ? Math.round(maxDriveMinutesRaw) : null,
+    maxRouteMinutes: maxRouteHoursRaw && maxRouteHoursRaw > 0 ? Math.round(maxRouteHoursRaw * 60) : null,
+    prioritize: normalizedPrioritize,
+    requireHomeStart: requestBody?.constraints?.requireHomeStart !== false,
+    requireHomeEnd: requestBody?.constraints?.requireHomeEnd !== false,
+  }
+}
+
+function kmToMiles(km: number): number {
+  return km * 0.621371
+}
+
 // Haversine formula to calculate distance between two coordinates (in km)
 function calculateDistance(
   lat1: number,
@@ -7,7 +70,7 @@ function calculateDistance(
   lat2: number,
   lon2: number
 ): number {
-  const R = 6371 // Earth's radius in km
+  const R = 6371
   const dLat = ((lat2 - lat1) * Math.PI) / 180
   const dLon = ((lon2 - lon1) * Math.PI) / 180
   const a =
@@ -20,343 +83,281 @@ function calculateDistance(
   return R * c
 }
 
-export async function POST(request: NextRequest) {
-  let storeData: any[] = []
-  let managerHome: any = null
-  let stores: any[] = []
-
-  try {
-    const requestBody = await request.json()
-    stores = requestBody?.stores || []
-    managerHome = requestBody?.managerHome || null
-    const apiKey = process.env.OPENAI_API_KEY
-
-    // If no API key, skip OpenAI and use fallback optimization
-    const useOpenAI = !!apiKey
-
-    if (!stores || stores.length === 0) {
-      return NextResponse.json(
-        { error: 'No stores provided' },
-        { status: 400 }
-      )
-    }
-
-    // Calculate distances between all stores and from manager home
-    storeData = stores.map((store: any) => {
-      const distances: any = {}
-      let distanceFromHome = null
-
-      if (managerHome?.latitude && managerHome?.longitude) {
-        distanceFromHome = calculateDistance(
-          managerHome.latitude,
-          managerHome.longitude,
-          parseFloat(store.latitude),
-          parseFloat(store.longitude)
-        )
-      }
-
-      stores.forEach((otherStore: any) => {
-        if (otherStore.id !== store.id) {
-          distances[otherStore.id] = calculateDistance(
-            parseFloat(store.latitude),
-            parseFloat(store.longitude),
-            parseFloat(otherStore.latitude),
-            parseFloat(otherStore.longitude)
-          )
-        }
-      })
-
-      return {
-        id: store.id,
-        name: store.store_name,
-        code: store.store_code || '',
-        latitude: parseFloat(store.latitude),
-        longitude: parseFloat(store.longitude),
-        distanceFromHome: distanceFromHome ? Math.round(distanceFromHome * 10) / 10 : null,
-        distances,
-      }
-    })
-
-    // Always use fallback optimization for now to ensure clustering works correctly
-    // OpenAI can sometimes return suboptimal results
-    console.log('Using algorithmic optimization (prioritizing store clustering)')
-    return fallbackOptimization(storeData, managerHome)
-    
-    // Uncomment below to use OpenAI (but fallback is more reliable for clustering)
-    // if (!useOpenAI) {
-    //   console.log('OpenAI API key not configured, using algorithmic optimization')
-    //   return fallbackOptimization(storeData, managerHome)
-    // }
-
-    // Create a prompt for OpenAI
-    const prompt = `You are a route optimization expert. Given a manager's home location and a list of stores in an area, select the optimal 3 stores that are closest to each other for a day's route.
-
-Manager's Home Location:
-- Address: ${managerHome?.address || 'Not specified'}
-- Coordinates: ${managerHome?.latitude}, ${managerHome?.longitude}
-
-Available Stores (${stores.length} total):
-${storeData.map((s: any, idx: number) => 
-  `${idx + 1}. ${s.name} (Code: ${s.code}, ID: ${s.id}) - ${s.distanceFromHome ? `${s.distanceFromHome}km from home` : 'distance unknown'}`
-).join('\n')}
-
-Distance Matrix (in km):
-${storeData.map((s: any) => {
-  const distances = Object.entries(s.distances)
-    .map(([otherId, dist]: [string, any]) => {
-      const otherStore = storeData.find((st: any) => st.id === otherId)
-      return `${otherStore?.name}: ${Math.round(dist * 10) / 10}km`
-    })
-    .join(', ')
-  return `${s.name}: ${distances || 'N/A'}`
-}).join('\n')}
-
-Requirements:
-1. Select exactly 3 stores
-2. CRITICAL: The 3 stores MUST be geographically close to each other - prioritize stores that form a tight cluster/group
-3. The distance between the 3 stores should be minimized (they should be near each other, not spread out)
-4. Consider the manager's home as the starting and ending point
-5. Optimize for: (a) stores being close together, then (b) shortest total route: Home → Store 1 → Store 2 → Store 3 → Home
-6. Look at the distance matrix - find 3 stores where the distances between them are the smallest
-7. Return ONLY a JSON array of exactly 3 store IDs (the UUID values, NOT the store codes) in the optimal order
-8. IMPORTANT: Use the ID field (UUID format like "098c9478-7edf-47b4-bd40-55e908157446"), NOT the store code (like "S0081")
-9. Example format: ["098c9478-7edf-47b4-bd40-55e908157446", "c758432b-7012-4420-9ae9-be2ac735f094", "b341497b-aec3-4888-90df-2583d5969e28"]
-10. Do not include any explanation, just the JSON array
-
-Selected store IDs (JSON array of UUIDs only):`
-
-    try {
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a route optimization expert. Always respond with only a JSON array of store IDs, no other text.',
-          },
-          {
-            role: 'user',
-            content: prompt,
-          },
-        ],
-        temperature: 0.3, // Lower temperature for more consistent, logical results
-      }),
-    })
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      console.error('OpenAI API Error:', errorData)
-      
-      // Fallback: Use algorithmic approach if OpenAI fails
-      return fallbackOptimization(storeData, managerHome)
-    }
-
-    const data = await response.json()
-    let content = data.choices?.[0]?.message?.content || ''
-
-    // Try to parse the response
-    try {
-      // Clean up any markdown or extra text
-      content = content.replace(/```json/g, '').replace(/```/g, '').trim()
-      
-      // Create a mapping from store codes to IDs for fallback
-      const codeToIdMap = new Map(storeData.map((s: any) => [s.code, s.id]))
-      
-      // Helper function to map codes to IDs if needed
-      const mapCodesToIds = (ids: unknown[]): string[] => {
-        const normalizedIds: string[] = ids.map((id) =>
-          typeof id === 'string' ? id : String(id ?? '')
-        )
-
-        return normalizedIds.map((id: string) => {
-          // If it looks like a store code (starts with 'S' and is short), try to map it
-          if (id.startsWith('S') && id.length <= 10 && codeToIdMap.has(id)) {
-            console.log(`Mapping store code ${id} to ID ${codeToIdMap.get(id)}`)
-            return codeToIdMap.get(id)!
-          }
-          return id
-        }) as string[]
-      }
-      
-      // Try to extract JSON array (most common format)
-      // Match arrays with UUIDs or quoted strings
-      const arrayMatch = content.match(/\[["'][^"']+["'](?:,\s*["'][^"']+["'])*\]/)
-      if (arrayMatch) {
-        try {
-          let storeIds = JSON.parse(arrayMatch[0])
-          if (Array.isArray(storeIds) && storeIds.length >= 3) {
-            // Map codes to IDs if needed
-            storeIds = mapCodesToIds(storeIds)
-            // Take first 3 if more than 3
-            return NextResponse.json({ storeIds: storeIds.slice(0, 3) })
-          }
-        } catch (parseErr) {
-          console.error('Error parsing array match:', parseErr)
-        }
-      }
-
-      // Try parsing as JSON object
-      const parsed = JSON.parse(content)
-      if (parsed.storeIds && Array.isArray(parsed.storeIds) && parsed.storeIds.length >= 3) {
-        // Map codes to IDs if needed
-        const mappedIds = mapCodesToIds(parsed.storeIds)
-        return NextResponse.json({ storeIds: mappedIds.slice(0, 3) })
-      }
-      if (Array.isArray(parsed) && parsed.length >= 3) {
-        // Map codes to IDs if needed
-        const mappedIds = mapCodesToIds(parsed)
-        return NextResponse.json({ storeIds: mappedIds.slice(0, 3) })
-      }
-    } catch (parseError) {
-      console.error('Error parsing OpenAI response:', parseError, 'Content:', content)
-      // Fallback to algorithmic approach
-      return fallbackOptimization(storeData, managerHome)
-    }
-
-      // If we get here, parsing failed but no exception was thrown
-      console.warn('Could not parse OpenAI response, using fallback')
-      return fallbackOptimization(storeData, managerHome)
-    } catch (openAIError) {
-      console.error('OpenAI request failed:', openAIError)
-      // Fallback to algorithmic approach
-      return fallbackOptimization(storeData, managerHome)
-    }
-  } catch (error) {
-    console.error('Error optimizing route:', error)
-    // Even if there's an error, try to use fallback optimization
-    try {
-      return fallbackOptimization(storeData, managerHome)
-    } catch (fallbackError) {
-      console.error('Fallback optimization also failed:', fallbackError)
-      return NextResponse.json(
-        { error: 'Failed to optimize route' },
-        { status: 500 }
-      )
-    }
-  }
+function estimateDriveMinutes(distanceKm: number): number {
+  const distanceMiles = kmToMiles(distanceKm)
+  const avgMph = 31
+  return Math.max(6, Math.round((distanceMiles / avgMph) * 60 + 8))
 }
 
-// Fallback optimization using distance calculations
-// Prioritizes stores that are close together (clustered) over total route distance
-function fallbackOptimization(storeData: any[], managerHome: any) {
-  if (storeData.length < 3) {
-    return NextResponse.json(
-      { error: 'Need at least 3 stores for optimization' },
-      { status: 400 }
+function getStoreDistance(a: StoreNode, b: StoreNode): number {
+  return a.distances[b.id] ?? calculateDistance(a.latitude, a.longitude, b.latitude, b.longitude)
+}
+
+function pickBestStartStore(stores: StoreNode[], managerHome: any, constraints: OptimizationConstraints): StoreNode {
+  if (constraints.requireHomeStart && managerHome?.latitude && managerHome?.longitude) {
+    return [...stores].sort((a, b) => (a.distanceFromHome ?? Infinity) - (b.distanceFromHome ?? Infinity))[0]
+  }
+
+  // If no home constraint, start from the most central stop (lowest average distance to other stops)
+  return [...stores].sort((a, b) => {
+    const avgA = stores.length > 1
+      ? stores.filter((s) => s.id !== a.id).reduce((sum, s) => sum + getStoreDistance(a, s), 0) / (stores.length - 1)
+      : 0
+    const avgB = stores.length > 1
+      ? stores.filter((s) => s.id !== b.id).reduce((sum, s) => sum + getStoreDistance(b, s), 0) / (stores.length - 1)
+      : 0
+    return avgA - avgB
+  })[0]
+}
+
+function buildGreedyOrder(stores: StoreNode[], managerHome: any, constraints: OptimizationConstraints): StoreNode[] {
+  if (stores.length <= 1) return stores
+
+  const remaining = [...stores]
+  const startStore = pickBestStartStore(stores, managerHome, constraints)
+  const ordered: StoreNode[] = [startStore]
+  const startIndex = remaining.findIndex((store) => store.id === startStore.id)
+  remaining.splice(startIndex, 1)
+
+  while (remaining.length > 0) {
+    const last = ordered[ordered.length - 1]
+    let bestIndex = 0
+    let bestDistance = Infinity
+
+    for (let i = 0; i < remaining.length; i++) {
+      const candidateDistance = getStoreDistance(last, remaining[i])
+      if (candidateDistance < bestDistance) {
+        bestDistance = candidateDistance
+        bestIndex = i
+      }
+    }
+
+    ordered.push(remaining[bestIndex])
+    remaining.splice(bestIndex, 1)
+  }
+
+  return ordered
+}
+
+function evaluateCandidate(
+  selectedStores: StoreNode[],
+  managerHome: any,
+  constraints: OptimizationConstraints
+): RouteEstimate {
+  const order = buildGreedyOrder(selectedStores, managerHome, constraints)
+
+  let totalDistanceKm = 0
+
+  if (constraints.requireHomeStart && managerHome?.latitude && managerHome?.longitude && order.length > 0) {
+    totalDistanceKm += calculateDistance(
+      managerHome.latitude,
+      managerHome.longitude,
+      order[0].latitude,
+      order[0].longitude
     )
   }
 
-  let bestRoute: string[] = []
-  let bestScore = Infinity
+  for (let i = 0; i < order.length - 1; i++) {
+    totalDistanceKm += getStoreDistance(order[i], order[i + 1])
+  }
 
-  // Try all combinations of 3 stores
-  for (let i = 0; i < storeData.length; i++) {
-    for (let j = i + 1; j < storeData.length; j++) {
-      for (let k = j + 1; k < storeData.length; k++) {
-        const stores = [storeData[i], storeData[j], storeData[k]]
-        
-        // Calculate inter-store distances (how close the stores are to each other)
-        const dist1 = calculateDistance(
-          stores[0].latitude,
-          stores[0].longitude,
-          stores[1].latitude,
-          stores[1].longitude
-        )
-        const dist2 = calculateDistance(
-          stores[1].latitude,
-          stores[1].longitude,
-          stores[2].latitude,
-          stores[2].longitude
-        )
-        const dist3 = calculateDistance(
-          stores[0].latitude,
-          stores[0].longitude,
-          stores[2].latitude,
-          stores[2].longitude
-        )
-        
-        // Calculate cluster tightness (sum of distances between all pairs)
-        // Lower = stores are closer together
-        const clusterTightness = dist1 + dist2 + dist3
-        
-        // Find the maximum distance between any two stores (diameter of the cluster)
-        const maxInterStoreDistance = Math.max(dist1, dist2, dist3)
-        
-        // Try all permutations to find best route order
-        const permutations = [
-          [stores[0], stores[1], stores[2]],
-          [stores[0], stores[2], stores[1]],
-          [stores[1], stores[0], stores[2]],
-          [stores[1], stores[2], stores[0]],
-          [stores[2], stores[0], stores[1]],
-          [stores[2], stores[1], stores[0]],
-        ]
+  if (constraints.requireHomeEnd && managerHome?.latitude && managerHome?.longitude && order.length > 0) {
+    const last = order[order.length - 1]
+    totalDistanceKm += calculateDistance(last.latitude, last.longitude, managerHome.latitude, managerHome.longitude)
+  }
 
-        let bestPermutation: any[] = []
-        let bestRouteDistance = Infinity
+  const pairDistances: number[] = []
+  for (let i = 0; i < order.length; i++) {
+    for (let j = i + 1; j < order.length; j++) {
+      pairDistances.push(getStoreDistance(order[i], order[j]))
+    }
+  }
 
-        // First, find the best route order for this combination
-        permutations.forEach((perm) => {
-          // Calculate route distance
-          let routeDistance = 0
+  const maxInterStoreDistanceKm = pairDistances.length > 0 ? Math.max(...pairDistances) : 0
+  const avgInterStoreDistanceKm = pairDistances.length > 0
+    ? pairDistances.reduce((sum, value) => sum + value, 0) / pairDistances.length
+    : 0
 
-          // Distance from home to first store
-          if (managerHome?.latitude && managerHome?.longitude) {
-            routeDistance += calculateDistance(
-              managerHome.latitude,
-              managerHome.longitude,
-              perm[0].latitude,
-              perm[0].longitude
-            )
-          }
+  const totalDriveMinutes = estimateDriveMinutes(totalDistanceKm)
+  const totalVisitMinutes = order.length * 120
+  const totalRouteMinutes = totalDriveMinutes + totalVisitMinutes
 
-          // Distances between stores
-          routeDistance += calculateDistance(
-            perm[0].latitude,
-            perm[0].longitude,
-            perm[1].latitude,
-            perm[1].longitude
-          )
-          routeDistance += calculateDistance(
-            perm[1].latitude,
-            perm[1].longitude,
-            perm[2].latitude,
-            perm[2].longitude
-          )
+  let score: number
+  if (constraints.prioritize === 'tight_cluster') {
+    score = (maxInterStoreDistanceKm * 0.55) + (avgInterStoreDistanceKm * 0.25) + (totalDistanceKm * 0.2)
+  } else if (constraints.prioritize === 'min_drive') {
+    score = (totalDistanceKm * 0.7) + (maxInterStoreDistanceKm * 0.2) + (avgInterStoreDistanceKm * 0.1)
+  } else {
+    score = (totalDistanceKm * 0.45) + (maxInterStoreDistanceKm * 0.35) + (avgInterStoreDistanceKm * 0.2)
+  }
 
-          // Distance from last store back to home
-          if (managerHome?.latitude && managerHome?.longitude) {
-            routeDistance += calculateDistance(
-              perm[2].latitude,
-              perm[2].longitude,
-              managerHome.latitude,
-              managerHome.longitude
-            )
-          }
+  return {
+    order,
+    totalDistanceKm,
+    totalDriveMinutes,
+    totalRouteMinutes,
+    maxInterStoreDistanceKm,
+    avgInterStoreDistanceKm,
+    score,
+  }
+}
 
-          if (routeDistance < bestRouteDistance) {
-            bestRouteDistance = routeDistance
-            bestPermutation = perm
-          }
-        })
+function buildCandidateCombinations(
+  storeData: StoreNode[],
+  stopCount: number,
+  managerHome: any
+): StoreNode[][] {
+  if (storeData.length <= stopCount) return [storeData]
 
-        // Score heavily prioritizes cluster tightness (90%) over route distance (10%)
-        // This ensures we pick stores that are very close together
-        // Use maxInterStoreDistance as the primary factor (stores should be within a small radius)
-        const score = (maxInterStoreDistance * 0.9) + (clusterTightness * 0.05) + (bestRouteDistance * 0.05)
+  const combos = new Map<string, StoreNode[]>()
 
-        if (score < bestScore) {
-          bestScore = score
-          bestRoute = bestPermutation.map((s) => s.id)
-        }
+  const addCombo = (stores: StoreNode[]) => {
+    if (stores.length !== stopCount) return
+    const key = stores.map((store) => store.id).sort().join('|')
+    if (!combos.has(key)) combos.set(key, stores)
+  }
+
+  const homeRanked = [...storeData].sort((a, b) => (a.distanceFromHome ?? Infinity) - (b.distanceFromHome ?? Infinity))
+  addCombo(homeRanked.slice(0, stopCount))
+
+  // Seed from up to 30 stores to keep compute cost predictable.
+  const seeds = homeRanked.slice(0, Math.min(30, homeRanked.length))
+
+  for (const seed of seeds) {
+    const nearest = [...storeData]
+      .filter((store) => store.id !== seed.id)
+      .sort((a, b) => {
+        const distA = seed.distances[a.id] ?? Infinity
+        const distB = seed.distances[b.id] ?? Infinity
+        return distA - distB
+      })
+      .slice(0, stopCount - 1)
+
+    addCombo([seed, ...nearest])
+  }
+
+  // Build one candidate around centroid for broad-area balancing.
+  const centroid = storeData.reduce(
+    (acc, store) => ({ lat: acc.lat + store.latitude, lng: acc.lng + store.longitude }),
+    { lat: 0, lng: 0 }
+  )
+  centroid.lat /= storeData.length
+  centroid.lng /= storeData.length
+
+  const centroidRanked = [...storeData].sort((a, b) => {
+    const distA = calculateDistance(centroid.lat, centroid.lng, a.latitude, a.longitude)
+    const distB = calculateDistance(centroid.lat, centroid.lng, b.latitude, b.longitude)
+    return distA - distB
+  })
+  addCombo(centroidRanked.slice(0, stopCount))
+
+  return Array.from(combos.values())
+}
+
+function fallbackOptimization(storeData: StoreNode[], managerHome: any, constraints: OptimizationConstraints) {
+  const stopCount = Math.min(constraints.stopLimit, storeData.length)
+  const candidateCombos = buildCandidateCombinations(storeData, stopCount, managerHome)
+
+  let bestAny: RouteEstimate | null = null
+  let bestValid: RouteEstimate | null = null
+
+  for (const combo of candidateCombos) {
+    const estimate = evaluateCandidate(combo, managerHome, constraints)
+
+    if (!bestAny || estimate.score < bestAny.score) {
+      bestAny = estimate
+    }
+
+    const fitsDriveLimit = constraints.maxDriveMinutes === null || estimate.totalDriveMinutes <= constraints.maxDriveMinutes
+    const fitsRouteLimit = constraints.maxRouteMinutes === null || estimate.totalRouteMinutes <= constraints.maxRouteMinutes
+
+    if (fitsDriveLimit && fitsRouteLimit) {
+      if (!bestValid || estimate.score < bestValid.score) {
+        bestValid = estimate
       }
     }
   }
 
-  return NextResponse.json({ storeIds: bestRoute })
+  const best = bestValid || bestAny
+  if (!best) {
+    return NextResponse.json({ error: 'Unable to build a route with the provided data.' }, { status: 400 })
+  }
+
+  const warnings: string[] = []
+  if (!bestValid) {
+    warnings.push('No combination satisfied all constraints. Returned the closest feasible route.')
+  }
+
+  return NextResponse.json({
+    storeIds: best.order.map((store) => store.id),
+    estimate: {
+      stopCount: best.order.length,
+      totalDistanceKm: Number(best.totalDistanceKm.toFixed(1)),
+      totalDistanceMiles: Number(kmToMiles(best.totalDistanceKm).toFixed(1)),
+      totalDriveMinutes: best.totalDriveMinutes,
+      totalRouteMinutes: best.totalRouteMinutes,
+      maxInterStoreDistanceKm: Number(best.maxInterStoreDistanceKm.toFixed(1)),
+    },
+    constraints,
+    warnings,
+  })
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const requestBody = await request.json()
+    const stores = Array.isArray(requestBody?.stores) ? requestBody.stores : []
+    const managerHome = requestBody?.managerHome || null
+
+    if (stores.length === 0) {
+      return NextResponse.json({ error: 'No stores provided' }, { status: 400 })
+    }
+
+    const constraints = parseConstraints(requestBody, stores.length)
+
+    const storeData: StoreNode[] = stores
+      .map((store: any) => {
+        const latitude = parseNumber(store.latitude)
+        const longitude = parseNumber(store.longitude)
+        if (latitude === null || longitude === null) return null
+
+        let distanceFromHome: number | null = null
+        if (managerHome?.latitude && managerHome?.longitude) {
+          distanceFromHome = calculateDistance(managerHome.latitude, managerHome.longitude, latitude, longitude)
+        }
+
+        return {
+          id: String(store.id),
+          name: store.store_name || 'Unknown Store',
+          code: store.store_code || '',
+          latitude,
+          longitude,
+          distanceFromHome,
+          distances: {},
+        } satisfies StoreNode
+      })
+      .filter((store: StoreNode | null): store is StoreNode => !!store)
+
+    if (storeData.length === 0) {
+      return NextResponse.json({ error: 'No stores with valid coordinates were provided.' }, { status: 400 })
+    }
+
+    for (let i = 0; i < storeData.length; i++) {
+      for (let j = i + 1; j < storeData.length; j++) {
+        const distance = calculateDistance(
+          storeData[i].latitude,
+          storeData[i].longitude,
+          storeData[j].latitude,
+          storeData[j].longitude
+        )
+        storeData[i].distances[storeData[j].id] = distance
+        storeData[j].distances[storeData[i].id] = distance
+      }
+    }
+
+    return fallbackOptimization(storeData, managerHome, constraints)
+  } catch (error) {
+    console.error('Error optimizing route:', error)
+    return NextResponse.json({ error: 'Failed to optimize route' }, { status: 500 })
+  }
 }

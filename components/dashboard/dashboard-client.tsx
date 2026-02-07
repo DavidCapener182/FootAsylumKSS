@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { AlertTriangle, TrendingUp, Clock, AlertCircle, Store, FileCheck, Sparkles, X, Loader2, Calendar, Flame } from 'lucide-react'
+import { AlertTriangle, TrendingUp, Clock, AlertCircle, Store, FileCheck, Sparkles, X, Loader2, Calendar, Flame, ShieldCheck, ArrowUpRight } from 'lucide-react'
 import { format } from 'date-fns'
 import { ComplianceVisitsTracking } from '@/components/dashboard/compliance-visits-tracking'
 import { PlannedRounds } from '@/components/dashboard/planned-rounds'
@@ -11,14 +11,15 @@ import { formatPercent } from '@/lib/utils'
 
 // --- Helper Components ---
 
-function MetricCard({ title, value, icon: Icon, colorClass, bgClass, href }: any) {
+function MetricCard({ title, value, icon: Icon, colorClass, bgClass, href, accentClass }: any) {
   const cardContent = (
-    <Card className={`flex flex-row items-center justify-between p-4 md:p-6 bg-white shadow-sm border-slate-200 transition-all hover:shadow-md ${href ? 'cursor-pointer' : ''}`}>
+    <Card className={`relative overflow-hidden flex flex-row items-center justify-between p-4 md:p-5 bg-white/95 shadow-sm border-slate-200 transition-all hover:shadow-md hover:-translate-y-0.5 ${href ? 'cursor-pointer' : ''}`}>
+      <div className={`absolute inset-x-0 top-0 h-1 ${accentClass || 'bg-slate-200'}`} />
       <div className="flex flex-col gap-1 min-w-0 flex-1">
-        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{title}</span>
-        <span className="text-2xl md:text-3xl font-bold text-slate-900">{value}</span>
+        <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest">{title}</span>
+        <span className="text-2xl md:text-[1.75rem] leading-tight font-bold text-slate-900">{value}</span>
       </div>
-      <div className={`h-10 w-10 md:h-12 md:w-12 rounded-xl ${bgClass} flex items-center justify-center transition-colors flex-shrink-0 ml-2`}>
+      <div className={`h-10 w-10 md:h-11 md:w-11 rounded-xl ${bgClass} flex items-center justify-center transition-colors flex-shrink-0 ml-2`}>
         <Icon className={`h-5 w-5 md:h-6 md:w-6 ${colorClass}`} />
       </div>
     </Card>
@@ -55,6 +56,15 @@ function LabeledProgressBar({ label, value, total, colorClass }: { label: string
         <span className="text-xs font-bold text-slate-500">{value}</span>
       </div>
       <ProgressBar value={percentage} colorClass={colorClass} heightClass="h-1.5" />
+    </div>
+  )
+}
+
+function HeroStatPill({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="rounded-xl border border-white/20 bg-white/10 px-3 py-2 backdrop-blur-sm">
+      <p className="text-[10px] uppercase tracking-widest text-slate-300">{label}</p>
+      <p className="mt-1 text-lg font-semibold text-white">{value}</p>
     </div>
   )
 }
@@ -208,6 +218,15 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
     }
   }
 
+  const plannedStoreCount = data.plannedRoutes?.reduce(
+    (total: number, route: any) => total + (route.stores?.length || route.storeCount || 0),
+    0
+  ) || 0
+  const plannedRouteCount = data.plannedRoutes?.length || 0
+  const healthScore = Math.round(((data.auditStats?.totalAuditPercentage || 0) * 0.65) + ((100 - Math.min(data.overdueActions * 3, 100)) * 0.35))
+  const priorityAlerts = (data.overdueActions || 0) + (data.highCritical || 0)
+  const topForecastStores = data.complianceForecast?.stores?.slice(0, 5) || []
+
   return (
     <div className="flex flex-col gap-4 md:gap-6">
       
@@ -218,29 +237,51 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
         isLoading={reportLoading} 
       />
 
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex-1 min-w-0">
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">Dashboard</h1>
-          <p className="text-sm sm:text-base text-slate-500 mt-1">Overview of compliance status and store performance</p>
-        </div>
-        
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-shrink-0">
-            <button 
-                onClick={handleGenerateReport}
-                className="flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-4 py-2 rounded-lg shadow-sm font-medium transition-all hover:shadow-md active:scale-95 min-h-[44px]"
-            >
-                <Sparkles className="h-4 w-4" />
-                <span className="hidden sm:inline">Generate Report</span>
-                <span className="sm:hidden">Report</span>
-            </button>
-            <div className="text-xs sm:text-sm font-medium text-slate-500 bg-white px-3 sm:px-4 py-2 rounded-md shadow-sm border border-slate-200 text-center sm:text-left min-h-[44px] flex items-center justify-center">
-                Updated: {format(new Date(), 'HH:mm')}
+      {/* Hero */}
+      <div className="relative overflow-hidden rounded-3xl border border-slate-800 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-5 sm:p-6 md:p-7 shadow-lg">
+        <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-blue-500/20 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-20 left-10 h-56 w-56 rounded-full bg-emerald-500/15 blur-3xl" />
+        <div className="relative z-10 flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
+          <div className="min-w-0">
+            <div className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-medium uppercase tracking-widest text-slate-200">
+              <ShieldCheck className="h-3.5 w-3.5" />
+              Compliance Overview
             </div>
+            <h1 className="mt-3 text-2xl font-bold tracking-tight text-white sm:text-3xl">Dashboard</h1>
+            <p className="mt-2 max-w-2xl text-sm text-slate-300 sm:text-base">
+              Real-time view of incidents, audits, and planned operations across your store network.
+            </p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-shrink-0">
+            <button
+              onClick={handleGenerateReport}
+              className="flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-slate-900 shadow-sm font-medium transition-all hover:bg-slate-100 active:scale-[0.98] min-h-[44px]"
+            >
+              <Sparkles className="h-4 w-4 text-blue-600" />
+              <span className="hidden sm:inline">Generate AI Report</span>
+              <span className="sm:hidden">AI Report</span>
+              <ArrowUpRight className="h-3.5 w-3.5 text-slate-500" />
+            </button>
+            <div className="rounded-xl border border-white/20 bg-white/10 px-3.5 py-2.5 text-center text-xs font-medium text-slate-200 min-h-[44px] flex items-center justify-center">
+              Updated: {format(new Date(), 'HH:mm')}
+            </div>
+          </div>
+        </div>
+
+        <div className="relative z-10 mt-5 grid grid-cols-2 gap-2.5 md:grid-cols-4">
+          <HeroStatPill label="Health Score" value={`${healthScore}%`} />
+          <HeroStatPill label="Priority Alerts" value={priorityAlerts} />
+          <HeroStatPill label="Planned Stores" value={plannedStoreCount} />
+          <HeroStatPill label="Routes Planned" value={plannedRouteCount} />
         </div>
       </div>
 
       {/* KPI Section */}
+      <div className="space-y-2.5">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Risk Snapshot</h2>
+        </div>
       <div className="grid gap-3 md:gap-4 grid-cols-2 lg:grid-cols-5">
         <MetricCard 
           title="Open Incidents" 
@@ -248,6 +289,7 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
           icon={AlertTriangle} 
           colorClass="text-blue-600" 
           bgClass="bg-blue-50" 
+          accentClass="bg-gradient-to-r from-blue-500 to-cyan-500"
         />
         <MetricCard 
           title="Investigating" 
@@ -255,6 +297,7 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
           icon={TrendingUp} 
           colorClass="text-purple-600" 
           bgClass="bg-purple-50" 
+          accentClass="bg-gradient-to-r from-indigo-500 to-violet-500"
         />
         <MetricCard 
           title="Overdue Actions" 
@@ -262,6 +305,7 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
           icon={Clock} 
           colorClass="text-orange-600" 
           bgClass="bg-orange-50" 
+          accentClass="bg-gradient-to-r from-orange-500 to-amber-500"
         />
         <MetricCard 
           title="High Risk (30d)" 
@@ -269,6 +313,7 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
           icon={AlertCircle} 
           colorClass="text-rose-600" 
           bgClass="bg-rose-50" 
+          accentClass="bg-gradient-to-r from-rose-500 to-red-500"
         />
         <MetricCard 
           title="Stores Requiring FRA" 
@@ -276,81 +321,168 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
           icon={Flame} 
           colorClass="text-orange-600" 
           bgClass="bg-orange-50"
+          accentClass="bg-gradient-to-r from-amber-500 to-orange-500"
           href="/fire-risk-assessment"
         />
       </div>
+      </div>
+
+      {data.complianceForecast && (
+        <Card className="overflow-hidden rounded-2xl border-slate-200 bg-white shadow-sm">
+          <CardHeader className="border-b border-slate-200 bg-slate-50/60 px-4 py-4 md:px-6 md:py-5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <CardTitle className="flex items-center gap-2 text-sm font-bold text-slate-800 md:text-base">
+                <TrendingUp className="h-4 w-4 text-indigo-600" />
+                Compliance Forecast (Next 30 Days)
+              </CardTitle>
+              <span className="rounded-full border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-700">
+                avg risk {data.complianceForecast.avgRiskScore}%
+              </span>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3 p-4 md:p-5">
+            <div className="grid grid-cols-3 gap-2">
+              <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-rose-700">High Risk</p>
+                <p className="text-lg font-bold text-rose-800">{data.complianceForecast.highRiskCount}</p>
+              </div>
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-700">Medium</p>
+                <p className="text-lg font-bold text-amber-800">{data.complianceForecast.mediumRiskCount}</p>
+              </div>
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-700">Low</p>
+                <p className="text-lg font-bold text-emerald-800">{data.complianceForecast.lowRiskCount}</p>
+              </div>
+            </div>
+
+            {topForecastStores.length > 0 ? (
+              <div className="space-y-2">
+                {topForecastStores.map((store: any) => (
+                  <div key={store.storeId} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5">
+                    <div className="flex flex-wrap items-center justify-between gap-1">
+                      <p className="text-sm font-semibold text-slate-900">
+                        {store.storeName}
+                        {store.storeCode ? <span className="ml-1 text-slate-500">({store.storeCode})</span> : null}
+                      </p>
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                          store.riskBand === 'high'
+                            ? 'border border-rose-200 bg-rose-50 text-rose-700'
+                            : store.riskBand === 'medium'
+                            ? 'border border-amber-200 bg-amber-50 text-amber-700'
+                            : 'border border-emerald-200 bg-emerald-50 text-emerald-700'
+                        }`}
+                      >
+                        {store.probability}% risk
+                      </span>
+                    </div>
+                    {store.drivers?.length > 0 && (
+                      <p className="mt-1 text-xs text-slate-600">
+                        {store.drivers[0]}
+                        {store.drivers[1] ? ` • ${store.drivers[1]}` : ''}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs italic text-slate-500">No forecast data available.</p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Bento Grid: Planned Visits, Audit Completion, Top Stores */}
-      <div className="grid gap-2 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 md:gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
         {/* Planned Visits - Small card */}
-        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl shadow-sm md:col-span-1 h-[170px]">
-          <div className="pb-1.5 px-3 pt-3">
+        <div className="relative overflow-hidden rounded-2xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50 to-teal-50 shadow-sm md:col-span-1 h-[180px]">
+          <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-emerald-300/35 blur-2xl" />
+          <div className="pb-1.5 px-3 pt-3 relative z-10">
             <h3 className="text-emerald-900 flex items-center gap-2 text-sm font-semibold">
               <Calendar className="h-4 w-4" />
               Planned Visits
             </h3>
           </div>
-          <div className="px-3 pb-3">
+          <div className="px-3 pb-3 relative z-10">
             <div className="flex flex-col gap-1.5">
               <p className="text-3xl font-bold text-emerald-900">
-                {data.plannedRoutes?.reduce((total: number, route: any) => total + (route.stores?.length || route.storeCount || 0), 0) || 0}
+                {plannedStoreCount}
               </p>
               <p className="text-xs text-emerald-700">
-                {data.plannedRoutes?.reduce((total: number, route: any) => total + (route.stores?.length || route.storeCount || 0), 0) === 1 ? 'store' : 'stores'} with planned visits
+                {plannedStoreCount === 1 ? 'store' : 'stores'} with planned visits
               </p>
               <p className="text-sm font-semibold text-emerald-700 mt-1">
-                {data.plannedRoutes?.length || 0} {data.plannedRoutes?.length === 1 ? 'route' : 'routes'} planned
+                {plannedRouteCount} {plannedRouteCount === 1 ? 'route' : 'routes'} planned
               </p>
             </div>
           </div>
         </div>
 
         {/* Audit Completion Rates - Large card spanning 2 columns */}
-        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm md:col-span-2 lg:col-span-2 h-[170px] flex flex-col">
-          <div className="pb-1.5 px-3 pt-3">
+        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm md:col-span-2 lg:col-span-2 h-[180px] flex flex-col">
+          <div className="pb-1.5 px-3 pt-3 border-b border-slate-100/80">
             <div className="flex items-center gap-2">
               <FileCheck className="h-4 w-4 text-slate-500 flex-shrink-0" />
               <h3 className="text-sm font-semibold text-slate-800">Audit Completion Rates</h3>
+              <span className="ml-auto rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                {data.auditStats.totalStores} stores
+              </span>
             </div>
           </div>
-          <div className="px-3 pb-3 flex-1 overflow-y-auto">
+          <div className="px-3 pb-3 pt-2 flex-1 overflow-y-auto">
             <div className="grid gap-2 grid-cols-1 md:grid-cols-3">
               {/* First Audit */}
-              <div className="flex flex-col gap-1 p-2.5 rounded-xl bg-slate-50 border border-slate-100 hover:border-emerald-200 transition-colors">
-                <span className="text-xs font-bold uppercase text-slate-500 tracking-wider">First Audit</span>
-                <div className="flex items-end justify-between">
+              <div className="flex h-full flex-col p-2.5 rounded-xl bg-gradient-to-br from-slate-50 to-slate-100/70 border border-slate-200 hover:border-emerald-300 transition-colors">
+                <div className="min-h-[2rem]">
+                  <span className="text-xs font-bold uppercase text-slate-500 tracking-wider">First Audit</span>
+                  <p className="text-[10px] leading-4 text-slate-400">Audit 1 completion</p>
+                </div>
+                <div className="mt-1 flex items-end justify-between">
                   <span className="text-2xl font-bold text-slate-900">{formatPercent(data.auditStats.firstAuditPercentage)}</span>
                   <span className="text-xs font-medium text-slate-400">{data.auditStats.firstAuditsComplete}/{data.auditStats.totalStores}</span>
                 </div>
-                <ProgressBar value={data.auditStats.firstAuditPercentage} colorClass="bg-emerald-500" />
+                <div className="mt-2">
+                  <ProgressBar value={data.auditStats.firstAuditPercentage} colorClass="bg-emerald-500" />
+                </div>
               </div>
 
               {/* Second Audit */}
-              <div className="flex flex-col gap-1 p-2.5 rounded-xl bg-slate-50 border border-slate-100 hover:border-blue-200 transition-colors">
-                 <span className="text-xs font-bold uppercase text-slate-500 tracking-wider">Second Audit</span>
-                 <div className="flex items-end justify-between">
+              <div className="flex h-full flex-col p-2.5 rounded-xl bg-gradient-to-br from-slate-50 to-slate-100/70 border border-slate-200 hover:border-blue-300 transition-colors">
+                 <div className="min-h-[2rem]">
+                   <span className="text-xs font-bold uppercase text-slate-500 tracking-wider">Second Audit</span>
+                   <p className="text-[10px] leading-4 text-slate-400">Audit 2 completion</p>
+                 </div>
+                 <div className="mt-1 flex items-end justify-between">
                   <span className="text-2xl font-bold text-slate-900">{formatPercent(data.auditStats.secondAuditPercentage)}</span>
                   <span className="text-xs font-medium text-slate-400">{data.auditStats.secondAuditsComplete}/{data.auditStats.totalStores}</span>
                 </div>
-                <ProgressBar value={data.auditStats.secondAuditPercentage} colorClass="bg-blue-500" />
+                <div className="mt-2">
+                  <ProgressBar value={data.auditStats.secondAuditPercentage} colorClass="bg-blue-500" />
+                </div>
               </div>
 
               {/* Total Complete */}
-              <div className="flex flex-col gap-1 p-2.5 rounded-xl bg-slate-50 border border-slate-100 hover:border-purple-200 transition-colors">
-                 <span className="text-xs font-bold uppercase text-slate-500 tracking-wider">Fully Compliant</span>
-                 <div className="flex items-end justify-between">
+              <div className="flex h-full flex-col p-2.5 rounded-xl bg-gradient-to-br from-slate-50 to-slate-100/70 border border-slate-200 hover:border-violet-300 transition-colors">
+                 <div className="min-h-[2rem]">
+                   <span className="text-xs font-bold uppercase text-slate-500 tracking-wider">Fully Compliant</span>
+                   <p className="text-[10px] leading-4 text-slate-400">Audit &gt;=80% + FRA in date</p>
+                 </div>
+                 <div className="mt-1 flex items-end justify-between">
                   <span className="text-2xl font-bold text-slate-900">{formatPercent(data.auditStats.totalAuditPercentage)}</span>
                   <span className="text-xs font-medium text-slate-400">{data.auditStats.totalAuditsComplete}/{data.auditStats.totalStores}</span>
                 </div>
-                <ProgressBar value={data.auditStats.totalAuditPercentage} colorClass="bg-purple-500" />
+                <div className="mt-2">
+                  <ProgressBar value={data.auditStats.totalAuditPercentage} colorClass="bg-purple-500" />
+                </div>
               </div>
             </div>
           </div>
         </div>
 
         {/* Top Stores - Medium card */}
-        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm md:col-span-1 h-[170px] flex flex-col">
-          <div className="pb-1.5 border-b bg-slate-50/40 px-3 pt-3">
+        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm md:col-span-1 h-[180px] flex flex-col">
+          <div className="pb-1.5 border-b border-slate-100 bg-slate-50/60 px-3 pt-3">
             <div className="flex items-center gap-2">
               <Store className="h-4 w-4 text-emerald-600 flex-shrink-0" />
               <h3 className="text-sm font-bold text-slate-800">Top Stores (Open Incidents)</h3>
@@ -392,8 +524,7 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
       <div className="grid gap-3 md:gap-4 grid-cols-1 lg:grid-cols-[10fr_3fr]">
         <div className="h-full min-w-0">
           <ComplianceVisitsTracking 
-            stores={data.storesNeedingSecondVisit} 
-            profiles={data.profiles} 
+            stores={data.storesNeedingSecondVisit}
           />
         </div>
         <div className="h-full min-w-0">
@@ -405,51 +536,55 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
 
       {/* Incident Breakdown - Full width below compliance visits */}
       {data.totalIncidents > 0 && (
-        <Card className="shadow-sm border-slate-200 bg-white">
-          <CardHeader className="pb-3 border-b bg-slate-50/40 px-4 md:px-6 pt-4 md:pt-6">
-            <CardTitle className="text-sm font-bold text-slate-800">Incident Breakdown</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-4 md:pt-5 space-y-4 md:space-y-6 px-3 md:px-6 pb-4 md:pb-6">
-            
-            {/* By Status */}
-            <div className="space-y-3">
-              <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">By Status</h4>
-              {Object.keys(data.statusCounts).length === 0 ? (
-                <p className="text-slate-400 text-xs italic">No data available</p>
-              ) : (
-                Object.entries(data.statusCounts).map(([status, count]) => (
-                  <LabeledProgressBar 
-                    key={status} 
-                    label={status} 
-                    value={count as number} 
-                    total={data.totalIncidents} 
-                    colorClass="bg-purple-500" 
-                  />
-                ))
-              )}
+        <Card className="shadow-sm border-slate-200 bg-white rounded-2xl overflow-hidden">
+          <CardHeader className="pb-3 border-b bg-slate-50/50 px-4 md:px-6 pt-4 md:pt-5">
+            <div className="flex items-center justify-between gap-3">
+              <CardTitle className="text-sm font-bold text-slate-800">Incident Breakdown</CardTitle>
+              <div className="rounded-full border border-slate-200 bg-white px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                {data.totalIncidents} active
+              </div>
             </div>
+          </CardHeader>
+          <CardContent className="pt-4 md:pt-5 px-3 md:px-6 pb-4 md:pb-6">
+            <div className="grid gap-5 md:grid-cols-2">
+              {/* By Status */}
+              <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50/50 p-3">
+                <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">By Status</h4>
+                {Object.keys(data.statusCounts).length === 0 ? (
+                  <p className="text-slate-400 text-xs italic">No data available</p>
+                ) : (
+                  Object.entries(data.statusCounts).map(([status, count]) => (
+                    <LabeledProgressBar 
+                      key={status} 
+                      label={status} 
+                      value={count as number} 
+                      total={data.totalIncidents} 
+                      colorClass="bg-indigo-500" 
+                    />
+                  ))
+                )}
+              </div>
 
-            <div className="border-t border-slate-100 my-4" />
-
-            {/* By Severity */}
-            <div className="space-y-3">
-              <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">By Severity</h4>
-               {Object.keys(data.severityCounts).length === 0 ? (
-                <p className="text-slate-400 text-xs italic">No data available</p>
-              ) : (
-                Object.entries(data.severityCounts).map(([severity, count]) => (
-                  <LabeledProgressBar 
-                    key={severity} 
-                    label={severity} 
-                    value={count as number} 
-                    total={data.totalIncidents} 
-                    colorClass={
-                      severity === 'critical' ? 'bg-red-600' : 
-                      severity === 'high' ? 'bg-orange-500' : 'bg-slate-500'
-                    } 
-                  />
-                ))
-              )}
+              {/* By Severity */}
+              <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50/50 p-3">
+                <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">By Severity</h4>
+                {Object.keys(data.severityCounts).length === 0 ? (
+                  <p className="text-slate-400 text-xs italic">No data available</p>
+                ) : (
+                  Object.entries(data.severityCounts).map(([severity, count]) => (
+                    <LabeledProgressBar 
+                      key={severity} 
+                      label={severity} 
+                      value={count as number} 
+                      total={data.totalIncidents} 
+                      colorClass={
+                        severity === 'critical' ? 'bg-red-600' : 
+                        severity === 'high' ? 'bg-orange-500' : 'bg-slate-500'
+                      } 
+                    />
+                  ))
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -457,4 +592,3 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
     </div>
   )
 }
-

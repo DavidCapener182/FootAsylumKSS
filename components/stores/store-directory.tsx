@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Input } from '@/components/ui/input'
 import { StoreModalWrapper } from '@/components/stores/store-modal-wrapper'
 import { StoreMobileCard } from '@/components/stores/store-mobile-card'
-import { Search, Store, MapPin } from 'lucide-react'
+import { Search, Store, MapPin, CheckCircle2, XCircle, Layers3 } from 'lucide-react'
 
 interface StoreDirectoryProps {
   stores: any[]
@@ -14,23 +14,13 @@ interface StoreDirectoryProps {
 
 export function StoreDirectory({ stores }: StoreDirectoryProps) {
   const [searchQuery, setSearchQuery] = useState('')
-  
-  // Debug: Log when stores change
-  useEffect(() => {
-    console.log('StoreDirectory: stores count', stores?.length)
-  }, [stores])
 
   const filteredStores = useMemo(() => {
-    if (!stores || stores.length === 0) {
-      return []
-    }
-    
-    if (!searchQuery.trim()) {
-      return stores
-    }
+    if (!stores || stores.length === 0) return []
+    if (!searchQuery.trim()) return stores
 
     const query = searchQuery.toLowerCase().trim()
-    const filtered = stores.filter((store) => {
+    return stores.filter((store) => {
       const storeName = String(store.store_name || '').toLowerCase()
       const storeCode = String(store.store_code || '').toLowerCase()
       const city = String(store.city || '').toLowerCase()
@@ -47,142 +37,210 @@ export function StoreDirectory({ stores }: StoreDirectoryProps) {
         postcode.includes(query)
       )
     })
-    
-    console.log('Filtering:', { query, total: stores.length, filtered: filtered.length })
-    return filtered
   }, [stores, searchQuery])
 
+  const groupedStores = useMemo(() => {
+    const groups = new Map<string, any[]>()
+
+    filteredStores.forEach((store) => {
+      const rawArea = String(store.region || store.area || '').trim()
+      const area = rawArea || 'Unassigned'
+      if (!groups.has(area)) groups.set(area, [])
+      groups.get(area)!.push(store)
+    })
+
+    return Array.from(groups.entries())
+      .map(([area, areaStores]) => ({
+        area,
+        stores: [...areaStores].sort((a, b) =>
+          String(a.store_name || '').localeCompare(String(b.store_name || ''), undefined, {
+            numeric: true,
+            sensitivity: 'base',
+          })
+        ),
+      }))
+      .sort((a, b) => {
+        if (a.area === 'Unassigned') return 1
+        if (b.area === 'Unassigned') return -1
+        return a.area.localeCompare(b.area, undefined, { numeric: true, sensitivity: 'base' })
+      })
+  }, [filteredStores])
+
+  const areaCount = groupedStores.length
+
   return (
-    <Card className="shadow-sm border-slate-200 bg-white overflow-hidden">
-      <CardHeader className="border-b bg-slate-50/40 px-4 md:px-6 py-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <CardTitle className="text-base font-semibold text-slate-800">
-            Store Directory
-            {searchQuery && (
-              <span className="ml-2 text-sm font-normal text-slate-500">
-                ({filteredStores.length} {filteredStores.length === 1 ? 'store' : 'stores'})
+    <Card className="overflow-hidden rounded-2xl border-slate-200 bg-white shadow-sm">
+      <CardHeader className="border-b border-slate-200 bg-slate-50/60 px-4 py-4 md:px-6 md:py-5">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <CardTitle className="text-sm font-bold text-slate-800 md:text-base">Store Directory</CardTitle>
+              <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
+                {filteredStores.length} shown
               </span>
-            )}
-          </CardTitle>
-          
-          <div className="relative w-full sm:w-64">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none z-10" />
+            </div>
+            <div className="mt-2 inline-flex items-center gap-1 rounded-full border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-700">
+              <Layers3 className="h-3 w-3" />
+              {areaCount} {areaCount === 1 ? 'area' : 'areas'}
+            </div>
+          </div>
+
+          <div className="relative w-full md:w-80">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <Input
               type="text"
-              placeholder="Search stores..."
+              placeholder="Search by name, code, city, area, postcode"
               value={searchQuery}
-              onChange={(e) => {
-                const value = e.target.value
-                console.log('Search input changed:', value)
-                setSearchQuery(value)
-              }}
-              className="h-9 w-full pl-9 pr-4 bg-white border-slate-200 text-sm focus-visible:ring-2 focus-visible:ring-indigo-500"
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="h-10 w-full rounded-xl border-slate-200 bg-white pl-9 pr-4 text-sm focus-visible:ring-2 focus-visible:ring-indigo-500"
             />
           </div>
         </div>
       </CardHeader>
+
       <CardContent className="p-0">
         {/* Mobile Card View */}
-        <div className="md:hidden p-4 space-y-4">
-          {filteredStores.length === 0 ? (
-            <div className="flex flex-col items-center justify-center text-slate-500 py-12">
-              <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center mb-3">
+        <div className="space-y-4 p-4 md:hidden">
+          {groupedStores.length === 0 ? (
+            <div className="flex flex-col items-center justify-center rounded-xl border border-slate-200 bg-slate-50/70 py-12 text-slate-500">
+              <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-slate-100">
                 <Store className="h-5 w-5 text-slate-400" />
               </div>
-              <p className="font-medium text-slate-900">
-                {searchQuery ? 'No stores found' : 'No stores found'}
-              </p>
-              <p className="text-sm mt-1 text-center">
-                {searchQuery 
-                  ? 'Try adjusting your search terms.' 
-                  : 'Add a new store to get started.'}
+              <p className="font-medium text-slate-900">No stores found</p>
+              <p className="mt-1 text-center text-sm text-slate-500">
+                {searchQuery ? 'Try adjusting your search terms.' : 'Add a new store to get started.'}
               </p>
             </div>
           ) : (
-            filteredStores.map((store) => (
-              <StoreMobileCard key={store.id} store={store} />
+            groupedStores.map((group) => (
+              <section key={group.area} className="space-y-2.5">
+                <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-700">{group.area}</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                    {group.stores.length} stores
+                  </p>
+                </div>
+                <div className="space-y-3">
+                  {group.stores.map((store) => (
+                    <StoreMobileCard key={store.id} store={store} />
+                  ))}
+                </div>
+              </section>
             ))
           )}
         </div>
 
         {/* Desktop Table View */}
         <div className="hidden md:block">
-          <Table>
-            <TableHeader className="bg-slate-50">
-              <TableRow>
-                <TableHead className="w-[120px] font-semibold text-slate-500">Store Code</TableHead>
-                <TableHead className="font-semibold text-slate-500">Store Name</TableHead>
-                <TableHead className="font-semibold text-slate-500">Location</TableHead>
-                <TableHead className="font-semibold text-slate-500">Region</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredStores.length === 0 ? (
+          <div className="max-h-[68vh] overflow-auto">
+            <Table>
+              <TableHeader className="sticky top-0 z-10 bg-slate-50">
                 <TableRow>
-                  <TableCell colSpan={4} className="h-40 text-center">
-                    <div className="flex flex-col items-center justify-center text-slate-500">
-                      <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center mb-3">
-                        <Store className="h-5 w-5 text-slate-400" />
-                      </div>
-                      <p className="font-medium text-slate-900">
-                        {searchQuery ? 'No stores found' : 'No stores found'}
-                      </p>
-                      <p className="text-sm mt-1">
-                        {searchQuery 
-                          ? 'Try adjusting your search terms.' 
-                          : 'Add a new store to get started.'}
-                      </p>
-                    </div>
-                  </TableCell>
+                  <TableHead className="font-semibold text-slate-500">Store</TableHead>
+                  <TableHead className="w-[130px] font-semibold text-slate-500">Code</TableHead>
+                  <TableHead className="font-semibold text-slate-500">Location</TableHead>
+                  <TableHead className="w-[120px] font-semibold text-slate-500">Status</TableHead>
                 </TableRow>
-              ) : (
-                filteredStores.map((store) => (
-                  <TableRow key={store.id} className="hover:bg-slate-50/50 transition-colors">
-                    <TableCell>
-                      {store.store_code ? (
-                        <span className="font-mono text-xs font-medium text-slate-600 bg-slate-100 px-2 py-1 rounded">
-                          {store.store_code}
-                        </span>
-                      ) : (
-                        <span className="text-slate-400 text-sm">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <StoreModalWrapper store={store} incidents={store.incidents} actions={store.actions}>
-                        <span className="font-medium text-indigo-600 hover:text-indigo-800 cursor-pointer transition-colors">
-                          {store.store_name}
-                        </span>
-                      </StoreModalWrapper>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <MapPin className="h-4 w-4 text-slate-400 flex-shrink-0" />
-                        <span className="text-sm text-slate-600">
-                          {store.address_line_1 || store.city || store.postcode ? (
-                            <span>
-                              {store.address_line_1 && <span>{store.address_line_1}</span>}
-                              {store.address_line_1 && store.city && <span>, </span>}
-                              {store.city && <span>{store.city}</span>}
-                              {store.postcode && (store.address_line_1 || store.city) && <span> </span>}
-                              {store.postcode && <span className="text-slate-500">{store.postcode}</span>}
-                            </span>
-                          ) : (
-                            <span className="text-slate-400 italic">No address</span>
-                          )}
-                        </span>
+              </TableHeader>
+              <TableBody>
+                {groupedStores.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="h-44 text-center">
+                      <div className="flex flex-col items-center justify-center text-slate-500">
+                        <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-slate-100">
+                          <Store className="h-5 w-5 text-slate-400" />
+                        </div>
+                        <p className="font-medium text-slate-900">No stores found</p>
+                        <p className="mt-1 text-sm text-slate-500">
+                          {searchQuery ? 'Try adjusting your search terms.' : 'Add a new store to get started.'}
+                        </p>
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-sm text-slate-600">{store.region || <span className="text-slate-400 italic">—</span>}</span>
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                ) : (
+                  groupedStores.map((group) => (
+                    <Fragment key={group.area}>
+                      <TableRow className="bg-slate-50/80 hover:bg-slate-50/80">
+                        <TableCell colSpan={4} className="py-2.5">
+                          <div className="flex items-center justify-between">
+                            <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
+                              <Layers3 className="h-3 w-3" />
+                              {group.area}
+                            </span>
+                            <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                              {group.stores.length} stores
+                            </span>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+
+                      {group.stores.map((store) => (
+                        <TableRow key={store.id} className="align-top border-b border-slate-100 transition-colors hover:bg-slate-50/70">
+                          <TableCell>
+                            <div className="space-y-1">
+                              <StoreModalWrapper store={store} incidents={store.incidents} actions={store.actions}>
+                                <span className="cursor-pointer font-semibold text-indigo-600 transition-colors hover:text-indigo-800">
+                                  {store.store_name}
+                                </span>
+                              </StoreModalWrapper>
+                              <p className="text-[11px] text-slate-500">
+                                {(store.incidents?.length || 0)} incidents • {(store.actions?.length || 0)} actions
+                              </p>
+                            </div>
+                          </TableCell>
+
+                          <TableCell>
+                            {store.store_code ? (
+                              <span className="inline-flex rounded-md border border-slate-200 bg-slate-100 px-2 py-1 font-mono text-xs font-semibold text-slate-600">
+                                {store.store_code}
+                              </span>
+                            ) : (
+                              <span className="text-sm text-slate-400">—</span>
+                            )}
+                          </TableCell>
+
+                          <TableCell>
+                            <div className="flex items-start gap-2">
+                              <MapPin className="mt-0.5 h-4 w-4 flex-shrink-0 text-slate-400" />
+                              <span className="text-sm text-slate-600">
+                                {store.address_line_1 || store.city || store.postcode ? (
+                                  <span>
+                                    {store.address_line_1 && <span>{store.address_line_1}</span>}
+                                    {store.address_line_1 && store.city && <span>, </span>}
+                                    {store.city && <span>{store.city}</span>}
+                                    {store.postcode && (store.address_line_1 || store.city) && <span> </span>}
+                                    {store.postcode && <span className="text-slate-500">{store.postcode}</span>}
+                                  </span>
+                                ) : (
+                                  <span className="italic text-slate-400">No address</span>
+                                )}
+                              </span>
+                            </div>
+                          </TableCell>
+
+                          <TableCell>
+                            {store.is_active ? (
+                              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
+                                <CheckCircle2 className="h-3 w-3" />
+                                Active
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
+                                <XCircle className="h-3 w-3" />
+                                Inactive
+                              </span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </Fragment>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </div>
       </CardContent>
     </Card>
   )
 }
-

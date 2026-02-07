@@ -3,6 +3,7 @@ import { requireAuth } from '@/lib/auth'
 import { truncateToDecimals } from '@/lib/utils'
 import { subDays } from 'date-fns'
 import { DashboardClient } from '@/components/dashboard/dashboard-client'
+import { computeComplianceForecast, getFRAStatusFromDate } from '@/lib/compliance-forecast'
 
 // --- Data Fetching ---
 
@@ -24,7 +25,9 @@ async function getDashboardData() {
     { data: profiles },
     { data: allStores },
     { data: plannedRoutesRaw },
-    { data: fraStores }
+    { data: fraStores },
+    { data: openIncidentsByStoreRaw },
+    { data: overdueActionsByStoreRaw }
   ] = await Promise.all([
     supabase.from('fa_incidents').select('*', { count: 'exact', head: true }).in('status', ['open', 'under_investigation', 'actions_in_progress']),
     supabase.from('fa_incidents').select('*', { count: 'exact', head: true }).eq('status', 'under_investigation'),
@@ -36,9 +39,38 @@ async function getDashboardData() {
     supabase.from('fa_activity_log').select(`*, performed_by:fa_profiles!fa_activity_log_performed_by_user_id_fkey(full_name)`).order('created_at', { ascending: false }).limit(20),
     supabase.from('fa_stores').select(`id, store_name, store_code, compliance_audit_1_date, compliance_audit_2_date, compliance_audit_2_assigned_manager_user_id, compliance_audit_2_planned_date, assigned_manager:fa_profiles!fa_stores_compliance_audit_2_assigned_manager_user_id_fkey(id, full_name)`).is('compliance_audit_2_date', null).eq('is_active', true).order('store_name', { ascending: true }),
     supabase.from('fa_profiles').select('id, full_name').order('full_name', { ascending: true }),
-    supabase.from('fa_stores').select('id, compliance_audit_1_date, compliance_audit_1_overall_pct, compliance_audit_2_date, compliance_audit_2_overall_pct').eq('is_active', true),
+    supabase
+      .from('fa_stores')
+      .select(`
+        id,
+        store_name,
+        store_code,
+        region,
+        compliance_audit_1_date,
+        compliance_audit_1_overall_pct,
+        compliance_audit_2_date,
+        compliance_audit_2_overall_pct,
+        fire_risk_assessment_date,
+        compliance_audit_2_planned_date
+      `)
+      .eq('is_active', true),
         supabase.from('fa_stores').select(`id, store_name, store_code, region, postcode, latitude, longitude, compliance_audit_2_planned_date, compliance_audit_2_assigned_manager_user_id, route_sequence, assigned_manager:fa_profiles!fa_stores_compliance_audit_2_assigned_manager_user_id_fkey(id, full_name, home_address, home_latitude, home_longitude)`).not('compliance_audit_2_planned_date', 'is', null).eq('is_active', true).order('compliance_audit_2_planned_date', { ascending: true }),
-    supabase.from('fa_stores').select('id, compliance_audit_1_date, compliance_audit_2_date, fire_risk_assessment_date').eq('is_active', true)
+    supabase.from('fa_stores').select('id, compliance_audit_1_date, compliance_audit_2_date, fire_risk_assessment_date').eq('is_active', true),
+    supabase
+      .from('fa_incidents')
+      .select('store_id')
+      .in('status', ['open', 'under_investigation', 'actions_in_progress']),
+    supabase
+      .from('fa_actions')
+      .select(`
+        status,
+        due_date,
+        incident:fa_incidents!fa_actions_incident_id_fkey(
+          store_id
+        )
+      `)
+      .lt('due_date', today)
+      .not('status', 'in', '(complete,cancelled)')
   ])
 
   // Data Processing
@@ -71,6 +103,26 @@ async function getDashboardData() {
     .map(([id, data]) => ({ id, ...data }))
   
   const maxStoreCount = topStores.length > 0 ? Math.max(...topStores.map(s => s.count)) : 0
+
+  const openIncidentsByStore = (openIncidentsByStoreRaw || []).reduce((acc: Record<string, number>, row: any) => {
+    if (!row?.store_id) return acc
+    acc[row.store_id] = (acc[row.store_id] || 0) + 1
+    return acc
+  }, {})
+
+  const overdueActionsByStore = (overdueActionsByStoreRaw || []).reduce((acc: Record<string, number>, row: any) => {
+    const incidentRel = Array.isArray(row.incident) ? row.incident[0] : row.incident
+    const storeId = incidentRel?.store_id
+    if (!storeId) return acc
+    acc[storeId] = (acc[storeId] || 0) + 1
+    return acc
+  }, {})
+
+  const complianceForecast = computeComplianceForecast((allStores || []) as any, {
+    openIncidentsByStore,
+    overdueActionsByStore,
+    referenceDate: new Date(),
+  })
 
   // Filter out stores that completed audit 1 today (2026) or within the last 6 months
   // We're starting fresh for 2026, so hide stores that completed audit 1 recently
@@ -210,10 +262,6 @@ async function getDashboardData() {
   const totalStores = allStores?.length || 0
   const firstAuditsComplete = allStores?.filter(s => s.compliance_audit_1_date && s.compliance_audit_1_overall_pct !== null).length || 0
   const secondAuditsComplete = allStores?.filter(s => s.compliance_audit_2_date && s.compliance_audit_2_overall_pct !== null).length || 0
-  const totalAuditsComplete = allStores?.filter(s => {
-    return s.compliance_audit_1_date && s.compliance_audit_1_overall_pct !== null && 
-           s.compliance_audit_2_date && s.compliance_audit_2_overall_pct !== null
-  }).length || 0
 
   // Calculate stores requiring FRA (have audit 1 or 2 in current year, but haven't completed FRA)
   // Use same logic as FRA page - use allStores which we already have
@@ -289,39 +337,25 @@ async function getDashboardData() {
     
     // Get FRA data for this store
     const fraData = fraDataMap.get(store.id) || { fire_risk_assessment_date: null, fire_risk_assessment_pct: null }
-    const fraDate = fraData.fire_risk_assessment_date
+    const status = getFRAStatusFromDate(fraData.fire_risk_assessment_date)
     
-    // Calculate FRA status (same logic as getFRAStatus helper)
-    let status: 'up_to_date' | 'due' | 'overdue' | 'required' = 'required'
-    if (fraDate) {
-      try {
-        const date = new Date(fraDate)
-        const nextDue = new Date(date)
-        nextDue.setMonth(nextDue.getMonth() + 12)
-        
-        const today = new Date()
-        today.setHours(0, 0, 0, 0)
-        const dueDate = new Date(nextDue)
-        dueDate.setHours(0, 0, 0, 0)
-        
-        const daysDiff = Math.floor((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
-        
-        if (daysDiff < 0) {
-          status = 'overdue'
-        } else if (daysDiff <= 30) {
-          status = 'due'
-        } else {
-          status = 'up_to_date'
-        }
-      } catch (e) {
-        // If date parsing fails, keep as 'required'
-      }
-    }
-    
-    // Show stores that need FRA and are NOT "up_to_date"
-    // "Up to date" stores should be counted as completed, not requiring action
-    return status !== 'up_to_date'
+    // Stores with in-date FRA (due or up_to_date) are counted as compliant, not requiring action.
+    return status === 'required' || status === 'overdue'
   }).length || 0
+
+  // Fully compliant: at least one audit score of 80% or higher AND FRA in date (up_to_date or due).
+  const totalAuditsComplete = (allStores || []).filter((store: any) => {
+    const auditScores = [store.compliance_audit_1_overall_pct, store.compliance_audit_2_overall_pct]
+      .filter((score: unknown): score is number => typeof score === 'number' && !isNaN(score))
+    const hasPassingAudit = auditScores.some((score) => score >= 80)
+    if (!hasPassingAudit) return false
+
+    const fraData = fraDataMap.get(store.id) || { fire_risk_assessment_date: null, fire_risk_assessment_pct: null }
+    const fraStatus = getFRAStatusFromDate(fraData.fire_risk_assessment_date)
+    const hasInDateFRA = fraStatus === 'up_to_date' || fraStatus === 'due'
+
+    return hasInDateFRA
+  }).length
 
   return {
     openIncidents: openIncidents || 0,
@@ -347,6 +381,7 @@ async function getDashboardData() {
       totalAuditPercentage: totalStores > 0 ? truncateToDecimals((totalAuditsComplete / totalStores) * 100) : 0,
     },
     storesRequiringFRA,
+    complianceForecast,
   }
 }
 

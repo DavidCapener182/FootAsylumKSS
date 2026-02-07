@@ -1,9 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Route, Calendar, MapPin, User, CheckCircle2, Calendar as CalendarIcon } from 'lucide-react'
+import { useState, type MouseEvent } from 'react'
+import { Route, Calendar as CalendarIcon, ArrowUpRight } from 'lucide-react'
 import { format, isBefore, isSameDay, parseISO, startOfDay } from 'date-fns'
 import { RouteDirectionsModal } from '@/components/route-planning/route-directions-modal'
 import { Button } from '@/components/ui/button'
@@ -30,6 +28,15 @@ function getAreaDisplayName(areaCode: string | null): string {
   if (!areaCode) return 'Unknown Area'
   const name = areaNames[areaCode]
   return name ? `${areaCode} - ${name}` : areaCode
+}
+
+function formatRouteDate(date: string | null): string {
+  if (!date) return 'No date'
+  try {
+    return format(parseISO(date), 'dd/MM/yyyy')
+  } catch {
+    return 'No date'
+  }
 }
 
 interface Store {
@@ -79,19 +86,6 @@ export function PlannedRounds({ plannedRoutes }: PlannedRoundsProps) {
   
   // Filter out completed routes immediately
   const visibleRoutes = plannedRoutes.filter(route => !completedRoutes.has(route.key))
-  
-  // Debug: Log hidden routes
-  useEffect(() => {
-    if (completedRoutes.size > 0) {
-      const hiddenRoutes = plannedRoutes.filter(route => completedRoutes.has(route.key))
-      console.log('Hidden routes (client-side):', hiddenRoutes.map(r => ({
-        key: r.key,
-        manager: r.managerName,
-        area: r.area,
-        date: r.plannedDate
-      })))
-    }
-  }, [completedRoutes, plannedRoutes])
 
   // Check if a route's planned date is today or in the past
   const isRouteDue = (plannedDate: string | null): boolean => {
@@ -145,124 +139,144 @@ export function PlannedRounds({ plannedRoutes }: PlannedRoundsProps) {
     }
   }
 
-  const openRescheduleDialog = (route: PlannedRoute, e: React.MouseEvent) => {
+  const openRescheduleDialog = (route: PlannedRoute, e: MouseEvent) => {
     e.stopPropagation()
     setRescheduleRouteData(route)
     setNewDate(route.plannedDate || '')
   }
 
-  if (visibleRoutes.length === 0 && plannedRoutes.length > 0 && completedRoutes.size === 0) {
-    return (
-      <Card className="bg-blue-50 border-blue-200 shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-blue-900 flex items-center gap-2">
-            <Route className="h-5 w-5" />
-            Planned Rounds
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-slate-600">No planned rounds scheduled.</p>
-        </CardContent>
-      </Card>
-    )
-  }
+  const dueRoutesCount = visibleRoutes.filter((route) => isRouteDue(route.plannedDate)).length
+  const upcomingRoutesCount = visibleRoutes.length - dueRoutesCount
+  const totalStops = visibleRoutes.reduce((total, route) => total + (route.stores?.length || route.storeCount || 0), 0
+  )
+  const emptyStateMessage =
+    plannedRoutes.length === 0 && completedRoutes.size === 0
+      ? 'No planned rounds scheduled.'
+      : 'All visible routes have been completed.'
 
   return (
     <>
-      <div className="bg-blue-50 border border-blue-200 rounded-2xl shadow-sm flex flex-col h-full">
-        <div className="pb-1.5 px-3 pt-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-blue-900 flex items-center gap-2 text-sm font-semibold">
+      <div className="rounded-2xl border border-blue-200/80 bg-gradient-to-br from-blue-50 via-sky-50 to-indigo-50 shadow-sm flex flex-col h-full overflow-hidden">
+        <div className="pb-3 px-3 pt-3 border-b border-blue-200/60 bg-white/45">
+          <div className="flex items-start justify-between gap-2">
+            <h3 className="text-blue-900 flex items-center gap-2 text-sm font-semibold min-w-0">
               <Route className="h-4 w-4" />
-              Planned Rounds ({visibleRoutes.length})
+              Planned Rounds
             </h3>
             {completedRoutes.size > 0 && (
-              <span className="text-xs text-slate-500">
+              <span className="text-xs text-slate-500 whitespace-nowrap">
                 {completedRoutes.size} hidden
               </span>
             )}
           </div>
+          <div className="mt-2 grid grid-cols-3 gap-2">
+            <div className="rounded-lg border border-rose-200 bg-rose-50/80 px-2 py-1.5">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-rose-700">Due</p>
+              <p className="text-sm font-bold text-rose-800">{dueRoutesCount}</p>
+            </div>
+            <div className="rounded-lg border border-blue-200 bg-blue-50/80 px-2 py-1.5">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-blue-700">Upcoming</p>
+              <p className="text-sm font-bold text-blue-900">{upcomingRoutesCount}</p>
+            </div>
+            <div className="rounded-lg border border-indigo-200 bg-indigo-50/80 px-2 py-1.5">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-indigo-700">Stops</p>
+              <p className="text-sm font-bold text-indigo-900">{totalStops}</p>
+            </div>
+          </div>
         </div>
-        <div className="px-3 pb-3 flex-1 min-h-0">
-          <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
+        <div className="px-3 pb-3 pt-2.5 flex-1 min-h-0">
+          <div className="space-y-2.5 max-h-[420px] overflow-y-auto pr-1">
+            {visibleRoutes.length === 0 && (
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-3 text-xs text-emerald-800">
+                {emptyStateMessage}
+              </div>
+            )}
             {visibleRoutes.map((route) => {
               const isDue = isRouteDue(route.plannedDate)
               const isCompletingRoute = isCompleting === route.key
-              const isChecked = completedRoutes.has(route.key)
+              const routeItems = [
+                ...route.stores.map((store) => store.name),
+                ...(route.operationalItems || []).map((item) => item.title),
+              ]
+              const previewItems = routeItems.slice(0, 3)
+              const extraItemCount = routeItems.length - previewItems.length
 
               return (
                 <div 
                   key={route.key} 
                   onClick={() => !isDue && setSelectedRoute(route)}
                   className={cn(
-                    "bg-white rounded-lg border border-blue-200 p-2.5 space-y-0.5 transition-all",
-                    isDue ? "border-orange-300 bg-orange-50/30" : "cursor-pointer hover:border-blue-400 hover:shadow-md",
+                    "bg-white/95 rounded-xl border border-blue-200 p-3 space-y-1.5 transition-all shadow-sm",
+                    isDue ? "border-orange-300 bg-orange-50/40" : "cursor-pointer hover:border-blue-400 hover:shadow-md hover:-translate-y-0.5",
                     isCompletingRoute && "opacity-50"
                   )}
                 >
-                  <div className="font-semibold text-slate-900 text-sm">
-                    {route.managerName}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-slate-900 text-sm truncate">{route.managerName}</p>
+                      <p className="text-xs text-slate-600 truncate">{getAreaDisplayName(route.area)}</p>
+                    </div>
+                    <span
+                      className={cn(
+                        'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide',
+                        isDue
+                          ? 'border border-orange-200 bg-orange-50 text-orange-700'
+                          : 'border border-blue-200 bg-blue-50 text-blue-700'
+                      )}
+                    >
+                      {isDue ? 'Due now' : 'Upcoming'}
+                    </span>
                   </div>
-                  <div className="text-xs text-slate-600">
-                    {getAreaDisplayName(route.area)}
+
+                  <div className="flex flex-wrap gap-1.5">
+                    <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-medium text-slate-700">
+                      <CalendarIcon className="h-3 w-3" />
+                      {formatRouteDate(route.plannedDate)}
+                    </span>
+                    <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-medium text-slate-700">
+                      {route.stores.length} stores
+                    </span>
+                    {(route.operationalItems?.length || 0) > 0 && (
+                      <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-medium text-slate-700">
+                        {route.operationalItems?.length || 0} ops
+                      </span>
+                    )}
                   </div>
-                  <div className="text-xs text-slate-600">
-                    {route.plannedDate 
-                      ? format(new Date(route.plannedDate), 'dd/MM/yyyy')
-                      : 'Not set'}
-                  </div>
-                  <div className="text-xs text-slate-700 pt-0.5 mb-2">
-                    {[
-                      ...route.stores.map(s => s.name),
-                      ...(route.operationalItems || []).map(item => item.title)
-                    ].join(', ')}
+
+                  <div className="text-xs text-slate-700">
+                    {previewItems.join(' • ')}
+                    {extraItemCount > 0 ? ` +${extraItemCount} more` : ''}
                   </div>
 
                   {/* Complete/Reschedule options - show when route is due */}
                   {isDue && (
-                    <div className="flex flex-col gap-2 pt-2 border-t border-orange-200 mt-2" onClick={(e) => e.stopPropagation()}>
-                      {/* Complete Toggle */}
-                      <div className="flex items-center justify-between gap-3">
-                        <label className="flex items-center gap-3 cursor-pointer flex-1 min-w-0 py-2 min-h-[44px] md:min-h-0" htmlFor={`complete-${route.key}`}>
-                          <input
-                            type="checkbox"
-                            id={`complete-${route.key}`}
-                            checked={isChecked}
-                            onChange={(e) => {
-                              if (e.target.checked && !isCompletingRoute) {
-                                handleComplete(route)
-                              }
-                            }}
-                            disabled={isCompletingRoute}
-                            className="sr-only"
-                          />
-                          <div className={cn(
-                            "relative inline-flex h-7 w-12 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus-within:outline-none focus-within:ring-2 focus-within:ring-green-500 focus-within:ring-offset-2",
-                            isCompletingRoute ? "opacity-50 cursor-not-allowed bg-slate-400" : "cursor-pointer",
-                            !isCompletingRoute && isChecked ? "bg-green-600" : !isCompletingRoute ? "bg-slate-300" : ""
-                          )}>
-                            <span className={cn(
-                              "pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out translate-y-0.5",
-                              isCompletingRoute || isChecked ? "translate-x-5" : "translate-x-0.5"
-                            )} />
-                          </div>
-                          <span className="text-xs sm:text-sm font-medium text-slate-700 select-none">
-                            {isCompletingRoute ? 'Completing...' : 'Complete?'}
-                          </span>
-                        </label>
-                      </div>
-                      {/* Reschedule Button */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-orange-200/80 mt-1.5" onClick={(e) => e.stopPropagation()}>
+                      <Button
+                        onClick={() => handleComplete(route)}
+                        disabled={isCompletingRoute}
+                        size="sm"
+                        className="w-full min-h-[40px] text-xs bg-emerald-600 hover:bg-emerald-700"
+                      >
+                        {isCompletingRoute ? 'Completing...' : 'Mark Complete'}
+                      </Button>
                       <Button
                         onClick={(e) => openRescheduleDialog(route, e)}
                         disabled={isCompletingRoute}
                         size="sm"
                         variant="outline"
-                        className="w-full h-8 text-xs border-blue-300 text-blue-700 hover:bg-blue-50 min-h-[44px] md:min-h-0"
+                        className="w-full min-h-[40px] text-xs border-blue-300 bg-white text-blue-700 hover:bg-blue-50"
                       >
                         <CalendarIcon className="h-3 w-3 mr-1.5" />
                         Reschedule
                       </Button>
                     </div>
+                  )}
+
+                  {!isDue && (
+                    <p className="pt-1 text-[11px] font-medium text-blue-700 inline-flex items-center gap-1">
+                      Open route directions
+                      <ArrowUpRight className="h-3 w-3" />
+                    </p>
                   )}
                 </div>
               )

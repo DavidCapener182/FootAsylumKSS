@@ -6,11 +6,10 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { UserRole } from '@/lib/auth'
-import { uploadAuditPDF, getAuditPDFDownloadUrl, deleteAuditPDF } from '@/app/actions/audit-pdfs'
-import { Upload, FileText, Eye, EyeOff, File, Trash2, X } from 'lucide-react'
+import { getAuditPDFDownloadUrl, deleteAuditPDF } from '@/app/actions/audit-pdfs'
+import { Upload, Eye, EyeOff, File, Trash2, SlidersHorizontal, ChevronDown, ChevronUp } from 'lucide-react'
 import { PDFViewerModal } from '@/components/shared/pdf-viewer-modal'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { 
@@ -42,6 +41,19 @@ interface UpdateScoreState {
   percentage: string
 }
 
+interface DeleteAuditPdfState {
+  row: AuditRow
+  auditNumber: 1 | 2
+}
+
+type DesktopDensity = 'dense' | 'comfortable'
+
+const DESKTOP_DENSITY_STORAGE_KEY = 'fa_desktop_table_density'
+
+function isDesktopDensity(value: string): value is DesktopDensity {
+  return value === 'dense' || value === 'comfortable'
+}
+
 export function AuditTable({ 
   rows, 
   userRole, 
@@ -61,13 +73,12 @@ export function AuditTable({
   const [editing, setEditing] = useState<EditState | null>(null)
   const [saving, setSaving] = useState(false)
   const [localRows, setLocalRows] = useState<AuditRow[]>(rows)
-  const canEdit = true // All logged-in users can edit
   
   // Sync localRows with rows prop when it changes
   useEffect(() => {
     setLocalRows(rows)
   }, [rows])
-  
+
   const [pdfViewerOpen, setPdfViewerOpen] = useState(false)
   const [selectedPdfRow, setSelectedPdfRow] = useState<{ row: AuditRow; auditNumber: 1 | 2 } | null>(null)
   const [pdfUploadDialogOpen, setPdfUploadDialogOpen] = useState(false)
@@ -79,6 +90,36 @@ export function AuditTable({
   const [updateDialogOpen, setUpdateDialogOpen] = useState(false)
   const [updateScoreState, setUpdateScoreState] = useState<UpdateScoreState | null>(null)
   const [updatingScore, setUpdatingScore] = useState(false)
+  const [updateScoreError, setUpdateScoreError] = useState<string | null>(null)
+  const [desktopDensity, setDesktopDensity] = useState<DesktopDensity>('dense')
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
+  const [deletePdfDialog, setDeletePdfDialog] = useState<DeleteAuditPdfState | null>(null)
+  const [tableMessage, setTableMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  useEffect(() => {
+    if (!tableMessage) return
+    const timer = window.setTimeout(() => setTableMessage(null), 4000)
+    return () => window.clearTimeout(timer)
+  }, [tableMessage])
+
+  useEffect(() => {
+    try {
+      const storedValue = window.localStorage.getItem(DESKTOP_DENSITY_STORAGE_KEY)
+      if (storedValue && isDesktopDensity(storedValue)) {
+        setDesktopDensity(storedValue)
+      }
+    } catch {
+      // Ignore storage read issues (e.g. privacy mode restrictions).
+    }
+  }, [])
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(DESKTOP_DENSITY_STORAGE_KEY, desktopDensity)
+    } catch {
+      // Ignore storage write issues (e.g. privacy mode restrictions).
+    }
+  }, [desktopDensity])
 
   const areaOptions = useMemo(() => {
     const set = new Set<string>()
@@ -146,6 +187,23 @@ export function AuditTable({
     return null
   }
 
+  const getCompletedAuditCount = (row: AuditRow): number => {
+    let count = 0
+    if (row.compliance_audit_1_date && row.compliance_audit_1_overall_pct !== null) count++
+    if (row.compliance_audit_2_date && row.compliance_audit_2_overall_pct !== null) count++
+    return count
+  }
+
+  const hasActiveFilters = search.trim().length > 0 || area !== 'all' || hideCompleted
+  const activeFilterCount = Number(search.trim().length > 0) + Number(area !== 'all') + Number(hideCompleted)
+  const desktopTableDensityClass = desktopDensity === 'dense' ? 'desktop-table-compact' : 'desktop-table-comfortable'
+
+  const resetFilters = () => {
+    setSearch('')
+    setArea('all')
+    setHideCompleted(false)
+  }
+
   const handleAddAudit = (row: AuditRow) => {
     const auditNum = getNextAuditNumber(row)
     if (!auditNum) return // Both audits complete
@@ -175,24 +233,26 @@ export function AuditTable({
 
     // Validate
     if (!date) {
-      alert('Please enter an audit date')
+      setTableMessage({ type: 'error', text: 'Please enter an audit date.' })
       return
     }
     if (!percentage || isNaN(Number(percentage))) {
-      alert('Please enter a valid percentage (0-100)')
+      setTableMessage({ type: 'error', text: 'Please enter a valid percentage (0-100).' })
       return
     }
     const pctNum = Number(percentage)
     if (pctNum < 0 || pctNum > 100) {
-      alert('Percentage must be between 0 and 100')
+      setTableMessage({ type: 'error', text: 'Percentage must be between 0 and 100.' })
       return
     }
     if (!actionPlan || actionPlan === undefined) {
-      alert('Please select whether action plan was sent')
+      setTableMessage({ type: 'error', text: 'Please select whether action plan was sent.' })
       return
     }
 
     setSaving(true)
+    setTableMessage(null)
+    const storeName = localRows.find((row) => row.id === storeId)?.store_name ?? 'store'
 
     try {
       const supabase = createClient()
@@ -221,8 +281,8 @@ export function AuditTable({
           pdfPath = result.filePath
         } catch (uploadError) {
           console.error('PDF upload error:', uploadError)
-          alert(`Failed to upload PDF: ${uploadError instanceof Error ? uploadError.message : 'Unknown error'}`)
-          setSaving(false)
+          const uploadErrorMessage = uploadError instanceof Error ? uploadError.message : 'Unknown error'
+          setTableMessage({ type: 'error', text: `Failed to upload PDF: ${uploadErrorMessage}` })
           return
         }
       }
@@ -297,15 +357,15 @@ export function AuditTable({
       )
 
       setEditing(null)
-      
-      // Small delay before refresh to ensure state is updated
-      setTimeout(() => {
-        window.location.reload()
-      }, 100)
+      setTableMessage({
+        type: 'success',
+        text: `Audit ${auditNumber} saved for ${storeName}.`,
+      })
     } catch (error) {
       console.error('Error saving audit:', error)
       const errorMessage = error instanceof Error ? error.message : 'Failed to save audit. Please try again.'
-      alert(`Error: ${errorMessage}`)
+      setTableMessage({ type: 'error', text: errorMessage })
+    } finally {
       setSaving(false)
     }
   }
@@ -370,11 +430,14 @@ export function AuditTable({
 
   const handleUploadPDF = async () => {
     if (!pdfUploadRow || !pdfUploadFile || !selectedAuditForUpload) {
-      alert('Please select an audit and PDF file')
+      setTableMessage({ type: 'error', text: 'Please select an audit and PDF file.' })
       return
     }
 
+    const storeName = pdfUploadRow.store_name
+    const selectedAudit = selectedAuditForUpload
     setUploadingPdf(true)
+    setTableMessage(null)
     try {
       // Use FormData to upload via API route
       const formData = new FormData()
@@ -413,23 +476,29 @@ export function AuditTable({
       // Reset file input
       const fileInput = document.getElementById(`pdf-upload-standalone-${pdfUploadRow.id}`) as HTMLInputElement
       if (fileInput) fileInput.value = ''
-      
-      // Refresh page to show updated data
-      setTimeout(() => window.location.reload(), 500)
+      setTableMessage({
+        type: 'success',
+        text: `Audit ${selectedAudit} PDF uploaded for ${storeName}.`,
+      })
     } catch (error) {
       console.error('Error uploading PDF:', error)
-      alert(`Failed to upload PDF: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      setTableMessage({ type: 'error', text: `Failed to upload PDF: ${errorMessage}` })
     } finally {
       setUploadingPdf(false)
     }
   }
 
-  const handleDeletePDF = async (row: AuditRow, auditNumber: 1 | 2) => {
-    if (!confirm(`Are you sure you want to delete the PDF for Audit ${auditNumber}?`)) {
-      return
-    }
+  const handleDeletePDF = (row: AuditRow, auditNumber: 1 | 2) => {
+    setDeletePdfDialog({ row, auditNumber })
+  }
+
+  const handleConfirmDeletePDF = async () => {
+    if (!deletePdfDialog) return
+    const { row, auditNumber } = deletePdfDialog
 
     setDeletingPdf(`${row.id}-${auditNumber}`)
+    setTableMessage(null)
     try {
       await deleteAuditPDF(row.id, auditNumber)
       
@@ -450,12 +519,15 @@ export function AuditTable({
         setPdfViewerOpen(false)
         setSelectedPdfRow(null)
       }
-      
-      // Refresh page to show updated data from server
-      window.location.reload()
+      setDeletePdfDialog(null)
+      setTableMessage({
+        type: 'success',
+        text: `Audit ${auditNumber} PDF deleted for ${row.store_name}.`,
+      })
     } catch (error) {
       console.error('Error deleting PDF:', error)
-      alert(`Failed to delete PDF: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      setTableMessage({ type: 'error', text: `Failed to delete PDF: ${errorMessage}` })
     } finally {
       setDeletingPdf(null)
     }
@@ -474,6 +546,7 @@ export function AuditTable({
       currentDate,
       percentage: currentPct.toString(),
     })
+    setUpdateScoreError(null)
     setUpdateDialogOpen(true)
   }
 
@@ -482,14 +555,15 @@ export function AuditTable({
 
     const pctNum = Number(updateScoreState.percentage)
     if (!updateScoreState.percentage || isNaN(pctNum)) {
-      alert('Please enter a valid percentage (0-100)')
+      setUpdateScoreError('Please enter a valid percentage (0-100).')
       return
     }
     if (pctNum < 0 || pctNum > 100) {
-      alert('Percentage must be between 0 and 100')
+      setUpdateScoreError('Percentage must be between 0 and 100.')
       return
     }
 
+    setUpdateScoreError(null)
     setUpdatingScore(true)
 
     try {
@@ -533,14 +607,16 @@ export function AuditTable({
 
       setUpdateDialogOpen(false)
       setUpdateScoreState(null)
-
-      setTimeout(() => {
-        window.location.reload()
-      }, 100)
+      setTableMessage({
+        type: 'success',
+        text: `Audit ${updateScoreState.auditNumber} score updated for ${updateScoreState.storeName}.`,
+      })
     } catch (error) {
       console.error('Error updating audit score:', error)
       const errorMessage = error instanceof Error ? error.message : 'Failed to update audit score. Please try again.'
-      alert(`Error: ${errorMessage}`)
+      setUpdateScoreError(errorMessage)
+      setTableMessage({ type: 'error', text: errorMessage })
+    } finally {
       setUpdatingScore(false)
     }
   }
@@ -630,17 +706,99 @@ export function AuditTable({
 
   return (
     <div className="space-y-4">
-      {/* Controls */}
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+      {/* Mobile Sticky Controls */}
+      <div className="md:hidden sticky top-2 z-20 px-0.5">
+        <div className={cn('mobile-sticky-shell rounded-2xl border px-3 py-2.5', mobileFiltersOpen && 'shadow-md')}>
+          <div className="flex items-center justify-between gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setMobileFiltersOpen((prev) => !prev)}
+              className="h-8 px-2.5 text-xs border-slate-200 bg-white/80"
+            >
+              <SlidersHorizontal className="h-3.5 w-3.5 mr-1.5" />
+              Filters
+              {activeFilterCount > 0 ? (
+                <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-slate-900 px-1 text-[10px] text-white">
+                  {activeFilterCount}
+                </span>
+              ) : null}
+              {mobileFiltersOpen ? (
+                <ChevronUp className="h-3.5 w-3.5 ml-1.5" />
+              ) : (
+                <ChevronDown className="h-3.5 w-3.5 ml-1.5" />
+              )}
+            </Button>
+            <div className="rounded-full bg-white/80 border border-slate-200 px-2.5 py-1 text-[11px] text-slate-600 font-medium">
+              {filtered.length} of {localRows.length}
+            </div>
+          </div>
+
+          {mobileFiltersOpen ? (
+            <div className="mt-3 space-y-2 border-t pt-3">
+              <Input
+                placeholder="Search store name or code"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="bg-white min-h-[var(--touch-target-min)]"
+              />
+              <Select value={area} onValueChange={setArea}>
+                <SelectTrigger className="w-full bg-white min-h-[var(--touch-target-min)]">
+                  <SelectValue placeholder="Area" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All areas</SelectItem>
+                  {areaOptions.map((opt) => (
+                    <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <div className="flex gap-2">
+                <Button
+                  variant={hideCompleted ? 'default' : 'outline'}
+                  onClick={() => setHideCompleted(!hideCompleted)}
+                  className={cn(
+                    'flex-1 min-h-[var(--touch-target-min)]',
+                    hideCompleted ? 'bg-slate-900 text-white hover:bg-slate-800' : 'border-slate-200 bg-white'
+                  )}
+                >
+                  {hideCompleted ? (
+                    <>
+                      <EyeOff className="h-4 w-4 mr-2" />
+                      Show Completed
+                    </>
+                  ) : (
+                    <>
+                      <Eye className="h-4 w-4 mr-2" />
+                      Hide Completed
+                    </>
+                  )}
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={resetFilters}
+                  disabled={!hasActiveFilters}
+                  className="min-h-[var(--touch-target-min)] text-slate-600"
+                >
+                  Reset
+                </Button>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </div>
+
+      {/* Desktop Controls */}
+      <div className="hidden md:flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
           <Input
             placeholder="Search store name or code"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="flex-1 md:w-64 bg-white min-h-[44px]"
+            className="flex-1 md:w-64 bg-white min-h-[var(--touch-target-min)]"
           />
           <Select value={area} onValueChange={setArea}>
-            <SelectTrigger className="w-full sm:w-40 bg-white min-h-[44px]">
+            <SelectTrigger className="w-full sm:w-40 bg-white min-h-[var(--touch-target-min)]">
               <SelectValue placeholder="Area" />
             </SelectTrigger>
             <SelectContent>
@@ -653,7 +811,7 @@ export function AuditTable({
           <Button
             variant={hideCompleted ? "default" : "outline"}
             onClick={() => setHideCompleted(!hideCompleted)}
-            className="min-h-[44px]"
+            className="min-h-[var(--touch-target-min)]"
           >
             {hideCompleted ? (
               <>
@@ -669,69 +827,351 @@ export function AuditTable({
               </>
             )}
           </Button>
+          <Button
+            variant="ghost"
+            onClick={resetFilters}
+            disabled={!hasActiveFilters}
+            className="min-h-[var(--touch-target-min)]"
+          >
+            Reset
+          </Button>
         </div>
-        <div className="text-sm text-muted-foreground">
-          Showing {filtered.length} of {localRows.length} stores
+        <div className="flex items-center gap-3">
+          <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1">
+            <button
+              type="button"
+              onClick={() => setDesktopDensity('dense')}
+              className={cn(
+                'rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
+                desktopDensity === 'dense'
+                  ? 'bg-slate-900 text-white'
+                  : 'text-slate-600 hover:bg-slate-100'
+              )}
+            >
+              Dense
+            </button>
+            <button
+              type="button"
+              onClick={() => setDesktopDensity('comfortable')}
+              className={cn(
+                'rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
+                desktopDensity === 'comfortable'
+                  ? 'bg-slate-900 text-white'
+                  : 'text-slate-600 hover:bg-slate-100'
+              )}
+            >
+              Comfortable
+            </button>
+          </div>
+          <div className="text-sm text-muted-foreground">
+            Showing {filtered.length} of {localRows.length} stores
+          </div>
         </div>
       </div>
 
-      {/* Table Container */}
-      <div className="rounded-xl border bg-white shadow-sm overflow-hidden flex flex-col">
+      {tableMessage ? (
+        <div
+          className={cn(
+            'rounded-lg border px-3 py-2 text-sm',
+            tableMessage.type === 'success'
+              ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+              : 'border-rose-200 bg-rose-50 text-rose-800'
+          )}
+        >
+          {tableMessage.text}
+        </div>
+      ) : null
+      }
+
+      {/* Mobile Card View */}
+      <div className="md:hidden space-y-3">
+        {grouped.length === 0 ? (
+          <div className="rounded-2xl border bg-white px-4 py-8 text-center text-sm text-muted-foreground">
+            No audit data found matching your filters.
+          </div>
+        ) : (
+          grouped.map(([groupKey, areaRows]) => {
+            const validScores = areaRows
+              .map((row) => getLatestPct(row))
+              .filter((score): score is number => score !== null)
+            const totalScore = validScores.reduce((acc, cur) => acc + cur, 0)
+            const calculatedAverage = validScores.length > 0 ? totalScore / validScores.length : null
+
+            return (
+              <div key={`mob-${groupKey}`} className="space-y-2.5">
+                <div className="mobile-group-bar flex items-center justify-between rounded-xl border px-3 py-2">
+                  <span className="text-sm font-semibold text-slate-800">{groupKey}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                      Avg
+                    </span>
+                    {pctBadge(calculatedAverage)}
+                  </div>
+                </div>
+
+                <div className="space-y-2.5">
+                  {areaRows.map((row) => {
+                    const isEditingRow = editing?.storeId === row.id
+                    const nextAudit = getNextAuditNumber(row)
+                    const completedCount = getCompletedAuditCount(row)
+
+                    return (
+                      <div key={row.id} className="mobile-card-surface rounded-2xl border p-3.5 shadow-sm">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="text-sm font-semibold text-slate-900 truncate leading-tight">
+                              {row.store_name}
+                            </div>
+                            <div className="mt-1 flex items-center gap-1.5 text-[11px] text-slate-500">
+                              <span className="rounded-md bg-slate-100 px-1.5 py-0.5 font-mono">
+                                {row.store_code || '—'}
+                              </span>
+                              <span>{row.region || 'Unassigned'}</span>
+                            </div>
+                          </div>
+                          <div className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-500">
+                            {completedCount}/2 complete
+                          </div>
+                        </div>
+
+                        <div className="mt-3 grid grid-cols-2 gap-2">
+                          <div className="rounded-xl border bg-white/90 px-2.5 py-2">
+                            <div className="text-[10px] uppercase tracking-wide text-slate-500">Audit 1</div>
+                            <div className="mt-1 text-xs text-slate-700 leading-tight">
+                              {formatDate(row.compliance_audit_1_date)}
+                            </div>
+                            <div className="mt-1">{pctBadge(row.compliance_audit_1_overall_pct)}</div>
+                          </div>
+                          <div className="rounded-xl border bg-white/90 px-2.5 py-2">
+                            <div className="text-[10px] uppercase tracking-wide text-slate-500">Audit 2</div>
+                            <div className="mt-1 text-xs text-slate-700 leading-tight">
+                              {formatDate(row.compliance_audit_2_date)}
+                            </div>
+                            <div className="mt-1">{pctBadge(row.compliance_audit_2_overall_pct)}</div>
+                          </div>
+                        </div>
+
+                        {isEditingRow ? (
+                          <div className="mt-3 space-y-2.5 border-t border-slate-200/80 pt-3">
+                            <div className="text-xs font-semibold text-slate-700">
+                              Adding Audit {editing?.auditNumber}
+                            </div>
+                            <Input
+                              type="date"
+                              value={editing?.date || ''}
+                              onChange={(e) => setEditing((prev) => prev ? { ...prev, date: e.target.value } : prev)}
+                              className="bg-white"
+                            />
+                            <Select
+                              value={editing?.actionPlan || undefined}
+                              onValueChange={(val) => setEditing((prev) => prev ? { ...prev, actionPlan: val as 'Yes' | 'No' } : prev)}
+                            >
+                              <SelectTrigger className="bg-white">
+                                <SelectValue placeholder="Action plan sent?" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Yes">Action plan sent: Yes</SelectItem>
+                                <SelectItem value="No">Action plan sent: No</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <Input
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="0.01"
+                              value={editing?.percentage || ''}
+                              onChange={(e) => setEditing((prev) => prev ? { ...prev, percentage: e.target.value } : prev)}
+                              placeholder="Score (0-100)"
+                              className="bg-white"
+                            />
+
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="file"
+                                id={`pdf-upload-mobile-${row.id}`}
+                                accept=".pdf,application/pdf"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0] || null
+                                  setEditing((prev) => prev ? { ...prev, pdfFile: file } : prev)
+                                }}
+                                className="hidden"
+                                disabled={saving}
+                              />
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                type="button"
+                                onClick={() => document.getElementById(`pdf-upload-mobile-${row.id}`)?.click()}
+                                disabled={saving}
+                                className="border-slate-300 bg-white"
+                              >
+                                <Upload className="h-3 w-3 mr-1" />
+                                Upload PDF
+                              </Button>
+                              {editing?.pdfFile ? (
+                                <span className="text-xs text-slate-500 truncate">{editing.pdfFile.name}</span>
+                              ) : null}
+                            </div>
+
+                            <div className="flex gap-2">
+                              <Button size="sm" onClick={handleSaveAudit} disabled={saving} className="flex-1 bg-slate-900 text-white hover:bg-slate-800">
+                                {saving ? 'Saving...' : 'Save'}
+                              </Button>
+                              <Button size="sm" variant="outline" onClick={handleCancelEdit} disabled={saving} className="flex-1 border-slate-300 bg-white">
+                                Cancel
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="mt-3 space-y-2.5 border-t border-slate-200/80 pt-3">
+                            {nextAudit !== null ? (
+                              <Button
+                                size="sm"
+                                onClick={() => handleAddAudit(row)}
+                                className="w-full bg-slate-900 text-white hover:bg-slate-800"
+                              >
+                                Add Audit
+                              </Button>
+                            ) : null}
+
+                            {(row.compliance_audit_1_date && row.compliance_audit_1_overall_pct !== null) ||
+                            (row.compliance_audit_2_date && row.compliance_audit_2_overall_pct !== null) ? (
+                              <div className="space-y-1">
+                                <div className="text-[10px] uppercase tracking-wide text-slate-500">Audit PDFs</div>
+                                <div className="flex flex-wrap items-center gap-2">
+                                  {row.compliance_audit_1_date && row.compliance_audit_1_overall_pct !== null ? (
+                                    row.compliance_audit_1_pdf_path ? (
+                                      <>
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          onClick={() => handleViewPDF(row, 1)}
+                                          className="h-8 border border-slate-200 bg-white px-2.5 text-xs text-slate-700 hover:bg-slate-50"
+                                        >
+                                          <File className="h-3.5 w-3.5 mr-1" />
+                                          Audit 1
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          onClick={() => handleDeletePDF(row, 1)}
+                                          disabled={deletingPdf === `${row.id}-1`}
+                                          className="h-8 border border-rose-200 bg-rose-50 px-2 text-rose-700 hover:bg-rose-100"
+                                          title="Delete Audit 1 PDF"
+                                        >
+                                          <Trash2 className="h-3.5 w-3.5" />
+                                        </Button>
+                                      </>
+                                    ) : (
+                                      <Button size="sm" variant="outline" onClick={() => handleOpenPDFUpload(row, 1)} className="h-8 border-slate-300 bg-white">
+                                        <Upload className="h-3 w-3 mr-1" />
+                                        Upload A1 PDF
+                                      </Button>
+                                    )
+                                  ) : null}
+
+                                  {row.compliance_audit_2_date && row.compliance_audit_2_overall_pct !== null ? (
+                                    row.compliance_audit_2_pdf_path ? (
+                                      <>
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          onClick={() => handleViewPDF(row, 2)}
+                                          className="h-8 border border-slate-200 bg-white px-2.5 text-xs text-slate-700 hover:bg-slate-50"
+                                        >
+                                          <File className="h-3.5 w-3.5 mr-1" />
+                                          Audit 2
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          onClick={() => handleDeletePDF(row, 2)}
+                                          disabled={deletingPdf === `${row.id}-2`}
+                                          className="h-8 border border-rose-200 bg-rose-50 px-2 text-rose-700 hover:bg-rose-100"
+                                          title="Delete Audit 2 PDF"
+                                        >
+                                          <Trash2 className="h-3.5 w-3.5" />
+                                        </Button>
+                                      </>
+                                    ) : (
+                                      <Button size="sm" variant="outline" onClick={() => handleOpenPDFUpload(row, 2)} className="h-8 border-slate-300 bg-white">
+                                        <Upload className="h-3 w-3 mr-1" />
+                                        Upload A2 PDF
+                                      </Button>
+                                    )
+                                  ) : null}
+                                </div>
+                              </div>
+                            ) : null}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })
+        )}
+      </div>
+
+      {/* Desktop Table Container */}
+      <div className="hidden md:flex rounded-2xl border desktop-table-shell shadow-sm overflow-hidden flex-col">
         <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
-          <div className="min-w-[1000px]">
-            <Table className="w-full border-separate border-spacing-0" style={{ tableLayout: 'fixed' }}>
+          <div className={cn(desktopDensity === 'dense' ? 'min-w-[940px]' : 'min-w-[1000px]')}>
+            <Table className={cn('w-full border-separate border-spacing-0', desktopTableDensityClass)} style={{ tableLayout: 'fixed' }}>
               <colgroup>
-                <col style={{ width: '40px' }} />
+                <col style={{ width: '32px' }} />
+                <col style={{ width: '54px' }} />
+                <col style={{ width: '68px' }} />
+                <col style={{ width: '132px' }} />
+                <col style={{ width: '92px' }} />
+                <col style={{ width: '72px' }} />
                 <col style={{ width: '60px' }} />
-                <col style={{ width: '80px' }} />
-                <col style={{ width: '140px' }} />
-                <col style={{ width: '100px' }} />
-                <col style={{ width: '80px' }} />
-                <col style={{ width: '70px' }} />
-                <col style={{ width: '50px' }} />
-                <col style={{ width: '100px' }} />
-                <col style={{ width: '80px' }} />
-                <col style={{ width: '70px' }} />
-                <col style={{ width: '50px' }} />
-                <col style={{ width: '70px' }} />
-                <col style={{ width: '140px' }} />
+                <col style={{ width: '44px' }} />
+                <col style={{ width: '92px' }} />
+                <col style={{ width: '72px' }} />
+                <col style={{ width: '60px' }} />
+                <col style={{ width: '44px' }} />
+                <col style={{ width: '58px' }} />
+                <col style={{ width: '116px' }} />
               </colgroup>
-              <TableHeader className="bg-white">
+              <TableHeader className="desktop-table-head border-b border-slate-200">
                 <TableRow className="hover:bg-transparent">
-                  <TableHead className="text-center bg-white">#</TableHead>
-                  <TableHead className="bg-white">Area</TableHead>
-                  <TableHead className="bg-white">Store Code</TableHead>
-                  <TableHead className="bg-white">Store Name</TableHead>
-                  <TableHead className="bg-white">Audit 1 Date</TableHead>
-                  <TableHead className="bg-white">Action Plan 1</TableHead>
-                  <TableHead className="bg-white">Audit 1 %</TableHead>
-                  <TableHead className="bg-white text-center">PDF</TableHead>
-                  <TableHead className="bg-white">Audit 2 Date</TableHead>
-                  <TableHead className="bg-white">Action Plan 2</TableHead>
-                  <TableHead className="bg-white">Audit 2 %</TableHead>
-                  <TableHead className="bg-white text-center">PDF</TableHead>
-                  <TableHead className="text-right pr-4 bg-white">Total Audits</TableHead>
-                  <TableHead className="bg-white">Actions</TableHead>
+                  <TableHead className="text-center bg-transparent text-[11px] font-semibold uppercase tracking-wide text-slate-500">#</TableHead>
+                  <TableHead className="bg-transparent text-[11px] font-semibold uppercase tracking-wide text-slate-500">Area</TableHead>
+                  <TableHead className="bg-transparent text-[11px] font-semibold uppercase tracking-wide text-slate-500">Store Code</TableHead>
+                  <TableHead className="bg-transparent text-[11px] font-semibold uppercase tracking-wide text-slate-500">Store Name</TableHead>
+                  <TableHead className="bg-transparent text-[11px] font-semibold uppercase tracking-wide text-slate-500">Audit 1 Date</TableHead>
+                  <TableHead className="bg-transparent text-[11px] font-semibold uppercase tracking-wide text-slate-500">Action Plan 1</TableHead>
+                  <TableHead className="bg-transparent text-[11px] font-semibold uppercase tracking-wide text-slate-500">Audit 1 %</TableHead>
+                  <TableHead className="bg-transparent text-center text-[11px] font-semibold uppercase tracking-wide text-slate-500">PDF</TableHead>
+                  <TableHead className="bg-transparent text-[11px] font-semibold uppercase tracking-wide text-slate-500">Audit 2 Date</TableHead>
+                  <TableHead className="bg-transparent text-[11px] font-semibold uppercase tracking-wide text-slate-500">Action Plan 2</TableHead>
+                  <TableHead className="bg-transparent text-[11px] font-semibold uppercase tracking-wide text-slate-500">Audit 2 %</TableHead>
+                  <TableHead className="bg-transparent text-center text-[11px] font-semibold uppercase tracking-wide text-slate-500">PDF</TableHead>
+                  <TableHead className="text-right pr-4 bg-transparent text-[11px] font-semibold uppercase tracking-wide text-slate-500">Total Audits</TableHead>
+                  <TableHead className="bg-transparent text-[11px] font-semibold uppercase tracking-wide text-slate-500">Actions</TableHead>
                 </TableRow>
               </TableHeader>
             </Table>
-            <div className="h-[70vh] overflow-y-auto">
-              <Table className="w-full border-separate border-spacing-0" style={{ tableLayout: 'fixed' }}>
+            <div className={cn(desktopDensity === 'dense' ? 'h-[74vh]' : 'h-[70vh]', 'overflow-y-auto')}>
+              <Table className={cn('w-full border-separate border-spacing-0', desktopTableDensityClass)} style={{ tableLayout: 'fixed' }}>
                 <colgroup>
-                  <col style={{ width: '40px' }} />
+                  <col style={{ width: '32px' }} />
+                  <col style={{ width: '54px' }} />
+                  <col style={{ width: '68px' }} />
+                  <col style={{ width: '132px' }} />
+                  <col style={{ width: '92px' }} />
+                  <col style={{ width: '72px' }} />
                   <col style={{ width: '60px' }} />
-                  <col style={{ width: '80px' }} />
-                  <col style={{ width: '140px' }} />
-                  <col style={{ width: '100px' }} />
-                  <col style={{ width: '80px' }} />
-                  <col style={{ width: '70px' }} />
-                  <col style={{ width: '50px' }} />
-                  <col style={{ width: '100px' }} />
-                  <col style={{ width: '80px' }} />
-                  <col style={{ width: '70px' }} />
-                  <col style={{ width: '50px' }} />
-                  <col style={{ width: '70px' }} />
-                  <col style={{ width: '140px' }} />
+                  <col style={{ width: '44px' }} />
+                  <col style={{ width: '92px' }} />
+                  <col style={{ width: '72px' }} />
+                  <col style={{ width: '60px' }} />
+                  <col style={{ width: '44px' }} />
+                  <col style={{ width: '58px' }} />
+                  <col style={{ width: '116px' }} />
                 </colgroup>
                 <TableBody>
               {grouped.length === 0 ? (
@@ -758,10 +1198,10 @@ export function AuditTable({
                   return (
                     <>
                       {/* Area Divider Row */}
-                      <TableRow key={`hdr-${groupKey}`} className="bg-slate-100/80 hover:bg-slate-100/80">
+                      <TableRow key={`hdr-${groupKey}`} className="desktop-group-bar hover:bg-transparent">
                         <TableCell 
                           colSpan={14} 
-                          className="py-2 px-4 bg-slate-50 border-b border-t"
+                          className="py-1.5 px-4 border-y border-slate-200/70"
                         >
                           <div className="flex items-center justify-between w-full">
                             <span className="font-bold text-slate-700">{groupKey}</span>
@@ -779,7 +1219,7 @@ export function AuditTable({
                       {areaRows.map((row, idx) => (
                         <TableRow
                           key={row.id}
-                          className="group hover:bg-slate-50 transition-colors"
+                          className="group transition-colors hover:bg-slate-50/70"
                         >
                           <TableCell className="font-mono text-xs text-center text-muted-foreground border-b bg-white group-hover:bg-slate-50">
                             {idx + 1}
@@ -805,17 +1245,17 @@ export function AuditTable({
                                     size="sm"
                                     variant="ghost"
                                     onClick={() => handleViewPDF(row, 1)}
-                                    className="h-7 px-2"
+                                    className="h-7 border border-slate-200 bg-white px-2 hover:bg-slate-50"
                                     title="View Audit 1 PDF"
                                   >
-                                    <File className="h-4 w-4 text-blue-600" />
+                                    <File className="h-4 w-4 text-slate-700" />
                                   </Button>
                                   <Button
                                     size="sm"
                                     variant="ghost"
                                     onClick={() => handleDeletePDF(row, 1)}
                                     disabled={deletingPdf === `${row.id}-1`}
-                                    className="h-7 px-1 text-red-600 hover:text-red-700"
+                                    className="h-7 border border-rose-200 bg-rose-50 px-1 text-rose-700 hover:bg-rose-100"
                                     title="Delete Audit 1 PDF"
                                   >
                                     <Trash2 className="h-3 w-3" />
@@ -826,10 +1266,10 @@ export function AuditTable({
                                   size="sm"
                                   variant="ghost"
                                   onClick={() => handleOpenPDFUpload(row, 1)}
-                                  className="h-7 px-2 text-xs"
+                                  className="h-7 border border-slate-300 bg-white px-2 text-xs hover:bg-slate-50"
                                   title="Upload Audit 1 PDF"
                                 >
-                                  <Upload className="h-3 w-3 text-slate-500" />
+                                  <Upload className="h-3 w-3 text-slate-600" />
                                 </Button>
                               ) : (
                                 <span className="text-sm text-muted-foreground">—</span>
@@ -848,17 +1288,17 @@ export function AuditTable({
                                     size="sm"
                                     variant="ghost"
                                     onClick={() => handleViewPDF(row, 2)}
-                                    className="h-7 px-2"
+                                    className="h-7 border border-slate-200 bg-white px-2 hover:bg-slate-50"
                                     title="View Audit 2 PDF"
                                   >
-                                    <File className="h-4 w-4 text-blue-600" />
+                                    <File className="h-4 w-4 text-slate-700" />
                                   </Button>
                                   <Button
                                     size="sm"
                                     variant="ghost"
                                     onClick={() => handleDeletePDF(row, 2)}
                                     disabled={deletingPdf === `${row.id}-2`}
-                                    className="h-7 px-1 text-red-600 hover:text-red-700"
+                                    className="h-7 border border-rose-200 bg-rose-50 px-1 text-rose-700 hover:bg-rose-100"
                                     title="Delete Audit 2 PDF"
                                   >
                                     <Trash2 className="h-3 w-3" />
@@ -869,10 +1309,10 @@ export function AuditTable({
                                   size="sm"
                                   variant="ghost"
                                   onClick={() => handleOpenPDFUpload(row, 2)}
-                                  className="h-7 px-2 text-xs"
+                                  className="h-7 border border-slate-300 bg-white px-2 text-xs hover:bg-slate-50"
                                   title="Upload Audit 2 PDF"
                                 >
-                                  <Upload className="h-3 w-3 text-slate-500" />
+                                  <Upload className="h-3 w-3 text-slate-600" />
                                 </Button>
                               ) : (
                                 <span className="text-sm text-muted-foreground">—</span>
@@ -881,12 +1321,7 @@ export function AuditTable({
                           </TableCell>
                           
                           <TableCell className="text-right pr-4 font-mono text-xs text-muted-foreground border-b bg-white group-hover:bg-slate-50">
-                            {(() => {
-                              let count = 0
-                              if (row.compliance_audit_1_date && row.compliance_audit_1_overall_pct !== null) count++
-                              if (row.compliance_audit_2_date && row.compliance_audit_2_overall_pct !== null) count++
-                              return count
-                            })()}
+                            {getCompletedAuditCount(row)}
                           </TableCell>
                           
                           <TableCell className="border-b bg-white group-hover:bg-slate-50">
@@ -898,16 +1333,16 @@ export function AuditTable({
                                     variant="default"
                                     onClick={handleSaveAudit}
                                     disabled={saving}
-                                    className="h-7 px-2 text-xs whitespace-nowrap"
+                                    className="h-7 bg-slate-900 px-2 text-xs text-white whitespace-nowrap hover:bg-slate-800"
                                   >
                                     {saving ? 'Saving...' : 'Save'}
                                   </Button>
                                   <Button
                                     size="sm"
-                                    variant="ghost"
+                                    variant="outline"
                                     onClick={handleCancelEdit}
                                     disabled={saving}
-                                    className="h-7 px-2 text-xs whitespace-nowrap"
+                                    className="h-7 border-slate-300 bg-white px-2 text-xs whitespace-nowrap hover:bg-slate-50"
                                   >
                                     Cancel
                                   </Button>
@@ -932,7 +1367,7 @@ export function AuditTable({
                                     type="button"
                                     onClick={() => document.getElementById(`pdf-upload-${row.id}`)?.click()}
                                     disabled={saving}
-                                    className="h-6 px-1.5 text-[11px] w-fit"
+                                    className="h-6 w-fit border-slate-300 bg-white px-1.5 text-[11px] hover:bg-slate-50"
                                   >
                                     <Upload className="h-2.5 w-2.5 mr-1" />
                                     {editing?.pdfFile ? editing.pdfFile.name.substring(0, 12) + '...' : 'Upload PDF'}
@@ -943,9 +1378,9 @@ export function AuditTable({
                               getNextAuditNumber(row) !== null && (
                                 <Button
                                   size="sm"
-                                  variant="outline"
+                                  variant="default"
                                   onClick={() => handleAddAudit(row)}
-                                  className="h-7 px-2 text-xs whitespace-nowrap"
+                                  className="h-7 bg-slate-900 px-2 text-xs text-white whitespace-nowrap hover:bg-slate-800"
                                 >
                                   Add Audit
                                 </Button>
@@ -1050,6 +1485,49 @@ export function AuditTable({
         </DialogContent>
       </Dialog>
 
+      {/* Delete PDF Dialog */}
+      <Dialog
+        open={!!deletePdfDialog}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeletePdfDialog(null)
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete Audit PDF</DialogTitle>
+            <DialogDescription>
+              {deletePdfDialog
+                ? `Remove Audit ${deletePdfDialog.auditNumber} PDF for ${deletePdfDialog.row.store_name}?`
+                : ''}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDeletePdfDialog(null)}
+              disabled={!!deletingPdf}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmDeletePDF}
+              disabled={
+                !deletePdfDialog ||
+                deletingPdf === `${deletePdfDialog.row.id}-${deletePdfDialog.auditNumber}`
+              }
+            >
+              {deletePdfDialog &&
+              deletingPdf === `${deletePdfDialog.row.id}-${deletePdfDialog.auditNumber}`
+                ? 'Deleting...'
+                : 'Delete PDF'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Update Score Dialog */}
       <Dialog
         open={updateDialogOpen}
@@ -1057,6 +1535,7 @@ export function AuditTable({
           setUpdateDialogOpen(open)
           if (!open) {
             setUpdateScoreState(null)
+            setUpdateScoreError(null)
           }
         }}
       >
@@ -1087,6 +1566,9 @@ export function AuditTable({
                 }}
               />
             </div>
+            {updateScoreError ? (
+              <p className="text-sm text-rose-600">{updateScoreError}</p>
+            ) : null}
           </div>
           <DialogFooter>
             <Button
@@ -1094,6 +1576,7 @@ export function AuditTable({
               onClick={() => {
                 setUpdateDialogOpen(false)
                 setUpdateScoreState(null)
+                setUpdateScoreError(null)
               }}
               disabled={updatingScore}
             >

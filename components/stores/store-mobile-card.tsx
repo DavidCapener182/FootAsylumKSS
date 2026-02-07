@@ -2,7 +2,7 @@
 
 import { StoreModalWrapper } from '@/components/stores/store-modal-wrapper'
 import { Card } from '@/components/ui/card'
-import { MapPin, Building2 } from 'lucide-react'
+import { MapPin, CheckCircle2, XCircle, AlertTriangle, ClipboardList } from 'lucide-react'
 
 interface StoreMobileCardProps {
   store: any
@@ -10,24 +10,19 @@ interface StoreMobileCardProps {
 
 export function StoreMobileCard({ store }: StoreMobileCardProps) {
   // Build address string for Google Maps
-  const addressParts = [
-    store.address_line_1,
-    store.city,
-    store.postcode,
-  ].filter(Boolean)
-  
+  const addressParts = [store.address_line_1, store.city, store.postcode].filter(Boolean)
   const fullAddress = addressParts.join(', ')
-  
+
   // Google Maps embed URL (no API key required)
   const googleMapsEmbedUrl = fullAddress
     ? `https://www.google.com/maps?q=${encodeURIComponent(fullAddress)}&output=embed`
     : null
 
   return (
-    <Card className="p-0 hover:shadow-md transition-shadow overflow-hidden">
+    <Card className="overflow-hidden border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md">
       {/* Google Maps Embed */}
       {googleMapsEmbedUrl && (
-        <div className="relative w-full h-48 bg-slate-100">
+        <div className="relative h-40 w-full bg-slate-100">
           <iframe
             src={googleMapsEmbedUrl}
             width="100%"
@@ -36,44 +31,63 @@ export function StoreMobileCard({ store }: StoreMobileCardProps) {
             allowFullScreen
             loading="lazy"
             referrerPolicy="no-referrer-when-downgrade"
-            className="w-full h-full"
+            className="h-full w-full"
+            title={`${store.store_name} map`}
           />
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-black/20 to-transparent" />
         </div>
       )}
 
       {/* Store Information */}
-      <div className="p-4 space-y-3">
+      <div className="space-y-3 p-4">
         {/* Header Row */}
         <div className="flex items-start justify-between gap-2">
-          <div className="flex-1 min-w-0">
+          <div className="min-w-0 flex-1">
             <StoreModalWrapper store={store} incidents={store.incidents} actions={store.actions}>
-              <h3 className="font-semibold text-indigo-600 hover:text-indigo-800 cursor-pointer transition-colors text-lg leading-tight">
+              <h3 className="cursor-pointer text-lg font-semibold leading-tight text-indigo-600 transition-colors hover:text-indigo-800">
                 {store.store_name}
               </h3>
             </StoreModalWrapper>
           </div>
-          <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+          <div className="flex flex-col items-end gap-1.5">
             {store.store_code && (
-              <span className="font-mono text-xs font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+              <span className="inline-flex rounded-md border border-slate-200 bg-slate-100 px-2 py-0.5 font-mono text-xs font-medium text-slate-600">
                 {store.store_code}
               </span>
             )}
-            {store.region && (
-              <span className="text-xs text-slate-500 flex items-center gap-1">
-                <Building2 className="h-3 w-3" />
-                {store.region}
+            {store.is_active ? (
+              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
+                <CheckCircle2 className="h-3 w-3" />
+                Active
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
+                <XCircle className="h-3 w-3" />
+                Inactive
               </span>
             )}
           </div>
         </div>
 
+        {/* Meta */}
+        <div className="flex flex-wrap gap-1.5">
+          <span className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-rose-700">
+            <AlertTriangle className="h-3 w-3" />
+            {store.incidents?.length || 0} incidents
+          </span>
+          <span className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-blue-700">
+            <ClipboardList className="h-3 w-3" />
+            {store.actions?.length || 0} actions
+          </span>
+        </div>
+
         {/* Location */}
         {fullAddress && (
-          <div>
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Location</p>
+          <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-2.5">
+            <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-slate-500">Location</p>
             <div className="flex items-start gap-2">
-              <MapPin className="h-4 w-4 text-slate-400 flex-shrink-0 mt-0.5" />
-              <span className="text-sm text-slate-700 flex-1">{fullAddress}</span>
+              <MapPin className="mt-0.5 h-4 w-4 flex-shrink-0 text-slate-400" />
+              <span className="flex-1 text-sm text-slate-700">{fullAddress}</span>
             </div>
           </div>
         )}
@@ -81,4 +95,3 @@ export function StoreMobileCard({ store }: StoreMobileCardProps) {
     </Card>
   )
 }
-

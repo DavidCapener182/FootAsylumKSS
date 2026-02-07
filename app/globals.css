@@ -24,6 +24,9 @@
     --input: 214.3 31.8% 91.4%;
     --ring: 222.2 84% 4.9%;
     --radius: 1rem; /* Increased for softer corners */
+    --touch-target-min: 44px;
+    --app-font-size: 14px;
+    --app-line-height: 1.45;
   }
 
   .dark {
@@ -49,6 +52,14 @@
   }
 }
 
+@media (min-width: 768px) and (max-width: 1200px) {
+  :root {
+    --touch-target-min: 40px;
+    --app-font-size: 13.5px;
+    --app-line-height: 1.4;
+  }
+}
+
 @layer base {
   * {
     @apply border-border;
@@ -66,13 +77,14 @@
     @apply bg-[#F6F6F8] text-foreground;
     overflow-x: hidden;
     max-width: 100%;
-    /* Minimum font size for readability on mobile */
-    font-size: 14px;
+    font-size: var(--app-font-size);
+    line-height: var(--app-line-height);
   }
   /* Ensure minimum font size for body text on mobile */
   @media (max-width: 640px) {
     body {
       font-size: 14px;
+      line-height: 1.45;
     }
   }
   /* Optimize text rendering on mobile */
@@ -89,6 +101,83 @@
 @layer utilities {
   .shadow-soft {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.06);
+  }
+
+  .mobile-sticky-shell {
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.95) 100%);
+    border-color: rgba(148, 163, 184, 0.25);
+    backdrop-filter: saturate(1.1) blur(6px);
+  }
+
+  .mobile-group-bar {
+    background:
+      linear-gradient(135deg, rgba(248, 250, 252, 1) 0%, rgba(241, 245, 249, 0.9) 100%);
+    border-color: rgba(148, 163, 184, 0.25);
+  }
+
+  .mobile-card-surface {
+    background:
+      linear-gradient(160deg, rgba(255, 255, 255, 1) 0%, rgba(249, 250, 251, 0.96) 100%);
+    border-color: rgba(148, 163, 184, 0.2);
+  }
+
+  .desktop-table-shell {
+    background:
+      linear-gradient(165deg, rgba(255, 255, 255, 1) 0%, rgba(248, 250, 252, 0.92) 100%);
+    border-color: rgba(148, 163, 184, 0.24);
+  }
+
+  .desktop-table-head {
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 1) 0%, rgba(249, 250, 251, 0.96) 100%);
+  }
+
+  .desktop-group-bar {
+    background:
+      linear-gradient(135deg, rgba(248, 250, 252, 1) 0%, rgba(241, 245, 249, 0.9) 100%);
+  }
+
+  @media (min-width: 768px) {
+    .desktop-table-compact thead th {
+      padding-top: 0.42rem;
+      padding-bottom: 0.42rem;
+    }
+
+    .desktop-table-compact tbody td {
+      padding-top: 0.34rem;
+      padding-bottom: 0.34rem;
+    }
+
+    .desktop-table-compact tbody button {
+      min-height: 1.4rem;
+      height: 1.4rem;
+    }
+
+    .desktop-table-compact tbody input {
+      min-height: 1.45rem;
+      height: 1.45rem;
+    }
+
+    .desktop-table-comfortable thead th {
+      padding-top: 0.58rem;
+      padding-bottom: 0.58rem;
+    }
+
+    .desktop-table-comfortable tbody td {
+      padding-top: 0.56rem;
+      padding-bottom: 0.56rem;
+    }
+
+    .desktop-table-comfortable tbody button {
+      min-height: 1.75rem;
+      height: 1.75rem;
+    }
+
+    .desktop-table-comfortable tbody input {
+      min-height: 1.8rem;
+      height: 1.8rem;
+    }
   }
   
   /* Safe area insets for notched devices */

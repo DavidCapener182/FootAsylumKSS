@@ -3,11 +3,23 @@ import { requireAuth } from '@/lib/auth'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Input } from '@/components/ui/input'
 import { ActionsTableRow } from '@/components/shared/actions-table-row'
 import { ActionMobileCard } from '@/components/shared/action-mobile-card'
-import { Search, CheckSquare2, Filter, FileText, Clock, AlertCircle } from 'lucide-react'
+import { Search, CheckSquare2, FileText, Clock, AlertCircle } from 'lucide-react'
+import Link from 'next/link'
 
-async function getActions(filters?: { assigned_to?: string; status?: string; overdue?: boolean }) {
+type ActionFilters = {
+  assigned_to?: string
+  status?: string
+  overdue?: boolean
+  priority?: string
+  q?: string
+  date_from?: string
+  date_to?: string
+}
+
+async function getActions(filters?: ActionFilters) {
   const supabase = createClient()
   let query = supabase
     .from('fa_actions')
@@ -30,6 +42,12 @@ async function getActions(filters?: { assigned_to?: string; status?: string; ove
       .lt('due_date', today)
       .not('status', 'in', '(complete,cancelled)')
   }
+  if (filters?.date_from) {
+    query = query.gte('due_date', filters.date_from)
+  }
+  if (filters?.date_to) {
+    query = query.lte('due_date', filters.date_to)
+  }
 
   const { data, error } = await query
 
@@ -38,20 +56,58 @@ async function getActions(filters?: { assigned_to?: string; status?: string; ove
     return []
   }
 
-  return data || []
+  let actions = data || []
+
+  if (filters?.priority) {
+    actions = actions.filter((action: any) => action.priority === filters.priority)
+  }
+
+  if (filters?.q) {
+    const q = filters.q.trim().toLowerCase()
+    if (q.length > 0) {
+      actions = actions.filter((action: any) => {
+        const title = String(action.title || '').toLowerCase()
+        const incidentRef = String(action.incident?.reference_no || '').toLowerCase()
+        const assignee = String(action.assigned_to?.full_name || '').toLowerCase()
+        const description = String(action.description || '').toLowerCase()
+
+        return (
+          title.includes(q) ||
+          incidentRef.includes(q) ||
+          assignee.includes(q) ||
+          description.includes(q)
+        )
+      })
+    }
+  }
+
+  return actions
 }
 
 export default async function ActionsPage({
   searchParams,
 }: {
-  searchParams: { assigned_to?: string; status?: string; overdue?: string }
+  searchParams: {
+    assigned_to?: string
+    status?: string
+    overdue?: string
+    priority?: string
+    q?: string
+    date_from?: string
+    date_to?: string
+  }
 }) {
   await requireAuth()
-  const actions = await getActions({
-    assigned_to: searchParams.assigned_to,
-    status: searchParams.status,
+  const filters: ActionFilters = {
+    assigned_to: searchParams.assigned_to || undefined,
+    status: searchParams.status && searchParams.status !== 'all' ? searchParams.status : undefined,
     overdue: searchParams.overdue === 'true',
-  })
+    priority: searchParams.priority && searchParams.priority !== 'all' ? searchParams.priority : undefined,
+    q: searchParams.q?.trim() || undefined,
+    date_from: searchParams.date_from || undefined,
+    date_to: searchParams.date_to || undefined,
+  }
+  const actions = await getActions(filters)
 
   // Calculate stats
   const totalActions = actions.length
@@ -63,6 +119,7 @@ export default async function ActionsPage({
   const activeActions = actions.filter(action => 
     !['complete', 'cancelled'].includes(action.status)
   ).length
+  const hasActiveFilters = Boolean(filters.q || filters.status || filters.priority || filters.overdue || filters.date_from || filters.date_to)
 
   return (
     <div className="flex flex-col gap-8 p-6 md:p-8 bg-slate-50/50 min-h-screen">
@@ -122,25 +179,83 @@ export default async function ActionsPage({
       {/* Main Table Card */}
       <Card className="shadow-sm border-slate-200 bg-white overflow-hidden">
         <CardHeader className="border-b bg-slate-50/40 px-6 py-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <CardTitle className="text-base font-semibold text-slate-800">
-              Action Items {overdueCount > 0 && <span className="text-rose-600">({overdueCount} overdue)</span>}
-            </CardTitle>
-            
-            <div className="flex items-center gap-2">
-              {/* Search - Placeholder for now */}
-              <div className="relative w-full sm:w-64">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
-                <div className="h-9 w-full rounded-md border border-slate-200 bg-white pl-9 pr-4 text-sm text-slate-500 flex items-center">
-                  Search actions, incidents...
-                </div>
-              </div>
-              <Button variant="outline" size="sm" className="h-9 md:h-9 px-3 min-h-[44px] md:min-h-0">
-                <Filter className="h-4 w-4 mr-2 text-slate-500" />
-                <span className="hidden sm:inline">Filters</span>
-                <span className="sm:hidden">Filter</span>
-              </Button>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between gap-4">
+              <CardTitle className="text-base font-semibold text-slate-800">
+                Action Items {overdueCount > 0 && <span className="text-rose-600">({overdueCount} overdue)</span>}
+              </CardTitle>
+              {hasActiveFilters ? (
+                <span className="text-xs text-slate-500">Filtered results</span>
+              ) : null}
             </div>
+
+            <form method="get" className="grid grid-cols-1 md:grid-cols-6 gap-2">
+              <div className="relative md:col-span-2">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                <Input
+                  name="q"
+                  defaultValue={searchParams.q || ''}
+                  placeholder="Search title, incident ref, assignee..."
+                  className="pl-9 bg-white"
+                />
+              </div>
+
+              <select
+                name="status"
+                defaultValue={searchParams.status || 'all'}
+                className="h-10 min-h-[44px] rounded-md border border-slate-200 bg-white px-3 text-sm"
+              >
+                <option value="all">All statuses</option>
+                <option value="open">Open</option>
+                <option value="in_progress">In Progress</option>
+                <option value="complete">Complete</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+
+              <select
+                name="priority"
+                defaultValue={searchParams.priority || 'all'}
+                className="h-10 min-h-[44px] rounded-md border border-slate-200 bg-white px-3 text-sm"
+              >
+                <option value="all">All priorities</option>
+                <option value="critical">Critical</option>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+              </select>
+
+              <Input
+                type="date"
+                name="date_from"
+                defaultValue={searchParams.date_from || ''}
+                className="bg-white"
+              />
+              <Input
+                type="date"
+                name="date_to"
+                defaultValue={searchParams.date_to || ''}
+                className="bg-white"
+              />
+
+              <div className="md:col-span-6 flex flex-wrap gap-2">
+                <Button type="submit" size="sm" className="h-9 min-h-[44px] md:min-h-0">
+                  Apply Filters
+                </Button>
+                <Button
+                  type="submit"
+                  name="overdue"
+                  value="true"
+                  variant={filters.overdue ? 'default' : 'outline'}
+                  size="sm"
+                  className="h-9 min-h-[44px] md:min-h-0"
+                >
+                  Overdue Only
+                </Button>
+                <Button asChild variant="outline" size="sm" className="h-9 min-h-[44px] md:min-h-0">
+                  <Link href="/actions">Reset</Link>
+                </Button>
+              </div>
+            </form>
           </div>
         </CardHeader>
         <CardContent className="p-0">
@@ -201,5 +316,4 @@ export default async function ActionsPage({
     </div>
   )
 }
-
 

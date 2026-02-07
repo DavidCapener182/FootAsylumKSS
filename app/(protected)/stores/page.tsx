@@ -1,8 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { requireRole } from '@/lib/auth'
-import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Plus, Store, Building2, CheckCircle2, XCircle } from 'lucide-react'
+import { Plus, ArrowUpRight, ShieldCheck } from 'lucide-react'
 import Link from 'next/link'
 import { StoreDirectory } from '@/components/stores/store-directory'
 
@@ -39,19 +38,19 @@ async function getStoreIncidents(storeId: string) {
 
 async function getStoreActions(storeId: string) {
   const supabase = createClient()
-  
+
   // First get all incidents for this store
   const { data: incidents } = await supabase
     .from('fa_incidents')
     .select('id')
     .eq('store_id', storeId)
-  
+
   if (!incidents || incidents.length === 0) {
     return []
   }
-  
+
   const incidentIds = incidents.map((inc: any) => inc.id)
-  
+
   // Then get all actions for those incidents
   const { data, error } = await supabase
     .from('fa_actions')
@@ -78,7 +77,7 @@ async function getStoreActions(storeId: string) {
 export default async function StoresPage() {
   const { profile } = await requireRole(['admin', 'ops', 'readonly'])
   const stores = await getStores()
-  
+
   // Fetch incidents and actions for all stores in parallel
   const storesWithData = await Promise.all(
     stores.map(async (store) => {
@@ -94,71 +93,58 @@ export default async function StoresPage() {
   const totalStores = storesWithData.length
   const activeStores = storesWithData.filter((s: any) => s.is_active).length
   const inactiveStores = totalStores - activeStores
+  const activeRate = totalStores > 0 ? Math.round((activeStores / totalStores) * 100) : 0
 
   return (
-    <div className="flex flex-col gap-6 p-6 md:p-8 bg-slate-50/50 min-h-screen">
-      
-      {/* Header Section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="space-y-1 flex-1 min-w-0">
-          <div className="flex items-center gap-2 text-slate-900">
-            <div className="p-2 bg-indigo-600 rounded-lg shadow-sm flex-shrink-0">
-              <Store className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Stores</h1>
-          </div>
-          <p className="text-sm sm:text-base text-slate-500 max-w-2xl ml-9 sm:ml-11">
-            Manage store locations, view compliance data, and track incidents by location.
-          </p>
-        </div>
-        {profile.role === 'admin' && (
-          <div className="flex-shrink-0">
-            <Link href="/stores/new">
-              <Button className="bg-indigo-600 hover:bg-indigo-700 shadow-sm transition-all active:scale-95 min-h-[44px] w-full sm:w-auto">
-                <Plus className="h-4 w-4 mr-2" />
-                <span className="hidden sm:inline">Add New Store</span>
-                <span className="sm:hidden">Add Store</span>
-              </Button>
-            </Link>
-          </div>
-        )}
-      </div>
+    <div className="flex flex-col gap-4 md:gap-6 p-4 md:p-6 min-h-screen bg-slate-50/60">
+      {/* Hero */}
+      <div className="relative overflow-hidden rounded-3xl border border-slate-800 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-5 sm:p-6 md:p-7 shadow-lg">
+        <div className="pointer-events-none absolute -right-16 -top-16 h-52 w-52 rounded-full bg-blue-500/20 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-20 left-8 h-56 w-56 rounded-full bg-emerald-500/15 blur-3xl" />
 
-      {/* Stats Overview */}
-      <div className="grid grid-cols-3 md:grid-cols-3 gap-3 md:gap-4">
-        <Card className="bg-white shadow-sm border-slate-200">
-          <CardContent className="p-3 md:p-6 flex flex-col md:flex-row items-center md:items-center justify-between gap-2 md:gap-0">
-            <div className="space-y-1 text-center md:text-left flex-1 min-w-0">
-              <p className="text-[10px] md:text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Stores</p>
-              <p className="text-xl md:text-2xl font-bold text-slate-900">{totalStores}</p>
+        <div className="relative z-10 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div className="min-w-0">
+            <div className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-medium uppercase tracking-widest text-slate-200">
+              <ShieldCheck className="h-3.5 w-3.5" />
+              Store Network
             </div>
-            <div className="h-8 w-8 md:h-10 md:w-10 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
-              <Building2 className="h-4 w-4 md:h-5 md:w-5 text-slate-600" />
+            <h1 className="mt-3 text-2xl font-bold tracking-tight text-white sm:text-3xl">Stores</h1>
+            <p className="mt-2 max-w-2xl text-sm text-slate-300 sm:text-base">
+              Manage store locations, compliance activity, and incident records across your estate.
+            </p>
+          </div>
+
+          {profile.role === 'admin' && (
+            <div className="flex-shrink-0">
+              <Link href="/stores/new">
+                <Button className="flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-slate-900 shadow-sm font-medium transition-all hover:bg-slate-100 active:scale-[0.98] min-h-[44px]">
+                  <Plus className="h-4 w-4 text-indigo-600" />
+                  <span>Add New Store</span>
+                  <ArrowUpRight className="h-3.5 w-3.5 text-slate-500" />
+                </Button>
+              </Link>
             </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-white shadow-sm border-slate-200">
-          <CardContent className="p-3 md:p-6 flex flex-col md:flex-row items-center md:items-center justify-between gap-2 md:gap-0">
-            <div className="space-y-1 text-center md:text-left flex-1 min-w-0">
-              <p className="text-[10px] md:text-xs font-semibold text-slate-500 uppercase tracking-wider">Active Locations</p>
-              <p className="text-xl md:text-2xl font-bold text-green-600">{activeStores}</p>
-            </div>
-            <div className="h-8 w-8 md:h-10 md:w-10 rounded-full bg-green-50 flex items-center justify-center flex-shrink-0">
-              <CheckCircle2 className="h-4 w-4 md:h-5 md:w-5 text-green-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-white shadow-sm border-slate-200">
-          <CardContent className="p-3 md:p-6 flex flex-col md:flex-row items-center md:items-center justify-between gap-2 md:gap-0">
-            <div className="space-y-1 text-center md:text-left flex-1 min-w-0">
-              <p className="text-[10px] md:text-xs font-semibold text-slate-500 uppercase tracking-wider">Inactive Locations</p>
-              <p className="text-xl md:text-2xl font-bold text-slate-600">{inactiveStores}</p>
-            </div>
-            <div className="h-8 w-8 md:h-10 md:w-10 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
-              <XCircle className="h-4 w-4 md:h-5 md:w-5 text-slate-600" />
-            </div>
-          </CardContent>
-        </Card>
+          )}
+        </div>
+
+        <div className="relative z-10 mt-5 grid grid-cols-2 gap-2.5 md:grid-cols-4">
+          <div className="rounded-xl border border-white/20 bg-white/10 px-3 py-2 backdrop-blur-sm">
+            <p className="text-[10px] uppercase tracking-widest text-slate-300">Total Stores</p>
+            <p className="mt-1 text-lg font-semibold text-white">{totalStores}</p>
+          </div>
+          <div className="rounded-xl border border-white/20 bg-white/10 px-3 py-2 backdrop-blur-sm">
+            <p className="text-[10px] uppercase tracking-widest text-slate-300">Active</p>
+            <p className="mt-1 text-lg font-semibold text-white">{activeStores}</p>
+          </div>
+          <div className="rounded-xl border border-white/20 bg-white/10 px-3 py-2 backdrop-blur-sm">
+            <p className="text-[10px] uppercase tracking-widest text-slate-300">Inactive</p>
+            <p className="mt-1 text-lg font-semibold text-white">{inactiveStores}</p>
+          </div>
+          <div className="rounded-xl border border-white/20 bg-white/10 px-3 py-2 backdrop-blur-sm">
+            <p className="text-[10px] uppercase tracking-widest text-slate-300">Active Rate</p>
+            <p className="mt-1 text-lg font-semibold text-white">{activeRate}%</p>
+          </div>
+        </div>
       </div>
 
       {/* Store Directory with Search */}
@@ -166,4 +152,3 @@ export default async function StoresPage() {
     </div>
   )
 }
-

@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { MapPin, Route, Calendar, Home, Trash2, Filter, Plus, CheckCircle2, Sparkles, Loader2, Edit2, X, ChevronUp, ChevronDown } from 'lucide-react'
+import { MapPin, Route, Calendar, Home, Trash2, Filter, Plus, CheckCircle2, Sparkles, Loader2, Edit2, X, ChevronUp, ChevronDown, ShieldCheck, ArrowUpRight } from 'lucide-react'
 import dynamic from 'next/dynamic'
 import { updateRoutePlannedDate, updateManagerHomeAddress, getRouteOperationalItems, deleteAllRouteVisitTimes, deleteAllRouteOperationalItems } from '@/app/actions/route-planning'
 import { format } from 'date-fns'
@@ -102,6 +102,13 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
   const [routeDate, setRouteDate] = useState<string>('')
   const [routeArea, setRouteArea] = useState<string | null>(null)
   const [routeSelectedStores, setRouteSelectedStores] = useState<Set<string>>(new Set())
+  const [routeStopLimit, setRouteStopLimit] = useState<number>(3)
+  const [maxDriveMinutes, setMaxDriveMinutes] = useState<string>('')
+  const [maxRouteHours, setMaxRouteHours] = useState<string>('')
+  const [optimizerPriority, setOptimizerPriority] = useState<'balanced' | 'min_drive' | 'tight_cluster'>('balanced')
+  const [requireHomeStart, setRequireHomeStart] = useState(true)
+  const [requireHomeEnd, setRequireHomeEnd] = useState(true)
+  const [optimizationSummary, setOptimizationSummary] = useState<string | null>(null)
   const [isCreatingRoute, setIsCreatingRoute] = useState(false)
   const [isOptimizing, setIsOptimizing] = useState(false)
   const [editingRouteGroup, setEditingRouteGroup] = useState<string | null>(null)
@@ -117,6 +124,12 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
   const [routeStoreOrder, setRouteStoreOrder] = useState<Record<string, string[]>>({})
   // Track operational items for each route group
   const [routeOperationalItems, setRouteOperationalItems] = useState<Record<string, Array<{ title: string; start_time: string }>>>({})
+
+  useEffect(() => {
+    if (routeSelectedStores.size <= routeStopLimit) return
+    const trimmed = Array.from(routeSelectedStores).slice(0, routeStopLimit)
+    setRouteSelectedStores(new Set(trimmed))
+  }, [routeStopLimit, routeSelectedStores])
 
   // Get selected manager's home location
   const managerHome = useMemo(() => {
@@ -514,6 +527,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
   const handleRouteAreaSelect = (area: string | null) => {
     setRouteArea(area)
     setRouteSelectedStores(new Set()) // Clear selections when area changes
+    setOptimizationSummary(null)
   }
 
   const handleRouteStoreToggle = (storeId: string) => {
@@ -521,14 +535,21 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
     if (newSelected.has(storeId)) {
       newSelected.delete(storeId)
     } else {
+      if (newSelected.size >= routeStopLimit) {
+        alert(`Maximum ${routeStopLimit} stores per route. Please deselect a store first.`)
+        return
+      }
       newSelected.add(storeId)
     }
     setRouteSelectedStores(newSelected)
+    setOptimizationSummary(null)
   }
 
   const handleOptimizeRoute = async () => {
-    if (!routeManager || !routeArea || storesInRouteArea.length < 3) {
-      alert('Please select a manager and an area with at least 3 stores available for optimization.')
+    const targetStopCount = Math.min(routeStopLimit, storesInRouteArea.length)
+
+    if (!routeManager || !routeArea || storesInRouteArea.length < 2) {
+      alert('Please select a manager and an area with at least 2 stores available for optimization.')
       return
     }
 
@@ -567,6 +588,14 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
         body: JSON.stringify({
           stores: storesInRouteArea,
           managerHome,
+          constraints: {
+            stopLimit: targetStopCount,
+            maxDriveMinutes: maxDriveMinutes ? Number(maxDriveMinutes) : null,
+            maxRouteHours: maxRouteHours ? Number(maxRouteHours) : null,
+            prioritize: optimizerPriority,
+            requireHomeStart,
+            requireHomeEnd,
+          },
         }),
       })
 
@@ -577,57 +606,52 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
       }
 
       const result = await response.json()
-      console.log('Optimization result:', result)
-      console.log('Result storeIds (expanded):', result.storeIds?.map((id: string) => ({ id, type: typeof id, value: String(id) })))
-      console.log('Stores in route area IDs (expanded):', storesInRouteArea.map(s => ({ id: s.id, type: typeof s.id, value: String(s.id), name: s.store_name })))
       
       if (result.storeIds && Array.isArray(result.storeIds)) {
-        // Verify that all store IDs exist in the current area stores
-        // Use string comparison to handle any type mismatches
         const validStoreIds = result.storeIds.filter((id: string) => {
           const idStr = String(id).trim()
           const found = storesInRouteArea.some(store => {
             const storeIdStr = String(store.id).trim()
             return storeIdStr === idStr
           })
-          if (!found) {
-            console.log(`ID not found: API returned "${id}" (type: ${typeof id}), available IDs:`, storesInRouteArea.map(s => s.id))
-          }
           return found
         })
         
-        console.log('Valid store IDs:', validStoreIds)
-        console.log('Available stores in area:', storesInRouteArea.map(s => ({ id: s.id, name: s.store_name })))
-        
         if (validStoreIds.length > 0) {
-          // Create a new Set to ensure React detects the change
-          const newSelectedSet = new Set<string>(validStoreIds)
-          console.log('Setting selected stores:', Array.from(newSelectedSet))
+          const limitedStoreIds = validStoreIds.slice(0, targetStopCount)
+          const newSelectedSet = new Set<string>(limitedStoreIds)
           setRouteSelectedStores(newSelectedSet)
           
-          // Scroll to the first selected store after React has updated
+          if (result.estimate) {
+            const summaryParts = [
+              `${result.estimate.stopCount} stops`,
+              `${result.estimate.totalDistanceMiles} mi`,
+              `${result.estimate.totalDriveMinutes} mins drive`,
+              `${Math.round(result.estimate.totalRouteMinutes / 60)}h total`,
+            ]
+            setOptimizationSummary(summaryParts.join(' • '))
+          } else {
+            setOptimizationSummary(`${newSelectedSet.size} optimized stop${newSelectedSet.size !== 1 ? 's' : ''} selected`)
+          }
+
+          if (Array.isArray(result.warnings) && result.warnings.length > 0) {
+            alert(result.warnings.join('\\n'))
+          }
+
           requestAnimationFrame(() => {
             setTimeout(() => {
-              const firstSelected = document.querySelector(`[data-store-id="${validStoreIds[0]}"]`)
+              const firstSelected = document.querySelector(`[data-store-id="${limitedStoreIds[0]}"]`)
               if (firstSelected) {
                 firstSelected.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
               }
             }, 100)
           })
-          
-          if (validStoreIds.length !== result.storeIds.length) {
-            console.warn('Some store IDs from optimization were not found in the area:', 
-              result.storeIds.filter((id: string) => !validStoreIds.includes(id)))
-          }
         } else {
-          console.error('No valid store IDs found in the area')
           alert('The optimized stores were not found in the selected area. Please try again.')
         }
       } else if (result.error) {
-        console.error('Route optimization error:', result.error)
         alert(`Unable to optimize route: ${result.error}. Please select stores manually.`)
       } else {
-        console.error('Invalid response format:', result)
         alert('Unable to get optimal route. Please select stores manually.')
       }
     } catch (error) {
@@ -652,8 +676,8 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
       alert('Please select at least one store for the route.')
       return
     }
-    if (routeSelectedStores.size > 3) {
-      alert('Maximum 3 stores per day. Please select 3 or fewer stores.')
+    if (routeSelectedStores.size > routeStopLimit) {
+      alert(`Maximum ${routeStopLimit} stores per day. Please select ${routeStopLimit} or fewer stores.`)
       return
     }
 
@@ -693,6 +717,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
       setRouteDate('')
       setRouteArea(null)
       setRouteSelectedStores(new Set())
+      setOptimizationSummary(null)
       
       // Refresh the page data in the background to ensure consistency
       router.refresh()
@@ -704,27 +729,59 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
     }
   }
 
+  const availableStoreCount = storesWithLocations.length
+  const plannedRouteCount = plannedRoutes.length
+  const plannedStoreCount = plannedRoutes.reduce((total, route) => total + route.stores.length, 0)
+  const managerCount = profiles.length
+
   return (
-    <div className="flex flex-col gap-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2 text-slate-900">
-            <div className="p-2 bg-blue-600 rounded-lg shadow-sm">
-              <Route className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+    <div className="flex flex-col gap-4 md:gap-6">
+      {/* Hero */}
+      <div className="relative overflow-hidden rounded-3xl border border-slate-800 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-5 sm:p-6 md:p-7 shadow-lg">
+        <div className="pointer-events-none absolute -right-16 -top-16 h-52 w-52 rounded-full bg-blue-500/20 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-20 left-8 h-56 w-56 rounded-full bg-emerald-500/15 blur-3xl" />
+
+        <div className="relative z-10 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div className="min-w-0">
+            <div className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-medium uppercase tracking-widest text-slate-200">
+              <ShieldCheck className="h-3.5 w-3.5" />
+              Route Optimization
             </div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Route Planning</h1>
+            <h1 className="mt-3 text-2xl font-bold tracking-tight text-white sm:text-3xl">Route Planning</h1>
+            <p className="mt-2 max-w-2xl text-sm text-slate-300 sm:text-base">
+              Build daily compliance routes, optimize store selection, and track planned rounds by area and manager.
+            </p>
           </div>
-          <p className="text-sm sm:text-base text-slate-500 max-w-2xl ml-11">
-            Plan compliance visit routes with map visualization. Stores are hidden for 6 months after completion.
-          </p>
+          <div className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-xs font-semibold text-slate-200">
+            Live Planner
+            <ArrowUpRight className="h-3.5 w-3.5 text-slate-300" />
+          </div>
+        </div>
+
+        <div className="relative z-10 mt-5 grid grid-cols-2 gap-2.5 md:grid-cols-4">
+          <div className="rounded-xl border border-white/20 bg-white/10 px-3 py-2 backdrop-blur-sm">
+            <p className="text-[10px] uppercase tracking-widest text-slate-300">Available Stores</p>
+            <p className="mt-1 text-lg font-semibold text-white">{availableStoreCount}</p>
+          </div>
+          <div className="rounded-xl border border-white/20 bg-white/10 px-3 py-2 backdrop-blur-sm">
+            <p className="text-[10px] uppercase tracking-widest text-slate-300">Planned Routes</p>
+            <p className="mt-1 text-lg font-semibold text-white">{plannedRouteCount}</p>
+          </div>
+          <div className="rounded-xl border border-white/20 bg-white/10 px-3 py-2 backdrop-blur-sm">
+            <p className="text-[10px] uppercase tracking-widest text-slate-300">Planned Stores</p>
+            <p className="mt-1 text-lg font-semibold text-white">{plannedStoreCount}</p>
+          </div>
+          <div className="rounded-xl border border-white/20 bg-white/10 px-3 py-2 backdrop-blur-sm">
+            <p className="text-[10px] uppercase tracking-widest text-slate-300">Managers</p>
+            <p className="mt-1 text-lg font-semibold text-white">{managerCount}</p>
+          </div>
         </div>
       </div>
 
       {/* Create Route Section */}
-      <Card className="bg-blue-50 border-blue-200 shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
+      <Card className="overflow-hidden border-blue-200/80 bg-gradient-to-br from-blue-50 via-sky-50 to-indigo-50 shadow-sm">
+        <CardHeader className="border-b border-blue-200/60 bg-white/45">
+          <CardTitle className="text-lg flex items-center gap-2 text-slate-800">
             <Plus className="h-5 w-5" />
             Create New Route
           </CardTitle>
@@ -783,6 +840,106 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
             </div>
           </div>
 
+          <div className="rounded-xl border border-blue-200 bg-white/70 p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-600">Optimizer Constraints</p>
+              <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                used for smart suggestions
+              </span>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-slate-600">Stop limit</label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={6}
+                  value={routeStopLimit}
+                  onChange={(e) => {
+                    const next = Number(e.target.value) || 1
+                    setRouteStopLimit(Math.max(1, Math.min(6, next)))
+                    setOptimizationSummary(null)
+                  }}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-slate-600">Max drive mins</label>
+                <Input
+                  type="number"
+                  min={0}
+                  placeholder="Optional"
+                  value={maxDriveMinutes}
+                  onChange={(e) => {
+                    setMaxDriveMinutes(e.target.value)
+                    setOptimizationSummary(null)
+                  }}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-slate-600">Max route hours</label>
+                <Input
+                  type="number"
+                  min={0}
+                  step={0.5}
+                  placeholder="Optional"
+                  value={maxRouteHours}
+                  onChange={(e) => {
+                    setMaxRouteHours(e.target.value)
+                    setOptimizationSummary(null)
+                  }}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-slate-600">Priority</label>
+                <Select
+                  value={optimizerPriority}
+                  onValueChange={(value) => {
+                    setOptimizerPriority(value as 'balanced' | 'min_drive' | 'tight_cluster')
+                    setOptimizationSummary(null)
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="z-[9999]">
+                    <SelectItem value="balanced">Balanced</SelectItem>
+                    <SelectItem value="min_drive">Min Drive Time</SelectItem>
+                    <SelectItem value="tight_cluster">Tight Clusters</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-4">
+              <label className="inline-flex items-center gap-2 text-xs text-slate-600">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                  checked={requireHomeStart}
+                  onChange={(e) => {
+                    setRequireHomeStart(e.target.checked)
+                    setOptimizationSummary(null)
+                  }}
+                />
+                Start from manager home
+              </label>
+              <label className="inline-flex items-center gap-2 text-xs text-slate-600">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                  checked={requireHomeEnd}
+                  onChange={(e) => {
+                    setRequireHomeEnd(e.target.checked)
+                    setOptimizationSummary(null)
+                  }}
+                />
+                Return to manager home
+              </label>
+            </div>
+            {optimizationSummary && (
+              <p className="mt-2 text-xs font-medium text-blue-700">{optimizationSummary}</p>
+            )}
+          </div>
+
           {/* Store Selection for Route */}
           {routeArea && storesInRouteArea.length > 0 && (
             <div className="mt-4 p-4 bg-white rounded-lg border border-slate-200">
@@ -791,14 +948,14 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
                   Stores in {getAreaDisplayName(routeArea)} ({storesInRouteArea.length} stores)
                 </h3>
                 <div className="flex items-center gap-2">
-                  {storesInRouteArea.length >= 3 && (
+                  {storesInRouteArea.length >= 2 && (
                     <Button
                       variant="default"
                       size="sm"
                       onClick={handleOptimizeRoute}
                       disabled={isOptimizing}
                       className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
-                      title="Suggest optimal 3 stores for this route"
+                      title={`Suggest an optimal ${Math.min(routeStopLimit, storesInRouteArea.length)}-stop route`}
                     >
                       {isOptimizing ? (
                         <>
@@ -808,7 +965,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
                       ) : (
                         <>
                           <Sparkles className="h-4 w-4 mr-2" />
-                          Suggest Optimal 3 Stores
+                          Suggest Optimal {Math.min(routeStopLimit, storesInRouteArea.length)} Stores
                         </>
                       )}
                     </Button>
@@ -817,33 +974,33 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
                     variant="outline"
                     size="sm"
                     onClick={() => {
-                      // Limit to max 3 stores when selecting all
-                      if (routeSelectedStores.size >= 3 || routeSelectedStores.size === Math.min(3, storesInRouteArea.length)) {
+                      if (
+                        routeSelectedStores.size >= routeStopLimit ||
+                        routeSelectedStores.size === Math.min(routeStopLimit, storesInRouteArea.length)
+                      ) {
                         setRouteSelectedStores(new Set())
                       } else {
-                        const maxStores = Math.min(3, storesInRouteArea.length)
+                        const maxStores = Math.min(routeStopLimit, storesInRouteArea.length)
                         setRouteSelectedStores(new Set(storesInRouteArea.slice(0, maxStores).map(s => s.id)))
                       }
+                      setOptimizationSummary(null)
                     }}
                   >
-                    {routeSelectedStores.size >= 3 || (routeSelectedStores.size > 0 && routeSelectedStores.size === Math.min(3, storesInRouteArea.length)) ? 'Deselect All' : 'Select All (Max 3)'}
+                    {routeSelectedStores.size >= routeStopLimit || (routeSelectedStores.size > 0 && routeSelectedStores.size === Math.min(routeStopLimit, storesInRouteArea.length))
+                      ? 'Deselect All'
+                      : `Select All (Max ${routeStopLimit})`}
                   </Button>
                 </div>
               </div>
               <div className="max-h-[200px] overflow-y-auto space-y-2">
                     {storesInRouteArea.map((store) => {
                       const isSelected = routeSelectedStores.has(store.id)
-                      const isDisabled = !isSelected && routeSelectedStores.size >= 3
+                      const isDisabled = !isSelected && routeSelectedStores.size >= routeStopLimit
                       return (
                         <div
                           key={store.id}
                           data-store-id={store.id}
                           onClick={() => {
-                            // Prevent selecting more than 3 stores
-                            if (isDisabled) {
-                              alert('Maximum 3 stores per day. Please deselect a store first.')
-                              return
-                            }
                             handleRouteStoreToggle(store.id)
                           }}
                           className={`flex items-center gap-3 p-2 rounded-lg transition-colors ${
@@ -891,20 +1048,20 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
                       ? `${routeSelectedStores.size} store${routeSelectedStores.size > 1 ? 's' : ''} selected`
                       : 'No stores selected'}
                   </span>
-                      {routeSelectedStores.size > 0 && routeSelectedStores.size < 3 && (
+                      {routeSelectedStores.size > 0 && routeSelectedStores.size < routeStopLimit && (
                         <span className="text-xs text-blue-600">
-                          Tip: You can select up to 3 stores for optimal daily route
+                          Tip: You can select up to {routeStopLimit} stores for this route
                         </span>
                       )}
-                      {routeSelectedStores.size > 3 && (
+                      {routeSelectedStores.size > routeStopLimit && (
                         <span className="text-xs text-red-600">
-                          Maximum 3 stores per day. Please deselect some stores.
+                          Maximum {routeStopLimit} stores per day. Please deselect some stores.
                         </span>
                       )}
                 </div>
                     <Button
                       onClick={handleCreateRoute}
-                      disabled={isCreatingRoute || !routeManager || !routeDate || routeSelectedStores.size === 0 || routeSelectedStores.size > 3}
+                      disabled={isCreatingRoute || !routeManager || !routeDate || routeSelectedStores.size === 0 || routeSelectedStores.size > routeStopLimit}
                       className="w-full"
                     >
                       {isCreatingRoute ? 'Creating Route...' : `Create Route with ${routeSelectedStores.size} Store${routeSelectedStores.size > 1 ? 's' : ''}`}
@@ -916,12 +1073,12 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
       </Card>
 
       {/* Map */}
-      <Card className="bg-white shadow-sm border-slate-200">
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
+      <Card className="bg-white shadow-sm border-slate-200 rounded-2xl overflow-hidden">
+        <CardHeader className="border-b border-slate-200 bg-slate-50/60">
+          <CardTitle className="text-lg flex items-center gap-2 text-slate-800">
             <MapPin className="h-5 w-5" />
             Store Locations Map
-            <span className="text-sm font-normal text-slate-500 ml-2">
+            <span className="ml-auto rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
               ({routeArea 
                 ? storesWithLocations.filter(s => s.region === routeArea).length 
                 : storesWithLocations.length} stores with locations)
@@ -929,7 +1086,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="h-[600px] w-full rounded-lg overflow-hidden border border-slate-200 relative" style={{ zIndex: 0 }}>
+          <div className="h-[520px] md:h-[620px] w-full rounded-lg overflow-hidden border border-slate-200 relative" style={{ zIndex: 0 }}>
             <MapComponent
               stores={storesWithLocations}
               managerHome={routeManager ? (() => {
@@ -957,11 +1114,14 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
       </Card>
 
       {/* Planned Routes Table */}
-      <Card className="bg-white shadow-sm border-slate-200">
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
+      <Card className="bg-white shadow-sm border-slate-200 rounded-2xl overflow-hidden">
+        <CardHeader className="border-b border-slate-200 bg-slate-50/60">
+          <CardTitle className="text-lg flex items-center gap-2 text-slate-800">
             <Calendar className="h-5 w-5" />
             Planned Routes
+            <span className="ml-auto rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
+              {plannedRouteCount} routes
+            </span>
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -969,9 +1129,9 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
             <p className="text-slate-500 text-center py-8">No routes planned yet.</p>
           ) : (
             <div className="rounded-md border border-slate-200 bg-white max-w-full">
-              <div className="max-h-[400px] overflow-auto">
+              <div className="max-h-[460px] overflow-auto">
                 <Table>
-                  <TableHeader className="sticky top-0 bg-white z-10 shadow-sm">
+                  <TableHeader className="sticky top-0 bg-white z-10 border-b border-slate-200">
                     <TableRow>
                       <TableHead>Stores</TableHead>
                       <TableHead>Region</TableHead>

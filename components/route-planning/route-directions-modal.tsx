@@ -5,8 +5,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import { Loader2, MapPin, Clock, Home, X, Download, Calendar as CalendarIcon, Edit2, Plus, Trash2 } from 'lucide-react'
+import { Loader2, MapPin, Clock, Home, Download, Calendar as CalendarIcon, Edit2, Plus, Trash2, Route as RouteIcon, Navigation, ClipboardPlus, AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { format, addMinutes, addHours } from 'date-fns'
 import dynamic from 'next/dynamic'
 import { 
@@ -15,7 +14,9 @@ import {
   updateRouteOperationalItem, 
   deleteRouteOperationalItem,
   getRouteVisitTimes,
-  saveRouteVisitTime
+  saveRouteVisitTime,
+  getCompletedRouteVisits,
+  markRouteVisitComplete
 } from '@/app/actions/route-planning'
 
 // Dynamically import the map component to avoid SSR issues
@@ -352,6 +353,8 @@ export function RouteDirectionsModal({
   const [opItemLocation, setOpItemLocation] = useState('')
   const [opItemStartTime, setOpItemStartTime] = useState('')
   const [opItemDuration, setOpItemDuration] = useState('60')
+  const [completedVisitStoreIds, setCompletedVisitStoreIds] = useState<Set<string>>(new Set())
+  const [quickActionLoading, setQuickActionLoading] = useState<string | null>(null)
 
   useEffect(() => {
     if (!isOpen || stores.length === 0) return
@@ -359,15 +362,17 @@ export function RouteDirectionsModal({
     setIsCalculating(true)
     
     const loadAndGenerateSchedule = async () => {
-      // Load saved visit times and operational items first
+      // Load saved visit times, operational items, and completed visit markers first.
       let savedVisitTimes: { store_id: string; start_time: string; end_time: string; id: string }[] = []
       let savedOpItems: any[] = []
+      let completedVisits: string[] = []
       
       if (managerUserId && plannedDate) {
         try {
-          const [visitTimesResult, opItemsResult] = await Promise.all([
+          const [visitTimesResult, opItemsResult, completedResult] = await Promise.all([
             getRouteVisitTimes(managerUserId, plannedDate, region),
-            getRouteOperationalItems(managerUserId, plannedDate, region)
+            getRouteOperationalItems(managerUserId, plannedDate, region),
+            getCompletedRouteVisits(managerUserId, plannedDate, region, stores.map((store) => store.id)),
           ])
           
           if (visitTimesResult.data) {
@@ -376,10 +381,15 @@ export function RouteDirectionsModal({
           if (opItemsResult.data) {
             savedOpItems = opItemsResult.data
           }
+          if (completedResult.data) {
+            completedVisits = completedResult.data
+          }
         } catch (error) {
           console.error('Error loading saved data:', error)
         }
       }
+
+      setCompletedVisitStoreIds(new Set(completedVisits))
     
     // Filter stores that have coordinates
     const storesWithCoords = stores.filter(s => s.latitude && s.longitude)
@@ -1134,220 +1144,437 @@ export function RouteDirectionsModal({
     setOpItemDuration('60')
   }
 
+  const totalTravelDistance = schedule.reduce((total, item) => {
+    if (item.action !== 'Travel' || !item.travelDistance) return total
+    return total + item.travelDistance
+  }, 0)
+  const totalTravelMinutes = schedule.reduce((total, item) => {
+    if (item.action !== 'Travel' || !item.travelTime) return total
+    return total + item.travelTime
+  }, 0)
+  const visitCount = schedule.filter((item) => item.action === 'Visit').length
+  const operationalCount = schedule.filter((item) => item.isOperational).length
+  const routeStart = schedule.length > 0 ? schedule[0].time : null
+  const lastScheduleItem = schedule.length > 0 ? schedule[schedule.length - 1] : null
+  const routeEnd = lastScheduleItem ? lastScheduleItem.endTime || lastScheduleItem.time : null
+  const routeWindow = routeStart && routeEnd ? `${format(routeStart, 'HH:mm')} - ${format(routeEnd, 'HH:mm')}` : 'Not set'
+  const missingCoordinatesCount = stores.filter((store) => !store.latitude || !store.longitude).length
+  const visitItems = schedule.filter((item) => item.action === 'Visit' && item.storeId)
+  const nextPendingVisit = visitItems.find((item) => item.storeId && !completedVisitStoreIds.has(item.storeId))
+  const quickActionStoreId = nextPendingVisit?.storeId || visitItems[0]?.storeId || null
+
+  const handleMarkVisitComplete = async (storeId: string) => {
+    if (!managerUserId || !plannedDate) {
+      alert('Route context is missing. Please close and reopen route directions.')
+      return
+    }
+
+    setQuickActionLoading(`complete-${storeId}`)
+    const result = await markRouteVisitComplete(storeId, managerUserId, plannedDate, region)
+    setQuickActionLoading(null)
+
+    if (!result.success) {
+      alert(result.error || 'Failed to mark this visit complete.')
+      return
+    }
+
+    setCompletedVisitStoreIds((prev) => {
+      const next = new Set(prev)
+      next.add(storeId)
+      return next
+    })
+  }
+
+  const openMapsRoute = () => {
+    const remainingStores = stores
+      .filter((store) => store.latitude && store.longitude)
+      .filter((store) => !completedVisitStoreIds.has(store.id))
+
+    if (remainingStores.length === 0) {
+      alert('No remaining route stops with coordinates.')
+      return
+    }
+
+    const destination = remainingStores[remainingStores.length - 1]
+    const waypointStores = remainingStores.slice(0, -1)
+    const waypoints = waypointStores.map((store) => `${store.latitude},${store.longitude}`).join('|')
+    const origin = managerHome && managerHome.latitude && managerHome.longitude
+      ? `${managerHome.latitude},${managerHome.longitude}`
+      : undefined
+
+    const params = new URLSearchParams({
+      api: '1',
+      destination: `${destination.latitude},${destination.longitude}`,
+      travelmode: 'driving',
+    })
+
+    if (origin) {
+      params.set('origin', origin)
+    }
+    if (waypoints) {
+      params.set('waypoints', waypoints)
+    }
+
+    window.open(`https://www.google.com/maps/dir/?${params.toString()}`, '_blank', 'noopener,noreferrer')
+  }
+
   if (!isOpen) return null
 
   return (
     <>
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader className="pr-12 md:pr-0">
-          <DialogTitle className="flex items-center gap-2 text-lg md:text-xl flex-wrap">
-            <MapPin className="h-4 w-4 md:h-5 md:w-5 flex-shrink-0" />
-            <span className="break-words">Route Directions - {managerName}</span>
-          </DialogTitle>
-          <DialogDescription className="text-xs md:text-sm">
-            Planned for {format(new Date(plannedDate), 'EEEE, dd MMMM yyyy')}
-          </DialogDescription>
-          {schedule.length > 0 && (
-              <div className="mt-4 flex gap-2 flex-wrap">
-              <Button
-                onClick={() => {
-                    const icsContent = generateICS(schedule, managerName, plannedDate, stores)
-                  const filename = `route-${managerName.replace(/\s+/g, '-')}-${plannedDate}.ics`
-                  downloadICS(icsContent, filename)
-                }}
-                variant="outline"
-                size="sm"
-                  className="flex items-center gap-2 min-h-[44px] md:min-h-0"
-              >
-                <CalendarIcon className="h-4 w-4" />
-                <Download className="h-4 w-4" />
-                <span className="hidden sm:inline">Download Calendar</span>
-                <span className="sm:hidden">Download</span>
-              </Button>
-                <Button
-                  onClick={() => {
-                    setEditingOpItemId(null)
-                    setOpItemTitle('')
-                    setOpItemLocation('')
-                    setOpItemStartTime('')
-                    setOpItemDuration('60')
-                    setAddingOperational(true)
-                  }}
-                  variant="outline"
-                  size="sm"
-                  className="flex items-center gap-2 min-h-[44px] md:min-h-0"
-                >
-                  <Plus className="h-4 w-4" />
-                  <span>Add Operational Item</span>
-              </Button>
-            </div>
-          )}
-        </DialogHeader>
-
-        {isCalculating ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-            <span className="ml-3 text-slate-600">Calculating route...</span>
-          </div>
-        ) : (
-          <div className="space-y-4 md:space-y-6">
-            {/* Schedule Timeline */}
-            <div>
-              <h3 className="font-semibold text-sm md:text-base text-slate-900 mb-3 flex items-center gap-2">
-                <Clock className="h-4 w-4 flex-shrink-0" />
-                Schedule
-              </h3>
-              <div className="space-y-2">
-                {schedule.map((item, index) => (
-                  <div
-                      key={item.id}
-                    className={`flex flex-col sm:flex-row items-start gap-2 sm:gap-3 p-3 rounded-lg ${
-                      item.action.includes('Leave') || item.action.includes('Arrive home')
-                        ? 'bg-blue-50 border border-blue-200'
-                        : item.action === 'Visit'
-                        ? 'bg-green-50 border border-green-200'
-                        : item.action === 'Travel'
-                        ? 'bg-amber-50 border border-amber-200'
-                          : 'bg-purple-50 border border-purple-200'
-                    }`}
+      <DialogContent className="!inset-[2vh_2vw] !h-auto !max-h-none !w-auto !max-w-none !overflow-y-auto !translate-x-0 !translate-y-0 border border-slate-200 p-0 data-[state=open]:animate-none data-[state=closed]:animate-none">
+        <div className="min-h-full flex flex-col bg-white">
+          <DialogHeader className="shrink-0 border-b border-slate-200 bg-white px-4 pb-4 pt-4 sm:px-6">
+            <div className="space-y-3 pr-12 md:pr-0">
+              <DialogTitle className="flex items-start gap-3 text-lg md:text-xl">
+                <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900 text-white">
+                  <RouteIcon className="h-4 w-4" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate">Route Directions</span>
+                  <span className="block text-sm font-medium text-slate-600">{managerName}</span>
+                </span>
+              </DialogTitle>
+              <DialogDescription className="text-xs md:text-sm text-slate-600">
+                Planned for {format(new Date(plannedDate), 'EEEE, dd MMMM yyyy')}
+              </DialogDescription>
+              {schedule.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    onClick={() => {
+                      const icsContent = generateICS(schedule, managerName, plannedDate, stores)
+                      const filename = `route-${managerName.replace(/\s+/g, '-')}-${plannedDate}.ics`
+                      downloadICS(icsContent, filename)
+                    }}
+                    variant="outline"
+                    size="sm"
+                    className="flex items-center gap-2 border-slate-300 bg-white min-h-[40px]"
                   >
-                    <div className="flex-shrink-0 w-full sm:w-28 text-xs sm:text-sm font-medium text-slate-700">
-                      {item.endTime 
-                        ? `${format(item.time, 'HH:mm')} - ${format(item.endTime, 'HH:mm')}`
-                        : format(item.time, 'HH:mm')}
-                    </div>
-                      <div className="flex-1 min-w-0 flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-sm md:text-base text-slate-900 break-words">
-                        {item.action === 'Visit' 
-                          ? `${item.location} Visit`
-                          : item.action === 'Travel'
-                          ? `Travel: ${item.location}`
-                          : item.action}
-                      </div>
-                      {item.action !== 'Travel' && (
-                        <div className="text-xs sm:text-sm text-slate-600 flex items-center gap-1 mt-1 break-words">
-                          {item.action.includes('home') ? (
-                            <Home className="h-3 w-3 flex-shrink-0" />
-                          ) : (
-                            <MapPin className="h-3 w-3 flex-shrink-0" />
-                          )}
-                          <span className="break-words">{item.location}</span>
-                        </div>
-                      )}
-                      {item.travelTime && (
-                        <div className="text-xs text-slate-500 mt-1">
-                          {item.travelDistance?.toFixed(1)} miles • {item.travelTime} minutes
-                        </div>
-                      )}
-                        </div>
-                        <div className="flex items-center gap-1">
-                          {item.action === 'Visit' && (
-                            <Button
-                              onClick={() => handleEditVisit(item)}
-                              variant="ghost"
-                              size="sm"
-                              className="flex-shrink-0 h-8 w-8 p-0"
-                              title="Edit times"
-                            >
-                              <Edit2 className="h-4 w-4" />
-                            </Button>
-                          )}
-                          {item.isOperational && (
-                            <>
-                              <Button
-                                onClick={() => {
-                                  setEditingOpItemId(item.id)
-                                  setOpItemTitle(item.action)
-                                  setOpItemLocation(item.location)
-                                  setOpItemStartTime(format(item.time, 'HH:mm'))
-                                  setOpItemDuration(String(Math.round((item.endTime!.getTime() - item.time.getTime()) / 60000)))
-                                }}
-                                variant="ghost"
-                                size="sm"
-                                className="flex-shrink-0 h-8 w-8 p-0"
-                                title="Edit operational item"
-                              >
-                                <Edit2 className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                onClick={async () => {
-                                  if (!item.dbId) return
-                                  if (!confirm(`Are you sure you want to delete "${item.action}"?`)) return
-                                  
-                                  const { error } = await deleteRouteOperationalItem(item.dbId)
-                                  if (error) {
-                                    alert(`Error deleting operational item: ${error}`)
-                                    return
-                                  }
-                                  
-                                  setSchedule(prev => prev.filter(s => s.id !== item.id))
-                                }}
-                                variant="ghost"
-                                size="sm"
-                                className="flex-shrink-0 h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                                title="Delete operational item"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </>
-                          )}
-                        </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                    <CalendarIcon className="h-4 w-4" />
+                    <Download className="h-4 w-4" />
+                    <span>Download Calendar</span>
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      setEditingOpItemId(null)
+                      setOpItemTitle('')
+                      setOpItemLocation('')
+                      setOpItemStartTime('')
+                      setOpItemDuration('60')
+                      setAddingOperational(true)
+                    }}
+                    variant="outline"
+                    size="sm"
+                    className="flex items-center gap-2 border-slate-300 bg-white min-h-[40px]"
+                  >
+                    <Plus className="h-4 w-4" />
+                    <span>Add Operational Item</span>
+                  </Button>
+                </div>
+              )}
             </div>
 
-            {/* Route Map */}
-            <div>
-              <h3 className="font-semibold text-sm md:text-base text-slate-900 mb-3 flex items-center gap-2">
-                <MapPin className="h-4 w-4 flex-shrink-0" />
-                Route Map
-              </h3>
-              <div className="border border-slate-200 rounded-lg overflow-hidden h-[300px] md:h-[400px]">
-                <RouteMapComponent stores={stores} managerHome={managerHome} />
-              </div>
-            </div>
-
-            {/* Route Segments */}
-            {routeSegments.length > 0 && (
-              <div>
-                <h3 className="font-semibold text-slate-900 mb-3">Route Details</h3>
-                <div className="space-y-2">
-                  {routeSegments.map((segment, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-200"
-                    >
-                      <div className="flex-1">
-                        <div className="text-sm font-medium text-slate-900">
-                          {segment.from} → {segment.to}
-                        </div>
-                        <div className="text-xs text-slate-500 mt-1">
-                          {segment.distance.toFixed(1)} miles • {segment.duration} minutes
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+            {schedule.length > 0 && (
+              <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <div className="rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Visits</p>
+                  <p className="text-sm font-bold text-slate-900">{visitCount}</p>
+                  <p className="text-[10px] text-slate-500">{operationalCount} operational</p>
+                </div>
+                <div className="rounded-xl border border-blue-200 bg-blue-50/80 px-3 py-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-blue-700">Travel</p>
+                  <p className="text-sm font-bold text-blue-900">{totalTravelDistance.toFixed(1)} mi</p>
+                </div>
+                <div className="rounded-xl border border-amber-200 bg-amber-50/80 px-3 py-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-700">Drive Time</p>
+                  <p className="text-sm font-bold text-amber-900">{totalTravelMinutes} mins</p>
+                </div>
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 px-3 py-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-700">Route Window</p>
+                  <p className="text-sm font-bold text-emerald-900">{routeWindow}</p>
                 </div>
               </div>
             )}
+          </DialogHeader>
 
-            {stores.filter(s => !s.latitude || !s.longitude).length > 0 && (
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-                <p className="text-sm text-amber-800">
-                  ⚠️ {stores.filter(s => !s.latitude || !s.longitude).length} store(s) missing coordinates and cannot be included in route calculation.
-                </p>
+          {schedule.length > 0 && (
+            <div className="border-b border-slate-200 bg-slate-50/70 px-4 py-3 sm:px-6 md:hidden">
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-slate-500">Mobile Quick Actions</p>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  size="sm"
+                  className="min-h-[40px] bg-blue-600 hover:bg-blue-700"
+                  onClick={openMapsRoute}
+                >
+                  <Navigation className="mr-1.5 h-3.5 w-3.5" />
+                  Start Route
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="min-h-[40px]"
+                  disabled={!nextPendingVisit?.storeId || quickActionLoading === `complete-${nextPendingVisit?.storeId}`}
+                  onClick={() => {
+                    if (nextPendingVisit?.storeId) {
+                      handleMarkVisitComplete(nextPendingVisit.storeId)
+                    }
+                  }}
+                >
+                  {quickActionLoading === `complete-${nextPendingVisit?.storeId}` ? (
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
+                  )}
+                  Mark Next
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="min-h-[40px]"
+                  disabled={!quickActionStoreId}
+                  onClick={() => {
+                    if (quickActionStoreId) {
+                      window.location.href = `/audit-tracker?storeId=${quickActionStoreId}`
+                    }
+                  }}
+                >
+                  <ClipboardPlus className="mr-1.5 h-3.5 w-3.5" />
+                  Add Evidence
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="min-h-[40px]"
+                  disabled={!quickActionStoreId}
+                  onClick={() => {
+                    if (quickActionStoreId) {
+                      window.location.href = `/incidents/new?storeId=${quickActionStoreId}`
+                    }
+                  }}
+                >
+                  <AlertTriangle className="mr-1.5 h-3.5 w-3.5" />
+                  Log Issue
+                </Button>
               </div>
-            )}
-          </div>
-        )}
+            </div>
+          )}
 
-        <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
-          <Button onClick={onClose} className="w-full sm:w-auto min-h-[44px] md:min-h-0">Close</Button>
-        </DialogFooter>
+          {isCalculating ? (
+            <div className="flex flex-1 items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+              <span className="ml-3 text-slate-600">Calculating route...</span>
+            </div>
+          ) : (
+            <div className="px-4 py-4 sm:px-6 sm:py-5">
+              <div className="space-y-5 lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-4 lg:space-y-0 xl:grid-cols-[minmax(0,1fr)_400px]">
+                {/* Schedule Timeline */}
+                <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:flex lg:flex-col">
+                  <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50/80 px-4 py-3">
+                    <h3 className="font-semibold text-sm md:text-base text-slate-900 flex items-center gap-2">
+                      <Clock className="h-4 w-4 flex-shrink-0" />
+                      Schedule
+                    </h3>
+                    <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
+                      {schedule.length} items
+                    </span>
+                  </div>
+                  <div className="space-y-2.5 p-3 sm:p-4">
+                    {schedule.map((item) => {
+                      const isHomeAction = item.action.includes('Leave') || item.action.includes('Arrive home')
+                      const isVisitAction = item.action === 'Visit'
+                      const isTravelAction = item.action === 'Travel'
+                      const cardClass = isHomeAction
+                        ? 'border-blue-200 bg-blue-50/70'
+                        : isVisitAction
+                        ? 'border-emerald-200 bg-emerald-50/70'
+                        : isTravelAction
+                        ? 'border-amber-200 bg-amber-50/70'
+                        : 'border-violet-200 bg-violet-50/70'
+                      const badgeClass = isHomeAction
+                        ? 'border-blue-200 bg-blue-100 text-blue-700'
+                        : isVisitAction
+                        ? 'border-emerald-200 bg-emerald-100 text-emerald-700'
+                        : isTravelAction
+                        ? 'border-amber-200 bg-amber-100 text-amber-700'
+                        : 'border-violet-200 bg-violet-100 text-violet-700'
+                      const typeLabel = isHomeAction ? 'Home' : isVisitAction ? 'Visit' : isTravelAction ? 'Travel' : 'Operational'
+                      const actionLabel = isVisitAction
+                        ? `${item.location} Visit`
+                        : isTravelAction
+                        ? `Travel: ${item.location}`
+                        : item.action
+                      const isVisitCompleted = !!item.storeId && completedVisitStoreIds.has(item.storeId)
+
+                      return (
+                        <div key={item.id} className={`rounded-xl border p-3 shadow-sm ${cardClass}`}>
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="rounded-md bg-slate-900 px-2 py-0.5 text-[11px] font-semibold text-white">
+                                  {item.endTime ? `${format(item.time, 'HH:mm')} - ${format(item.endTime, 'HH:mm')}` : format(item.time, 'HH:mm')}
+                                </span>
+                                <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${badgeClass}`}>
+                                  {typeLabel}
+                                </span>
+                              </div>
+                              <p className="mt-2 text-sm font-semibold text-slate-900 break-words">{actionLabel}</p>
+                              {isVisitAction && (
+                                <div className="mt-1">
+                                  <span
+                                    className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                                      isVisitCompleted
+                                        ? 'border-emerald-200 bg-emerald-100 text-emerald-700'
+                                        : 'border-amber-200 bg-amber-100 text-amber-700'
+                                    }`}
+                                  >
+                                    {isVisitCompleted ? 'Completed' : 'Pending'}
+                                  </span>
+                                </div>
+                              )}
+                              {item.action !== 'Travel' && item.location && (
+                                <div className="mt-1 flex items-start gap-1.5 text-xs text-slate-600">
+                                  {item.action.includes('home') ? (
+                                    <Home className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
+                                  ) : (
+                                    <MapPin className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
+                                  )}
+                                  <span className="break-words">{item.location}</span>
+                                </div>
+                              )}
+                              {item.travelTime && (
+                                <div className="mt-1 text-xs font-medium text-slate-600">
+                                  {item.travelDistance?.toFixed(1)} miles • {item.travelTime} minutes
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-1 self-end sm:self-auto">
+                              {item.action === 'Visit' && (
+                                <>
+                                  <Button
+                                    onClick={() => {
+                                      if (item.storeId) {
+                                        handleMarkVisitComplete(item.storeId)
+                                      }
+                                    }}
+                                    variant="ghost"
+                                    size="sm"
+                                    disabled={!item.storeId || isVisitCompleted || quickActionLoading === `complete-${item.storeId}`}
+                                    className="h-8 px-2 rounded-lg hover:bg-white/80 text-emerald-700 disabled:text-slate-400"
+                                    title={isVisitCompleted ? 'Visit completed' : 'Mark visit complete'}
+                                  >
+                                    {quickActionLoading === `complete-${item.storeId}` ? (
+                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                      <CheckCircle2 className="h-4 w-4" />
+                                    )}
+                                  </Button>
+                                  <Button
+                                    onClick={() => handleEditVisit(item)}
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 w-8 p-0 rounded-lg hover:bg-white/80"
+                                    title="Edit times"
+                                  >
+                                    <Edit2 className="h-4 w-4" />
+                                  </Button>
+                                </>
+                              )}
+                              {item.isOperational && (
+                                <>
+                                  <Button
+                                    onClick={() => {
+                                      setEditingOpItemId(item.id)
+                                      setOpItemTitle(item.action)
+                                      setOpItemLocation(item.location)
+                                      setOpItemStartTime(format(item.time, 'HH:mm'))
+                                      setOpItemDuration(String(Math.round((item.endTime!.getTime() - item.time.getTime()) / 60000)))
+                                    }}
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 w-8 p-0 rounded-lg hover:bg-white/80"
+                                    title="Edit operational item"
+                                  >
+                                    <Edit2 className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    onClick={async () => {
+                                      if (!item.dbId) return
+                                      if (!confirm(`Are you sure you want to delete "${item.action}"?`)) return
+
+                                      const { error } = await deleteRouteOperationalItem(item.dbId)
+                                      if (error) {
+                                        alert(`Error deleting operational item: ${error}`)
+                                        return
+                                      }
+
+                                      setSchedule(prev => prev.filter(s => s.id !== item.id))
+                                    }}
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 w-8 p-0 rounded-lg text-red-600 hover:text-red-700 hover:bg-red-50"
+                                    title="Delete operational item"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </section>
+
+                <div className="space-y-5 lg:sticky lg:top-0 lg:pr-1">
+                  {/* Route Map */}
+                  <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                    <div className="border-b border-slate-200 bg-slate-50/80 px-4 py-3">
+                      <h3 className="font-semibold text-sm md:text-base text-slate-900 flex items-center gap-2">
+                        <MapPin className="h-4 w-4 flex-shrink-0" />
+                        Route Map
+                      </h3>
+                    </div>
+                    <div className="h-[280px] sm:h-[320px] lg:h-[360px]">
+                      <RouteMapComponent stores={stores} managerHome={managerHome} />
+                    </div>
+                  </section>
+
+                  {/* Route Segments */}
+                  {routeSegments.length > 0 && (
+                    <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                      <div className="border-b border-slate-200 bg-slate-50/80 px-4 py-3">
+                        <h3 className="font-semibold text-sm md:text-base text-slate-900">Route Details</h3>
+                      </div>
+                      <div className="space-y-2 p-3 sm:p-4">
+                        {routeSegments.map((segment, index) => (
+                          <div key={index} className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+                            <p className="text-sm font-medium text-slate-900 break-words">{segment.from} → {segment.to}</p>
+                            <p className="mt-1 text-xs text-slate-600">{segment.distance.toFixed(1)} miles • {segment.duration} minutes</p>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  )}
+
+                  {missingCoordinatesCount > 0 && (
+                    <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5">
+                      <p className="text-sm text-amber-800">
+                        {missingCoordinatesCount} store(s) are missing coordinates and were excluded from route calculation.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="border-t border-slate-200 bg-white px-4 py-3 sm:px-6">
+            <Button onClick={onClose} className="w-full sm:w-auto min-h-[44px]">Close</Button>
+          </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
 
