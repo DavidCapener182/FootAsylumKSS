@@ -20,7 +20,7 @@ export function HeaderClient({ signOut }: HeaderClientProps) {
   }
 
   return (
-    <header className="no-print flex h-16 items-center justify-between bg-[#0e1925] px-4 md:px-6 lg:px-8 relative z-30">
+    <header className="no-print relative z-30 flex h-[calc(4rem+env(safe-area-inset-top))] min-h-16 items-center justify-between bg-[#0e1925] px-4 pt-[env(safe-area-inset-top)] md:h-16 md:px-6 md:pt-0 lg:px-8">
       <div className="flex items-center gap-3 md:gap-4 flex-1 min-w-0">
         {/* Mobile Menu Button */}
         <button
@@ -54,4 +54,3 @@ export function HeaderClient({ signOut }: HeaderClientProps) {
     </header>
   )
 }
-

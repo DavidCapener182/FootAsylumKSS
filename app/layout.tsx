@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     title: "Footasylum KSS",
-    statusBarStyle: "black-translucent",
+    statusBarStyle: "black",
   },
   icons: {
     icon: [
@@ -48,4 +48,3 @@ export default function RootLayout({
     </html>
   )
 }
-
