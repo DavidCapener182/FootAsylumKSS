@@ -37,6 +37,7 @@ import {
   createAuditInstance,
   getAuditHistory,
   deleteAuditInstance,
+  bulkDeleteAuditInstances,
   getAuditInstance,
   saveAuditResponse,
   uploadAuditMedia,
@@ -211,18 +212,29 @@ export function AuditLabClient() {
       })
       .slice(0, 6)
 
-    const storeMap = new Map<string, { count: number; total: number }>()
+    const distinctStoresCount = new Set(audits.map((a: any) => a.store_id)).size
+    const isFraOnly = audits.length > 0 && audits.every((a: any) => (a.fa_audit_templates as any)?.category === 'fire_risk_assessment')
+
+    const storeMap = new Map<string, { count: number; total: number; latestDate: string | null }>()
     audits.forEach((a: any) => {
       const storeName = a.fa_stores?.store_name || 'Unknown Store'
       const score = Number(a.overall_score) || 0
-      const entry = storeMap.get(storeName) || { count: 0, total: 0 }
-      storeMap.set(storeName, { count: entry.count + 1, total: entry.total + score })
+      const dateStr = a.conducted_at || a.created_at
+      const entry = storeMap.get(storeName) || { count: 0, total: 0, latestDate: null }
+      const existingLatest = entry.latestDate ? new Date(entry.latestDate).getTime() : 0
+      const thisDate = dateStr ? new Date(dateStr).getTime() : 0
+      storeMap.set(storeName, {
+        count: entry.count + 1,
+        total: entry.total + score,
+        latestDate: thisDate >= existingLatest ? dateStr : entry.latestDate,
+      })
     })
 
     const storeStats = Array.from(storeMap.entries()).map(([name, data]) => ({
       name,
       count: data.count,
-      avg: Math.round((data.total / data.count) * 10) / 10,
+      avg: data.count > 0 ? Math.round((data.total / data.count) * 10) / 10 : 0,
+      latestDate: data.latestDate,
     }))
     storeStats.sort((a, b) => b.count - a.count)
 
@@ -353,6 +365,8 @@ export function AuditLabClient() {
 
     return {
       totalAudits: audits.length,
+      distinctStoresCount,
+      isFraOnly,
       avgScore,
       last30Count,
       recentAudits,
@@ -388,6 +402,8 @@ export function AuditLabClient() {
             totalAudits: dashboardStats.totalAudits,
             avgScore: dashboardStats.avgScore,
             last30Count: dashboardStats.last30Count,
+            distinctStoresCount: dashboardStats.distinctStoresCount,
+            isFraOnly: dashboardStats.isFraOnly,
           },
           stores: dashboardStats.storeStats,
           topFailedQuestions: dashboardStats.topFailedQuestions,
@@ -610,73 +626,104 @@ export function AuditLabClient() {
 
                 {dashboardStoreFilter !== 'all' && (
                   <div className="grid gap-4 md:grid-cols-12">
-                    <Card className="border-slate-200 md:col-span-4">
-                      <CardHeader>
-                        <CardTitle>Latest Score</CardTitle>
-                      </CardHeader>
-                      <CardContent className="text-3xl font-semibold">
-                        {dashboardStats.latestScore !== null ? `${dashboardStats.latestScore}%` : '—'}
-                      </CardContent>
-                    </Card>
-                    <Card className="border-slate-200 md:col-span-4">
-                      <CardHeader>
-                        <CardTitle>Previous Score</CardTitle>
-                      </CardHeader>
-                      <CardContent className="text-3xl font-semibold">
-                        {dashboardStats.previousScore !== null ? `${dashboardStats.previousScore}%` : '—'}
-                      </CardContent>
-                    </Card>
-                    <Card className="border-slate-200 md:col-span-4">
-                      <CardHeader>
-                        <CardTitle>Change</CardTitle>
-                      </CardHeader>
-                      <CardContent className={`text-3xl font-semibold ${dashboardStats.scoreDelta !== null && dashboardStats.scoreDelta < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
-                        {dashboardStats.scoreDelta !== null ? `${dashboardStats.scoreDelta > 0 ? '+' : ''}${dashboardStats.scoreDelta}%` : '—'}
-                      </CardContent>
-                    </Card>
-
-                    <Card className="border-slate-200 md:col-span-4">
-                      <CardHeader>
-                        <CardTitle>Store Average</CardTitle>
-                      </CardHeader>
-                      <CardContent className="text-2xl font-semibold">
-                        {dashboardStats.selectedAvg !== null ? `${dashboardStats.selectedAvg}%` : '—'}
-                      </CardContent>
-                    </Card>
-                    <Card className="border-slate-200 md:col-span-4">
-                      <CardHeader>
-                        <CardTitle>Area Average</CardTitle>
-                      </CardHeader>
-                      <CardContent className="text-2xl font-semibold">
-                        {dashboardStats.areaAvg !== null ? `${dashboardStats.areaAvg}%` : '—'}
-                        <span className="ml-2 text-xs text-slate-500">
-                          ({dashboardStats.areaCount} audits)
-                        </span>
-                        {dashboardStats.selectedStore?.city || dashboardStats.selectedStore?.region ? (
-                          <div className="text-xs font-normal text-slate-500 mt-1">
-                            {dashboardStats.selectedStore?.city || '—'}
-                            {dashboardStats.selectedStore?.region ? `, ${dashboardStats.selectedStore.region}` : ''}
-                          </div>
-                        ) : null}
-                      </CardContent>
-                    </Card>
-                    <Card className="border-slate-200 md:col-span-4">
-                      <CardHeader>
-                        <CardTitle>Overall Average</CardTitle>
-                      </CardHeader>
-                      <CardContent className="text-2xl font-semibold">
-                        {dashboardStats.overallAvg !== null ? `${dashboardStats.overallAvg}%` : '—'}
-                      </CardContent>
-                    </Card>
-
-                    <Card className="border-slate-200 md:col-span-3">
-                      <CardHeader>
-                        <CardTitle>Store Rank</CardTitle>
-                      </CardHeader>
-                      <CardContent className="text-2xl font-semibold">
-                        {dashboardStats.storeRank ? `#${dashboardStats.storeRank}` : '—'}
-                      </CardContent>
-                    </Card>
+                    {dashboardStats.isFraOnly ? (
+                      <>
+                        <Card className="border-slate-200 md:col-span-4">
+                          <CardHeader>
+                            <CardTitle>Latest assessment</CardTitle>
+                          </CardHeader>
+                          <CardContent className="text-2xl font-semibold">
+                            {dashboardStats.latestAudit
+                              ? new Date(dashboardStats.latestAudit.conducted_at || dashboardStats.latestAudit.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+                              : '—'}
+                          </CardContent>
+                        </Card>
+                        <Card className="border-slate-200 md:col-span-4">
+                          <CardHeader>
+                            <CardTitle>Assessments</CardTitle>
+                          </CardHeader>
+                          <CardContent className="text-2xl font-semibold">
+                            {dashboardStats.storeAuditHistory.length}
+                          </CardContent>
+                        </Card>
+                        <Card className="border-slate-200 md:col-span-4">
+                          <CardHeader>
+                            <CardTitle>Template</CardTitle>
+                          </CardHeader>
+                          <CardContent className="text-sm font-medium text-slate-700">
+                            {dashboardStats.latestAudit?.fa_audit_templates?.title || '—'}
+                          </CardContent>
+                        </Card>
+                      </>
+                    ) : (
+                      <>
+                        <Card className="border-slate-200 md:col-span-4">
+                          <CardHeader>
+                            <CardTitle>Latest Score</CardTitle>
+                          </CardHeader>
+                          <CardContent className="text-3xl font-semibold">
+                            {dashboardStats.latestScore !== null ? `${dashboardStats.latestScore}%` : '—'}
+                          </CardContent>
+                        </Card>
+                        <Card className="border-slate-200 md:col-span-4">
+                          <CardHeader>
+                            <CardTitle>Previous Score</CardTitle>
+                          </CardHeader>
+                          <CardContent className="text-3xl font-semibold">
+                            {dashboardStats.previousScore !== null ? `${dashboardStats.previousScore}%` : '—'}
+                          </CardContent>
+                        </Card>
+                        <Card className="border-slate-200 md:col-span-4">
+                          <CardHeader>
+                            <CardTitle>Change</CardTitle>
+                          </CardHeader>
+                          <CardContent className={`text-3xl font-semibold ${dashboardStats.scoreDelta !== null && dashboardStats.scoreDelta < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                            {dashboardStats.scoreDelta !== null ? `${dashboardStats.scoreDelta > 0 ? '+' : ''}${dashboardStats.scoreDelta}%` : '—'}
+                          </CardContent>
+                        </Card>
+                        <Card className="border-slate-200 md:col-span-4">
+                          <CardHeader>
+                            <CardTitle>Store Average</CardTitle>
+                          </CardHeader>
+                          <CardContent className="text-2xl font-semibold">
+                            {dashboardStats.selectedAvg !== null ? `${dashboardStats.selectedAvg}%` : '—'}
+                          </CardContent>
+                        </Card>
+                        <Card className="border-slate-200 md:col-span-4">
+                          <CardHeader>
+                            <CardTitle>Area Average</CardTitle>
+                          </CardHeader>
+                          <CardContent className="text-2xl font-semibold">
+                            {dashboardStats.areaAvg !== null ? `${dashboardStats.areaAvg}%` : '—'}
+                            <span className="ml-2 text-xs text-slate-500">
+                              ({dashboardStats.areaCount} audits)
+                            </span>
+                            {dashboardStats.selectedStore?.city || dashboardStats.selectedStore?.region ? (
+                              <div className="text-xs font-normal text-slate-500 mt-1">
+                                {dashboardStats.selectedStore?.city || '—'}
+                                {dashboardStats.selectedStore?.region ? `, ${dashboardStats.selectedStore.region}` : ''}
+                              </div>
+                            ) : null}
+                          </CardContent>
+                        </Card>
+                        <Card className="border-slate-200 md:col-span-4">
+                          <CardHeader>
+                            <CardTitle>Overall Average</CardTitle>
+                          </CardHeader>
+                          <CardContent className="text-2xl font-semibold">
+                            {dashboardStats.overallAvg !== null ? `${dashboardStats.overallAvg}%` : '—'}
+                          </CardContent>
+                        </Card>
+                        <Card className="border-slate-200 md:col-span-3">
+                          <CardHeader>
+                            <CardTitle>Store Rank</CardTitle>
+                          </CardHeader>
+                          <CardContent className="text-2xl font-semibold">
+                            {dashboardStats.storeRank ? `#${dashboardStats.storeRank}` : '—'}
+                          </CardContent>
+                        </Card>
+                      </>
+                    )}
                     <Card className="border-slate-200 md:col-span-5">
                       <CardHeader>
                         <CardTitle>City / Region</CardTitle>
@@ -713,9 +760,11 @@ export function AuditLabClient() {
                                 {audit.fa_audit_templates?.title || 'Audit'}
                               </div>
                             </div>
-                            <div className="font-semibold text-indigo-600">
-                              {Math.round(audit.overall_score || 0)}%
-                            </div>
+                            {!dashboardStats.isFraOnly && (
+                              <div className="font-semibold text-indigo-600">
+                                {Math.round(audit.overall_score || 0)}%
+                              </div>
+                            )}
                           </div>
                         ))}
                       </CardContent>
@@ -736,10 +785,10 @@ export function AuditLabClient() {
               </Card>
               <Card>
                 <CardHeader>
-                  <CardTitle>Average Score</CardTitle>
+                  <CardTitle>{dashboardStats.isFraOnly ? 'Stores assessed' : 'Average Score'}</CardTitle>
                 </CardHeader>
-                <CardContent className="text-3xl font-semibold text-indigo-600">
-                  {loadingDashboard ? '—' : `${dashboardStats.avgScore}%`}
+                <CardContent className={`text-3xl font-semibold ${dashboardStats.isFraOnly ? '' : 'text-indigo-600'}`}>
+                  {loadingDashboard ? '—' : dashboardStats.isFraOnly ? dashboardStats.distinctStoresCount : `${dashboardStats.avgScore}%`}
                 </CardContent>
               </Card>
               <Card>
@@ -768,9 +817,12 @@ export function AuditLabClient() {
                         <div className="font-medium">{audit.fa_stores?.store_name || 'Unknown Store'}</div>
                         <div className="text-xs text-slate-500">
                           {new Date(audit.conducted_at || audit.created_at).toLocaleDateString('en-GB')}
+                          {audit.fa_audit_templates?.title && ` · ${audit.fa_audit_templates.title}`}
                         </div>
                       </div>
-                      <div className="text-indigo-600 font-semibold">{Math.round(audit.overall_score || 0)}%</div>
+                      {!dashboardStats.isFraOnly && (
+                        <div className="text-indigo-600 font-semibold">{Math.round(audit.overall_score || 0)}%</div>
+                      )}
                     </div>
                   ))}
                 </CardContent>
@@ -789,9 +841,14 @@ export function AuditLabClient() {
                     <div key={store.name} className="flex items-center justify-between border-b pb-2">
                       <div className="text-slate-700">
                         <div className="font-medium">{store.name}</div>
-                        <div className="text-xs text-slate-500">{store.count} audits</div>
+                        <div className="text-xs text-slate-500">
+                          {store.count} audit{store.count !== 1 ? 's' : ''}
+                          {dashboardStats.isFraOnly && store.latestDate && ` · Latest ${new Date(store.latestDate).toLocaleDateString('en-GB')}`}
+                        </div>
                       </div>
-                      <div className="text-slate-700 font-semibold">{store.avg}%</div>
+                      {!dashboardStats.isFraOnly && (
+                        <div className="text-slate-700 font-semibold">{store.avg}%</div>
+                      )}
                     </div>
                   ))}
                 </CardContent>
@@ -3759,9 +3816,7 @@ function AuditHistoryView({
     }
     try {
       setDeletingId('bulk')
-      for (const auditId of Array.from(selectedIds)) {
-        await deleteAuditInstance(auditId)
-      }
+      await bulkDeleteAuditInstances(Array.from(selectedIds))
       window.location.reload()
     } catch (error: any) {
       console.error('Error deleting audits:', error)

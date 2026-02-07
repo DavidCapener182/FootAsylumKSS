@@ -584,6 +584,21 @@ export async function GET(request: NextRequest) {
         console.log('[EXTRACT] ✓ Found PAT testing status:', pdfExtractedData.patTestingStatus)
       }
 
+      // Fixed wire installation – inspected/tested date
+      const fixedWireDatePatterns = [
+        /(?:fixed wire|fixed wiring|fixed wire installation)[\s\S]{0,100}?(?:last tested|inspected and tested|tested)[\s\S]{0,50}?(\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4})/i,
+        /(?:fixed wire|fixed wiring)[\s\S]{0,80}?(?:yes|satisfactory)[\s\S]{0,80}?last (?:tested|conducted)[\s\S]{0,30}?(\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4})/i,
+        /(?:electrical installation|fixed wiring)[\s\S]{0,60}?(\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4})/i,
+      ]
+      for (const pattern of fixedWireDatePatterns) {
+        const match = originalText.match(pattern)
+        if (match) {
+          pdfExtractedData.fixedWireTestDate = match[1]
+          console.log('[EXTRACT] ✓ Found fixed wire test date:', pdfExtractedData.fixedWireTestDate)
+          break
+        }
+      }
+
       // MEDIUM PRIORITY: Exit signage condition - more flexible patterns
       if (originalText.match(/(?:exit sign|signage|fire exit sign).*?(?:good|satisfactory|clear|visible|yes|ok)/i)
         || originalText.match(/(?:signage).*?(?:installed|visible|clearly|in place)/i)
@@ -655,6 +670,7 @@ export async function GET(request: NextRequest) {
       youngPersonsCount: pdfExtractedData.youngPersonsCount || null,
       fireDrillDate: pdfExtractedData.fireDrillDate || null,
       patTestingStatus: pdfExtractedData.patTestingStatus || null,
+      fixedWireTestDate: pdfExtractedData.fixedWireTestDate || null,
       // Medium priority fields
       exitSignageCondition: pdfExtractedData.exitSignageCondition || null,
       compartmentationStatus: pdfExtractedData.compartmentationStatus || null,
@@ -684,6 +700,7 @@ export async function GET(request: NextRequest) {
         youngPersonsCount: pdfExtractedData.youngPersonsCount ? 'PDF' : 'NOT_FOUND',
         fireDrillDate: pdfExtractedData.fireDrillDate ? 'PDF' : 'NOT_FOUND',
         patTestingStatus: pdfExtractedData.patTestingStatus ? 'PDF' : 'NOT_FOUND',
+        fixedWireTestDate: pdfExtractedData.fixedWireTestDate ? 'PDF' : 'NOT_FOUND',
         // Medium priority fields
         exitSignageCondition: pdfExtractedData.exitSignageCondition ? 'PDF' : 'NOT_FOUND',
         compartmentationStatus: pdfExtractedData.compartmentationStatus ? 'PDF' : 'NOT_FOUND',

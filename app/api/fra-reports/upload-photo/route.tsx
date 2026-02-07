@@ -21,8 +21,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
-    // Limit to 6 photos per placeholder (site-premises-photos has 6 slots; others use 5)
-    const maxFiles = placeholderId === 'site-premises-photos' ? 6 : 5
+    // Limit photos per placeholder (6 for site-premises-photos, additional-site-pictures, manual-call-points, intumescent-strips; others: 5)
+    const maxFiles = (placeholderId === 'site-premises-photos' || placeholderId === 'additional-site-pictures' || placeholderId === 'manual-call-points' || placeholderId === 'intumescent-strips') ? 6 : 5
     if (files.length > maxFiles) {
       return NextResponse.json({ error: `Maximum ${maxFiles} photos per placeholder` }, { status: 400 })
     }

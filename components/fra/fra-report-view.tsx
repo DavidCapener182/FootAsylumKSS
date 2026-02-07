@@ -48,6 +48,8 @@ interface FRAData {
   hasSprinklers: boolean
   propertyType: string
   description: string
+  /** When set (e.g. from custom data), used for Adjacent occupancies; otherwise derived from description */
+  adjacentOccupancies?: string | null
   numberOfFloors: string
   floorArea: string
   floorAreaComment: string | null
@@ -94,6 +96,8 @@ interface FRAData {
   youngPersonsCount?: string | null
   fireDrillDate?: string | null
   patTestingStatus?: string | null
+  /** Fixed wire installation inspected/tested date (from audit). */
+  fixedWireTestDate?: string | null
   // Medium priority H&S audit fields
   exitSignageCondition?: string | null
   compartmentationStatus?: string | null
@@ -108,6 +112,8 @@ interface FRAData {
   summaryOfRiskRating?: string
   actionPlanLevel?: string
   actionPlanItems?: Array<{ recommendation: string; priority: 'Low' | 'Medium' | 'High'; dueNote?: string }>
+  /** Intumescent strips on fire doors present (custom toggle). When false, an action plan item is added. */
+  intumescentStripsPresent?: boolean
   sitePremisesPhotos?: any[]
   /** Uploaded photos per placeholder (from storage), so they appear after refresh and in PDF */
   placeholderPhotos?: Record<string, { file_path: string; public_url: string }[]>
@@ -125,13 +131,25 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [showDebug, setShowDebug] = useState(false) // Data source badges hidden by default
+  const [showFirePlanPhoto, setShowFirePlanPhoto] = useState(true)
   const [customData, setCustomData] = useState({
     floorArea: data.floorArea,
     occupancy: data.occupancy,
     operatingHours: data.operatingHours,
     buildDate: data.buildDate ?? '',
+    propertyType: data.propertyType ?? '',
+    numberOfFloors: data.numberOfFloors ?? '',
+    numberOfFireExits: data.numberOfFireExits ?? '',
+    adjacentOccupancies: data.adjacentOccupancies ?? '',
+    sleepingRisk: data.sleepingRisk ?? '',
+    totalStaffEmployed: data.totalStaffEmployed ?? '',
+    maxStaffOnSite: data.maxStaffOnSite ?? '',
+    youngPersonsCount: data.youngPersonsCount ?? '',
+    description: data.description ?? '',
+    intumescentStripsPresent: data.intumescentStripsPresent ?? true,
   })
   const [uploadingPhotos, setUploadingPhotos] = useState<Record<string, boolean>>({})
+  const [deletingPhotoPath, setDeletingPhotoPath] = useState<string | null>(null)
   const [placeholderPhotos, setPlaceholderPhotos] = useState<Record<string, any[]>>({})
   const [logoError, setLogoError] = useState(false)
 
@@ -214,8 +232,18 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
       occupancy: data.occupancy,
       operatingHours: data.operatingHours,
       buildDate: data.buildDate ?? '',
+      propertyType: data.propertyType ?? '',
+      numberOfFloors: data.numberOfFloors ?? '',
+      numberOfFireExits: data.numberOfFireExits ?? '',
+      adjacentOccupancies: data.adjacentOccupancies ?? '',
+      sleepingRisk: data.sleepingRisk ?? '',
+      totalStaffEmployed: data.totalStaffEmployed ?? '',
+      maxStaffOnSite: data.maxStaffOnSite ?? '',
+      youngPersonsCount: data.youngPersonsCount ?? '',
+      description: data.description ?? '',
+      intumescentStripsPresent: data.intumescentStripsPresent ?? true,
     })
-  }, [data.floorArea, data.occupancy, data.operatingHours, data.buildDate])
+  }, [data.floorArea, data.occupancy, data.operatingHours, data.buildDate, data.propertyType, data.numberOfFloors, data.numberOfFireExits, data.adjacentOccupancies, data.sleepingRisk, data.totalStaffEmployed, data.maxStaffOnSite, data.youngPersonsCount, data.description, data.intumescentStripsPresent])
 
   const handleSave = async () => {
     try {
@@ -252,6 +280,28 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
       alert(`Failed to save: ${error.message}`)
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleIntumescentStripsToggle = async (value: boolean) => {
+    setCustomData(prev => ({ ...prev, intumescentStripsPresent: value }))
+    try {
+      const response = await fetch('/api/fra-reports/save-custom-data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          instanceId: data.fraInstance.id,
+          customData: { ...customData, intumescentStripsPresent: value },
+        }),
+      })
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}))
+        throw new Error(err.error || 'Failed to save')
+      }
+      if (onDataUpdate) onDataUpdate()
+    } catch (e: any) {
+      setCustomData(prev => ({ ...prev, intumescentStripsPresent: !value }))
+      alert(e?.message || 'Failed to save intumescent strips setting')
     }
   }
 
@@ -298,10 +348,47 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
     }
   }
 
-  const PhotoPlaceholder = ({ placeholderId, label, maxPhotos = 5 }: { placeholderId: string, label: string, maxPhotos?: number }) => {
+  const handlePhotoRemove = async (placeholderId: string, idx: number) => {
+    const photos = placeholderPhotos[placeholderId] || []
+    const photo = photos[idx]
+    if (!photo?.file_path) {
+      setPlaceholderPhotos(prev => ({
+        ...prev,
+        [placeholderId]: prev[placeholderId]?.filter((_, i) => i !== idx) || []
+      }))
+      return
+    }
+    setDeletingPhotoPath(photo.file_path)
+    try {
+      const response = await fetch('/api/fra-reports/delete-photo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          instanceId: data.fraInstance.id,
+          filePath: photo.file_path,
+        }),
+      })
+      const result = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        throw new Error((result?.error ?? result?.details ?? 'Failed to delete photo') as string)
+      }
+      setPlaceholderPhotos(prev => ({
+        ...prev,
+        [placeholderId]: prev[placeholderId]?.filter((_, i) => i !== idx) || []
+      }))
+    } catch (e: any) {
+      console.error('Error deleting photo:', e)
+      alert(e?.message || 'Failed to delete photo')
+    } finally {
+      setDeletingPhotoPath(null)
+    }
+  }
+
+  const PhotoPlaceholder = ({ placeholderId, label, maxPhotos = 5, aspect = 'landscape', stacked = false, compact = false, fit = 'cover', fullHeight = false }: { placeholderId: string, label: string, maxPhotos?: number, aspect?: 'portrait' | 'landscape', stacked?: boolean, compact?: boolean, fit?: 'cover' | 'contain', fullHeight?: boolean }) => {
     const photos = placeholderPhotos[placeholderId] || []
     const isUploading = uploadingPhotos[placeholderId]
     const fileInputRef = useRef<HTMLInputElement>(null)
+    const isPortrait = aspect === 'portrait'
 
     const triggerFileInput = () => {
       if (isUploading) return
@@ -314,8 +401,25 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
     }
 
     const isGrid = (maxPhotos ?? 5) > 1
+    const isContain = fit === 'contain'
+    const imageWrapperClass = fullHeight && photos.length === 1
+      ? 'w-full h-[420px] overflow-hidden rounded border border-slate-300'
+      : isPortrait
+        ? `aspect-[3/4] w-full overflow-hidden ${compact ? 'max-w-[220px]' : ''}`
+        : ''
+    const imageClass = fullHeight && photos.length === 1
+      ? 'w-full h-full object-cover rounded border-0 print:object-cover print:w-full print:h-full'
+      : isPortrait
+      ? `w-full h-full ${isContain ? 'object-contain' : 'object-cover'} rounded border border-slate-300 print:object-contain print:w-full print:h-full`
+      : `w-full h-48 ${isContain ? 'object-contain' : 'object-cover'} rounded border border-slate-300 print:object-contain print:w-full print:h-full`
+    const emptyClass = fullHeight
+      ? 'border-2 border-dashed border-slate-300 rounded p-4 h-[420px] w-full flex flex-col items-center justify-center text-slate-400 text-sm fra-photo-block'
+      : isPortrait
+        ? `border-2 border-dashed border-slate-300 rounded p-4 aspect-[3/4] w-full flex flex-col items-center justify-center text-slate-400 text-sm fra-photo-block ${compact ? 'max-w-[220px]' : ''}`
+        : 'border-2 border-dashed border-slate-300 rounded p-4 h-48 flex flex-col items-center justify-center text-slate-400 text-sm fra-photo-block'
+
     return (
-      <div className="mt-4">
+      <div className={`mt-4 ${compact ? 'max-w-[220px]' : ''}`}>
         <input
           ref={fileInputRef}
           type="file"
@@ -326,31 +430,31 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
           disabled={isUploading}
         />
         {photos.length > 0 ? (
-          <div className={`grid grid-cols-2 md:grid-cols-3 gap-2 ${isGrid ? 'fra-photo-grid' : ''}`}>
+          <div className={photos.length === 1 ? 'flex justify-center' : stacked ? 'grid grid-cols-1 gap-2' : `grid grid-cols-2 md:grid-cols-3 gap-2 ${isGrid ? 'fra-photo-grid' : ''}`}>
             {photos.map((photo: any, idx: number) => (
-              <div key={idx} className={`relative fra-photo-block ${isGrid ? '' : ''}`}>
+              <div key={idx} className={`relative fra-photo-block ${photos.length === 1 && !fullHeight ? 'max-w-lg w-full' : ''} ${photos.length === 1 && fullHeight ? 'w-full' : ''} ${imageWrapperClass}`}>
                 <img 
                   src={photo.public_url || photo.file_path} 
                   alt={`${label} ${idx + 1}`}
-                  className="w-full h-48 object-cover rounded border border-slate-300 print:object-cover print:w-full print:h-full"
+                  className={imageClass}
                 />
                 <button
                   type="button"
-                  onClick={() => {
-                    setPlaceholderPhotos(prev => ({
-                      ...prev,
-                      [placeholderId]: prev[placeholderId]?.filter((_, i) => i !== idx) || []
-                    }))
-                  }}
-                  className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 print:hidden"
+                  onClick={() => handlePhotoRemove(placeholderId, idx)}
+                  disabled={deletingPhotoPath === photo.file_path}
+                  className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 disabled:opacity-50 print:hidden"
                 >
-                  <X className="h-3 w-3" />
+                  {deletingPhotoPath === photo.file_path ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <X className="h-3 w-3" />
+                  )}
                 </button>
               </div>
             ))}
           </div>
         ) : (
-          <div className="border-2 border-dashed border-slate-300 rounded p-4 h-48 flex flex-col items-center justify-center text-slate-400 text-sm fra-photo-block">
+          <div className={`fra-photo-placeholder-empty ${emptyClass}`}>
             <p className="mb-2">{label}</p>
             <Button
               type="button"
@@ -632,7 +736,12 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
         </div>
         <h2 className="text-xl font-semibold mb-4">Photo of Site / Building / Premises</h2>
         <p className="text-sm text-slate-600 mb-4">Add screenshots or photos of the site, building and premises (e.g. from pages 3–6 of the reference FRA).</p>
-        <PhotoPlaceholder placeholderId="site-premises-photos" label="Site / Building / Premises (Photo 1–6)" maxPhotos={6} />
+        <PhotoPlaceholder
+          placeholderId="site-premises-photos"
+          label="Site / Building / Premises (Photo 1–6)"
+          maxPhotos={6}
+          fit="contain"
+        />
         <h2 className="text-xl font-semibold mb-4 mt-8">Table of Contents</h2>
         <div className="fra-toc">
           <div className="fra-toc-list space-y-2 text-sm">
@@ -1056,16 +1165,68 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
         <div className="overflow-x-auto mb-6 fra-keep">
           <table className="fra-print-table w-full border border-slate-300 text-sm fra-property-summary">
             <tbody>
-              <tr><td className="border border-slate-300 px-3 py-1.5 font-semibold w-40 bg-slate-50">Property type</td><td className="border border-slate-300 px-3 py-1.5">{data.propertyType?.split('.')[0] || data.propertyType}</td></tr>
-              <tr><td className="border border-slate-300 px-3 py-1.5 font-semibold bg-slate-50">Floors</td><td className="border border-slate-300 px-3 py-1.5">{data.numberOfFloors}</td></tr>
-              <tr><td className="border border-slate-300 px-3 py-1.5 font-semibold bg-slate-50">Number of fire exits</td><td className="border border-slate-300 px-3 py-1.5">{data.numberOfFireExits || 'To be confirmed'}</td></tr>
-              <tr><td className="border border-slate-300 px-3 py-1.5 font-semibold bg-slate-50">Approx. build date</td><td className="border border-slate-300 px-3 py-1.5">{editing ? <input type="text" value={customData.buildDate} onChange={(e) => setCustomData({ ...customData, buildDate: e.target.value })} className="w-full border border-slate-300 rounded px-2 py-1 text-sm" /> : (customData.buildDate || data.buildDate)}</td></tr>
-              <tr><td className="border border-slate-300 px-3 py-1.5 font-semibold bg-slate-50">Adjacent occupancies</td><td className="border border-slate-300 px-3 py-1.5">{data.description?.includes('mid-unit') || data.description?.includes('adjoining') ? 'Yes – mid-unit' : 'See description'}</td></tr>
-              <tr><td className="border border-slate-300 px-3 py-1.5 font-semibold bg-slate-50">Sleeping risk</td><td className="border border-slate-300 px-3 py-1.5">{data.sleepingRisk}</td></tr>
-              <tr><td className="border border-slate-300 px-3 py-1.5 font-semibold bg-slate-50">Trading hours</td><td className="border border-slate-300 px-3 py-1.5">{data.storeOpeningTimes || data.operatingHours || 'To be confirmed'}</td></tr>
-              <tr><td className="border border-slate-300 px-3 py-1.5 font-semibold bg-slate-50">Total staff employed</td><td className="border border-slate-300 px-3 py-1.5">{data.totalStaffEmployed || 'To be confirmed'}</td></tr>
-              <tr><td className="border border-slate-300 px-3 py-1.5 font-semibold bg-slate-50">Max staff on site</td><td className="border border-slate-300 px-3 py-1.5">{data.maxStaffOnSite || 'To be confirmed'}</td></tr>
-              <tr><td className="border border-slate-300 px-3 py-1.5 font-semibold bg-slate-50">Young persons employed</td><td className="border border-slate-300 px-3 py-1.5">{data.youngPersonsCount || 'None'}</td></tr>
+              <tr>
+                <td className="border border-slate-300 px-3 py-1.5 font-semibold w-40 bg-slate-50">Property type</td>
+                <td className="border border-slate-300 px-3 py-1.5">
+                  {editing ? (
+                    <input type="text" value={customData.propertyType} onChange={(e) => setCustomData({ ...customData, propertyType: e.target.value })} className="w-full border border-slate-300 rounded px-2 py-1 text-sm" placeholder="e.g. Retail unit..." />
+                  ) : (data.propertyType?.split('.')[0] || data.propertyType)}
+                </td>
+              </tr>
+              <tr>
+                <td className="border border-slate-300 px-3 py-1.5 font-semibold bg-slate-50">Floors</td>
+                <td className="border border-slate-300 px-3 py-1.5">
+                  {editing ? <input type="text" value={customData.numberOfFloors} onChange={(e) => setCustomData({ ...customData, numberOfFloors: e.target.value })} className="w-full border border-slate-300 rounded px-2 py-1 text-sm" /> : data.numberOfFloors}
+                </td>
+              </tr>
+              <tr>
+                <td className="border border-slate-300 px-3 py-1.5 font-semibold bg-slate-50">Number of fire exits</td>
+                <td className="border border-slate-300 px-3 py-1.5">
+                  {editing ? <input type="text" value={customData.numberOfFireExits} onChange={(e) => setCustomData({ ...customData, numberOfFireExits: e.target.value })} className="w-full border border-slate-300 rounded px-2 py-1 text-sm" placeholder="e.g. 2 or Other" /> : (data.numberOfFireExits || 'To be confirmed')}
+                </td>
+              </tr>
+              <tr>
+                <td className="border border-slate-300 px-3 py-1.5 font-semibold bg-slate-50">Approx. build date</td>
+                <td className="border border-slate-300 px-3 py-1.5">
+                  {editing ? <input type="text" value={customData.buildDate} onChange={(e) => setCustomData({ ...customData, buildDate: e.target.value })} className="w-full border border-slate-300 rounded px-2 py-1 text-sm" /> : (customData.buildDate || data.buildDate)}
+                </td>
+              </tr>
+              <tr>
+                <td className="border border-slate-300 px-3 py-1.5 font-semibold bg-slate-50">Adjacent occupancies</td>
+                <td className="border border-slate-300 px-3 py-1.5">
+                  {editing ? <input type="text" value={customData.adjacentOccupancies} onChange={(e) => setCustomData({ ...customData, adjacentOccupancies: e.target.value })} className="w-full border border-slate-300 rounded px-2 py-1 text-sm" placeholder="e.g. Yes – mid-unit" /> : (data.adjacentOccupancies ?? (data.description?.includes('mid-unit') || data.description?.includes('adjoining') ? 'Yes – mid-unit' : 'See description'))}
+                </td>
+              </tr>
+              <tr>
+                <td className="border border-slate-300 px-3 py-1.5 font-semibold bg-slate-50">Sleeping risk</td>
+                <td className="border border-slate-300 px-3 py-1.5">
+                  {editing ? <input type="text" value={customData.sleepingRisk} onChange={(e) => setCustomData({ ...customData, sleepingRisk: e.target.value })} className="w-full border border-slate-300 rounded px-2 py-1 text-sm" /> : data.sleepingRisk}
+                </td>
+              </tr>
+              <tr>
+                <td className="border border-slate-300 px-3 py-1.5 font-semibold bg-slate-50">Trading hours</td>
+                <td className="border border-slate-300 px-3 py-1.5">
+                  {editing ? <input type="text" value={customData.operatingHours} onChange={(e) => setCustomData({ ...customData, operatingHours: e.target.value })} className="w-full border border-slate-300 rounded px-2 py-1 text-sm" placeholder="e.g. Mon–Sat 9am–6pm" /> : (data.storeOpeningTimes || data.operatingHours || 'To be confirmed')}
+                </td>
+              </tr>
+              <tr>
+                <td className="border border-slate-300 px-3 py-1.5 font-semibold bg-slate-50">Total staff employed</td>
+                <td className="border border-slate-300 px-3 py-1.5">
+                  {editing ? <input type="text" value={customData.totalStaffEmployed} onChange={(e) => setCustomData({ ...customData, totalStaffEmployed: e.target.value })} className="w-full border border-slate-300 rounded px-2 py-1 text-sm" /> : (data.totalStaffEmployed || 'To be confirmed')}
+                </td>
+              </tr>
+              <tr>
+                <td className="border border-slate-300 px-3 py-1.5 font-semibold bg-slate-50">Max staff on site</td>
+                <td className="border border-slate-300 px-3 py-1.5">
+                  {editing ? <input type="text" value={customData.maxStaffOnSite} onChange={(e) => setCustomData({ ...customData, maxStaffOnSite: e.target.value })} className="w-full border border-slate-300 rounded px-2 py-1 text-sm" /> : (data.maxStaffOnSite || 'To be confirmed')}
+                </td>
+              </tr>
+              <tr>
+                <td className="border border-slate-300 px-3 py-1.5 font-semibold bg-slate-50">Young persons employed</td>
+                <td className="border border-slate-300 px-3 py-1.5">
+                  {editing ? <input type="text" value={customData.youngPersonsCount} onChange={(e) => setCustomData({ ...customData, youngPersonsCount: e.target.value })} className="w-full border border-slate-300 rounded px-2 py-1 text-sm" /> : (data.youngPersonsCount || 'None')}
+                </td>
+              </tr>
             </tbody>
           </table>
         </div>
@@ -1078,7 +1239,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
               onClick={() => setEditing(true)}
               className="text-xs"
             >
-              Edit property details (build date, floor area, occupancy)
+              Edit property details
             </Button>
           </div>
         )}
@@ -1086,8 +1247,17 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
         <div className="space-y-4 text-sm">
           <div>
             <span className="font-semibold">Description of the Premises</span>
-            <p className="mt-2 whitespace-pre-line">{data.description}</p>
-            <DebugBadge source={data._sources?.description} fieldName="Description" />
+            {editing ? (
+              <Textarea
+                value={customData.description}
+                onChange={(e) => setCustomData({ ...customData, description: e.target.value })}
+                className="mt-2 min-h-[120px]"
+                placeholder="Describe the premises..."
+              />
+            ) : (
+              <p className="mt-2 whitespace-pre-line">{data.description}</p>
+            )}
+            {!editing && <DebugBadge source={data._sources?.description} fieldName="Description" />}
           </div>
           <div>
             <div className="flex items-center justify-between mb-2">
@@ -1183,6 +1353,16 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
                     occupancy: data.occupancy,
                     operatingHours: data.operatingHours,
                     buildDate: data.buildDate ?? '',
+                    propertyType: data.propertyType ?? '',
+                    numberOfFloors: data.numberOfFloors ?? '',
+                    numberOfFireExits: data.numberOfFireExits ?? '',
+                    adjacentOccupancies: data.adjacentOccupancies ?? '',
+                    sleepingRisk: data.sleepingRisk ?? '',
+                    totalStaffEmployed: data.totalStaffEmployed ?? '',
+                    maxStaffOnSite: data.maxStaffOnSite ?? '',
+                    youngPersonsCount: data.youngPersonsCount ?? '',
+                    description: data.description ?? '',
+                    intumescentStripsPresent: data.intumescentStripsPresent ?? true,
                   })
                 }}
                 disabled={saving}
@@ -1220,19 +1400,19 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
         <h2 className="text-xl font-semibold mb-4">Fire Safety Equipment – Visual Record</h2>
         <div className="fra-keep grid grid-cols-2 gap-4 fra-visual-record-grid">
           <div>
-            <PhotoPlaceholder placeholderId="fire-alarm-panel" label="Fire alarm control panel" maxPhotos={1} />
+            <PhotoPlaceholder placeholderId="fire-alarm-panel" label="Fire alarm control panel" maxPhotos={1} aspect="portrait" />
             <p className="text-xs mt-1 text-slate-600 print:block">Fire alarm control panel</p>
           </div>
           <div>
-            <PhotoPlaceholder placeholderId="emergency-lighting-switch" label="Emergency lighting test switch" maxPhotos={1} />
+            <PhotoPlaceholder placeholderId="emergency-lighting-switch" label="Emergency lighting test switch" maxPhotos={1} aspect="portrait" />
             <p className="text-xs mt-1 text-slate-600 print:block">Emergency lighting test switch</p>
           </div>
           <div>
-            <PhotoPlaceholder placeholderId="fire-doors" label="Typical fire door (sales floor)" maxPhotos={1} />
+            <PhotoPlaceholder placeholderId="fire-doors" label="Typical fire door (sales floor)" maxPhotos={1} aspect="portrait" />
             <p className="text-xs mt-1 text-slate-600 print:block">Typical fire door (sales floor)</p>
           </div>
           <div>
-            <PhotoPlaceholder placeholderId="fire-extinguisher" label="Portable fire extinguisher (rear stockroom)" maxPhotos={1} />
+            <PhotoPlaceholder placeholderId="fire-extinguisher" label="Portable fire extinguisher (rear stockroom)" maxPhotos={1} aspect="portrait" />
             <p className="text-xs mt-1 text-slate-600 print:block">Portable fire extinguisher (rear stockroom)</p>
           </div>
         </div>
@@ -1323,12 +1503,124 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
                 <strong>Note:</strong> {data.emergencyLightingTestSwitchLocationComment}
               </div>
             )}
-            <PhotoPlaceholder placeholderId="emergency-lighting-switch" label="Emergency lighting test switch photo" maxPhotos={1} />
+            <PhotoPlaceholder placeholderId="emergency-lighting-switch" label="Emergency lighting test switch photo" maxPhotos={1} fullHeight />
           </div>
           <p className="mt-2 italic">
             (NB: This assessment is based on visual inspection and review of available records only. No physical
             testing of the emergency lighting system was undertaken as part of this assessment.)
           </p>
+        </div>
+      </div>
+
+      {/* Fire manual call points */}
+      <div className="fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
+        <div className="fra-print-page-header hidden print:flex print:items-center print:justify-between print:border-b print:border-slate-300 print:pb-2 print:mb-4 print:text-[11pt] print:font-semibold print:text-slate-900">
+          {printHeaderContent}
+        </div>
+        <h3 className="text-lg font-semibold mb-4">Fire manual call points</h3>
+        <div className="space-y-4 text-sm leading-relaxed">
+          <p>
+            Manual call points (break-glass units) are provided throughout the premises in accordance with BS 5839-1,
+            positioned on escape routes and at final exits to allow occupants to raise the alarm in the event of a fire.
+          </p>
+          {data.callPointAccessibility && (
+            <p>
+              <span className="font-semibold">Call point accessibility:</span> {data.callPointAccessibility}
+              <DebugBadge source={data._sources?.callPointAccessibility} fieldName="Call Point Accessibility" />
+            </p>
+          )}
+          <div className="mt-4">
+            <p className="font-semibold text-slate-700 mb-2">Photos of manual call points</p>
+            <PhotoPlaceholder placeholderId="manual-call-points" label="Manual call point photo" maxPhotos={6} aspect="portrait" />
+          </div>
+        </div>
+      </div>
+
+      {/* Intumescent strips on doors */}
+      <div className="fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
+        <div className="fra-print-page-header hidden print:flex print:items-center print:justify-between print:border-b print:border-slate-300 print:pb-2 print:mb-4 print:text-[11pt] print:font-semibold print:text-slate-900">
+          {printHeaderContent}
+        </div>
+        <h3 className="text-lg font-semibold mb-4">Intumescent strips on doors</h3>
+        <div className="space-y-4 text-sm leading-relaxed">
+          <div className="flex flex-wrap items-center gap-3 mb-4 print:hidden">
+            <span className="font-medium text-slate-700">Intumescent strips present on fire doors:</span>
+            <div className="flex rounded-md border border-slate-300 p-0.5 bg-slate-50">
+              <button
+                type="button"
+                onClick={() => handleIntumescentStripsToggle(true)}
+                className={`px-3 py-1.5 text-sm rounded ${(data.intumescentStripsPresent !== false) ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-200'}`}
+              >
+                Yes
+              </button>
+              <button
+                type="button"
+                onClick={() => handleIntumescentStripsToggle(false)}
+                className={`px-3 py-1.5 text-sm rounded ${data.intumescentStripsPresent === false ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-200'}`}
+              >
+                No
+              </button>
+            </div>
+          </div>
+          {data.intumescentStripsPresent !== false ? (
+            <>
+              <p>
+                Intumescent strips (and where fitted, intumescent smoke seals) are present on fire-resisting doors within the premises. These strips expand when exposed to heat, sealing the gap between the door leaf and the frame and helping to prevent smoke and fire spread. This maintains the fire resistance of the door assembly and supports compartmentation, giving occupants time to evacuate.
+              </p>
+              <p>
+                Fire doors were observed to be in good condition with intumescent protection in place and intact. Doors are not wedged open and self-closing devices are operational.
+              </p>
+            </>
+          ) : (
+            <>
+              <p>
+                Intumescent strips are narrow strips (often combined with smoke seals) fitted around the edges of fire-resisting doors. In a fire they expand when heated, sealing the gap between the door and the frame to restrict smoke and fire spread and maintain the door&apos;s fire resistance. Without them, gaps can allow smoke and flames to pass through, reducing escape time and compartmentation.
+              </p>
+              <p>
+                At the time of assessment, intumescent strips were not observed to be present (or were not intact) on all fire doors. This should be addressed so that fire doors can perform as designed. A recommendation has been added to the Action Plan.
+              </p>
+            </>
+          )}
+          <div className="mt-6">
+            <p className="font-semibold text-slate-700 mb-2">Photos of intumescent strips on fire doors</p>
+            <PhotoPlaceholder placeholderId="intumescent-strips" label="Intumescent strips photo" maxPhotos={6} aspect="portrait" />
+          </div>
+        </div>
+      </div>
+
+      {/* Electrical installations and testing – Fixed wire & PAT */}
+      <div className="fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
+        <div className="fra-print-page-header hidden print:flex print:items-center print:justify-between print:border-b print:border-slate-300 print:pb-2 print:mb-4 print:text-[11pt] print:font-semibold print:text-slate-900">
+          {printHeaderContent}
+        </div>
+        <h3 className="text-lg font-semibold mb-4">Electrical installations and testing</h3>
+        <div className="space-y-8 text-sm leading-relaxed">
+          <div>
+            <p className="font-semibold text-slate-700 mb-2">Fixed wire installation</p>
+            <p>Fixed wire installation has been inspected and tested.</p>
+            {data.fixedWireTestDate && (
+              <p className="mt-1">
+                <span className="font-medium">Date inspected/tested:</span> {data.fixedWireTestDate}
+                <DebugBadge source={data._sources?.fixedWireTestDate} fieldName="Fixed wire test date" />
+              </p>
+            )}
+            <div className="mt-4">
+              <PhotoPlaceholder placeholderId="fixed-wire-installation" label="Fixed wire installation (certificate/photo)" maxPhotos={2} aspect="portrait" compact />
+            </div>
+          </div>
+          <div>
+            <p className="font-semibold text-slate-700 mb-2">PAT testing</p>
+            <p>Portable appliance testing has been carried out.</p>
+            {data.patTestingStatus && (
+              <p className="mt-1">
+                <span className="font-medium">Status / date:</span> {data.patTestingStatus}
+                <DebugBadge source={data._sources?.patTestingStatus} fieldName="PAT testing status" />
+              </p>
+            )}
+            <div className="mt-4">
+              <PhotoPlaceholder placeholderId="pat-testing" label="PAT testing (certificate/photo)" maxPhotos={2} aspect="portrait" compact />
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1359,10 +1651,10 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
             <p className="font-semibold text-slate-700">Photos of fire extinguisher locations</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <PhotoPlaceholder placeholderId="fire-extinguisher-store" label="Store locations (e.g. sales floor, exits)" maxPhotos={3} />
+                <PhotoPlaceholder placeholderId="fire-extinguisher-store" label="Store locations (e.g. sales floor, exits)" maxPhotos={3} aspect="portrait" />
               </div>
               <div>
-                <PhotoPlaceholder placeholderId="fire-extinguisher-stockroom" label="Stock room(s)" maxPhotos={2} />
+                <PhotoPlaceholder placeholderId="fire-extinguisher-stockroom" label="Stock room(s)" maxPhotos={2} aspect="portrait" />
               </div>
             </div>
           </div>
@@ -1504,7 +1796,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
                   )}
                 </td>
                 <td className="border border-slate-300 px-3 py-2 align-top" rowSpan={3}>
-                  <PhotoPlaceholder placeholderId="fire-hazards" label="Hazard photos" maxPhotos={5} />
+                  <PhotoPlaceholder placeholderId="fire-hazards" label="Hazard photos" maxPhotos={5} stacked />
                 </td>
               </tr>
               <tr>
@@ -1561,8 +1853,14 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
         </div>
         <h2 className="text-xl font-semibold mb-2">Stage 3 – Evaluate, remove, reduce and protect from risk</h2>
         
-        {/* Stage 3 Photo Placeholder */}
-        <PhotoPlaceholder placeholderId="stage-3" label="Fire Safety Measures Photo" maxPhotos={1} />
+        {/* Fire Safety Measures – static fire action posters (no upload) */}
+        <div className="mt-4 fra-photo-block">
+          <img
+            src="/fire-safety-measures-posters.png"
+            alt="Fire Action and Fire Alarm Call Point posters – fire safety measures"
+            className="w-full max-w-3xl mx-auto rounded border border-slate-300 object-contain print:max-w-full"
+          />
+        </div>
         
         <div className="space-y-4 text-sm leading-snug">
           <div>
@@ -1662,8 +1960,28 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
           This evacuation procedure reflects the current store layout and must be followed by all staff and contractors.
         </p>
 
-        {/* Fire Plan Photo Placeholder */}
-        <PhotoPlaceholder placeholderId="fire-plan" label="Fire Plan / Evacuation Route Photo" maxPhotos={1} />
+        {/* Fire Plan Photo Placeholder – can hide when no fire plan for this site (excluded from PDF/print when hidden) */}
+        {showFirePlanPhoto && (
+          <div className="relative mb-6">
+            <button
+              type="button"
+              onClick={() => setShowFirePlanPhoto(false)}
+              className="absolute top-0 right-0 z-10 p-1.5 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-600 hover:text-slate-800 print:hidden"
+              title="Hide Fire Plan / Evacuation Route Photo from report and PDF"
+            >
+              <X className="h-4 w-4" />
+            </button>
+            <PhotoPlaceholder placeholderId="fire-plan" label="Fire Plan / Evacuation Route Photo" maxPhotos={1} />
+          </div>
+        )}
+        {!showFirePlanPhoto && (
+          <p className="text-sm text-slate-500 mb-6 print:hidden">
+            Fire Plan photo hidden.{' '}
+            <button type="button" onClick={() => setShowFirePlanPhoto(true)} className="text-indigo-600 hover:underline">
+              Show again
+            </button>
+          </p>
+        )}
 
         <div className="fra-section-with-figure mt-6">
           <h3 className="text-lg font-semibold mb-2">Fire Safety Management & Responsibilities</h3>
@@ -1800,7 +2118,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
         </div>
         
         {/* Assessment Overview Photo Placeholder */}
-        <PhotoPlaceholder placeholderId="premises-overview" label="Premises Overview Photo" maxPhotos={1} />
+        <PhotoPlaceholder placeholderId="premises-overview" label="Premises Overview Photo" maxPhotos={1} fit="contain" />
         
         <div className="space-y-6 text-sm leading-relaxed">
           <div>
@@ -2150,38 +2468,10 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
               {printHeaderContent}
             </div>
             <h2 className="text-xl font-semibold mb-4">Additional Site Pictures</h2>
-            {data.photos && data.photos.length > 0 ? (
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4 fra-photo-grid">
-                {data.photos.map((photo: any, idx: number) => (
-                  <div key={idx} className="border border-slate-200 rounded p-2 fra-photo-block">
-                    {photo.file_path ? (
-                      <img 
-                        src={photo.file_path} 
-                        alt={`Photo ${idx + 1}`}
-                        className="w-full h-48 object-cover rounded print:w-full print:h-full"
-                      />
-                    ) : (
-                      <div className="w-full h-48 bg-slate-100 rounded flex items-center justify-center text-slate-400 text-sm">
-                        Photo {idx + 1}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="mt-4 space-y-4">
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 fra-photo-grid">
-                  {[1, 2, 3, 4, 5, 6].map((num) => (
-                    <div key={num} className="border-2 border-dashed border-slate-300 rounded p-4 h-48 flex items-center justify-center text-slate-400 text-sm fra-photo-block">
-                      Photo Placeholder {num}
-                    </div>
-                  ))}
-                </div>
-                <p className="text-sm text-slate-600 italic mt-4">
-                  (Photos from H&S audit will be displayed here when available)
-                </p>
-              </div>
-            )}
+            <p className="text-sm text-slate-600 italic mb-4">
+              Add up to 6 additional site photos below. Photos from H&S audit may also be displayed here when available.
+            </p>
+            <PhotoPlaceholder placeholderId="additional-site-pictures" label="Additional site picture" maxPhotos={6} />
           </div>
 
           {/* Signature block – pushed to bottom of last page */}
@@ -2189,7 +2479,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
           <div className="fra-signature-block mt-6 pt-6 border-t border-slate-200">
             <p className="text-sm font-semibold text-slate-700 mb-3">Signed:</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2 text-sm text-slate-700">
-              <div><span className="font-medium">Name:</span> _________________________</div>
+              <div><span className="font-medium">Name:</span> {data.assessorName || '_________________________'}</div>
               <div><span className="font-medium">Role:</span> Fire Risk Assessor</div>
               <div><span className="font-medium">Date:</span> {data.assessmentDate ? new Date(data.assessmentDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '_________________________'}</div>
             </div>

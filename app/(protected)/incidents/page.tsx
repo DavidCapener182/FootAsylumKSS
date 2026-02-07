@@ -3,16 +3,26 @@ import { requireAuth } from '@/lib/auth'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Input } from '@/components/ui/input'
 import { StatusBadge } from '@/components/shared/status-badge'
 import { DeleteIncidentButton } from '@/components/shared/delete-incident-button'
 import { NewIncidentButton } from '@/components/incidents/new-incident-button'
 import { IncidentMobileCard } from '@/components/incidents/incident-mobile-card'
 import { ClosedIncidentMobileCard } from '@/components/incidents/closed-incident-mobile-card'
 import Link from 'next/link'
-import { Search, AlertTriangle, Filter, FileText, Eye, Clock, AlertCircle } from 'lucide-react'
+import { Search, AlertTriangle, FileText, Eye, Clock, AlertCircle } from 'lucide-react'
 import { format } from 'date-fns'
 
-async function getIncidents(filters?: { store_id?: string; status?: string; date_from?: string; date_to?: string }) {
+type IncidentFilters = {
+  store_id?: string
+  status?: string
+  severity?: string
+  q?: string
+  date_from?: string
+  date_to?: string
+}
+
+async function getIncidents(filters?: IncidentFilters) {
   const supabase = createClient()
   let query = supabase
     .from('fa_incidents')
@@ -33,10 +43,14 @@ async function getIncidents(filters?: { store_id?: string; status?: string; date
     query = query.eq('status', filters.status)
   }
   if (filters?.date_from) {
-    query = query.gte('occurred_at', filters.date_from)
+    const fromDate = new Date(filters.date_from)
+    fromDate.setHours(0, 0, 0, 0)
+    query = query.gte('occurred_at', fromDate.toISOString())
   }
   if (filters?.date_to) {
-    query = query.lte('occurred_at', filters.date_to)
+    const toDate = new Date(filters.date_to)
+    toDate.setHours(23, 59, 59, 999)
+    query = query.lte('occurred_at', toDate.toISOString())
   }
 
   const { data, error } = await query
@@ -46,10 +60,37 @@ async function getIncidents(filters?: { store_id?: string; status?: string; date
     return []
   }
 
-  return data || []
+  let incidents = data || []
+
+  if (filters?.severity) {
+    incidents = incidents.filter((incident: any) => incident.severity === filters.severity)
+  }
+
+  if (filters?.q) {
+    const q = filters.q.trim().toLowerCase()
+    if (q.length > 0) {
+      incidents = incidents.filter((incident: any) => {
+        const reference = String(incident.reference_no || '').toLowerCase()
+        const category = String(incident.incident_category || '').toLowerCase()
+        const storeName = String(incident.fa_stores?.store_name || '').toLowerCase()
+        const storeCode = String(incident.fa_stores?.store_code || '').toLowerCase()
+        const investigator = String(incident.investigator?.full_name || '').toLowerCase()
+
+        return (
+          reference.includes(q) ||
+          category.includes(q) ||
+          storeName.includes(q) ||
+          storeCode.includes(q) ||
+          investigator.includes(q)
+        )
+      })
+    }
+  }
+
+  return incidents
 }
 
-async function getClosedIncidents(filters?: { store_id?: string; date_from?: string; date_to?: string }) {
+async function getClosedIncidents(filters?: IncidentFilters) {
   const supabase = createClient()
   
   // First get closed incidents
@@ -63,10 +104,14 @@ async function getClosedIncidents(filters?: { store_id?: string; date_from?: str
     query = query.eq('store_id', filters.store_id)
   }
   if (filters?.date_from) {
-    query = query.gte('occurred_at', filters.date_from)
+    const fromDate = new Date(filters.date_from)
+    fromDate.setHours(0, 0, 0, 0)
+    query = query.gte('occurred_at', fromDate.toISOString())
   }
   if (filters?.date_to) {
-    query = query.lte('occurred_at', filters.date_to)
+    const toDate = new Date(filters.date_to)
+    toDate.setHours(23, 59, 59, 999)
+    query = query.lte('occurred_at', toDate.toISOString())
   }
 
   const { data: incidents, error } = await query
@@ -103,7 +148,7 @@ async function getClosedIncidents(filters?: { store_id?: string; date_from?: str
   const profileMap = new Map(profiles?.map((p: any) => [p.id, p]) || [])
 
   // Enrich incidents with related data
-  return incidents.map((incident: any) => ({
+  let enriched = incidents.map((incident: any) => ({
     ...incident,
     fa_stores: storeMap.get(incident.store_id),
     reporter: profileMap.get(incident.reported_by_user_id) ? { full_name: profileMap.get(incident.reported_by_user_id).full_name } : null,
@@ -111,21 +156,64 @@ async function getClosedIncidents(filters?: { store_id?: string; date_from?: str
       ? { full_name: profileMap.get(incident.assigned_investigator_user_id).full_name } 
       : null,
   }))
+
+  if (filters?.severity) {
+    enriched = enriched.filter((incident: any) => incident.severity === filters.severity)
+  }
+
+  if (filters?.q) {
+    const q = filters.q.trim().toLowerCase()
+    if (q.length > 0) {
+      enriched = enriched.filter((incident: any) => {
+        const reference = String(incident.reference_no || '').toLowerCase()
+        const category = String(incident.incident_category || '').toLowerCase()
+        const storeName = String(incident.fa_stores?.store_name || '').toLowerCase()
+        const storeCode = String(incident.fa_stores?.store_code || '').toLowerCase()
+        const investigator = String(incident.investigator?.full_name || '').toLowerCase()
+
+        return (
+          reference.includes(q) ||
+          category.includes(q) ||
+          storeName.includes(q) ||
+          storeCode.includes(q) ||
+          investigator.includes(q)
+        )
+      })
+    }
+  }
+
+  return enriched
 }
 
 export default async function IncidentsPage({
   searchParams,
 }: {
-  searchParams: { store_id?: string; status?: string; date_from?: string; date_to?: string }
+  searchParams: {
+    store_id?: string
+    status?: string
+    severity?: string
+    q?: string
+    date_from?: string
+    date_to?: string
+  }
 }) {
   await requireAuth()
-  const incidents = await getIncidents(searchParams)
-  const closedIncidents = await getClosedIncidents(searchParams)
+  const filters: IncidentFilters = {
+    store_id: searchParams.store_id || undefined,
+    status: searchParams.status && searchParams.status !== 'all' ? searchParams.status : undefined,
+    severity: searchParams.severity && searchParams.severity !== 'all' ? searchParams.severity : undefined,
+    q: searchParams.q?.trim() || undefined,
+    date_from: searchParams.date_from || undefined,
+    date_to: searchParams.date_to || undefined,
+  }
+  const incidents = await getIncidents(filters)
+  const closedIncidents = await getClosedIncidents(filters)
 
   // Calculate stats (only from open incidents)
   const totalIncidents = incidents.length
   const openIncidents = incidents.filter((i: any) => i.status === 'open' || i.status === 'under_investigation').length
   const criticalIncidents = incidents.filter((i: any) => i.severity === 'critical' || i.severity === 'high').length
+  const hasActiveFilters = Boolean(filters.q || filters.status || filters.severity || filters.date_from || filters.date_to)
 
   return (
     <div className="flex flex-col gap-4 md:gap-6 lg:gap-8 bg-slate-50/50 min-h-screen">
@@ -188,22 +276,72 @@ export default async function IncidentsPage({
       {/* Open Incidents Table */}
       <Card className="shadow-sm border-slate-200 bg-white overflow-hidden">
         <CardHeader className="border-b bg-slate-50/40 px-6 py-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <CardTitle className="text-base font-semibold text-slate-800">Open Incidents</CardTitle>
-            
-            <div className="flex items-center gap-2">
-              {/* Search - Placeholder for now */}
-              <div className="relative w-full sm:w-64">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
-                <div className="h-9 w-full rounded-md border border-slate-200 bg-white pl-9 pr-4 text-sm text-slate-500 flex items-center">
-                  Search reference, store...
-                </div>
-              </div>
-              <Button variant="outline" size="sm" className="h-9 px-3">
-                <Filter className="h-4 w-4 mr-2 text-slate-500" />
-                Filters
-              </Button>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between gap-4">
+              <CardTitle className="text-base font-semibold text-slate-800">Open Incidents</CardTitle>
+              {hasActiveFilters ? (
+                <span className="text-xs text-slate-500">
+                  Filtered results
+                </span>
+              ) : null}
             </div>
+
+            <form method="get" className="grid grid-cols-1 md:grid-cols-6 gap-2">
+              <div className="relative md:col-span-2">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                <Input
+                  name="q"
+                  defaultValue={searchParams.q || ''}
+                  placeholder="Search reference, store, category..."
+                  className="pl-9 bg-white"
+                />
+              </div>
+
+              <select
+                name="status"
+                defaultValue={searchParams.status || 'all'}
+                className="h-10 min-h-[44px] rounded-md border border-slate-200 bg-white px-3 text-sm"
+              >
+                <option value="all">All statuses</option>
+                <option value="open">Open</option>
+                <option value="under_investigation">Under Investigation</option>
+                <option value="actions_in_progress">Actions In Progress</option>
+              </select>
+
+              <select
+                name="severity"
+                defaultValue={searchParams.severity || 'all'}
+                className="h-10 min-h-[44px] rounded-md border border-slate-200 bg-white px-3 text-sm"
+              >
+                <option value="all">All severities</option>
+                <option value="critical">Critical</option>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+              </select>
+
+              <Input
+                type="date"
+                name="date_from"
+                defaultValue={searchParams.date_from || ''}
+                className="bg-white"
+              />
+              <Input
+                type="date"
+                name="date_to"
+                defaultValue={searchParams.date_to || ''}
+                className="bg-white"
+              />
+
+              <div className="md:col-span-6 flex flex-wrap gap-2">
+                <Button type="submit" size="sm" className="h-9 min-h-[44px] md:min-h-0">
+                  Apply Filters
+                </Button>
+                <Button asChild variant="outline" size="sm" className="h-9 min-h-[44px] md:min-h-0">
+                  <Link href="/incidents">Reset</Link>
+                </Button>
+              </div>
+            </form>
           </div>
         </CardHeader>
         <CardContent className="p-0">
@@ -433,4 +571,3 @@ export default async function IncidentsPage({
     </div>
   )
 }
-

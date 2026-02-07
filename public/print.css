@@ -201,6 +201,7 @@ body.fra-print-document .fra-travel-distances-tables td {
 /* Map: compact height so Fire & Rescue Summary + dry/wet riser, hydrant, open water fit on same page */
 body.fra-print-document .fra-map-print {
   max-height: 95mm !important;
+  width: 100% !important;
   overflow: hidden !important;
 }
 body.fra-print-document .fra-map-print .leaflet-container,
@@ -209,6 +210,14 @@ body.fra-print-document .fra-map-print .fra-map-container {
   max-height: 95mm !important;
   min-height: 0 !important;
   width: 100% !important;
+}
+/* Ensure Leaflet panes fill the map so tiles render fully in PDF (no half-grey) */
+body.fra-print-document .fra-map-print .leaflet-tile-pane,
+body.fra-print-document .fra-map-print .leaflet-overlay-pane {
+  width: 100% !important;
+  height: 100% !important;
+  left: 0 !important;
+  top: 0 !important;
 }
 
 /* Fire Safety Systems & Equipment: constrain icons image height so fire alarm text + NB note fit on same page */
@@ -287,6 +296,11 @@ body.fra-print-document .fra-photo-grid {
 body.fra-print-document .fra-photo-grid .fra-photo-block {
   height: 70mm !important;
   min-height: 70mm !important;
+}
+
+/* Hide empty photo placeholders (dashed "Add Photos" box) in PDF/print only */
+body.fra-print-document .fra-photo-placeholder-empty {
+  display: none !important;
 }
 
 /* No fixed/sticky in print */

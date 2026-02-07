@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { summarizeHSAuditForFRA } from '@/lib/ai/fra-summarize'
+import { getOpeningHoursFromSearch } from '@/lib/fra/opening-hours-search'
 import { getAuditInstance } from './safehub'
 
 /**
@@ -512,6 +513,21 @@ export async function mapHSAuditToFRAData(fraInstanceId: string) {
       console.log('[FRA] Found PAT testing status from PDF: Satisfactory')
     }
 
+    // Fixed wire installation – inspected/tested date
+    const fixedWireDatePatterns = [
+      /(?:fixed wire|fixed wiring|fixed wire installation)[\s\S]{0,100}?(?:last tested|inspected and tested|tested)[\s\S]{0,50}?(\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4})/i,
+      /(?:fixed wire|fixed wiring)[\s\S]{0,80}?(?:yes|satisfactory)[\s\S]{0,80}?last (?:tested|conducted)[\s\S]{0,30}?(\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4})/i,
+      /(?:electrical installation|fixed wiring)[\s\S]{0,60}?(\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4})/i,
+    ]
+    for (const pattern of fixedWireDatePatterns) {
+      const match = originalText.match(pattern)
+      if (match) {
+        pdfExtractedData.fixedWireTestDate = match[1]
+        console.log('[FRA] Found fixed wire test date from PDF:', pdfExtractedData.fixedWireTestDate)
+        break
+      }
+    }
+
     // MEDIUM PRIORITY: Exit signage condition - more flexible patterns
     if (originalText.match(/(?:exit sign|signage|fire exit sign).*?(?:good|satisfactory|clear|visible|yes|ok)/i)
       || originalText.match(/(?:signage).*?(?:installed|visible|clearly|in place)/i)
@@ -657,6 +673,15 @@ export async function mapHSAuditToFRAData(fraInstanceId: string) {
       for (const question of questions) {
         const questionText = question.question_text?.toLowerCase() || ''
         
+        // For operating/trading hours, only match questions that are clearly about hours (avoid e.g. "door left open during trading hours" comment)
+        const hoursPatterns = ['operating hours', 'trading hours', 'opening hours', 'store hours']
+        const isHoursQuery = hoursPatterns.some(p => normalizedPattern === p || normalizedPattern.includes(p))
+        const looksLikeHoursQuestion = /^(operating|trading|opening|store)\s+hours|^(when|what)\s+are\s+(?:the\s+)?(?:operating|trading|opening|store)\s+hours/i.test(questionText.slice(0, 120))
+        if (isHoursQuery && !looksLikeHoursQuestion) {
+          // Skip this question - it matched "hours" but isn't the actual hours question
+          continue
+        }
+
         // Try exact match first, then partial match (check if pattern is contained in question text)
         if (questionText === normalizedPattern || questionText.includes(normalizedPattern) || normalizedPattern.includes(questionText)) {
           matchCount++
@@ -719,6 +744,7 @@ export async function mapHSAuditToFRAData(fraInstanceId: string) {
   const enforcementAction = findAnswer('enforcement action')
   const fireDrillAnswer = findAnswer('Fire drill has been carried out') || findAnswer('fire drill')
   const patTestingAnswer = findAnswer('PAT testing') || findAnswer('portable appliance testing')
+  const fixedWireAnswer = findAnswer('Fixed wire') || findAnswer('Fixed wiring') || findAnswer('fixed wire installation')
   const exitSignageAnswer = findAnswer('Exit signage') || findAnswer('fire exit sign')
   const compartmentationAnswer = findAnswer('compartmentation') || findAnswer('ceiling tile')
   const callPointsAnswer = findAnswer('call points clear') || findAnswer('call point')
@@ -811,17 +837,29 @@ export async function mapHSAuditToFRAData(fraInstanceId: string) {
     floorAreaNum >= 10
       ? `Approximately ${Math.round(floorAreaNum / 2)} persons based on 2 m² per person`
       : null
-  
-  // Try to find operating hours - prioritize edited data, then PDF, then database
+
+  // Try to get opening hours from ChatGPT search when we don't have edited or PDF value
+  let openingHoursFromSearch: string | null = null
+  if (!editedExtractedData?.operatingHours && !pdfExtractedData.operatingHours && store) {
+    openingHoursFromSearch = await getOpeningHoursFromSearch({
+      storeName: store.store_name,
+      address: store.address_line_1,
+      city: store.city,
+    })
+  }
+
+  // Try to find operating hours - prioritize edited data, then PDF, then ChatGPT search, then database
   const operatingHoursData = editedExtractedData?.operatingHours
     ? { value: editedExtractedData.operatingHours, comment: undefined }
     : pdfExtractedData.operatingHours
       ? { value: pdfExtractedData.operatingHours, comment: undefined }
-      : findAnswer('operating hours') 
-        || findAnswer('trading hours')
-        || findAnswer('opening hours')
-        || findAnswer('store hours')
-  
+      : openingHoursFromSearch
+        ? { value: openingHoursFromSearch, comment: undefined }
+        : findAnswer('operating hours')
+          || findAnswer('trading hours')
+          || findAnswer('opening hours')
+          || findAnswer('store hours')
+
   // Debug logging
   console.log('[FRA] Operating Hours found:', !!operatingHoursData, operatingHoursData?.value || operatingHoursData?.comment)
 
@@ -1048,8 +1086,8 @@ export async function mapHSAuditToFRAData(fraInstanceId: string) {
       numberOfFloors: generalSiteInfo?.value || generalSiteInfo?.comment ? (pdfExtractedData.numberOfFloors ? 'PDF' : 'H&S_AUDIT') : 'DEFAULT',
       floorArea: customData?.floorArea ? 'CUSTOM' : (squareFootage?.value || squareFootage?.comment ? (pdfExtractedData.squareFootage ? 'PDF' : 'H&S_AUDIT') : 'DEFAULT'),
       occupancy: customData?.occupancy ? 'CUSTOM' : (occupancyFromFloorArea ? 'FRA_INSTANCE_CALCULATED' : (occupancyData?.value || occupancyData?.comment ? 'H&S_AUDIT' : 'DEFAULT')),
-      operatingHours: customData?.operatingHours ? 'CUSTOM' : (operatingHoursData?.value || operatingHoursData?.comment ? (pdfExtractedData.operatingHours ? 'PDF' : 'H&S_AUDIT') : 'WEB_SEARCH'),
-      storeOpeningTimes: operatingHoursData?.value || operatingHoursData?.comment ? (pdfExtractedData.operatingHours ? 'PDF' : 'H&S_AUDIT') : 'WEB_SEARCH',
+      operatingHours: customData?.operatingHours ? 'CUSTOM' : (operatingHoursData?.value || operatingHoursData?.comment ? (pdfExtractedData.operatingHours ? 'PDF' : openingHoursFromSearch ? 'WEB_SEARCH' : 'H&S_AUDIT') : 'WEB_SEARCH'),
+      storeOpeningTimes: operatingHoursData?.value || operatingHoursData?.comment ? (pdfExtractedData.operatingHours ? 'PDF' : openingHoursFromSearch ? 'WEB_SEARCH' : 'H&S_AUDIT') : 'WEB_SEARCH',
       accessDescription: 'CHATGPT',
       fireAlarmPanelLocation: firePanelLocation?.value || firePanelLocation?.comment ? (pdfExtractedData.firePanelLocation ? 'PDF' : 'H&S_AUDIT') : 'DEFAULT',
       fireAlarmPanelFaults: firePanelFaults?.value || firePanelFaults?.comment ? (pdfExtractedData.firePanelFaults ? 'PDF' : 'H&S_AUDIT') : 'DEFAULT',
@@ -1095,44 +1133,36 @@ export async function mapHSAuditToFRAData(fraInstanceId: string) {
       ? formatDate(new Date(new Date(hsAuditConductedAt).setFullYear(new Date(hsAuditConductedAt).getFullYear() + 1)).toISOString())
       : formatDate(new Date(new Date(fraInstance.conducted_at || fraInstance.created_at).setFullYear(new Date(fraInstance.conducted_at || fraInstance.created_at).getFullYear() + 1)).toISOString()),
 
-    // About the Property (customData.buildDate overrides when set)
-    buildDate: customData?.buildDate || '2009', // Will be updated by web search if available
-    propertyType: 'Retail unit used for the sale of branded fashion apparel and footwear to members of the public.',
+    // About the Property (customData overrides when set)
+    buildDate: customData?.buildDate || '2009',
+    propertyType: customData?.propertyType ?? 'Retail unit used for the sale of branded fashion apparel and footwear to members of the public.',
     description: (() => {
-      // Use AI-generated premises description when available
-      if (aiSummaries?.premisesDescription?.trim()) {
-        return aiSummaries.premisesDescription.trim()
-      }
+      if (customData?.description?.trim()) return customData.description.trim()
+      if (aiSummaries?.premisesDescription?.trim()) return aiSummaries.premisesDescription.trim()
       const numFloors = generalSiteInfo?.value || generalSiteInfo?.comment || '1'
       const floorsNum = parseInt(String(numFloors).replace(/\D/g, '')) || 1
-      
       if (floorsNum === 1) {
         return `The premises operates over one level (Ground Floor) and comprises a main sales floor to the front of the unit with associated back-of-house areas to the rear, including stockroom, office and staff welfare facilities.
 The unit is of modern construction, consisting primarily of steel frame with blockwork, modern internal wall finishes and commercial-grade floor coverings.
 The premises is a mid-unit with adjoining retail occupancies to either side.`
-      } else {
-        const floorNames = floorsNum === 2 
-          ? 'Ground Floor and First Floor'
-          : floorsNum === 3
-          ? 'Ground Floor, First Floor and Second Floor'
-          : `Ground Floor and ${floorsNum - 1} upper level(s)`
-        
-        return `The premises is arranged over ${floorsNum} level(s) (${floorNames}) and comprises:
+      }
+      const floorNames = floorsNum === 2 ? 'Ground Floor and First Floor' : floorsNum === 3 ? 'Ground Floor, First Floor and Second Floor' : `Ground Floor and ${floorsNum - 1} upper level(s)`
+      return `The premises is arranged over ${floorsNum} level(s) (${floorNames}) and comprises:
 • Main sales floor to the front of the unit
 • Stockroom, staff welfare facilities and management office to the rear
 • Rear service corridor providing access to final exits
 The unit is of modern construction, consisting primarily of steel frame with blockwork, modern internal wall finishes and commercial-grade floor coverings.
 The premises is a mid-unit with adjoining retail occupancies to either side.`
-      }
     })(),
-    numberOfFloors: generalSiteInfo?.value || generalSiteInfo?.comment || '1',
+    adjacentOccupancies: customData?.adjacentOccupancies ?? null,
+    numberOfFloors: customData?.numberOfFloors ?? generalSiteInfo?.value ?? generalSiteInfo?.comment ?? '1',
     floorArea: customData?.floorArea || squareFootage?.value || squareFootage?.comment || 'To be confirmed', // Use custom data if available
     floorAreaComment: !customData?.floorArea && !squareFootage?.value && !squareFootage?.comment ? 'Please add floor area information' : null,
     occupancy: customData?.occupancy || occupancyData?.value || occupancyData?.comment || occupancyFromFloorArea || 'To be calculated based on floor area',
     occupancyComment: occupancyFromFloorArea ? null : (!customData?.occupancy && !occupancyData?.value && !occupancyData?.comment ? 'Please add occupancy information or it will be calculated based on floor area (2 m² per person)' : null),
     operatingHours: customData?.operatingHours || operatingHoursData?.value || operatingHoursData?.comment || 'To be confirmed',
     operatingHoursComment: !customData?.operatingHours && !operatingHoursData?.value && !operatingHoursData?.comment ? 'Please add operating hours information' : null,
-    sleepingRisk: 'No sleeping occupants',
+    sleepingRisk: customData?.sleepingRisk ?? 'No sleeping occupants',
     internalFireDoors: (() => {
       // Check if fire doors are in good condition and intumescent strips are present
       const doorsGood = fireDoorsCondition?.value === 'Yes' || fireDoorsCondition?.value === true || 
@@ -1323,6 +1353,12 @@ Sprinkler heads are installed throughout the premises in accordance with the ori
           recommendation: 'Ensure all ladders and steps are clearly numbered for identification purposes.',
         })
       }
+      if (customData?.intumescentStripsPresent === false) {
+        derived.push({
+          priority: 'Medium',
+          recommendation: 'Ensure intumescent strips are fitted to all fire doors and are intact, to maintain fire resistance and compartmentation in the event of fire.',
+        })
+      }
       const priorityOrder = { High: 0, Medium: 1, Low: 2 }
       derived.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority])
       derived.push({
@@ -1333,21 +1369,40 @@ Sprinkler heads are installed throughout the premises in accordance with the ori
     })(),
     sitePremisesPhotos: (editedExtractedData as any)?.sitePremisesPhotos || null,
 
-    // HIGH PRIORITY: New H&S audit fields
-    numberOfFireExits: editedExtractedData?.numberOfFireExits || pdfExtractedData.numberOfFireExits || fireExits?.value || fireExits?.comment || null,
-    totalStaffEmployed: editedExtractedData?.totalStaffEmployed || pdfExtractedData.totalStaffEmployed || staffCount?.value || staffCount?.comment || null,
-    maxStaffOnSite: editedExtractedData?.maxStaffOnSite || pdfExtractedData.maxStaffOnSite || maxStaff?.value || maxStaff?.comment || null,
-    youngPersonsCount: editedExtractedData?.youngPersonsCount || pdfExtractedData.youngPersonsCount || youngPersons?.value || youngPersons?.comment || null,
+    // HIGH PRIORITY: New H&S audit fields (customData overrides when set)
+    numberOfFireExits: customData?.numberOfFireExits ?? editedExtractedData?.numberOfFireExits ?? pdfExtractedData.numberOfFireExits ?? fireExits?.value ?? fireExits?.comment ?? null,
+    totalStaffEmployed: customData?.totalStaffEmployed ?? editedExtractedData?.totalStaffEmployed ?? pdfExtractedData.totalStaffEmployed ?? staffCount?.value ?? staffCount?.comment ?? null,
+    maxStaffOnSite: customData?.maxStaffOnSite ?? editedExtractedData?.maxStaffOnSite ?? pdfExtractedData.maxStaffOnSite ?? maxStaff?.value ?? maxStaff?.comment ?? null,
+    youngPersonsCount: customData?.youngPersonsCount ?? editedExtractedData?.youngPersonsCount ?? pdfExtractedData.youngPersonsCount ?? youngPersons?.value ?? youngPersons?.comment ?? null,
     fireDrillDate: editedExtractedData?.fireDrillDate || pdfExtractedData.fireDrillDate || fireDrillAnswer?.comment || null,
     patTestingStatus: editedExtractedData?.patTestingStatus || pdfExtractedData.patTestingStatus || patTestingAnswer?.value || patTestingAnswer?.comment || null,
+    fixedWireTestDate: editedExtractedData?.fixedWireTestDate || pdfExtractedData.fixedWireTestDate || fixedWireAnswer?.comment || fixedWireAnswer?.value || null,
 
     // MEDIUM PRIORITY: New H&S audit fields
     exitSignageCondition: editedExtractedData?.exitSignageCondition || pdfExtractedData.exitSignageCondition || exitSignageAnswer?.value || exitSignageAnswer?.comment || null,
     compartmentationStatus: editedExtractedData?.compartmentationStatus || pdfExtractedData.compartmentationStatus || compartmentationAnswer?.value || compartmentationAnswer?.comment || null,
     extinguisherServiceDate: editedExtractedData?.extinguisherServiceDate || pdfExtractedData.extinguisherServiceDate || fireExtinguisherService?.comment || null,
     callPointAccessibility: editedExtractedData?.callPointAccessibility || pdfExtractedData.callPointAccessibility || callPointsAnswer?.value || callPointsAnswer?.comment || null,
+
+    // Intumescent strips on doors: use audit question Yes/No when no custom override; custom toggle can override
+    intumescentStripsPresent: (() => {
+      if (customData?.intumescentStripsPresent !== undefined && customData?.intumescentStripsPresent !== null) {
+        return !!customData.intumescentStripsPresent
+      }
+      const v = intumescentStrips?.value
+      const c = intumescentStrips?.comment
+      const auditSaysYes = v === 'Yes' || v === true ||
+        (typeof v === 'string' && v.toLowerCase().includes('yes')) ||
+        (typeof c === 'string' && c.toLowerCase().includes('yes'))
+      const auditSaysNo = v === 'No' || v === false ||
+        (typeof v === 'string' && v.toLowerCase().trim() === 'no') ||
+        (typeof c === 'string' && c.toLowerCase().includes('no'))
+      if (auditSaysYes) return true
+      if (auditSaysNo) return false
+      return true
+    })(),
   }
-  
+
   // Update sources for arrays (significantFindings already set evidence-led when pdfText/hsAudit)
   returnData._sources = {
     ...returnData._sources,
@@ -1363,6 +1418,7 @@ Sprinkler heads are installed throughout the premises in accordance with the ori
     youngPersonsCount: editedExtractedData?.youngPersonsCount ? 'REVIEW' : pdfExtractedData.youngPersonsCount ? 'PDF' : (youngPersons?.value || youngPersons?.comment) ? 'H&S_AUDIT' : 'NOT_FOUND',
     fireDrillDate: editedExtractedData?.fireDrillDate ? 'REVIEW' : pdfExtractedData.fireDrillDate ? 'PDF' : fireDrillAnswer?.comment ? 'H&S_AUDIT' : 'NOT_FOUND',
     patTestingStatus: editedExtractedData?.patTestingStatus ? 'REVIEW' : pdfExtractedData.patTestingStatus ? 'PDF' : (patTestingAnswer?.value || patTestingAnswer?.comment) ? 'H&S_AUDIT' : 'NOT_FOUND',
+    fixedWireTestDate: editedExtractedData?.fixedWireTestDate ? 'REVIEW' : pdfExtractedData.fixedWireTestDate ? 'PDF' : (fixedWireAnswer?.value || fixedWireAnswer?.comment) ? 'H&S_AUDIT' : 'NOT_FOUND',
     // Medium priority fields
     exitSignageCondition: editedExtractedData?.exitSignageCondition ? 'REVIEW' : pdfExtractedData.exitSignageCondition ? 'PDF' : (exitSignageAnswer?.value || exitSignageAnswer?.comment) ? 'H&S_AUDIT' : 'NOT_FOUND',
     compartmentationStatus: editedExtractedData?.compartmentationStatus ? 'REVIEW' : pdfExtractedData.compartmentationStatus ? 'PDF' : (compartmentationAnswer?.value || compartmentationAnswer?.comment) ? 'H&S_AUDIT' : 'NOT_FOUND',

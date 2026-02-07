@@ -86,6 +86,7 @@ export default function ReviewFRADataPage({
           youngPersonsCount: data.youngPersonsCount || '',
           fireDrillDate: data.fireDrillDate || '',
           patTestingStatus: data.patTestingStatus || '',
+          fixedWireTestDate: data.fixedWireTestDate || '',
           // Medium priority fields
           exitSignageCondition: data.exitSignageCondition || '',
           compartmentationStatus: data.compartmentationStatus || '',
@@ -546,6 +547,20 @@ export default function ReviewFRADataPage({
                   value={editedData.patTestingStatus || ''}
                   onChange={(e) => setEditedData({ ...editedData, patTestingStatus: e.target.value })}
                   placeholder="e.g., Satisfactory"
+                  className="min-h-[40px]"
+                />
+              </div>
+
+              {/* HIGH PRIORITY: Fixed wire test date */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-900 mb-2">
+                  Fixed wire installation – date inspected/tested
+                  {extractedData?.sources?.fixedWireTestDate && getSourceBadge(extractedData.sources.fixedWireTestDate)}
+                </label>
+                <Textarea
+                  value={editedData.fixedWireTestDate || ''}
+                  onChange={(e) => setEditedData({ ...editedData, fixedWireTestDate: e.target.value })}
+                  placeholder="e.g., 01/09/2025 or 1 September 2025"
                   className="min-h-[40px]"
                 />
               </div>

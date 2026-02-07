@@ -142,7 +142,9 @@ export default function FRAReportViewPage({
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.error || 'Failed to save')
       setSaveSuccess(true)
-      setTimeout(() => setSaveSuccess(false), 3000)
+      // After marking the FRA as complete, return to the main Audit Lab page
+      // so you can immediately start another assessment.
+      router.push('/audit-lab')
     } catch (err: any) {
       setSaveError(err.message || 'Failed to save FRA')
     } finally {

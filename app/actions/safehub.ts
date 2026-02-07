@@ -539,6 +539,11 @@ export async function getAuditDashboardData() {
       created_at,
       overall_score,
       status,
+      fa_audit_templates (
+        id,
+        title,
+        category
+      ),
       fa_stores (
         id,
         store_name,
@@ -673,6 +678,48 @@ export async function deleteAuditInstance(id: string) {
 
   revalidatePath('/audit-lab')
   return { success: true }
+}
+
+/**
+ * Bulk delete multiple audit instances in one operation.
+ * Intended for cleanup of old history records.
+ * Only admins are allowed to perform bulk deletes.
+ */
+export async function bulkDeleteAuditInstances(ids: string[]) {
+  if (!ids || ids.length === 0) {
+    return { success: true, deleted: 0 }
+  }
+
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) {
+    throw new Error('Unauthorized')
+  }
+
+  // Check admin role
+  const { data: profile } = await supabase
+    .from('fa_profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  const isAdmin = profile?.role === 'admin'
+  if (!isAdmin) {
+    throw new Error('Unauthorized - Only admins can bulk delete audits')
+  }
+
+  const { error } = await supabase
+    .from('fa_audit_instances')
+    .delete()
+    .in('id', ids)
+
+  if (error) {
+    throw new Error(`Failed to bulk delete audit instances: ${error.message}`)
+  }
+
+  revalidatePath('/audit-lab')
+  return { success: true, deleted: ids.length }
 }
 
 // ============================================

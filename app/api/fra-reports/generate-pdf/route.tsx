@@ -42,6 +42,9 @@ export async function GET(request: NextRequest) {
 
     const page = await browser.newPage()
 
+    // Use A4-like viewport so map and content get full width (map was half grey otherwise)
+    await page.setViewport({ width: 794, height: 1123 })
+
     // Set cookies from the request to maintain authentication
     const cookies = request.cookies.getAll()
     if (cookies.length > 0) {
@@ -60,15 +63,15 @@ export async function GET(request: NextRequest) {
       timeout: 30000,
     })
 
-    // Wait for content to load (wrapper and at least one section so all pages can render)
-    await page.waitForSelector('.fra-report-print-wrapper', { timeout: 15000 })
-    await page.waitForSelector('.fra-print-page', { timeout: 10000 })
+    // Wait for content to load: print page fetches data client-side, so wrapper appears after API + render
+    await page.waitForSelector('.fra-report-print-wrapper', { timeout: 35000 })
+    await page.waitForSelector('.fra-print-page', { timeout: 15000 })
     await sleep(1500)
 
     // If the Fire & Rescue map is present, wait for Leaflet container and tile images so map appears in PDF
     try {
       await page.waitForSelector('.fra-map-print .leaflet-container', { timeout: 5000 })
-      const mapTilesDeadline = Date.now() + 8000
+      const mapTilesDeadline = Date.now() + 12000
       while (Date.now() < mapTilesDeadline) {
         const mapReady = await page.evaluate(() => {
           const pane = document.querySelector('.fra-map-print .leaflet-tile-pane')
@@ -78,9 +81,9 @@ export async function GET(request: NextRequest) {
           return Array.from(tileImgs).every((img: HTMLImageElement) => img.complete)
         })
         if (mapReady) break
-        await sleep(300)
+        await sleep(400)
       }
-      await sleep(800)
+      await sleep(1200)
     } catch {
       // No map on this report or map failed to mount; continue without blocking
     }

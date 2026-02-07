@@ -74,18 +74,17 @@ export async function POST(request: NextRequest) {
       .eq('question_id', questionIdForMetadata)
       .maybeSingle()
 
-    const existing = existingResponse as { id: string; response_value?: unknown; response_json?: unknown } | null
+    const existing = existingResponse as { id: string; response_value?: unknown; response_json?: { fra_custom_data?: Record<string, unknown> } } | null
+    const existingCustom = existing?.response_json?.fra_custom_data && typeof existing.response_json.fra_custom_data === 'object' ? existing.response_json.fra_custom_data : {}
     const metadataResponse = {
       response_value: existing?.response_value ?? null,
       response_json: {
-        ...(existing?.response_json && typeof existing.response_json === 'object' 
-          ? existing.response_json 
+        ...(existing?.response_json && typeof existing.response_json === 'object'
+          ? existing.response_json
           : {}),
         fra_custom_data: {
-          floorArea: customData.floorArea,
-          occupancy: customData.occupancy,
-          operatingHours: customData.operatingHours,
-          buildDate: customData.buildDate,
+          ...existingCustom,
+          ...customData,
           updated_at: new Date().toISOString(),
         },
       },
