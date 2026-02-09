@@ -16,9 +16,11 @@ import { RouteDirectionsModal } from './route-directions-modal'
 
 // Dynamically import the map component to avoid SSR issues
 const MapComponent = dynamic(() => import('./map-component'), { ssr: false })
+const MULTI_AREA_REGION = 'MULTI'
 
 // Area name mapping
 const areaNames: Record<string, string> = {
+  [MULTI_AREA_REGION]: 'Multi-Area Route',
   'A1': 'Scotland & North East',
   'A2': 'Yorkshire & Midlands',
   'A3': 'Manchester',
@@ -32,6 +34,7 @@ const areaNames: Record<string, string> = {
 // Helper function to get area display name
 function getAreaDisplayName(areaCode: string | null): string {
   if (!areaCode) return 'All Areas'
+  if (areaCode === MULTI_AREA_REGION) return areaNames[MULTI_AREA_REGION]
   const name = areaNames[areaCode]
   return name ? `${areaCode} - ${name}` : areaCode
 }
@@ -79,6 +82,19 @@ interface RoutePlanningClientProps {
     stores: Store[]
     profiles: Profile[]
   }
+}
+
+function getPlannedRouteGroupKey(plannedDate: string, managerId: string | null | undefined): string {
+  return `${plannedDate || 'undated'}-${managerId || 'unassigned'}`
+}
+
+function getRouteRegion(stores: Store[]): string | null {
+  const uniqueRegions = Array.from(
+    new Set(stores.map((store) => store.region).filter((region): region is string => Boolean(region)))
+  )
+  if (uniqueRegions.length === 1) return uniqueRegions[0]
+  if (uniqueRegions.length > 1) return MULTI_AREA_REGION
+  return null
 }
 
 export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
@@ -225,24 +241,32 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
     }))
   }, [stores])
 
-  // Get stores in the selected route area
+  // Get stores in the selected area (or all areas) for route building.
   const storesInRouteArea = useMemo(() => {
-    if (!routeArea) return []
-    return storesWithLocations.filter(s => s.region === routeArea)
+    const candidateStores = routeArea
+      ? storesWithLocations.filter((s) => s.region === routeArea)
+      : storesWithLocations
+
+    return [...candidateStores].sort((a, b) => {
+      const areaA = a.region || 'ZZZ'
+      const areaB = b.region || 'ZZZ'
+      if (areaA !== areaB) return areaA.localeCompare(areaB)
+      return a.store_name.localeCompare(b.store_name)
+    })
   }, [routeArea, storesWithLocations])
 
-  // Get stores with planned dates, grouped by region and date
+  // Get stores with planned dates, grouped by manager + planned date.
   const plannedRoutes = useMemo(() => {
     const storesWithPlannedDates = stores.filter(s => s.compliance_audit_2_planned_date)
     
-    // Group by region and planned date
+    // Group by planned date + manager to support mixed-area routes in one plan.
     const grouped = storesWithPlannedDates.reduce((acc, store) => {
-      const key = `${store.region || 'unknown'}-${store.compliance_audit_2_planned_date}-${store.compliance_audit_2_assigned_manager_user_id || 'unassigned'}`
+      const plannedDate = store.compliance_audit_2_planned_date || ''
+      const key = getPlannedRouteGroupKey(plannedDate, store.compliance_audit_2_assigned_manager_user_id)
       if (!acc[key]) {
         acc[key] = {
-          region: store.region,
-          plannedDate: store.compliance_audit_2_planned_date || '',
-          managerId: store.compliance_audit_2_assigned_manager_user_id || '',
+          plannedDate,
+          managerId: store.compliance_audit_2_assigned_manager_user_id || null,
           assignedManager: store.assigned_manager,
           stores: []
         }
@@ -250,7 +274,6 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
       acc[key].stores.push(store)
       return acc
     }, {} as Record<string, {
-      region: string | null
       plannedDate: string
       managerId: string | null
       assignedManager: any
@@ -259,6 +282,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
 
     // Convert to array and sort by date, then apply custom ordering
     return Object.entries(grouped).map(([key, group]) => {
+      const region = getRouteRegion(group.stores)
       // If we have a custom order for this route, apply it
       if (routeStoreOrder[key] && routeStoreOrder[key].length === group.stores.length) {
         const orderedStores = routeStoreOrder[key]
@@ -269,6 +293,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
         const remainingStores = group.stores.filter(s => !orderedIds.has(s.id))
         return {
           ...group,
+          region,
           _groupKey: key, // Store the stable key
           stores: [...orderedStores, ...remainingStores]
         }
@@ -284,6 +309,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
       })
       return {
         ...group,
+        region,
         _groupKey: key, // Store the stable key
         stores: sortedStores
       }
@@ -339,9 +365,12 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
       return
     }
     
-    // Group by region and planned date
+    // Group by planned date + manager to match planned route cards.
     const grouped = storesWithPlannedDates.reduce((acc, store) => {
-      const key = `${store.region || 'unknown'}-${store.compliance_audit_2_planned_date}-${store.compliance_audit_2_assigned_manager_user_id || 'unassigned'}`
+      const key = getPlannedRouteGroupKey(
+        store.compliance_audit_2_planned_date || '',
+        store.compliance_audit_2_assigned_manager_user_id
+      )
       if (!acc[key]) {
         acc[key] = []
       }
@@ -376,7 +405,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
       for (const group of plannedRoutes) {
         if (!group.managerId || !group.plannedDate) continue
         
-        const groupKey = (group as any)._groupKey || `${group.region || 'unknown'}-${group.plannedDate}-${group.managerId || 'unassigned'}`
+        const groupKey = (group as any)._groupKey || getPlannedRouteGroupKey(group.plannedDate, group.managerId)
         
         try {
           const { data, error } = await getRouteOperationalItems(group.managerId, group.plannedDate, group.region)
@@ -398,7 +427,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
 
   const handleReorderStore = async (groupKey: string, storeId: string, direction: 'up' | 'down') => {
     const group = plannedRoutes.find((g) => {
-      const key = (g as any)._groupKey || `${g.region || 'unknown'}-${g.plannedDate}-${g.managerId || 'unassigned'}`
+      const key = (g as any)._groupKey || getPlannedRouteGroupKey(g.plannedDate, g.managerId)
       return key === groupKey
     })
     
@@ -548,8 +577,8 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
   const handleOptimizeRoute = async () => {
     const targetStopCount = Math.min(routeStopLimit, storesInRouteArea.length)
 
-    if (!routeManager || !routeArea || storesInRouteArea.length < 2) {
-      alert('Please select a manager and an area with at least 2 stores available for optimization.')
+    if (!routeManager || storesInRouteArea.length < 2) {
+      alert('Please select a manager and ensure at least 2 stores are available for optimization.')
       return
     }
 
@@ -647,7 +676,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
             }, 100)
           })
         } else {
-          alert('The optimized stores were not found in the selected area. Please try again.')
+          alert('The optimized stores were not found in the available store list. Please try again.')
         }
       } else if (result.error) {
         alert(`Unable to optimize route: ${result.error}. Please select stores manually.`)
@@ -694,7 +723,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
           )
           
           // Set route sequence for all stores in the route (maintains the order they were selected)
-          const routeKey = `${routeArea || 'unknown'}-${routeDate}-${routeManager || 'unassigned'}`
+          const routeKey = getPlannedRouteGroupKey(routeDate, routeManager || null)
           const { updateRouteSequence } = await import('@/app/actions/route-planning')
           await updateRouteSequence(storeIdsArray, routeKey)
       
@@ -941,7 +970,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
           </div>
 
           {/* Store Selection for Route */}
-          {routeArea && storesInRouteArea.length > 0 && (
+          {storesInRouteArea.length > 0 && (
             <div className="mt-4 p-4 bg-white rounded-lg border border-slate-200">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-semibold text-slate-700">
@@ -1029,7 +1058,10 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
                           )}
                         </div>
                         {store.store_code && (
-                          <div className="text-xs text-slate-500">{store.store_code}</div>
+                          <div className="text-xs text-slate-500">
+                            {store.store_code}
+                            {store.region ? ` • ${getAreaDisplayName(store.region)}` : ''}
+                          </div>
                         )}
                       </div>
                       {store.compliance_audit_2_planned_date && (
@@ -1061,7 +1093,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
                 </div>
                     <Button
                       onClick={handleCreateRoute}
-                      disabled={isCreatingRoute || !routeManager || !routeDate || routeSelectedStores.size === 0 || routeSelectedStores.size > routeStopLimit}
+                      disabled={isCreatingRoute || routeSelectedStores.size === 0 || routeSelectedStores.size > routeStopLimit}
                       className="w-full"
                     >
                       {isCreatingRoute ? 'Creating Route...' : `Create Route with ${routeSelectedStores.size} Store${routeSelectedStores.size > 1 ? 's' : ''}`}
@@ -1105,8 +1137,8 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
                   address: manager.home_address || 'Manager Home',
                 }
               })() : managerHome}
-              selectedStores={routeArea ? routeSelectedStores : selectedStores}
-              onStoreSelect={routeArea ? handleRouteStoreToggle : handleStoreSelect}
+              selectedStores={routeSelectedStores}
+              onStoreSelect={handleRouteStoreToggle}
               filteredArea={routeArea}
             />
           </div>
@@ -1142,7 +1174,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
                   </TableHeader>
                   <TableBody>
                     {plannedRoutes.map((group, groupIndex) => {
-                      const groupKey = (group as any)._groupKey || `${group.region || 'unknown'}-${group.plannedDate}-${group.managerId || 'unassigned'}`
+                      const groupKey = (group as any)._groupKey || getPlannedRouteGroupKey(group.plannedDate, group.managerId)
                       
                       // Get manager home location for this route
                       const routeManager = group.managerId

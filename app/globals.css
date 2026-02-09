@@ -363,7 +363,7 @@
     max-height: none !important;
   }
   
-  [style*="transform"],
+  [style*="transform"]:not(.leaflet-pane):not(.leaflet-map-pane):not(.leaflet-tile-pane):not(.leaflet-overlay-pane):not(.leaflet-marker-pane):not(.leaflet-shadow-pane):not(.leaflet-zoom-animated):not(.leaflet-tile):not(.leaflet-marker-icon):not(.leaflet-marker-shadow),
   [class*="transform"] {
     transform: none !important;
   }

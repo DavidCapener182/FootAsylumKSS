@@ -70,6 +70,7 @@ export default function ReviewFRADataPage({
           numberOfFloors: data.numberOfFloors || '',
           operatingHours: data.operatingHours || '',
           conductedDate: data.conductedDate || '',
+          assessmentStartTime: data.assessmentStartTime || '',
           squareFootage: data.squareFootage || '',
           escapeRoutesEvidence: data.escapeRoutesEvidence || '',
           combustibleStorageEscapeCompromise: data.combustibleStorageEscapeCompromise || '',
@@ -281,6 +282,20 @@ export default function ReviewFRADataPage({
                   value={editedData.conductedDate || ''}
                   onChange={(e) => setEditedData({ ...editedData, conductedDate: e.target.value })}
                   placeholder="e.g., 22 Jan 2026"
+                  className="min-h-[40px]"
+                />
+              </div>
+
+              {/* Assessment Start Time */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-900 mb-2">
+                  Assessment start time
+                  {extractedData?.sources?.assessmentStartTime && getSourceBadge(extractedData.sources.assessmentStartTime)}
+                </label>
+                <Textarea
+                  value={editedData.assessmentStartTime || ''}
+                  onChange={(e) => setEditedData({ ...editedData, assessmentStartTime: e.target.value })}
+                  placeholder="e.g., 12:00 pm"
                   className="min-h-[40px]"
                 />
               </div>

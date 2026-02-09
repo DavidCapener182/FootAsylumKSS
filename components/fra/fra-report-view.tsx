@@ -27,6 +27,45 @@ function isOccupancyDerivedFromFloorArea(occupancy: string | null | undefined): 
   return /^Approximately \d+ persons based on 2 m² per person$/i.test(occupancy.trim())
 }
 
+function parseFloorCount(value: string | null | undefined): number | null {
+  if (!value) return null
+  const raw = String(value).trim().toLowerCase()
+  const digitMatch = raw.match(/\d+/)
+  if (digitMatch) {
+    const parsed = parseInt(digitMatch[0], 10)
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null
+  }
+  if (/\bone\b/.test(raw)) return 1
+  if (/\btwo\b/.test(raw)) return 2
+  if (/\bthree\b/.test(raw)) return 3
+  if (/\bfour\b/.test(raw)) return 4
+  if (/\bfive\b/.test(raw)) return 5
+  return null
+}
+
+function floorLayoutPhrase(floorCount: number | null): string {
+  if (!floorCount || floorCount <= 1) return 'a single level (ground floor)'
+  if (floorCount === 2) return 'two levels (ground and first floors)'
+  if (floorCount === 3) return 'three levels (ground, first and second floors)'
+  return `${floorCount} levels (ground floor and upper floors)`
+}
+
+function defaultPremisesDescriptionLine(numberOfFloors: string | null | undefined): string {
+  const floorCount = parseFloorCount(numberOfFloors)
+  if (!floorCount || floorCount <= 1) {
+    return 'The premises operates over one level (Ground Floor) and comprises a main sales floor to the front of the unit with associated back-of-house areas to the rear, including stockroom, office and staff welfare facilities.'
+  }
+
+  const floorNames =
+    floorCount === 2
+      ? 'Ground Floor and First Floor'
+      : floorCount === 3
+        ? 'Ground Floor, First Floor and Second Floor'
+        : `Ground Floor and ${floorCount - 1} upper level(s)`
+
+  return `The premises is arranged over ${floorCount} level(s) (${floorNames}) and comprises a main sales floor to the front of the unit with associated back-of-house areas to the rear, including stockroom, office and staff welfare facilities.`
+}
+
 // Dynamically import the map component to avoid SSR issues
 const StoreMap = dynamic(() => import('./store-map'), { ssr: false })
 
@@ -152,6 +191,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
   const [deletingPhotoPath, setDeletingPhotoPath] = useState<string | null>(null)
   const [placeholderPhotos, setPlaceholderPhotos] = useState<Record<string, any[]>>({})
   const [logoError, setLogoError] = useState(false)
+  const effectiveFloorCount = parseFloorCount(customData.numberOfFloors || data.numberOfFloors)
 
   // Rehydrate placeholder photos from server (so PDF and refresh show uploaded photos)
   useEffect(() => {
@@ -2129,7 +2169,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
               environment.
             </p>
             <p className="mt-2 whitespace-pre-line">
-              {data.description.split('\n').slice(0, 1).join('\n') || 'The premises operates over one level (Ground Floor) and comprises a main sales floor to the front of the unit with associated back-of-house areas to the rear, including stockroom, office and staff welfare facilities.'}
+              {data.description.split('\n').slice(0, 1).join('\n') || defaultPremisesDescriptionLine(customData.numberOfFloors || data.numberOfFloors)}
             </p>
             <p className="mt-2">
               The premises is provided with designated fire exit routes serving the sales floor and back-of-house
@@ -2148,7 +2188,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
               facilities and a management office.
             </p>
             <p className="mt-2">
-              The premises operates over a single ground floor level. Staffing levels vary depending on trading
+              The premises operates over {floorLayoutPhrase(effectiveFloorCount)}. Staffing levels vary depending on trading
               periods, with a mix of management, supervisory and sales staff present during opening hours. The
               premises is open to the public during scheduled trading hours, with staff also present outside
               these hours for opening, closing, deliveries, replenishment and general operational activities.

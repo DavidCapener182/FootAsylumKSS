@@ -1051,9 +1051,11 @@ export async function mapHSAuditToFRAData(fraInstanceId: string) {
   const assessmentDateValue = hsAuditConductedAt 
     ? formatDate(hsAuditConductedAt)
     : formatDate(fraInstance.conducted_at || fraInstance.created_at)
-  const assessmentStartTimeValue = hsAuditConductedAt
-    ? formatDateTime(hsAuditConductedAt)?.split(' ').slice(-3).join(' ') || null
-    : formatDateTime(fraInstance.conducted_at || fraInstance.created_at)?.split(' ').slice(-3).join(' ') || null
+  const assessmentStartTimeValue = editedExtractedData?.assessmentStartTime?.trim()
+    ? editedExtractedData.assessmentStartTime.trim()
+    : hsAuditConductedAt
+      ? formatDateTime(hsAuditConductedAt)?.split(' ').slice(-3).join(' ') || null
+      : formatDateTime(fraInstance.conducted_at || fraInstance.created_at)?.split(' ').slice(-3).join(' ') || null
   
   // Debug logging
   console.log('[FRA] ===== ASSESSMENT DATE DEBUG =====')
@@ -1078,7 +1080,9 @@ export async function mapHSAuditToFRAData(fraInstanceId: string) {
       appointedPerson: (extractedManagerName || storeManagerName?.value || storeManagerName?.comment || storeManagerSignature?.value) ? (pdfExtractedData.storeManager ? 'PDF' : 'H&S_AUDIT') : 'DEFAULT',
       assessorName: 'DATABASE',
       assessmentDate: hsAuditConductedAt ? (pdfExtractedData.conductedDate ? 'PDF' : 'H&S_AUDIT') : 'FRA_INSTANCE',
-      assessmentStartTime: hsAuditConductedAt ? (pdfExtractedData.conductedDate ? 'PDF' : 'H&S_AUDIT') : 'FRA_INSTANCE',
+      assessmentStartTime: editedExtractedData?.assessmentStartTime?.trim()
+        ? 'REVIEW'
+        : (hsAuditConductedAt ? (pdfExtractedData.conductedDate ? 'PDF' : 'H&S_AUDIT') : 'FRA_INSTANCE'),
       assessmentEndTime: 'N/A',
       assessmentReviewDate: hsAuditConductedAt ? (pdfExtractedData.conductedDate ? 'PDF_CALCULATED' : 'H&S_AUDIT_CALCULATED') : 'FRA_INSTANCE_CALCULATED',
       buildDate: customData?.buildDate ? 'CUSTOM' : 'WEB_SEARCH', // Will be searched, fallback to default if not found
@@ -1139,7 +1143,7 @@ export async function mapHSAuditToFRAData(fraInstanceId: string) {
     description: (() => {
       if (customData?.description?.trim()) return customData.description.trim()
       if (aiSummaries?.premisesDescription?.trim()) return aiSummaries.premisesDescription.trim()
-      const numFloors = generalSiteInfo?.value || generalSiteInfo?.comment || '1'
+      const numFloors = customData?.numberOfFloors || generalSiteInfo?.value || generalSiteInfo?.comment || '1'
       const floorsNum = parseInt(String(numFloors).replace(/\D/g, '')) || 1
       if (floorsNum === 1) {
         return `The premises operates over one level (Ground Floor) and comprises a main sales floor to the front of the unit with associated back-of-house areas to the rear, including stockroom, office and staff welfare facilities.

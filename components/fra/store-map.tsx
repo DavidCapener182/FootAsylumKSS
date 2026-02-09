@@ -33,6 +33,27 @@ function MapFitBounds({ latitude, longitude }: { latitude: number | null, longit
   return null
 }
 
+function MapSizeSync() {
+  const map = useMap()
+
+  useEffect(() => {
+    const syncSize = () => map.invalidateSize(false)
+
+    syncSize()
+    const t1 = window.setTimeout(syncSize, 250)
+    const t2 = window.setTimeout(syncSize, 1000)
+    window.addEventListener('resize', syncSize)
+
+    return () => {
+      window.clearTimeout(t1)
+      window.clearTimeout(t2)
+      window.removeEventListener('resize', syncSize)
+    }
+  }, [map])
+
+  return null
+}
+
 export default function StoreMap({ storeName, address, latitude, longitude }: StoreMapProps) {
   // Default center (UK) if no coordinates
   const defaultCenter: [number, number] = [54.5, -2.0]
@@ -82,6 +103,7 @@ export default function StoreMap({ storeName, address, latitude, longitude }: St
       />
       
       <MapFitBounds latitude={latitude} longitude={longitude} />
+      <MapSizeSync />
 
       <Marker
         position={[latitude, longitude]}

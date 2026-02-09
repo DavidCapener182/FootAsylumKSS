@@ -68,19 +68,36 @@ export async function GET(request: NextRequest) {
     await page.waitForSelector('.fra-print-page', { timeout: 15000 })
     await sleep(1500)
 
+    // Apply print media before map checks so Leaflet renders at final PDF dimensions.
+    await page.emulateMediaType('print')
+    await page.evaluate(() => {
+      document.body.classList.add('fra-print-document')
+      window.dispatchEvent(new Event('resize'))
+    })
+    await sleep(700)
+
     // If the Fire & Rescue map is present, wait for Leaflet container and tile images so map appears in PDF
     try {
       await page.waitForSelector('.fra-map-print .leaflet-container', { timeout: 5000 })
       const mapTilesDeadline = Date.now() + 12000
       while (Date.now() < mapTilesDeadline) {
         const mapReady = await page.evaluate(() => {
+          const container = document.querySelector('.fra-map-print .leaflet-container') as HTMLElement | null
+          if (!container) return false
+          if (container.clientWidth === 0 || container.clientHeight === 0) return false
+
           const pane = document.querySelector('.fra-map-print .leaflet-tile-pane')
           if (!pane) return false
           const tileImgs = pane.querySelectorAll('img')
           if (tileImgs.length === 0) return false
-          return Array.from(tileImgs).every((img: HTMLImageElement) => img.complete)
+          return Array.from(tileImgs).every(
+            (img: HTMLImageElement) => img.complete && img.naturalWidth > 0 && img.naturalHeight > 0
+          )
         })
         if (mapReady) break
+        await page.evaluate(() => {
+          window.dispatchEvent(new Event('resize'))
+        })
         await sleep(400)
       }
       await sleep(1200)
@@ -99,14 +116,7 @@ export async function GET(request: NextRequest) {
       await sleep(200)
     }
 
-    // Set media type to print so @media print styles apply
-    await page.emulateMediaType('print')
     await sleep(300)
-
-    // Ensure print-document class so print.css per-page header and layout rules apply
-    await page.evaluate(() => {
-      document.body.classList.add('fra-print-document')
-    })
 
     // Force every ancestor of #print-root to allow pagination (no fixed height/overflow)
     await page.evaluate(() => {

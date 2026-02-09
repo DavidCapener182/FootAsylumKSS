@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useMemo } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -75,17 +75,38 @@ function MapBounds({ stores, managerHome }: { stores: Store[], managerHome: Mana
   return null
 }
 
+function isLatLngTuple(value: unknown): value is [number, number] {
+  if (!Array.isArray(value) || value.length < 2) return false
+  const latitude = value[0]
+  const longitude = value[1]
+  return (
+    typeof latitude === 'number' &&
+    Number.isFinite(latitude) &&
+    latitude >= -90 &&
+    latitude <= 90 &&
+    typeof longitude === 'number' &&
+    Number.isFinite(longitude) &&
+    longitude >= -180 &&
+    longitude <= 180
+  )
+}
+
 export default function RouteMapComponent({ stores, managerHome }: RouteMapComponentProps) {
   const mapRef = useRef<L.Map | null>(null)
+  const [roadRouteCoordinates, setRoadRouteCoordinates] = useState<[number, number][]>([])
+  const [isFallbackRoute, setIsFallbackRoute] = useState(false)
 
   // Filter stores with coordinates
-  const storesWithCoords = stores.filter(s => s.latitude && s.longitude)
+  const storesWithCoords = useMemo(
+    () => stores.filter((store) => store.latitude && store.longitude),
+    [stores]
+  )
 
   // Default center (UK)
   const defaultCenter: [number, number] = [54.5, -2.0]
   const defaultZoom = 6
 
-  // Create route polyline coordinates (home -> stores -> home)
+  // Build waypoint order for the route (home -> stores -> home)
   const routeCoordinates = useMemo(() => {
     const coords: [number, number][] = []
     
@@ -106,6 +127,69 @@ export default function RouteMapComponent({ stores, managerHome }: RouteMapCompo
     
     return coords
   }, [storesWithCoords, managerHome])
+
+  useEffect(() => {
+    if (routeCoordinates.length < 2) {
+      setRoadRouteCoordinates([])
+      setIsFallbackRoute(false)
+      return
+    }
+
+    const controller = new AbortController()
+    let isCancelled = false
+
+    const fetchRoadRoute = async () => {
+      setIsFallbackRoute(false)
+
+      try {
+        const response = await fetch('/api/route-planning/road-route', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            waypoints: routeCoordinates.map(([latitude, longitude]) => ({ latitude, longitude })),
+          }),
+          signal: controller.signal,
+        })
+
+        if (!response.ok) {
+          throw new Error(`Routing API failed with status ${response.status}`)
+        }
+
+        const data = (await response.json()) as { coordinates?: unknown }
+        const coordinates = Array.isArray(data.coordinates)
+          ? data.coordinates.filter(isLatLngTuple)
+          : []
+
+        if (coordinates.length < 2) {
+          throw new Error('Routing API returned no geometry')
+        }
+
+        if (!isCancelled) {
+          setRoadRouteCoordinates(coordinates)
+          setIsFallbackRoute(false)
+        }
+      } catch (error) {
+        if (controller.signal.aborted || isCancelled) return
+
+        console.warn('Falling back to straight-line route geometry:', error)
+        setRoadRouteCoordinates([])
+        setIsFallbackRoute(true)
+      }
+    }
+
+    fetchRoadRoute()
+
+    return () => {
+      isCancelled = true
+      controller.abort()
+    }
+  }, [routeCoordinates])
+
+  const displayedRouteCoordinates = roadRouteCoordinates.length > 1
+    ? roadRouteCoordinates
+    : routeCoordinates
 
   if (typeof window === 'undefined') {
     return (
@@ -141,12 +225,13 @@ export default function RouteMapComponent({ stores, managerHome }: RouteMapCompo
       <MapBounds stores={storesWithCoords} managerHome={managerHome} />
 
       {/* Route polyline */}
-      {routeCoordinates.length > 1 && (
+      {displayedRouteCoordinates.length > 1 && (
         <Polyline
-          positions={routeCoordinates}
-          color="#3b82f6"
+          positions={displayedRouteCoordinates}
+          color={isFallbackRoute ? '#64748b' : '#3b82f6'}
           weight={4}
-          opacity={0.7}
+          opacity={isFallbackRoute ? 0.55 : 0.75}
+          dashArray={isFallbackRoute ? '8 8' : undefined}
         />
       )}
 

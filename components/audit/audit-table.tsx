@@ -211,13 +211,16 @@ export function AuditTable({
     const currentDate = auditNum === 1 ? row.compliance_audit_1_date : row.compliance_audit_2_date
     const currentPct = auditNum === 1 ? row.compliance_audit_1_overall_pct : row.compliance_audit_2_overall_pct
     const currentActionPlan = auditNum === 1 ? row.action_plan_1_sent : row.action_plan_2_sent
+    const isCurrentAuditComplete = !!(currentDate && currentPct !== null)
 
     setEditing({
       storeId: row.id,
       auditNumber: auditNum,
       date: currentDate || new Date().toISOString().split('T')[0],
       percentage: currentPct?.toString() || '',
-      actionPlan: currentActionPlan === true ? 'Yes' : currentActionPlan === false ? 'No' : undefined,
+      actionPlan: isCurrentAuditComplete
+        ? (currentActionPlan === true ? 'Yes' : currentActionPlan === false ? 'No' : undefined)
+        : undefined,
       pdfFile: null
     })
   }
@@ -662,6 +665,15 @@ export function AuditTable({
           </SelectContent>
         </Select>
       )
+    }
+
+    const row = localRows.find((r) => r.id === storeId)
+    const isAuditComplete = auditNum === 1
+      ? !!(row?.compliance_audit_1_date && row?.compliance_audit_1_overall_pct !== null)
+      : !!(row?.compliance_audit_2_date && row?.compliance_audit_2_overall_pct !== null)
+
+    if (!isAuditComplete) {
+      return <span className="text-sm text-muted-foreground">—</span>
     }
     
     return boolBadge(value)
