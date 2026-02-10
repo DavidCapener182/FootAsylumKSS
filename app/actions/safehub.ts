@@ -402,6 +402,79 @@ export async function completeAudit(instanceId: string) {
     throw new Error('Unauthorized')
   }
 
+  const { data: instanceMeta, error: instanceMetaError } = await supabase
+    .from('fa_audit_instances')
+    .select(`
+      id,
+      store_id,
+      conducted_at,
+      created_at,
+      fa_audit_templates ( category )
+    `)
+    .eq('id', instanceId)
+    .single()
+
+  if (instanceMetaError || !instanceMeta) {
+    throw new Error(`Failed to load audit instance: ${instanceMetaError?.message || 'Instance not found'}`)
+  }
+
+  const templateCategory = ((instanceMeta as any).fa_audit_templates as { category?: string } | null)?.category
+  const isFRA = templateCategory === 'fire_risk_assessment'
+
+  const buildNoonUtcDate = (year: number, month1Based: number, day: number) =>
+    new Date(Date.UTC(year, month1Based - 1, day, 12, 0, 0))
+
+  const parseAuditDateString = (raw: unknown): Date | null => {
+    if (typeof raw !== 'string') return null
+    const value = raw.trim()
+    if (!value) return null
+
+    const dmy = value.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})$/)
+    if (dmy) {
+      const day = parseInt(dmy[1], 10)
+      const month = parseInt(dmy[2], 10)
+      let year = parseInt(dmy[3], 10)
+      if (year < 100) year += 2000
+      if (day >= 1 && day <= 31 && month >= 1 && month <= 12) {
+        return buildNoonUtcDate(year, month, day)
+      }
+    }
+
+    const monthMap: Record<string, number> = {
+      jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6,
+      jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12,
+    }
+    const dMonY = value.match(/^(\d{1,2})\s+([a-z]{3,9})\w*\s+(\d{4})$/i)
+    if (dMonY) {
+      const day = parseInt(dMonY[1], 10)
+      const month = monthMap[dMonY[2].toLowerCase().slice(0, 3)]
+      const year = parseInt(dMonY[3], 10)
+      if (month && day >= 1 && day <= 31) {
+        return buildNoonUtcDate(year, month, day)
+      }
+    }
+
+    const parsed = new Date(value)
+    if (!Number.isNaN(parsed.getTime())) {
+      return buildNoonUtcDate(parsed.getUTCFullYear(), parsed.getUTCMonth() + 1, parsed.getUTCDate())
+    }
+    return null
+  }
+
+  const extractConductedDateFromPdfText = (pdfText: string): Date | null => {
+    const patterns = [
+      /(?:conducted on|conducted at|assessment date)[\s:]*(\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s+\d{4})/i,
+      /conducted[\s\S]{0,100}?(\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s+\d{4})/i,
+      /(?:conducted on|conducted at|assessment date)[\s:]*(\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4})/i,
+    ]
+    for (const pattern of patterns) {
+      const match = pdfText.match(pattern)
+      const parsed = parseAuditDateString(match?.[1])
+      if (parsed) return parsed
+    }
+    return null
+  }
+
   // Calculate overall score from yes/no answers (exclude N/A)
   const { data: responses } = await supabase
     .from('fa_audit_responses')
@@ -414,6 +487,37 @@ export async function completeAudit(instanceId: string) {
       )
     `)
     .eq('audit_instance_id', instanceId)
+
+  let fraCompletedAt: Date | null = null
+  if (isFRA && responses && responses.length > 0) {
+    for (const response of responses as any[]) {
+      const extractedDate = response?.response_json?.fra_extracted_data?.conductedDate
+      const parsed = parseAuditDateString(extractedDate)
+      if (parsed) {
+        fraCompletedAt = parsed
+        break
+      }
+    }
+
+    if (!fraCompletedAt) {
+      for (const response of responses as any[]) {
+        const pdfText = response?.response_json?.fra_pdf_text
+        if (typeof pdfText !== 'string' || !pdfText.trim()) continue
+        const parsed = extractConductedDateFromPdfText(pdfText)
+        if (parsed) {
+          fraCompletedAt = parsed
+          break
+        }
+      }
+    }
+  }
+
+  if (isFRA && !fraCompletedAt) {
+    fraCompletedAt =
+      parseAuditDateString((instanceMeta as any).conducted_at)
+      || parseAuditDateString((instanceMeta as any).created_at)
+      || new Date()
+  }
 
   let overallScore: number | null = null
   if (responses && responses.length > 0) {
@@ -442,18 +546,31 @@ export async function completeAudit(instanceId: string) {
   }
 
   // Update instance
+  const nowIso = new Date().toISOString()
   const { error } = await supabase
     .from('fa_audit_instances')
     .update({
       status: 'completed',
       overall_score: overallScore,
-      conducted_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      conducted_at: isFRA ? (fraCompletedAt as Date).toISOString() : nowIso,
+      updated_at: nowIso,
     })
     .eq('id', instanceId)
 
   if (error) {
     throw new Error(`Failed to complete audit: ${error.message}`)
+  }
+
+  if (isFRA && (instanceMeta as any).store_id) {
+    const fraDate = (fraCompletedAt as Date).toISOString().slice(0, 10)
+    const { error: storeDateError } = await supabase
+      .from('fa_stores')
+      .update({ fire_risk_assessment_date: fraDate })
+      .eq('id', (instanceMeta as any).store_id)
+
+    if (storeDateError) {
+      console.error('Failed to update store fire_risk_assessment_date in completeAudit:', storeDateError)
+    }
   }
 
   revalidatePath('/audit-lab')

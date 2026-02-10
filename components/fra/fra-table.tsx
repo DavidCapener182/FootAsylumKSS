@@ -20,8 +20,7 @@ import {
   getFRAStatus,
   getDaysUntilDue,
   statusBadge,
-  storeNeedsFRA,
-  pctBadge
+  storeNeedsFRA
 } from './fra-table-helpers'
 
 // Re-export for backward compatibility
@@ -30,7 +29,6 @@ export type { FRARow }
 interface EditState {
   storeId: string
   date: string
-  percentage: string
   notes: string
   pdfFile: File | null
 }
@@ -206,7 +204,6 @@ export function FRATable({
     setEditing({
       storeId: row.id,
       date: row.fire_risk_assessment_date || new Date().toISOString().split('T')[0],
-      percentage: row.fire_risk_assessment_pct?.toString() || '',
       notes: row.fire_risk_assessment_notes || '',
       pdfFile: null
     })
@@ -219,7 +216,7 @@ export function FRATable({
   const handleSaveFRA = async () => {
     if (!editing) return
 
-    const { storeId, date, percentage, notes, pdfFile } = editing
+    const { storeId, date, notes, pdfFile } = editing
 
     // Validate
     if (!date) {
@@ -227,16 +224,6 @@ export function FRATable({
       return
     }
     
-    // Validate percentage if provided
-    let pctNum: number | null = null
-    if (percentage && percentage.trim() !== '') {
-      pctNum = Number(percentage)
-      if (isNaN(pctNum) || pctNum < 0 || pctNum > 100) {
-        setTableMessage({ type: 'error', text: 'Percentage must be between 0 and 100.' })
-        return
-      }
-    }
-
     setSaving(true)
     setTableMessage(null)
     const storeName = localRows.find((row) => row.id === storeId)?.store_name ?? 'store'
@@ -272,7 +259,7 @@ export function FRATable({
       }
 
       // Update FRA data
-      await updateFRA(storeId, date, notes || null, pctNum, pdfPath)
+      await updateFRA(storeId, date, notes || null, null, pdfPath)
 
       // Update local state
       setLocalRows(prevRows => 
@@ -281,7 +268,7 @@ export function FRATable({
             return {
               ...row,
               fire_risk_assessment_date: date,
-              fire_risk_assessment_pct: pctNum,
+              fire_risk_assessment_pct: null,
               fire_risk_assessment_notes: notes || null,
               fire_risk_assessment_pdf_path: pdfPath || row.fire_risk_assessment_pdf_path,
             }
@@ -680,11 +667,6 @@ export function FRATable({
                         </div>
                       </div>
 
-                      <div className="mt-2 flex items-center justify-between rounded-lg border border-slate-200 bg-white px-2.5 py-1.5">
-                        <span className="text-xs text-slate-500">Score</span>
-                        {pctBadge(row.fire_risk_assessment_pct)}
-                      </div>
-
                       {row.fire_risk_assessment_notes ? (
                         <p className="mt-2 text-xs text-slate-600 line-clamp-2">{row.fire_risk_assessment_notes}</p>
                       ) : null}
@@ -695,16 +677,6 @@ export function FRATable({
                             type="date"
                             value={editing?.date || ''}
                             onChange={(e) => setEditing((prev) => prev ? { ...prev, date: e.target.value } : prev)}
-                            className="bg-white"
-                          />
-                          <Input
-                            type="number"
-                            min="0"
-                            max="100"
-                            step="0.01"
-                            value={editing?.percentage || ''}
-                            onChange={(e) => setEditing((prev) => prev ? { ...prev, percentage: e.target.value } : prev)}
-                            placeholder="Score (0-100)"
                             className="bg-white"
                           />
                           <Textarea
@@ -777,7 +749,7 @@ export function FRATable({
                                 <Trash2 className="h-3.5 w-3.5" />
                               </Button>
                             </>
-                          ) : (row.fire_risk_assessment_date || row.fire_risk_assessment_pct !== null) ? (
+                          ) : row.fire_risk_assessment_date ? (
                             <>
                               <input
                                 type="file"
@@ -818,7 +790,7 @@ export function FRATable({
       {/* Desktop Table Container */}
       <div className="hidden md:flex rounded-2xl border desktop-table-shell shadow-sm overflow-hidden flex-col">
         <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
-          <div className={cn(desktopDensity === 'dense' ? 'min-w-[940px]' : 'min-w-[1000px]')}>
+          <div className={cn(desktopDensity === 'dense' ? 'min-w-[880px]' : 'min-w-[940px]')}>
             <Table className={cn('w-full border-separate border-spacing-0', desktopTableDensityClass)} style={{ tableLayout: 'fixed' }}>
               <colgroup>
                 <col style={{ width: '32px' }} />
@@ -828,7 +800,6 @@ export function FRATable({
                 <col style={{ width: '100px' }} />
                 <col style={{ width: '100px' }} />
                 <col style={{ width: '126px' }} />
-                <col style={{ width: '64px' }} />
                 <col style={{ width: '120px' }} />
                 <col style={{ width: '150px' }} />
                 <col style={{ width: '128px' }} />
@@ -842,7 +813,6 @@ export function FRATable({
                   <TableHead className="bg-transparent text-[11px] font-semibold uppercase tracking-wide text-slate-500">Last FRA Date</TableHead>
                   <TableHead className="bg-transparent text-[11px] font-semibold uppercase tracking-wide text-slate-500">Next Due Date</TableHead>
                   <TableHead className="bg-transparent text-[11px] font-semibold uppercase tracking-wide text-slate-500">Status</TableHead>
-                  <TableHead className="bg-transparent text-[11px] font-semibold uppercase tracking-wide text-slate-500">%</TableHead>
                   <TableHead className="bg-transparent text-[11px] font-semibold uppercase tracking-wide text-slate-500">PDF</TableHead>
                   <TableHead className="bg-transparent text-[11px] font-semibold uppercase tracking-wide text-slate-500">Notes</TableHead>
                   <TableHead className="bg-transparent text-[11px] font-semibold uppercase tracking-wide text-slate-500">Actions</TableHead>
@@ -859,31 +829,30 @@ export function FRATable({
                   <col style={{ width: '100px' }} />
                   <col style={{ width: '100px' }} />
                   <col style={{ width: '126px' }} />
-                  <col style={{ width: '64px' }} />
                   <col style={{ width: '120px' }} />
                   <col style={{ width: '150px' }} />
                   <col style={{ width: '128px' }} />
                 </colgroup>
                 <TableBody>
-              {grouped.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={11} className="text-center text-muted-foreground py-10">
-                    No FRA data found matching your filters.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                grouped.map(([groupKey, areaRows]) => {
-                  return (
-                    <>
-                      {/* Area Divider Row */}
-                      <TableRow key={`hdr-${groupKey}`} className="desktop-group-bar hover:bg-transparent">
-                        <TableCell 
-                          colSpan={11} 
-                          className="py-1.5 px-4 border-y border-slate-200/70"
-                        >
-                          <span className="font-bold text-slate-700">{groupKey}</span>
-                        </TableCell>
-                      </TableRow>
+                  {grouped.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={10} className="text-center text-muted-foreground py-10">
+                        No FRA data found matching your filters.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    grouped.map(([groupKey, areaRows]) => {
+                      return (
+                        <>
+                          {/* Area Divider Row */}
+                          <TableRow key={`hdr-${groupKey}`} className="desktop-group-bar hover:bg-transparent">
+                            <TableCell 
+                              colSpan={10} 
+                              className="py-1.5 px-4 border-y border-slate-200/70"
+                            >
+                              <span className="font-bold text-slate-700">{groupKey}</span>
+                            </TableCell>
+                          </TableRow>
 
                       {/* Store Rows */}
                       {areaRows.map((row, idx) => {
@@ -925,23 +894,6 @@ export function FRATable({
                             </TableCell>
                             
                             <TableCell className="border-b bg-white group-hover:bg-slate-50">
-                              {editing?.storeId === row.id ? (
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  max="100"
-                                  step="0.01"
-                                  value={editing.percentage}
-                                  onChange={(e) => setEditing({ ...editing, percentage: e.target.value })}
-                                  className="h-8 text-xs w-20"
-                                  placeholder="0-100"
-                                />
-                              ) : (
-                                pctBadge(row.fire_risk_assessment_pct)
-                              )}
-                            </TableCell>
-                            
-                            <TableCell className="border-b bg-white group-hover:bg-slate-50">
                               <div className="flex items-center gap-1">
                                 {row.fire_risk_assessment_pdf_path ? (
                                   <>
@@ -965,7 +917,7 @@ export function FRATable({
                                       <Trash2 className="h-3 w-3" />
                                     </Button>
                                   </>
-                                ) : (row.fire_risk_assessment_date || row.fire_risk_assessment_pct !== null) ? (
+                                ) : row.fire_risk_assessment_date ? (
                                   <div className="relative">
                                     <input
                                       type="file"

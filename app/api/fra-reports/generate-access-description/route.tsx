@@ -30,6 +30,11 @@ export async function POST(request: NextRequest) {
 
     const prompt = `Based on the following information about a Footasylum retail store, write a brief professional description (2-3 sentences) of access for Fire and Rescue Services. The description should mention entry points, access routes, and any relevant observations.
 
+Rules:
+- If "auditInfo.fireExits" is provided, use that exact value when referring to the number of fire exits/fire doors.
+- Do not infer the number of fire exits from "numberOfFloors".
+- If "auditInfo.fireExits" is missing, do not state a specific number of exits.
+
 Store Address: ${storeAddress}
 ${auditInfo ? `Audit Information: ${JSON.stringify(auditInfo)}` : ''}
 ${mapUrl ? `A map is available showing the store location.` : ''}

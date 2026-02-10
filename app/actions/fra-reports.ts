@@ -318,7 +318,7 @@ export async function mapHSAuditToFRAData(fraInstanceId: string) {
     
     // Use original text (not normalized) for better matching
     const originalText = pdfText
-    
+
     // Store Manager - try multiple patterns
     let storeManagerMatch = originalText.match(/(?:signature of person in charge of store at time of assessment|signature of person in charge|person in charge)[\s:]*([^\n\r]+?)(?:\*\*|\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s+\d{4}|pm|gmt)/i)
     if (!storeManagerMatch) {
@@ -538,12 +538,35 @@ export async function mapHSAuditToFRAData(fraInstanceId: string) {
     }
 
     // MEDIUM PRIORITY: Ceiling tiles / compartmentation
-    if (originalText.match(/(?:ceiling tile|compartmentation|fire stopping).*?(?:no missing|intact|satisfactory|good|yes)/i)
-      || originalText.match(/(?:no missing|no breaches).*?(?:ceiling|compartment)/i)
-      || originalText.match(/(?:structure|structural).*?(?:good condition|satisfactory)/i)
-      || originalText.match(/(?:missing ceiling tiles)[\s\S]{0,30}?(?:no|none)/i)) {
-      pdfExtractedData.compartmentationStatus = 'No breaches identified'
-      console.log('[FRA] Found compartmentation status from PDF: No breaches')
+    const extractCompartmentationStatusFromText = (text: string): string | null => {
+      const sentences = text
+        .replace(/\r/g, '\n')
+        .split(/[\n.?!]+/)
+        .map((s) => s.trim())
+        .filter(Boolean)
+
+      // Prefer explicit defect statements over generic "no issues" wording from question text.
+      const issueSentence = sentences.find((sentence) => {
+        const lower = sentence.toLowerCase()
+        const hasIssueSignal = /missing ceiling tiles?|ceiling tiles? missing|breach(?:es)?|gaps? from area to area|compartmentation[\s\S]{0,40}?(?:damage|breach|issue)/i.test(sentence)
+        if (!hasIssueSignal) return false
+        if (lower.includes('e.g. missing') || lower.includes('eg missing')) return false
+        if (/\bno missing\b|\bno breaches\b|\bno evidence of damage\b|\bno evident breaches\b/.test(lower)) return false
+        return true
+      })
+
+      if (issueSentence) {
+        return issueSentence.replace(/\s+/g, ' ').replace(/[.]+$/, '')
+      }
+
+      const noBreachDetected = /(?:ceiling tile|compartmentation|fire stopping|structure|structural)[\s\S]{0,120}?(?:no missing|no breaches|no evidence of damage|intact|satisfactory|good condition|no evident breaches)/i.test(text)
+      return noBreachDetected ? 'No breaches identified' : null
+    }
+
+    const compartmentationStatusFromText = extractCompartmentationStatusFromText(originalText)
+    if (compartmentationStatusFromText) {
+      pdfExtractedData.compartmentationStatus = compartmentationStatusFromText
+      console.log('[FRA] Found compartmentation status from PDF:', compartmentationStatusFromText)
     }
 
     // MEDIUM PRIORITY: Fire extinguisher service date - more patterns
@@ -817,25 +840,50 @@ export async function mapHSAuditToFRAData(fraInstanceId: string) {
   // Try to find occupancy calculation data
   const occupancyData = findAnswer('occupancy') || findAnswer('capacity')
 
-  /** Parse floor area string to a number (m²). Handles "3000", "650 m²", "Approximately 650 m²", etc. */
-  const parseFloorAreaM2 = (s: string | null | undefined): number | null => {
+  const SQFT_PER_M2 = 10.7639
+  const STANDARD_SQFT_PER_PERSON = 60
+  const PEAK_SQFT_PER_PERSON = 30
+
+  /** Parse floor area string to sq ft. Supports "4,941 sq ft", "650 m²", and unitless values. */
+  const parseFloorAreaSqFt = (s: string | null | undefined): number | null => {
     if (!s || typeof s !== 'string') return null
+
     const trimmed = s.trim()
-    const match = trimmed.match(/(\d+(?:\.\d+)?)\s*(?:m²|sq\.?\s*m|square\s*m|m2)?/i) ?? trimmed.match(/(\d+(?:\.\d+)?)/)
-    if (!match) return null
-    const n = parseFloat(match[1])
-    return Number.isFinite(n) && n > 0 ? n : null
+    const numericToken = trimmed.replace(/,/g, '').match(/(\d+(?:\.\d+)?)/)
+    if (!numericToken) return null
+
+    const numericValue = parseFloat(numericToken[1])
+    if (!Number.isFinite(numericValue) || numericValue <= 0) return null
+
+    const hasSqFtUnit = /\b(?:sq\.?\s*ft|sqft|ft2|ft²|square\s*feet)\b/i.test(trimmed)
+    const hasM2Unit = /\b(?:m²|m2|sq\.?\s*m|sqm|square\s*met(?:re|er)s?)\b/i.test(trimmed)
+
+    if (hasSqFtUnit) return numericValue
+    if (hasM2Unit) return numericValue * SQFT_PER_M2
+
+    // Heuristic for unitless values: smaller values tend to be m², larger values tend to be sq ft.
+    return numericValue <= 1000 ? numericValue * SQFT_PER_M2 : numericValue
+  }
+
+  const formatRetailOccupancyFromSqFt = (floorAreaSqFt: number): string => {
+    const areaRounded = Math.round(floorAreaSqFt)
+    const standardPeople = Math.round(floorAreaSqFt / STANDARD_SQFT_PER_PERSON)
+    const peakPeople = Math.round(floorAreaSqFt / PEAK_SQFT_PER_PERSON)
+    const areaLabel = areaRounded.toLocaleString('en-GB')
+
+    return [
+      `Standard (60 sq ft/person): ${areaLabel} sq ft ÷ 60 = ~${standardPeople} people`,
+      `Peak (30 sq ft/person): ${areaLabel} sq ft ÷ 30 = ~${peakPeople} people`,
+    ].join('\n')
   }
 
   const floorAreaStr = customData?.floorArea || squareFootage?.value || squareFootage?.comment || ''
-  const floorAreaNum = parseFloorAreaM2(floorAreaStr)
-  const hasManualOccupancy = !!(customData?.occupancy?.trim() || occupancyData?.value || occupancyData?.comment)
+  const floorAreaSqFt = parseFloorAreaSqFt(floorAreaStr)
+  const hasCustomOccupancy = !!customData?.occupancy?.trim()
   const defaultOccupancyText = 'To be calculated based on floor area'
   const occupancyFromFloorArea =
-    !hasManualOccupancy &&
-    floorAreaNum != null &&
-    floorAreaNum >= 10
-      ? `Approximately ${Math.round(floorAreaNum / 2)} persons based on 2 m² per person`
+    !hasCustomOccupancy && floorAreaSqFt != null
+      ? formatRetailOccupancyFromSqFt(floorAreaSqFt)
       : null
 
   // Try to get opening hours from ChatGPT search when we don't have edited or PDF value
@@ -880,6 +928,72 @@ export async function mapHSAuditToFRAData(fraInstanceId: string) {
   const sprinklerSystemAnswer = findAnswer('Sprinkler System')
   const hasSprinklers = sprinklerSystemAnswer?.value === 'Yes' || sprinklerClearance?.value === 'Yes' || sprinklerSystemAnswer?.comment?.toLowerCase().includes('sprinkler')
   const plugsExtensionLeads = findAnswer('plugs and Extension leads')
+
+  const normalizeNarrativeText = (value: unknown): string | null => {
+    if (typeof value !== 'string') return null
+    const trimmed = value.trim()
+    if (!trimmed) return null
+    if (/^(yes|no|n\/a|na)$/i.test(trimmed)) return null
+    return trimmed
+  }
+
+  type CompartmentationSource = 'REVIEW' | 'PDF' | 'H&S_AUDIT'
+  const normalizeCompartmentationNarrative = (value: unknown): string | null => {
+    return normalizeNarrativeText(value)
+  }
+  const compartmentationPriority = (text: string): number => {
+    if (/^(no breaches identified|no breaches|none identified|no evidence of damage)\.?$/i.test(text)) {
+      return 1
+    }
+    if (/(missing ceiling tiles?|ceiling tiles? missing|gaps? from area to area|ceiling[\s\S]{0,30}?(?:damage|gap|hole)|compartmentation[\s\S]{0,40}?(?:damage|breach|issue)|breaches?\s+(?:observed|identified|noted|present))/i.test(text)) {
+      return 3
+    }
+    return 2
+  }
+
+  const compartmentationCandidates = [
+    { value: normalizeCompartmentationNarrative(editedExtractedData?.compartmentationStatus), source: 'REVIEW' as CompartmentationSource },
+    { value: normalizeCompartmentationNarrative(pdfExtractedData.compartmentationStatus), source: 'PDF' as CompartmentationSource },
+    { value: normalizeCompartmentationNarrative(compartmentationAnswer?.comment), source: 'H&S_AUDIT' as CompartmentationSource },
+    { value: normalizeCompartmentationNarrative(compartmentationAnswer?.value), source: 'H&S_AUDIT' as CompartmentationSource },
+    { value: normalizeCompartmentationNarrative(structureCondition?.comment), source: 'H&S_AUDIT' as CompartmentationSource },
+    { value: normalizeCompartmentationNarrative(structureCondition?.value), source: 'H&S_AUDIT' as CompartmentationSource },
+  ].filter((candidate): candidate is { value: string; source: CompartmentationSource } => !!candidate.value)
+
+  const compartmentationSourceRank: Record<CompartmentationSource, number> = {
+    REVIEW: 3,
+    'H&S_AUDIT': 2,
+    PDF: 1,
+  }
+
+  const selectedCompartmentation = compartmentationCandidates
+    .map((candidate) => ({ ...candidate, priority: compartmentationPriority(candidate.value) }))
+    .sort((a, b) => {
+      if (b.priority !== a.priority) return b.priority - a.priority
+      return compartmentationSourceRank[b.source] - compartmentationSourceRank[a.source]
+    })[0] || null
+
+  const selectedCompartmentationStatus = selectedCompartmentation?.value || null
+  const selectedCompartmentationSource = selectedCompartmentation?.source || 'NOT_FOUND'
+  const hasCompartmentationDefect = (() => {
+    const status = selectedCompartmentationStatus || ''
+    const lower = status.toLowerCase()
+    if (!lower) return false
+    if (/(missing ceiling tiles?|ceiling tiles? missing|breaches?\s+(?:observed|identified|noted|present)|gaps?\s+from\s+area\s+to\s+area|ceiling[\s\S]{0,30}?(?:damage|gap|hole)|compartmentation[\s\S]{0,40}?(?:issue|damage|breach))/i.test(status)) {
+      return true
+    }
+    if (/(no breaches identified|no breaches|none identified|no evidence of damage|no evident breaches)/i.test(status)) {
+      return false
+    }
+    return /(breach|gap|damage|hole|missing)/i.test(status)
+  })()
+  const compartmentationActionRecommendation = 'Repair and reinstate missing or damaged ceiling tiles and any associated gaps in stock/staff areas to maintain effective compartmentation and fire/smoke resistance.'
+  console.log('[FRA] Compartmentation selection:', {
+    selectedCompartmentationStatus,
+    selectedCompartmentationSource,
+    hasCompartmentationDefect,
+    candidates: compartmentationCandidates,
+  })
 
   // Statutory Testing
   const fireAlarmMaintenance = findAnswer('Fire Alarm Maintenance')
@@ -1162,8 +1276,17 @@ The premises is a mid-unit with adjoining retail occupancies to either side.`
     numberOfFloors: customData?.numberOfFloors ?? generalSiteInfo?.value ?? generalSiteInfo?.comment ?? '1',
     floorArea: customData?.floorArea || squareFootage?.value || squareFootage?.comment || 'To be confirmed', // Use custom data if available
     floorAreaComment: !customData?.floorArea && !squareFootage?.value && !squareFootage?.comment ? 'Please add floor area information' : null,
-    occupancy: customData?.occupancy || occupancyData?.value || occupancyData?.comment || occupancyFromFloorArea || 'To be calculated based on floor area',
-    occupancyComment: occupancyFromFloorArea ? null : (!customData?.occupancy && !occupancyData?.value && !occupancyData?.comment ? 'Please add occupancy information or it will be calculated based on floor area (2 m² per person)' : null),
+    occupancy:
+      customData?.occupancy ||
+      occupancyFromFloorArea ||
+      occupancyData?.value ||
+      occupancyData?.comment ||
+      defaultOccupancyText,
+    occupancyComment: occupancyFromFloorArea
+      ? null
+      : !customData?.occupancy && !occupancyData?.value && !occupancyData?.comment
+        ? 'Please add floor area information to calculate both Standard (60 sq ft/person) and Peak (30 sq ft/person) occupancy.'
+        : null,
     operatingHours: customData?.operatingHours || operatingHoursData?.value || operatingHoursData?.comment || 'To be confirmed',
     operatingHoursComment: !customData?.operatingHours && !operatingHoursData?.value && !operatingHoursData?.comment ? 'Please add operating hours information' : null,
     sleepingRisk: customData?.sleepingRisk ?? 'No sleeping occupants',
@@ -1271,10 +1394,26 @@ Sprinkler heads are installed throughout the premises in accordance with the ori
     // COSHH reference for Sources of fuel (brief; detail in H&S only)
     sourcesOfFuelCoshhNote: 'Cleaning materials are low-risk and non-flammable. COSHH is managed under a separate assessment.',
 
-    // Significant Findings: prefer AI summary, else evidence-led from edited/regex
+    // Significant Findings: prefer AI summary, then remove contradictions when a compartmentation defect exists.
     significantFindings: (() => {
+      const contradictionPattern = /(no evidence of damage|no evident breaches|no breaches identified|no significant deficiencies were identified)/i
+      const defectPattern = /(missing ceiling tiles?|ceiling tiles? missing|compartmentation[\s\S]{0,30}?(?:defect|issue|damage|breach)|breaches?\s+(?:observed|identified|noted|present)|gaps?\s+from\s+area\s+to\s+area)/i
+      const formatCompartmentationFinding = () =>
+        selectedCompartmentationStatus
+          ? `${selectedCompartmentationStatus}. This should be rectified to maintain fire and smoke containment.`
+          : 'Compartmentation defects were identified and should be rectified to maintain fire and smoke containment.'
+
+      const normalizeFindings = (input: string[]) => {
+        if (!hasCompartmentationDefect) return input
+        const filtered = input.filter((line) => !contradictionPattern.test(line) || defectPattern.test(line))
+        if (filtered.some((line) => defectPattern.test(line))) {
+          return filtered
+        }
+        return [...filtered, formatCompartmentationFinding()]
+      }
+
       if (aiSummaries?.significantFindings?.length) {
-        return aiSummaries.significantFindings as string[]
+        return normalizeFindings(aiSummaries.significantFindings as string[])
       }
       const editedEscape = editedExtractedData?.escapeRoutesEvidence?.trim()
       const escapeSentence = editedEscape
@@ -1282,9 +1421,11 @@ Sprinkler heads are installed throughout the premises in accordance with the ori
           ? 'Observed during recent inspections: fire exits and delivery doors were partially blocked by pallets and boxes (stockroom and rear fire door), restricting effective escape width during evacuation.'
           : 'Escape routes were clearly identifiable and generally maintained free from obstruction.')
       const detectionFinding = 'The premises is provided with appropriate fire detection and alarm systems, emergency lighting, fire-fighting equipment and clearly defined escape routes. These systems were observed to be in place and operational, supporting safe evacuation in the event of a fire.'
-      const fireDoorsFinding = 'Fire doors and compartmentation arrangements were observed to be in satisfactory condition, with doors not wedged open and fitted with intact intumescent protection. ' + escapeSentence
+      const fireDoorsFinding = hasCompartmentationDefect
+        ? `${formatCompartmentationFinding()} ${escapeSentence}`
+        : 'Fire doors and compartmentation arrangements were observed to be in satisfactory condition, with doors not wedged open and fitted with intact intumescent protection. ' + escapeSentence
       const managementFinding = 'Routine fire safety management arrangements are in place, including weekly fire alarm testing, monthly emergency lighting checks and scheduled servicing of fire safety systems by competent contractors. Fire drills have been conducted, and records are maintained.'
-      return [detectionFinding, fireDoorsFinding, managementFinding]
+      return normalizeFindings([detectionFinding, fireDoorsFinding, managementFinding])
     })(),
 
     // Recommended Controls (obstruction when edited text or PDF/findAnswer)
@@ -1294,6 +1435,7 @@ Sprinkler heads are installed throughout the premises in accordance with the ori
       contractorManagement?.value === 'No' ? 'Reinforce contractor and visitor management procedures, including signing-in arrangements and briefing on emergency procedures.' : null,
       coshhSheets?.value === 'No' ? 'Ensure fire safety documentation relevant to the premises is available on site and maintained in an accessible format, including COSHH safety data sheets.' : null,
       laddersNumbered?.value === 'No' ? 'Ensure all ladders and steps are clearly numbered for identification purposes.' : null,
+      hasCompartmentationDefect ? compartmentationActionRecommendation : null,
       (editedExtractedData?.escapeRoutesEvidence?.trim() || escapeObstructed) ? 'Address obstruction of fire exits and delivery doors (e.g. pallets, boxes) to maintain effective escape width; ensure escape routes and final exits are always kept clear and unobstructed.' : 'Continue to ensure escape routes and final exits are always kept clear and unobstructed.',
       combustibleEscapeCompromise ? 'Maintain good housekeeping standards; ensure combustible materials and packaging do not compromise escape routes.' : 'Maintain good housekeeping standards, particularly in relation to the control and storage of combustible materials and packaging.',
       'Continue routine testing, inspection and servicing of fire alarm systems, emergency lighting and fire-fighting equipment in accordance with statutory requirements and British Standards.',
@@ -1357,6 +1499,12 @@ Sprinkler heads are installed throughout the premises in accordance with the ori
           recommendation: 'Ensure all ladders and steps are clearly numbered for identification purposes.',
         })
       }
+      if (hasCompartmentationDefect) {
+        derived.push({
+          priority: 'Medium',
+          recommendation: compartmentationActionRecommendation,
+        })
+      }
       if (customData?.intumescentStripsPresent === false) {
         derived.push({
           priority: 'Medium',
@@ -1384,7 +1532,7 @@ Sprinkler heads are installed throughout the premises in accordance with the ori
 
     // MEDIUM PRIORITY: New H&S audit fields
     exitSignageCondition: editedExtractedData?.exitSignageCondition || pdfExtractedData.exitSignageCondition || exitSignageAnswer?.value || exitSignageAnswer?.comment || null,
-    compartmentationStatus: editedExtractedData?.compartmentationStatus || pdfExtractedData.compartmentationStatus || compartmentationAnswer?.value || compartmentationAnswer?.comment || null,
+    compartmentationStatus: selectedCompartmentationStatus,
     extinguisherServiceDate: editedExtractedData?.extinguisherServiceDate || pdfExtractedData.extinguisherServiceDate || fireExtinguisherService?.comment || null,
     callPointAccessibility: editedExtractedData?.callPointAccessibility || pdfExtractedData.callPointAccessibility || callPointsAnswer?.value || callPointsAnswer?.comment || null,
 
@@ -1414,7 +1562,7 @@ Sprinkler heads are installed throughout the premises in accordance with the ori
     sourcesOfFuel: 'DEFAULT',
     sourcesOfOxygen: 'DEFAULT',
     peopleAtRisk: 'DEFAULT',
-    recommendedControls: trainingInduction?.value === 'No' || trainingToolbox?.value === 'No' || contractorManagement?.value === 'No' || coshhSheets?.value === 'No' || laddersNumbered?.value === 'No' ? 'H&S_AUDIT_MIXED' : 'DEFAULT',
+    recommendedControls: trainingInduction?.value === 'No' || trainingToolbox?.value === 'No' || contractorManagement?.value === 'No' || coshhSheets?.value === 'No' || laddersNumbered?.value === 'No' || hasCompartmentationDefect ? 'H&S_AUDIT_MIXED' : 'DEFAULT',
     // High priority fields
     numberOfFireExits: editedExtractedData?.numberOfFireExits ? 'REVIEW' : pdfExtractedData.numberOfFireExits ? 'PDF' : (fireExits?.value || fireExits?.comment) ? 'H&S_AUDIT' : 'NOT_FOUND',
     totalStaffEmployed: editedExtractedData?.totalStaffEmployed ? 'REVIEW' : pdfExtractedData.totalStaffEmployed ? 'PDF' : (staffCount?.value || staffCount?.comment) ? 'H&S_AUDIT' : 'NOT_FOUND',
@@ -1425,7 +1573,7 @@ Sprinkler heads are installed throughout the premises in accordance with the ori
     fixedWireTestDate: editedExtractedData?.fixedWireTestDate ? 'REVIEW' : pdfExtractedData.fixedWireTestDate ? 'PDF' : (fixedWireAnswer?.value || fixedWireAnswer?.comment) ? 'H&S_AUDIT' : 'NOT_FOUND',
     // Medium priority fields
     exitSignageCondition: editedExtractedData?.exitSignageCondition ? 'REVIEW' : pdfExtractedData.exitSignageCondition ? 'PDF' : (exitSignageAnswer?.value || exitSignageAnswer?.comment) ? 'H&S_AUDIT' : 'NOT_FOUND',
-    compartmentationStatus: editedExtractedData?.compartmentationStatus ? 'REVIEW' : pdfExtractedData.compartmentationStatus ? 'PDF' : (compartmentationAnswer?.value || compartmentationAnswer?.comment) ? 'H&S_AUDIT' : 'NOT_FOUND',
+    compartmentationStatus: selectedCompartmentationSource,
     extinguisherServiceDate: editedExtractedData?.extinguisherServiceDate ? 'REVIEW' : pdfExtractedData.extinguisherServiceDate ? 'PDF' : fireExtinguisherService?.comment ? 'H&S_AUDIT' : 'NOT_FOUND',
     callPointAccessibility: editedExtractedData?.callPointAccessibility ? 'REVIEW' : pdfExtractedData.callPointAccessibility ? 'PDF' : (callPointsAnswer?.value || callPointsAnswer?.comment) ? 'H&S_AUDIT' : 'NOT_FOUND',
   }

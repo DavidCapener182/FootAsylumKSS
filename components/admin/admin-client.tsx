@@ -261,7 +261,11 @@ export function AdminClient() {
                 </Select>
               </div>
             </div>
-            <Button type="submit" disabled={inviting || !inviteEmail.trim()}>
+            <Button
+              type="submit"
+              disabled={inviting || !inviteEmail.trim()}
+              className="w-full sm:w-auto"
+            >
               {inviting ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -295,7 +299,86 @@ export function AdminClient() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="rounded-md border border-yellow-200 overflow-hidden bg-white">
+            <div className="space-y-3 md:hidden">
+              {pendingUsers.map((user) => {
+                const pendingRole = roleChanges.get(user.id)
+                const displayRole = pendingRole || user.role
+                const hasChanges = roleChanges.has(user.id) && pendingRole !== 'pending'
+
+                return (
+                  <div key={user.id} className="rounded-lg border border-yellow-200 bg-white p-4 space-y-3">
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium uppercase tracking-wide text-yellow-700">Pending User</p>
+                      <p className="text-sm font-medium break-all">{user.email}</p>
+                      <p className="text-sm text-muted-foreground">{user.full_name || 'No name provided'}</p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor={`pending-role-${user.id}`} className="text-xs text-muted-foreground">
+                        Assign role
+                      </Label>
+                      <Select
+                        value={displayRole}
+                        onValueChange={(value) => handleRoleChange(user.id, value as UserRole)}
+                        disabled={saving === user.id}
+                      >
+                        <SelectTrigger id={`pending-role-${user.id}`} className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="admin">Admin</SelectItem>
+                          <SelectItem value="ops">Ops</SelectItem>
+                          <SelectItem value="readonly">Readonly</SelectItem>
+                          <SelectItem value="client">Client</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      {hasChanges ? (
+                        <Button
+                          onClick={() => handleSaveRole(user.id)}
+                          disabled={saving === user.id}
+                          size="sm"
+                          variant="default"
+                          className="w-full"
+                        >
+                          {saving === user.id ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Saving...
+                            </>
+                          ) : (
+                            <>
+                              <Save className="h-4 w-4 mr-2" />
+                              Approve
+                            </>
+                          )}
+                        </Button>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Select role to approve</span>
+                      )}
+                      <Button
+                        onClick={() => handleDeleteUser(user.id, user.email)}
+                        disabled={deletingUser === user.id || saving === user.id}
+                        size="sm"
+                        variant="outline"
+                        className="w-full border-red-200 text-red-600 hover:text-red-700 hover:bg-red-50"
+                        title="Delete user"
+                      >
+                        {deletingUser === user.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <>
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete user
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            <div className="hidden md:block rounded-md border border-yellow-200 overflow-hidden bg-white">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -313,7 +396,7 @@ export function AdminClient() {
 
                     return (
                       <TableRow key={user.id} className="bg-yellow-50/50">
-                        <TableCell className="font-medium">{user.email}</TableCell>
+                        <TableCell className="font-medium break-all">{user.email}</TableCell>
                         <TableCell>{user.full_name || '—'}</TableCell>
                         <TableCell>
                           <Select
@@ -321,7 +404,7 @@ export function AdminClient() {
                             onValueChange={(value) => handleRoleChange(user.id, value as UserRole)}
                             disabled={saving === user.id}
                           >
-                            <SelectTrigger className="w-[180px]">
+                            <SelectTrigger className="w-full min-w-[160px]">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -333,7 +416,7 @@ export function AdminClient() {
                           </Select>
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             {hasChanges ? (
                               <Button
                                 onClick={() => handleSaveRole(user.id)}
@@ -384,16 +467,111 @@ export function AdminClient() {
 
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <CardTitle>All Users ({users.length})</CardTitle>
-            <Button onClick={loadUsers} variant="outline" size="sm">
+            <Button onClick={loadUsers} variant="outline" size="sm" className="w-full sm:w-auto">
               <RefreshCw className="h-4 w-4 mr-2" />
               Refresh
             </Button>
           </div>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border overflow-hidden">
+          <div className="space-y-3 md:hidden">
+            {users.length === 0 ? (
+              <div className="rounded-lg border p-6 text-center text-sm text-muted-foreground">
+                No users found
+              </div>
+            ) : (
+              users.map((user) => {
+                const pendingRole = roleChanges.get(user.id)
+                const displayRole = pendingRole || user.role
+                const hasChanges = roleChanges.has(user.id)
+
+                return (
+                  <div key={user.id} className="rounded-lg border bg-white p-4 space-y-3">
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium break-all">{user.email}</p>
+                      <p className="text-sm text-muted-foreground">{user.full_name || 'No name provided'}</p>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge variant="outline" className={getRoleBadgeColor(user.role)}>
+                        {user.role}
+                      </Badge>
+                      {pendingRole && (
+                        <span className="text-xs text-muted-foreground">
+                          Pending change to {pendingRole}
+                        </span>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor={`all-role-${user.id}`} className="text-xs text-muted-foreground">
+                        Change role
+                      </Label>
+                      <Select
+                        value={displayRole}
+                        onValueChange={(value) => handleRoleChange(user.id, value as UserRole)}
+                        disabled={saving === user.id}
+                      >
+                        <SelectTrigger id={`all-role-${user.id}`} className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="admin">Admin</SelectItem>
+                          <SelectItem value="ops">Ops</SelectItem>
+                          <SelectItem value="readonly">Readonly</SelectItem>
+                          <SelectItem value="client">Client</SelectItem>
+                          <SelectItem value="pending">Pending</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      {hasChanges ? (
+                        <Button
+                          onClick={() => handleSaveRole(user.id)}
+                          disabled={saving === user.id}
+                          size="sm"
+                          variant="default"
+                          className="w-full"
+                        >
+                          {saving === user.id ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Saving...
+                            </>
+                          ) : (
+                            <>
+                              <Save className="h-4 w-4 mr-2" />
+                              Save
+                            </>
+                          )}
+                        </Button>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">No changes</span>
+                      )}
+                      <Button
+                        onClick={() => handleDeleteUser(user.id, user.email)}
+                        disabled={deletingUser === user.id || saving === user.id}
+                        size="sm"
+                        variant="outline"
+                        className="w-full border-red-200 text-red-600 hover:text-red-700 hover:bg-red-50"
+                        title="Delete user"
+                      >
+                        {deletingUser === user.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <>
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete user
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                )
+              })
+            )}
+          </div>
+          <div className="hidden md:block rounded-md border overflow-hidden">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -419,7 +597,7 @@ export function AdminClient() {
 
                     return (
                       <TableRow key={user.id}>
-                        <TableCell className="font-medium">{user.email}</TableCell>
+                        <TableCell className="font-medium break-all">{user.email}</TableCell>
                         <TableCell>{user.full_name || '—'}</TableCell>
                         <TableCell>
                           <Badge variant="outline" className={getRoleBadgeColor(user.role)}>
@@ -437,7 +615,7 @@ export function AdminClient() {
                             onValueChange={(value) => handleRoleChange(user.id, value as UserRole)}
                             disabled={saving === user.id}
                           >
-                            <SelectTrigger className="w-[180px]">
+                            <SelectTrigger className="w-full min-w-[160px]">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -450,7 +628,7 @@ export function AdminClient() {
                           </Select>
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             {hasChanges ? (
                               <Button
                                 onClick={() => handleSaveRole(user.id)}

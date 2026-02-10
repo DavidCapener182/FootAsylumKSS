@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useState, useEffect, useCallback } from 'react'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { UserRole } from '@/lib/auth'
 import { getAuditPDFDownloadUrl, deleteAuditPDF } from '@/app/actions/audit-pdfs'
-import { Upload, Eye, EyeOff, File, Trash2, SlidersHorizontal, ChevronDown, ChevronUp } from 'lucide-react'
+import { Upload, Eye, EyeOff, File, Trash2, SlidersHorizontal, ChevronDown, ChevronUp, BellRing } from 'lucide-react'
 import { PDFViewerModal } from '@/components/shared/pdf-viewer-modal'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { StoreActionsModal } from './store-actions-modal'
@@ -50,9 +50,53 @@ interface DeleteAuditPdfState {
 type DesktopDensity = 'dense' | 'comfortable'
 
 const DESKTOP_DENSITY_STORAGE_KEY = 'fa_desktop_table_density'
+const HS_AUDIT_INTERVAL_MONTHS = 6
+const PREVISIT_ACTION_FLAG_DAYS = 14
+
+// Temporary debug preview to show how the pre-visit flag will look in advance.
+const ENABLE_PREVISIT_FLAG_DEBUG_PREVIEW = false
 
 function isDesktopDensity(value: string): value is DesktopDensity {
   return value === 'dense' || value === 'comfortable'
+}
+
+type UpcomingActionFlag = {
+  actionCount: number
+  daysUntilDue: number
+  dueDate: Date
+  isDebugPreview: boolean
+  title: string
+}
+
+function getLatestCompletedHSAuditDate(row: AuditRow): Date | null {
+  const candidateDates = [row.compliance_audit_1_date, row.compliance_audit_2_date]
+    .filter((value): value is string => Boolean(value))
+    .map((value) => new Date(value))
+    .filter((date) => !Number.isNaN(date.getTime()))
+
+  if (candidateDates.length === 0) {
+    return null
+  }
+
+  return new Date(Math.max(...candidateDates.map((date) => date.getTime())))
+}
+
+function getNextHSAuditDueDate(row: AuditRow): Date | null {
+  const latestDate = getLatestCompletedHSAuditDate(row)
+  if (!latestDate) {
+    return null
+  }
+
+  const dueDate = new Date(latestDate)
+  dueDate.setMonth(dueDate.getMonth() + HS_AUDIT_INTERVAL_MONTHS)
+  dueDate.setHours(0, 0, 0, 0)
+  return dueDate
+}
+
+function getDaysUntil(date: Date): number {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return Math.floor((date.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
 }
 
 export function AuditTable({ 
@@ -98,6 +142,7 @@ export function AuditTable({
   const [tableMessage, setTableMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [storeActionsModalOpen, setStoreActionsModalOpen] = useState(false)
   const [storeActionsRow, setStoreActionsRow] = useState<AuditRow | null>(null)
+  const [storeActionCounts, setStoreActionCounts] = useState<Record<string, number>>({})
 
   useEffect(() => {
     if (!tableMessage) return
@@ -129,6 +174,44 @@ export function AuditTable({
     rows.forEach((r) => r.region && set.add(r.region))
     return Array.from(set).sort()
   }, [rows])
+
+  const loadStoreActionCounts = useCallback(async () => {
+    const storeIds = localRows.map((row) => row.id).filter(Boolean)
+    if (storeIds.length === 0) {
+      setStoreActionCounts({})
+      return
+    }
+
+    try {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('fa_store_actions')
+        .select('store_id, status')
+        .in('store_id', storeIds)
+
+      if (error) {
+        console.error('Failed to load store action counts:', error)
+        return
+      }
+
+      const counts: Record<string, number> = {}
+      ;(data || []).forEach((action: any) => {
+        const storeId = action?.store_id as string | null
+        const status = String(action?.status || '').toLowerCase()
+        if (!storeId) return
+        if (status === 'cancelled') return
+        counts[storeId] = (counts[storeId] || 0) + 1
+      })
+
+      setStoreActionCounts(counts)
+    } catch (error) {
+      console.error('Failed to load store action counts:', error)
+    }
+  }, [localRows])
+
+  useEffect(() => {
+    void loadStoreActionCounts()
+  }, [loadStoreActionCounts])
 
   // Helper to check if both audits are complete
   const areBothAuditsComplete = (row: AuditRow): boolean => {
@@ -168,6 +251,72 @@ export function AuditTable({
     // 3. Sort AREAS alphabetically
     return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b))
   }, [filtered])
+
+  const debugPreviewStoreIds = useMemo(() => {
+    const ids = new Set<string>()
+    if (!ENABLE_PREVISIT_FLAG_DEBUG_PREVIEW) {
+      return ids
+    }
+
+    // Prefer visible rows so debug matches what the user is currently looking at.
+    filtered.forEach((row) => {
+      if ((storeActionCounts[row.id] || 0) > 0) {
+        ids.add(row.id)
+      }
+    })
+
+    // Fallback in case filters hide all actionable rows.
+    if (ids.size === 0) {
+      localRows.forEach((row) => {
+        if ((storeActionCounts[row.id] || 0) > 0) {
+          ids.add(row.id)
+        }
+      })
+    }
+
+    return ids
+  }, [filtered, localRows, storeActionCounts])
+
+  const getUpcomingActionFlag = useCallback((row: AuditRow): UpcomingActionFlag | null => {
+    const actionCount = storeActionCounts[row.id] || 0
+    if (actionCount === 0) {
+      return null
+    }
+
+    const dueDate = getNextHSAuditDueDate(row)
+    if (!dueDate) {
+      return null
+    }
+
+    const daysUntilDue = getDaysUntil(dueDate)
+    const withinWindow = daysUntilDue <= PREVISIT_ACTION_FLAG_DAYS
+    const isDebugPreview = !withinWindow && debugPreviewStoreIds.has(row.id)
+
+    if (!withinWindow && !isDebugPreview) {
+      return null
+    }
+
+    const actionLabel = `${actionCount} previous action${actionCount === 1 ? '' : 's'}`
+    let title = `${actionLabel}. Next H&S audit due ${dueDate.toLocaleDateString('en-GB')}.`
+
+    if (isDebugPreview) {
+      title = `Debug preview: ${actionLabel}. Next H&S audit due ${dueDate.toLocaleDateString('en-GB')}.`
+    } else if (daysUntilDue < 0) {
+      title = `${actionLabel}. Next H&S audit is ${Math.abs(daysUntilDue)} day${Math.abs(daysUntilDue) === 1 ? '' : 's'} overdue.`
+    } else if (daysUntilDue === 0) {
+      title = `${actionLabel}. Next H&S audit is due today.`
+    } else {
+      title = `${actionLabel}. Next H&S audit due in ${daysUntilDue} day${daysUntilDue === 1 ? '' : 's'}.`
+    }
+
+    return {
+      actionCount,
+      daysUntilDue,
+      dueDate,
+      isDebugPreview,
+      title,
+    }
+  }, [storeActionCounts, debugPreviewStoreIds])
 
   const getNextAuditNumber = (row: AuditRow): 1 | 2 | null => {
     // Check if audit 1 has been completed (has both date and percentage)
@@ -637,6 +786,7 @@ export function AuditTable({
       type: 'success',
       text: count === 1 ? `1 action created for ${storeName}.` : `${count} actions created for ${storeName}.`,
     })
+    void loadStoreActionCounts()
   }
 
   const renderDateCell = (date: string | null, pct: number | null, storeId: string, auditNum: 1 | 2, row: AuditRow) => {
@@ -941,6 +1091,7 @@ export function AuditTable({
                     const isEditingRow = editing?.storeId === row.id
                     const nextAudit = getNextAuditNumber(row)
                     const completedCount = getCompletedAuditCount(row)
+                    const upcomingActionFlag = getUpcomingActionFlag(row)
 
                     return (
                       <div key={row.id} className="mobile-card-surface rounded-2xl border p-3.5 shadow-sm">
@@ -1056,6 +1207,26 @@ export function AuditTable({
                           </div>
                         ) : (
                           <div className="mt-3 space-y-2.5 border-t border-slate-200/80 pt-3">
+                            {upcomingActionFlag ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleOpenStoreActionsModal(row)}
+                                title={upcomingActionFlag.title}
+                                className={cn(
+                                  'w-full text-xs',
+                                  upcomingActionFlag.isDebugPreview
+                                    ? 'border-violet-300 bg-violet-50 text-violet-700 hover:bg-violet-100'
+                                    : 'border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100'
+                                )}
+                              >
+                                <BellRing className="h-3.5 w-3.5 mr-1.5" />
+                                {upcomingActionFlag.isDebugPreview
+                                  ? `Debug Preview (${upcomingActionFlag.actionCount})`
+                                  : `Previous Actions (${upcomingActionFlag.actionCount})`}
+                              </Button>
+                            ) : null}
+
                             {nextAudit !== null ? (
                               <Button
                                 size="sm"
@@ -1166,7 +1337,7 @@ export function AuditTable({
                 <col style={{ width: '60px' }} />
                 <col style={{ width: '44px' }} />
                 <col style={{ width: '58px' }} />
-                <col style={{ width: '116px' }} />
+                <col style={{ width: '170px' }} />
               </colgroup>
               <TableHeader className="desktop-table-head border-b border-slate-200">
                 <TableRow className="hover:bg-transparent">
@@ -1203,7 +1374,7 @@ export function AuditTable({
                   <col style={{ width: '60px' }} />
                   <col style={{ width: '44px' }} />
                   <col style={{ width: '58px' }} />
-                  <col style={{ width: '116px' }} />
+                  <col style={{ width: '170px' }} />
                 </colgroup>
                 <TableBody>
               {grouped.length === 0 ? (
@@ -1248,7 +1419,10 @@ export function AuditTable({
                       </TableRow>
 
                       {/* Store Rows */}
-                      {areaRows.map((row, idx) => (
+                      {areaRows.map((row, idx) => {
+                        const upcomingActionFlag = getUpcomingActionFlag(row)
+
+                        return (
                         <TableRow
                           key={row.id}
                           className="group transition-colors hover:bg-slate-50/70"
@@ -1263,14 +1437,32 @@ export function AuditTable({
                             {row.store_code || '—'}
                           </TableCell>
                           <TableCell className="font-semibold text-sm border-b bg-white group-hover:bg-slate-50">
-                            <button
-                              type="button"
-                              onClick={() => handleOpenStoreActionsModal(row)}
-                              className="text-left text-sm font-semibold text-slate-900 underline-offset-2 hover:text-blue-700 hover:underline"
-                              title="Open store actions"
-                            >
-                              {row.store_name}
-                            </button>
+                            <div className="flex flex-col items-start gap-1">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenStoreActionsModal(row)}
+                                className="text-left text-sm font-semibold text-slate-900 underline-offset-2 hover:text-blue-700 hover:underline"
+                                title="Open store actions"
+                              >
+                                {row.store_name}
+                              </button>
+                              {upcomingActionFlag ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenStoreActionsModal(row)}
+                                  title={upcomingActionFlag.title}
+                                  className={cn(
+                                    'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold',
+                                    upcomingActionFlag.isDebugPreview
+                                      ? 'border-violet-300 bg-violet-50 text-violet-700 hover:bg-violet-100'
+                                      : 'border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100'
+                                  )}
+                                >
+                                  <BellRing className="h-3 w-3" />
+                                  {upcomingActionFlag.isDebugPreview ? 'Debug preview' : 'Previous actions'}
+                                </button>
+                              ) : null}
+                            </div>
                           </TableCell>
                           
                           <TableCell className="border-b bg-white group-hover:bg-slate-50">{renderDateCell(row.compliance_audit_1_date, row.compliance_audit_1_overall_pct, row.id, 1, row)}</TableCell>
@@ -1414,20 +1606,43 @@ export function AuditTable({
                                 </div>
                               </div>
                             ) : (
-                              getNextAuditNumber(row) !== null && (
-                                <Button
-                                  size="sm"
-                                  variant="default"
-                                  onClick={() => handleAddAudit(row)}
-                                  className="h-7 bg-slate-900 px-2 text-xs text-white whitespace-nowrap hover:bg-slate-800"
-                                >
-                                  Add Audit
-                                </Button>
-                              )
+                              <div className="flex flex-col gap-1.5 min-w-[180px]">
+                                {upcomingActionFlag ? (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleOpenStoreActionsModal(row)}
+                                    title={upcomingActionFlag.title}
+                                    className={cn(
+                                      'h-7 px-2 text-xs whitespace-nowrap',
+                                      upcomingActionFlag.isDebugPreview
+                                        ? 'border-violet-300 bg-violet-50 text-violet-700 hover:bg-violet-100'
+                                        : 'border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100'
+                                    )}
+                                  >
+                                    <BellRing className="h-3.5 w-3.5 mr-1.5" />
+                                    {upcomingActionFlag.isDebugPreview
+                                      ? `Debug Preview (${upcomingActionFlag.actionCount})`
+                                      : `Previous Actions (${upcomingActionFlag.actionCount})`}
+                                  </Button>
+                                ) : null}
+
+                                {getNextAuditNumber(row) !== null ? (
+                                  <Button
+                                    size="sm"
+                                    variant="default"
+                                    onClick={() => handleAddAudit(row)}
+                                    className="h-7 bg-slate-900 px-2 text-xs text-white whitespace-nowrap hover:bg-slate-800"
+                                  >
+                                    Add Audit
+                                  </Button>
+                                ) : null}
+                              </div>
                             )}
                           </TableCell>
                         </TableRow>
-                      ))}
+                        )
+                      })}
                     </>
                   )
                 })

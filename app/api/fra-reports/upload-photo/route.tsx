@@ -16,6 +16,7 @@ export async function POST(request: NextRequest) {
     const instanceId = formData.get('instanceId') as string
     const placeholderId = formData.get('placeholderId') as string
     const files = formData.getAll('files') as File[]
+    const replace = String(formData.get('replace') ?? '').toLowerCase() === 'true'
 
     if (!instanceId || !placeholderId || !files || files.length === 0) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
@@ -25,6 +26,38 @@ export async function POST(request: NextRequest) {
     const maxFiles = (placeholderId === 'site-premises-photos' || placeholderId === 'additional-site-pictures' || placeholderId === 'manual-call-points' || placeholderId === 'intumescent-strips') ? 6 : 5
     if (files.length > maxFiles) {
       return NextResponse.json({ error: `Maximum ${maxFiles} photos per placeholder` }, { status: 400 })
+    }
+
+    const placeholderPath = `fra/${instanceId}/photos/${placeholderId}`
+    const { data: existingFiles, error: listError } = await supabase.storage
+      .from('fa-attachments')
+      .list(placeholderPath, { limit: 200 })
+
+    if (listError) {
+      return NextResponse.json({ error: `Failed to inspect existing photos: ${listError.message}` }, { status: 500 })
+    }
+
+    const existingFilePaths = (existingFiles || [])
+      .filter((entry) => !!entry.name)
+      .map((entry) => `${placeholderPath}/${entry.name}`)
+
+    if (!replace && existingFilePaths.length + files.length > maxFiles) {
+      return NextResponse.json(
+        {
+          error: `This section allows up to ${maxFiles} photos. Remove some photos or use "Change photos".`,
+        },
+        { status: 400 }
+      )
+    }
+
+    if (replace && existingFilePaths.length > 0) {
+      const { error: removeError } = await supabase.storage
+        .from('fa-attachments')
+        .remove(existingFilePaths)
+
+      if (removeError) {
+        return NextResponse.json({ error: `Failed to replace existing photos: ${removeError.message}` }, { status: 500 })
+      }
     }
 
     const uploadedFiles: any[] = []
@@ -44,7 +77,7 @@ export async function POST(request: NextRequest) {
       const fileExt = file.name.split('.').pop()
       const timestamp = Date.now()
       const fileName = `fra-${instanceId}-${placeholderId}-${timestamp}-${Math.random().toString(36).substring(7)}.${fileExt}`
-      const filePath = `fra/${instanceId}/photos/${placeholderId}/${fileName}`
+      const filePath = `${placeholderPath}/${fileName}`
 
       // Upload to storage
       const { error: uploadError } = await supabase.storage

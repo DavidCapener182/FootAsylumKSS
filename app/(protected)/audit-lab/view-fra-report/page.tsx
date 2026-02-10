@@ -100,7 +100,8 @@ export default function FRAReportViewPage({
               body: JSON.stringify({
                 storeAddress: data.address,
                 auditInfo: {
-                  fireExits: data.numberOfFloors,
+                  fireExits: data.numberOfFireExits,
+                  numberOfFloors: data.numberOfFloors,
                   storeName: data.premises,
                 },
               }),

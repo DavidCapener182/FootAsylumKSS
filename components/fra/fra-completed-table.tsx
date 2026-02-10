@@ -16,7 +16,6 @@ import {
   getFRAStatus,
   getDaysUntilDue,
   statusBadge,
-  pctBadge,
   storeNeedsFRA
 } from './fra-table-helpers'
 
@@ -43,19 +42,19 @@ export function FRACompletedTable({
     return Array.from(set).sort()
   }, [rows])
 
-  // Filter stores that have completed FRA (have date and are "up_to_date", or have both date and percentage)
+  // Filter stores that have completed FRA (any store with an FRA date)
   const filtered = useMemo(() => {
     return rows.filter((row) => {
       const needsFRA = storeNeedsFRA(row)
       const status = getFRAStatus(row.fire_risk_assessment_date, needsFRA)
-      const hasDateAndPct = row.fire_risk_assessment_date !== null && row.fire_risk_assessment_pct !== null
-      
-      // Show stores that are "up_to_date" OR have both date and percentage
-      if (status === 'up_to_date') return true
-      if (hasDateAndPct) return true
-      
-      return false
-      
+
+      // Completed tab should include any store with an FRA completion date,
+      // including due/overdue records that still need follow-up.
+      const hasCompletedFRA = Boolean(row.fire_risk_assessment_date)
+      if (!hasCompletedFRA && status !== 'up_to_date') {
+        return false
+      }
+
       const matchesArea = area === 'all' || row.region === area
       const term = search.trim().toLowerCase()
       const matchesSearch =
@@ -177,7 +176,6 @@ export function FRACompletedTable({
               <col style={{ width: '120px' }} />
               <col style={{ width: '120px' }} />
               <col style={{ width: '150px' }} />
-              <col style={{ width: '80px' }} />
               <col style={{ width: '150px' }} />
             </colgroup>
             <TableHeader>
@@ -189,7 +187,6 @@ export function FRACompletedTable({
                 <TableHead className="bg-white">FRA Date</TableHead>
                 <TableHead className="bg-white">Next Due Date</TableHead>
                 <TableHead className="bg-white">Status</TableHead>
-                <TableHead className="bg-white">%</TableHead>
                 <TableHead className="bg-white">PDF</TableHead>
               </TableRow>
             </TableHeader>
@@ -197,10 +194,76 @@ export function FRACompletedTable({
         </div>
 
         {/* Scrollable Body */}
-        <div className="h-[70vh] overflow-y-auto overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0 relative">
-          {/* Mobile Header */}
-          <div className="md:hidden sticky top-0 z-10 bg-white border-b">
-            <Table className="w-full border-separate border-spacing-0 min-w-[900px]" style={{ tableLayout: 'fixed' }}>
+        <div className="h-[70vh] overflow-y-auto relative">
+          {/* Mobile (fit-to-screen columns only) */}
+          <div className="md:hidden">
+            <div className="sticky top-0 z-10 bg-white border-b">
+              <Table className="w-full border-separate border-spacing-0">
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className="bg-white">Area</TableHead>
+                    <TableHead className="bg-white">Store Name</TableHead>
+                    <TableHead className="bg-white">FRA Date</TableHead>
+                    <TableHead className="bg-white">Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+              </Table>
+            </div>
+            <Table className="w-full border-separate border-spacing-0">
+              <TableBody>
+                {grouped.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center text-muted-foreground py-10">
+                      No completed FRA data found matching your filters.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  grouped.map(([groupKey, areaRows]) => {
+                    return (
+                      <>
+                        <TableRow key={`mob-hdr-${groupKey}`} className="bg-slate-100/80 hover:bg-slate-100/80">
+                          <TableCell colSpan={4} className="py-2 px-4 bg-slate-50 border-b border-t">
+                            <span className="font-bold text-slate-700">{groupKey}</span>
+                          </TableCell>
+                        </TableRow>
+
+                        {areaRows.map((row) => {
+                          const days = getDaysUntilDue(row.fire_risk_assessment_date)
+                          const status = getFRAStatus(row.fire_risk_assessment_date, true)
+
+                          return (
+                            <TableRow
+                              key={`mob-${row.id}`}
+                              className="group hover:bg-slate-50 transition-colors"
+                            >
+                              <TableCell className="text-xs text-muted-foreground border-b bg-white group-hover:bg-slate-50">
+                                {row.region || '—'}
+                              </TableCell>
+                              <TableCell className="font-semibold text-sm border-b bg-white group-hover:bg-slate-50">
+                                {row.store_name}
+                              </TableCell>
+                              <TableCell className="border-b bg-white group-hover:bg-slate-50">
+                                <span className="text-sm text-muted-foreground">
+                                  {formatDate(row.fire_risk_assessment_date)}
+                                </span>
+                              </TableCell>
+                              <TableCell className="border-b bg-white group-hover:bg-slate-50">
+                                {statusBadge(status, days)}
+                              </TableCell>
+                            </TableRow>
+                          )
+                        })}
+                      </>
+                    )
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* Desktop */}
+          <div className="hidden md:block overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
+            <Table className="w-full border-separate border-spacing-0 min-w-[820px]" style={{ tableLayout: 'fixed' }}>
               <colgroup>
                 <col style={{ width: '40px' }} />
                 <col style={{ width: '60px' }} />
@@ -209,137 +272,106 @@ export function FRACompletedTable({
                 <col style={{ width: '120px' }} />
                 <col style={{ width: '120px' }} />
                 <col style={{ width: '150px' }} />
-                <col style={{ width: '80px' }} />
                 <col style={{ width: '150px' }} />
               </colgroup>
-              <TableHeader>
-                <TableRow className="hover:bg-transparent">
-                  <TableHead className="text-center bg-white">#</TableHead>
-                  <TableHead className="bg-white">Area</TableHead>
-                  <TableHead className="bg-white">Store Code</TableHead>
-                  <TableHead className="bg-white">Store Name</TableHead>
-                  <TableHead className="bg-white">FRA Date</TableHead>
-                  <TableHead className="bg-white">Next Due Date</TableHead>
-                  <TableHead className="bg-white">Status</TableHead>
-                  <TableHead className="bg-white">%</TableHead>
-                  <TableHead className="bg-white">PDF</TableHead>
-                </TableRow>
-              </TableHeader>
+              <TableBody>
+                {grouped.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="text-center text-muted-foreground py-10">
+                      No completed FRA data found matching your filters.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  grouped.map(([groupKey, areaRows]) => {
+                    return (
+                      <>
+                        {/* Area Divider Row */}
+                        <TableRow key={`hdr-${groupKey}`} className="bg-slate-100/80 hover:bg-slate-100/80">
+                          <TableCell 
+                            colSpan={8} 
+                            className="py-2 px-4 bg-slate-50 border-b border-t"
+                          >
+                            <span className="font-bold text-slate-700">{groupKey}</span>
+                          </TableCell>
+                        </TableRow>
+
+                        {/* Store Rows */}
+                        {areaRows.map((row, idx) => {
+                          const nextDue = calculateNextDueDate(row.fire_risk_assessment_date)
+                          const days = getDaysUntilDue(row.fire_risk_assessment_date)
+                          const status = getFRAStatus(row.fire_risk_assessment_date, true)
+                          
+                          return (
+                            <TableRow
+                              key={row.id}
+                              className="group hover:bg-slate-50 transition-colors"
+                            >
+                              <TableCell className="font-mono text-xs text-center text-muted-foreground border-b bg-white group-hover:bg-slate-50">
+                                {idx + 1}
+                              </TableCell>
+                              <TableCell className="text-xs text-muted-foreground border-b bg-white group-hover:bg-slate-50">
+                                {row.region || '—'}
+                              </TableCell>
+                              <TableCell className="font-mono text-xs font-medium border-b bg-white group-hover:bg-slate-50">
+                                {row.store_code || '—'}
+                              </TableCell>
+                              <TableCell className="font-semibold text-sm border-b bg-white group-hover:bg-slate-50">
+                                {row.store_name}
+                              </TableCell>
+                              
+                              <TableCell className="border-b bg-white group-hover:bg-slate-50">
+                                <span className="text-sm text-muted-foreground">
+                                  {formatDate(row.fire_risk_assessment_date)}
+                                </span>
+                              </TableCell>
+                              
+                              <TableCell className="border-b bg-white group-hover:bg-slate-50">
+                                <span className="text-sm text-muted-foreground">
+                                  {nextDue ? formatDate(nextDue.toISOString().split('T')[0]) : '—'}
+                                </span>
+                              </TableCell>
+                              
+                              <TableCell className="border-b bg-white group-hover:bg-slate-50">
+                                {statusBadge(status, days)}
+                              </TableCell>
+                              
+                              <TableCell className="border-b bg-white group-hover:bg-slate-50">
+                                {row.fire_risk_assessment_pdf_path ? (
+                                  <div className="flex items-center gap-1">
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => handleViewPDF(row)}
+                                      className="h-7 px-2 text-xs"
+                                      title="View PDF"
+                                    >
+                                      <File className="h-4 w-4 text-blue-600" />
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => handleDeletePDF(row)}
+                                      disabled={deletingPdf === row.id}
+                                      className="h-7 px-1 text-red-600 hover:text-red-700"
+                                      title="Delete PDF"
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  <span className="text-sm text-muted-foreground">—</span>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          )
+                        })}
+                      </>
+                    )
+                  })
+                )}
+              </TableBody>
             </Table>
           </div>
-          <Table className="w-full border-separate border-spacing-0 min-w-[900px]" style={{ tableLayout: 'fixed' }}>
-            <colgroup>
-              <col style={{ width: '40px' }} />
-              <col style={{ width: '60px' }} />
-              <col style={{ width: '80px' }} />
-              <col style={{ width: '180px' }} />
-              <col style={{ width: '120px' }} />
-              <col style={{ width: '120px' }} />
-              <col style={{ width: '150px' }} />
-              <col style={{ width: '80px' }} />
-              <col style={{ width: '150px' }} />
-            </colgroup>
-            <TableBody>
-              {grouped.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={9} className="text-center text-muted-foreground py-10">
-                    No completed FRA data found matching your filters.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                grouped.map(([groupKey, areaRows]) => {
-                  return (
-                    <>
-                      {/* Area Divider Row */}
-                      <TableRow key={`hdr-${groupKey}`} className="bg-slate-100/80 hover:bg-slate-100/80">
-                        <TableCell 
-                          colSpan={9} 
-                          className="py-2 px-4 bg-slate-50 border-b border-t"
-                        >
-                          <span className="font-bold text-slate-700">{groupKey}</span>
-                        </TableCell>
-                      </TableRow>
-
-                      {/* Store Rows */}
-                      {areaRows.map((row, idx) => {
-                        const nextDue = calculateNextDueDate(row.fire_risk_assessment_date)
-                        const days = getDaysUntilDue(row.fire_risk_assessment_date)
-                        const status = getFRAStatus(row.fire_risk_assessment_date, true)
-                        
-                        return (
-                          <TableRow
-                            key={row.id}
-                            className="group hover:bg-slate-50 transition-colors"
-                          >
-                            <TableCell className="font-mono text-xs text-center text-muted-foreground border-b bg-white group-hover:bg-slate-50">
-                              {idx + 1}
-                            </TableCell>
-                            <TableCell className="text-xs text-muted-foreground border-b bg-white group-hover:bg-slate-50">
-                              {row.region || '—'}
-                            </TableCell>
-                            <TableCell className="font-mono text-xs font-medium border-b bg-white group-hover:bg-slate-50">
-                              {row.store_code || '—'}
-                            </TableCell>
-                            <TableCell className="font-semibold text-sm border-b bg-white group-hover:bg-slate-50">
-                              {row.store_name}
-                            </TableCell>
-                            
-                            <TableCell className="border-b bg-white group-hover:bg-slate-50">
-                              <span className="text-sm text-muted-foreground">
-                                {formatDate(row.fire_risk_assessment_date)}
-                              </span>
-                            </TableCell>
-                            
-                            <TableCell className="border-b bg-white group-hover:bg-slate-50">
-                              <span className="text-sm text-muted-foreground">
-                                {nextDue ? formatDate(nextDue.toISOString().split('T')[0]) : '—'}
-                              </span>
-                            </TableCell>
-                            
-                            <TableCell className="border-b bg-white group-hover:bg-slate-50">
-                              {statusBadge(status, days)}
-                            </TableCell>
-                            
-                            <TableCell className="border-b bg-white group-hover:bg-slate-50">
-                              {pctBadge(row.fire_risk_assessment_pct)}
-                            </TableCell>
-                            
-                            <TableCell className="border-b bg-white group-hover:bg-slate-50">
-                              {row.fire_risk_assessment_pdf_path ? (
-                                <div className="flex items-center gap-1">
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => handleViewPDF(row)}
-                                    className="h-7 px-2 text-xs"
-                                    title="View PDF"
-                                  >
-                                    <File className="h-4 w-4 text-blue-600" />
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => handleDeletePDF(row)}
-                                    disabled={deletingPdf === row.id}
-                                    className="h-7 px-1 text-red-600 hover:text-red-700"
-                                    title="Delete PDF"
-                                  >
-                                    <Trash2 className="h-3 w-3" />
-                                  </Button>
-                                </div>
-                              ) : (
-                                <span className="text-sm text-muted-foreground">—</span>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        )
-                      })}
-                    </>
-                  )
-                })
-              )}
-            </TableBody>
-          </Table>
         </div>
       </div>
 

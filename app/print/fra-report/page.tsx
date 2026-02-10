@@ -76,7 +76,11 @@ export default function FRAPrintReportPage({
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 storeAddress: data.address,
-                auditInfo: { fireExits: data.numberOfFloors, storeName: data.premises },
+                auditInfo: {
+                  fireExits: data.numberOfFireExits,
+                  numberOfFloors: data.numberOfFloors,
+                  storeName: data.premises,
+                },
               }),
             })
             if (descResponse.ok) {

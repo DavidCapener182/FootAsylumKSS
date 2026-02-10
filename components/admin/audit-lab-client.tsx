@@ -476,38 +476,40 @@ export function AuditLabClient() {
 
       {/* Main Navigation Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full max-w-[820px] grid-cols-5 bg-slate-100 p-1 min-h-[44px]">
+        <div className="overflow-x-auto pb-1">
+          <TabsList className="inline-flex w-max min-w-full bg-slate-100 p-1 min-h-[44px] md:grid md:w-full md:max-w-[820px] md:grid-cols-5">
           <TabsTrigger 
             value="templates"
-            className="data-[state=active]:bg-white data-[state=active]:text-indigo-700 data-[state=active]:shadow-sm transition-all"
+            className="min-w-[120px] whitespace-nowrap px-3 text-xs sm:text-sm md:min-w-0 data-[state=active]:bg-white data-[state=active]:text-indigo-700 data-[state=active]:shadow-sm transition-all"
           >
             Templates
           </TabsTrigger>
           <TabsTrigger 
             value="active-audits"
-            className="data-[state=active]:bg-white data-[state=active]:text-indigo-700 data-[state=active]:shadow-sm transition-all"
+            className="min-w-[120px] whitespace-nowrap px-3 text-xs sm:text-sm md:min-w-0 data-[state=active]:bg-white data-[state=active]:text-indigo-700 data-[state=active]:shadow-sm transition-all"
           >
             Active Audits
           </TabsTrigger>
           <TabsTrigger 
             value="history"
-            className="data-[state=active]:bg-white data-[state=active]:text-indigo-700 data-[state=active]:shadow-sm transition-all"
+            className="min-w-[120px] whitespace-nowrap px-3 text-xs sm:text-sm md:min-w-0 data-[state=active]:bg-white data-[state=active]:text-indigo-700 data-[state=active]:shadow-sm transition-all"
           >
             History
           </TabsTrigger>
           <TabsTrigger
             value="dashboard"
-            className="data-[state=active]:bg-white data-[state=active]:text-indigo-700 data-[state=active]:shadow-sm transition-all"
+            className="min-w-[120px] whitespace-nowrap px-3 text-xs sm:text-sm md:min-w-0 data-[state=active]:bg-white data-[state=active]:text-indigo-700 data-[state=active]:shadow-sm transition-all"
           >
             Dashboard
           </TabsTrigger>
           <TabsTrigger
             value="import"
-            className="data-[state=active]:bg-white data-[state=active]:text-indigo-700 data-[state=active]:shadow-sm transition-all"
+            className="min-w-[120px] whitespace-nowrap px-3 text-xs sm:text-sm md:min-w-0 data-[state=active]:bg-white data-[state=active]:text-indigo-700 data-[state=active]:shadow-sm transition-all"
           >
             Import Audit
           </TabsTrigger>
-        </TabsList>
+          </TabsList>
+        </div>
 
         <TabsContent value="templates" className="mt-6">
           {view === 'templates' && (
@@ -1511,28 +1513,21 @@ function AuditFormView({
         // For FRA, we don't need responses - just mark as completed
         console.log('Completing FRA audit...')
         try {
-          await completeAudit(instance.id)
-          console.log('FRA audit completed successfully')
-        } catch (completeError: any) {
-          // If completeAudit fails (e.g., no responses), manually mark as completed
-          console.warn('completeAudit failed, manually marking as completed:', completeError?.message || completeError)
-          const supabase = createClient()
-          const { error: updateError } = await supabase
-            .from('fa_audit_instances')
-            .update({ 
-              status: 'completed',
-              conducted_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', instance.id)
-          
-          if (updateError) {
-            console.error('Failed to manually complete audit:', updateError)
-            // Still try to navigate - the report might work anyway
-            console.warn('Continuing despite update error...')
-          } else {
-            console.log('FRA audit manually marked as completed')
+          const completeRes = await fetch('/api/fra-reports/complete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ instanceId: instance.id }),
+          })
+          if (!completeRes.ok) {
+            const completeErr = await completeRes.json().catch(() => ({}))
+            throw new Error(completeErr.error || completeErr.details || `Failed to complete FRA (${completeRes.status})`)
           }
+          console.log('FRA audit completed successfully via /api/fra-reports/complete')
+        } catch (completeError: any) {
+          console.warn('FRA completion failed:', completeError?.message || completeError)
+          alert(`Failed to complete FRA: ${completeError?.message || 'Unknown error'}`)
+          setStartingAudit(false)
+          return
         }
         
         // Wait longer to ensure database is fully updated (PDF text storage, audit completion)

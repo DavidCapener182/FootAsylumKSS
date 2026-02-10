@@ -609,12 +609,35 @@ export async function GET(request: NextRequest) {
       }
 
       // MEDIUM PRIORITY: Ceiling tiles / compartmentation
-      if (originalText.match(/(?:ceiling tile|compartmentation|fire stopping).*?(?:no missing|intact|satisfactory|good|yes)/i)
-        || originalText.match(/(?:no missing|no breaches).*?(?:ceiling|compartment)/i)
-        || originalText.match(/(?:structure|structural).*?(?:good condition|satisfactory)/i)
-        || originalText.match(/(?:missing ceiling tiles)[\s\S]{0,30}?(?:no|none)/i)) {
-        pdfExtractedData.compartmentationStatus = 'No breaches identified'
-        console.log('[EXTRACT] ✓ Found compartmentation status: No breaches')
+      const extractCompartmentationStatusFromText = (text: string): string | null => {
+        const sentences = text
+          .replace(/\r/g, '\n')
+          .split(/[\n.?!]+/)
+          .map((s) => s.trim())
+          .filter(Boolean)
+
+        // Prefer explicit defect statements over generic "no issues" wording from question text.
+        const issueSentence = sentences.find((sentence) => {
+          const lower = sentence.toLowerCase()
+          const hasIssueSignal = /missing ceiling tiles?|ceiling tiles? missing|breach(?:es)?|gaps? from area to area|compartmentation[\s\S]{0,40}?(?:damage|breach|issue)/i.test(sentence)
+          if (!hasIssueSignal) return false
+          if (lower.includes('e.g. missing') || lower.includes('eg missing')) return false
+          if (/\bno missing\b|\bno breaches\b|\bno evidence of damage\b|\bno evident breaches\b/.test(lower)) return false
+          return true
+        })
+
+        if (issueSentence) {
+          return issueSentence.replace(/\s+/g, ' ').replace(/[.]+$/, '')
+        }
+
+        const noBreachDetected = /(?:ceiling tile|compartmentation|fire stopping|structure|structural)[\s\S]{0,120}?(?:no missing|no breaches|no evidence of damage|intact|satisfactory|good condition|no evident breaches)/i.test(text)
+        return noBreachDetected ? 'No breaches identified' : null
+      }
+
+      const compartmentationStatusFromText = extractCompartmentationStatusFromText(originalText)
+      if (compartmentationStatusFromText) {
+        pdfExtractedData.compartmentationStatus = compartmentationStatusFromText
+        console.log('[EXTRACT] ✓ Found compartmentation status:', compartmentationStatusFromText)
       }
 
       // MEDIUM PRIORITY: Fire extinguisher service date - more patterns

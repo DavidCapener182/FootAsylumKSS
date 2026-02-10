@@ -37,7 +37,30 @@ async function loadPlaceholderPhotos(
     for (const f of files) {
       if (!f.name) continue
       const filePath = `${folderPath}/${f.name}`
-      const { data: signed } = await supabase.storage.from('fa-attachments').createSignedUrl(filePath, 120)
+      const { data: transformed, error: transformedError } = await supabase.storage
+        .from('fa-attachments')
+        .createSignedUrl(filePath, 120, {
+          transform: {
+            width: 1600,
+            height: 1600,
+            resize: 'contain',
+            quality: 70,
+          },
+        })
+
+      // Fallback to original if image transforms are unavailable for this file/project.
+      if (transformed?.signedUrl) {
+        entries.push({ file_path: filePath, public_url: transformed.signedUrl })
+        continue
+      }
+
+      if (transformedError) {
+        console.warn('Signed URL transform fallback:', transformedError.message)
+      }
+
+      const { data: signed } = await supabase.storage
+        .from('fa-attachments')
+        .createSignedUrl(filePath, 120)
       entries.push({ file_path: filePath, public_url: signed?.signedUrl ?? '' })
     }
     if (entries.length) {

@@ -7,24 +7,50 @@ import { Textarea } from '@/components/ui/textarea'
 import { Save, Loader2, Upload, X } from 'lucide-react'
 import { getFraAssessmentReference } from '@/lib/utils'
 
-/** Parse floor area string to number (m²). Returns null if not parseable. */
-function parseFloorAreaM2(s: string | null | undefined): number | null {
+/** Parse floor area string to sq ft. Supports values in sq ft and m². */
+function parseFloorAreaSqFt(s: string | null | undefined): number | null {
   if (!s || typeof s !== 'string') return null
-  const match = s.trim().match(/(\d+(?:\.\d+)?)\s*(?:m²|sq\.?\s*m|square\s*m|m2)?/i) ?? s.trim().match(/(\d+(?:\.\d+)?)/)
-  if (!match) return null
-  const n = parseFloat(match[1])
-  return Number.isFinite(n) && n >= 10 ? n : null
+
+  const trimmed = s.trim()
+  const numericToken = trimmed.replace(/,/g, '').match(/(\d+(?:\.\d+)?)/)
+  if (!numericToken) return null
+
+  const numericValue = parseFloat(numericToken[1])
+  if (!Number.isFinite(numericValue) || numericValue <= 0) return null
+
+  const hasSqFtUnit = /\b(?:sq\.?\s*ft|sqft|ft2|ft²|square\s*feet)\b/i.test(trimmed)
+  const hasM2Unit = /\b(?:m²|m2|sq\.?\s*m|sqm|square\s*met(?:re|er)s?)\b/i.test(trimmed)
+
+  if (hasSqFtUnit) return numericValue
+  if (hasM2Unit) return numericValue * 10.7639
+
+  return numericValue <= 1000 ? numericValue * 10.7639 : numericValue
 }
 
-/** Occupancy from floor area using 2 m² per person (retail). */
-function occupancyFromFloorArea(areaM2: number): string {
-  return `Approximately ${Math.round(areaM2 / 2)} persons based on 2 m² per person`
+/** Occupancy and capacity for retail using standard and peak sq ft densities. */
+function occupancyFromFloorArea(areaSqFt: number): string {
+  const roundedAreaSqFt = Math.round(areaSqFt)
+  const standardPeople = Math.round(areaSqFt / 60)
+  const peakPeople = Math.round(areaSqFt / 30)
+  const areaLabel = roundedAreaSqFt.toLocaleString('en-GB')
+
+  return [
+    `Standard (60 sq ft/person): ${areaLabel} sq ft ÷ 60 = ~${standardPeople} people`,
+    `Peak (30 sq ft/person): ${areaLabel} sq ft ÷ 30 = ~${peakPeople} people`,
+  ].join('\n')
 }
 
 /** True if occupancy is the default text or a previously calculated value (so we should recalc from floor area). */
 function isOccupancyDerivedFromFloorArea(occupancy: string | null | undefined): boolean {
   if (!occupancy || occupancy === 'To be calculated based on floor area') return true
-  return /^Approximately \d+ persons based on 2 m² per person$/i.test(occupancy.trim())
+  const normalized = occupancy.trim().toLowerCase()
+  const isLegacyPattern = /^approximately \d+ persons based on 2 m² per person$/i.test(
+    occupancy.trim()
+  )
+  const isRetailSqFtPattern =
+    normalized.includes('standard (60 sq ft/person)') &&
+    normalized.includes('peak (30 sq ft/person)')
+  return isLegacyPattern || isRetailSqFtPattern
 }
 
 function parseFloorCount(value: string | null | undefined): number | null {
@@ -163,6 +189,96 @@ interface FRAReportViewProps {
   onDataUpdate?: () => void
   /** When true, show print header/footer on screen (for print preview) */
   showPrintHeaderFooter?: boolean
+}
+
+type UploadMode = 'append' | 'replace'
+
+const MAX_UPLOAD_IMAGE_DIMENSION = 1800
+const MAX_UPLOAD_IMAGE_BYTES = 2 * 1024 * 1024
+const COMPRESSION_QUALITIES = [0.78, 0.68, 0.58]
+
+function buildCompressedFileName(originalName: string, mimeType: string): string {
+  const baseName = originalName.replace(/\.[^/.]+$/, '')
+  if (mimeType === 'image/webp') return `${baseName}.webp`
+  if (mimeType === 'image/jpeg') return `${baseName}.jpg`
+  return originalName
+}
+
+async function loadImageForCompression(file: File): Promise<HTMLImageElement> {
+  return await new Promise((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(file)
+    const img = new Image()
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl)
+      resolve(img)
+    }
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl)
+      reject(new Error('Failed to load image'))
+    }
+    img.src = objectUrl
+  })
+}
+
+async function canvasToBlob(
+  canvas: HTMLCanvasElement,
+  type: string,
+  quality: number
+): Promise<Blob | null> {
+  return await new Promise((resolve) => canvas.toBlob(resolve, type, quality))
+}
+
+async function optimizeImageForUpload(file: File): Promise<File> {
+  if (!file.type.startsWith('image/')) return file
+  if (file.type === 'image/gif' || file.type === 'image/svg+xml') return file
+  if (typeof window === 'undefined') return file
+
+  try {
+    const img = await loadImageForCompression(file)
+    const originalWidth = img.naturalWidth || img.width
+    const originalHeight = img.naturalHeight || img.height
+    const longEdge = Math.max(originalWidth, originalHeight)
+    const scale = longEdge > MAX_UPLOAD_IMAGE_DIMENSION
+      ? MAX_UPLOAD_IMAGE_DIMENSION / longEdge
+      : 1
+    const targetWidth = Math.max(1, Math.round(originalWidth * scale))
+    const targetHeight = Math.max(1, Math.round(originalHeight * scale))
+
+    const canvas = document.createElement('canvas')
+    canvas.width = targetWidth
+    canvas.height = targetHeight
+
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return file
+
+    ctx.drawImage(img, 0, 0, targetWidth, targetHeight)
+
+    const outputType = file.type === 'image/png' ? 'image/webp' : 'image/jpeg'
+    let bestBlob: Blob | null = null
+
+    for (const quality of COMPRESSION_QUALITIES) {
+      const blob = await canvasToBlob(canvas, outputType, quality)
+      if (!blob) continue
+      bestBlob = blob
+      if (blob.size <= MAX_UPLOAD_IMAGE_BYTES) {
+        break
+      }
+    }
+
+    if (!bestBlob) return file
+
+    const unchangedSize = scale >= 1 && bestBlob.size >= file.size
+    if (unchangedSize) return file
+
+    return new File(
+      [bestBlob],
+      buildCompressedFileName(file.name, bestBlob.type),
+      { type: bestBlob.type, lastModified: Date.now() }
+    )
+  } catch (error) {
+    console.warn('Image compression skipped:', error)
+    return file
+  }
 }
 
 export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRAReportViewProps) {
@@ -345,7 +461,12 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
     }
   }
 
-  const handlePhotoUpload = async (placeholderId: string, files: FileList | null, maxPhotos: number = 5) => {
+  const handlePhotoUpload = async (
+    placeholderId: string,
+    files: FileList | null,
+    maxPhotos: number = 5,
+    mode: UploadMode = 'append'
+  ) => {
     if (!files || files.length === 0) return
     if (!data.fraInstance?.id) {
       alert('Cannot upload: report instance not loaded.')
@@ -353,14 +474,20 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
     }
 
     const fileArray = Array.from(files).slice(0, maxPhotos)
-    
+
     setUploadingPhotos(prev => ({ ...prev, [placeholderId]: true }))
-    
+
     try {
+      const optimizedFiles: File[] = []
+      for (const file of fileArray) {
+        optimizedFiles.push(await optimizeImageForUpload(file))
+      }
+
       const formData = new FormData()
       formData.append('instanceId', data.fraInstance.id)
       formData.append('placeholderId', placeholderId)
-      fileArray.forEach(file => {
+      formData.append('replace', mode === 'replace' ? 'true' : 'false')
+      optimizedFiles.forEach(file => {
         formData.append('files', file)
       })
 
@@ -374,10 +501,20 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
         const message = (result?.error ?? result?.details ?? 'Failed to upload photos') as string
         throw new Error(message)
       }
-      setPlaceholderPhotos(prev => ({
-        ...prev,
-        [placeholderId]: [...(prev[placeholderId] || []), ...result.files]
-      }))
+
+      setPlaceholderPhotos(prev => {
+        const newFiles = Array.isArray(result?.files) ? result.files : []
+        if (mode === 'replace') {
+          return {
+            ...prev,
+            [placeholderId]: newFiles,
+          }
+        }
+        return {
+          ...prev,
+          [placeholderId]: [...(prev[placeholderId] || []), ...newFiles],
+        }
+      })
       // Don't call onDataUpdate() here – it triggers a full refetch and loading state.
       // New photos are already in state above, so they show immediately.
     } catch (error: any) {
@@ -428,15 +565,19 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
     const photos = placeholderPhotos[placeholderId] || []
     const isUploading = uploadingPhotos[placeholderId]
     const fileInputRef = useRef<HTMLInputElement>(null)
+    const nextUploadModeRef = useRef<UploadMode>('append')
     const isPortrait = aspect === 'portrait'
 
-    const triggerFileInput = () => {
+    const triggerFileInput = (mode: UploadMode = 'append') => {
       if (isUploading) return
+      nextUploadModeRef.current = mode
       fileInputRef.current?.click()
     }
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      handlePhotoUpload(placeholderId, e.target.files, maxPhotos)
+      const mode = nextUploadModeRef.current
+      handlePhotoUpload(placeholderId, e.target.files, maxPhotos, mode)
+      nextUploadModeRef.current = 'append'
       e.target.value = '' // allow re-selecting same file
     }
 
@@ -502,7 +643,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
               size="sm"
               disabled={isUploading}
               className="flex items-center gap-2 cursor-pointer"
-              onClick={triggerFileInput}
+              onClick={() => triggerFileInput('append')}
             >
               {isUploading ? (
                 <>
@@ -527,7 +668,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
                 size="sm"
                 disabled={isUploading}
                 className="flex items-center gap-2"
-                onClick={triggerFileInput}
+                onClick={() => triggerFileInput('append')}
               >
                 {isUploading ? (
                   <>
@@ -548,7 +689,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
               size="sm"
               disabled={isUploading}
               className="flex items-center gap-2"
-              onClick={triggerFileInput}
+              onClick={() => triggerFileInput('replace')}
             >
               <Upload className="h-4 w-4" />
               Change photos
@@ -1309,7 +1450,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
                   value={customData.floorArea}
                   onChange={(e) => {
                     const next = { ...customData, floorArea: e.target.value }
-                    const areaNum = parseFloorAreaM2(e.target.value)
+                    const areaNum = parseFloorAreaSqFt(e.target.value)
                     const recalcFromArea = isOccupancyDerivedFromFloorArea(customData.occupancy)
                     if (recalcFromArea && areaNum != null) {
                       next.occupancy = occupancyFromFloorArea(areaNum)
@@ -1340,18 +1481,18 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
                   value={customData.occupancy}
                   onChange={(e) => setCustomData({ ...customData, occupancy: e.target.value })}
                   className="min-h-[60px]"
-                  placeholder="Enter occupancy information (e.g., Approximately 251 persons based on 2 m² per person)"
+                  placeholder="Enter occupancy information (e.g., Standard (60 sq ft/person): ... / Peak (30 sq ft/person): ...)"
                 />
-                {parseFloorAreaM2(customData.floorArea) != null && (
-                  <p className="text-xs text-slate-500">
-                    Calculated from floor area: {occupancyFromFloorArea(parseFloorAreaM2(customData.floorArea)!)}
+                {parseFloorAreaSqFt(customData.floorArea) != null && (
+                  <p className="text-xs text-slate-500 whitespace-pre-line">
+                    Calculated from floor area: {occupancyFromFloorArea(parseFloorAreaSqFt(customData.floorArea)!)}
                   </p>
                 )}
               </div>
             ) : (
-              <p className="mt-2">
+              <p className="mt-2 whitespace-pre-line">
                 {(() => {
-                  const areaNum = parseFloorAreaM2(customData.floorArea || data.floorArea)
+                  const areaNum = parseFloorAreaSqFt(customData.floorArea || data.floorArea)
                   const recalcFromArea = isOccupancyDerivedFromFloorArea(customData.occupancy)
                   if (recalcFromArea && areaNum != null) return occupancyFromFloorArea(areaNum)
                   return customData.occupancy
@@ -1448,8 +1589,8 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
             <p className="text-xs mt-1 text-slate-600 print:block">Emergency lighting test switch</p>
           </div>
           <div>
-            <PhotoPlaceholder placeholderId="fire-doors" label="Typical fire door (sales floor)" maxPhotos={1} aspect="portrait" />
-            <p className="text-xs mt-1 text-slate-600 print:block">Typical fire door (sales floor)</p>
+            <PhotoPlaceholder placeholderId="fire-doors" label="Typical fire door" maxPhotos={1} aspect="portrait" />
+            <p className="text-xs mt-1 text-slate-600 print:block">Typical fire door</p>
           </div>
           <div>
             <PhotoPlaceholder placeholderId="fire-extinguisher" label="Portable fire extinguisher (rear stockroom)" maxPhotos={1} aspect="portrait" />
