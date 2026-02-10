@@ -16,46 +16,153 @@ export async function POST(request: NextRequest) {
     const today = new Date()
     const currentDate = today.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
     const dayOfYear = Math.floor((today.getTime() - new Date(today.getFullYear(), 0, 0).getTime()) / (1000 * 60 * 60 * 24))
-    const currentMonth = today.getMonth() + 1 // 1-12 (January = 1)
     const currentYear = today.getFullYear()
 
+    const auditStats = dashboardData?.auditStats || {}
+    const storeActionStats = dashboardData?.storeActionStats || {}
+    const combinedActionStats = dashboardData?.combinedActionStats || {}
+    const complianceTracking = dashboardData?.complianceTracking || {}
+    const fraStats = dashboardData?.fraStats || {}
+    const complianceForecast = dashboardData?.complianceForecast || {}
+
+    const topIncidentStores = (Array.isArray(dashboardData?.topStores) ? dashboardData.topStores : [])
+      .slice(0, 5)
+      .map((s: any) => ({
+        store: s?.name || 'Unknown',
+        storeCode: s?.code || null,
+        incidents: Number(s?.count || 0),
+      }))
+
+    const topStoreActionStores = (Array.isArray(storeActionStats?.topStores) ? storeActionStats.topStores : [])
+      .slice(0, 5)
+      .map((s: any) => ({
+        store: s?.name || 'Unknown',
+        storeCode: s?.code || null,
+        activeActions: Number(s?.count || 0),
+        overdueActions: Number(s?.overdue || 0),
+      }))
+
+    const topForecastStores = (Array.isArray(complianceForecast?.stores) ? complianceForecast.stores : [])
+      .slice(0, 5)
+      .map((store: any) => ({
+        store: store?.storeName || 'Unknown',
+        code: store?.storeCode || null,
+        region: store?.region || null,
+        riskBand: store?.riskBand || null,
+        riskScore: typeof store?.riskScore === 'number' ? store.riskScore : null,
+        fraStatus: store?.fraStatus || null,
+        latestAuditScore: typeof store?.latestAuditScore === 'number' ? store.latestAuditScore : null,
+        overdueActions: Number(store?.overdueActions || 0),
+        openIncidents: Number(store?.openIncidents || 0),
+        drivers: Array.isArray(store?.drivers) ? store.drivers : [],
+      }))
+
+    const plannedRouteCount = Array.isArray(dashboardData?.plannedRoutes) ? dashboardData.plannedRoutes.length : 0
+    const plannedStoreCount = Array.isArray(dashboardData?.plannedRoutes)
+      ? dashboardData.plannedRoutes.reduce((sum: number, route: any) => {
+          const stores = Array.isArray(route?.stores) ? route.stores.length : Number(route?.storeCount || 0)
+          return sum + stores
+        }, 0)
+      : 0
+
+    const intelligenceSnapshot = {
+      asOf: currentDate,
+      timeline: {
+        dayOfYear,
+        year: currentYear,
+        auditCycle: 'Round 1 Jan-Jun, Round 2 Jul-Dec',
+      },
+      incidentRisk: {
+        openIncidents: Number(dashboardData?.openIncidents || 0),
+        underInvestigation: Number(dashboardData?.underInvestigation || 0),
+        highCritical30d: Number(dashboardData?.highCritical || 0),
+        overdueIncidentActions: Number(dashboardData?.overdueActions || 0),
+      },
+      storeActions: {
+        active: Number(storeActionStats?.active || 0),
+        overdue: Number(storeActionStats?.overdue || 0),
+        highUrgent: Number(storeActionStats?.highUrgent || 0),
+        statusCounts: storeActionStats?.statusCounts || {},
+        priorityCounts: storeActionStats?.priorityCounts || {},
+      },
+      combinedActions: {
+        incidentOverdue: Number(combinedActionStats?.incidentOverdue || 0),
+        storeOverdue: Number(combinedActionStats?.storeOverdue || 0),
+        totalOverdue: Number(combinedActionStats?.totalOverdue || 0),
+      },
+      auditCompletion: {
+        totalStores: Number(auditStats?.totalStores || 0),
+        firstAuditsComplete: Number(auditStats?.firstAuditsComplete || 0),
+        secondAuditsComplete: Number(auditStats?.secondAuditsComplete || 0),
+        firstAuditPercentage: Number(auditStats?.firstAuditPercentage || 0),
+        secondAuditPercentage: Number(auditStats?.secondAuditPercentage || 0),
+        fullyCompliantPercentage: Number(auditStats?.totalAuditPercentage || 0),
+      },
+      complianceTracking: {
+        noAuditStartedCount: Number(complianceTracking?.noAuditStartedCount || 0),
+        awaitingSecondAuditCount: Number(complianceTracking?.awaitingSecondAuditCount || 0),
+        secondAuditPlannedCount: Number(complianceTracking?.secondAuditPlannedCount || 0),
+        secondAuditUnplannedCount: Number(complianceTracking?.secondAuditUnplannedCount || 0),
+        storesNeedingSecondVisitCount: Number(complianceTracking?.storesNeedingSecondVisitCount || 0),
+        plannedRoutesCount: Number(complianceTracking?.plannedRoutesCount || 0),
+        plannedVisitsNext14Days: Number(complianceTracking?.plannedVisitsNext14Days || 0),
+      },
+      fraTracking: {
+        storesRequiringFRA: Number(dashboardData?.storesRequiringFRA || 0),
+        required: Number(fraStats?.required || 0),
+        due: Number(fraStats?.due || 0),
+        overdue: Number(fraStats?.overdue || 0),
+        upToDate: Number(fraStats?.upToDate || 0),
+        inDateCoveragePercentage: Number(fraStats?.inDateCoveragePercentage || 0),
+      },
+      predictiveRisk: {
+        highRiskCount: Number(complianceForecast?.highRiskCount || 0),
+        mediumRiskCount: Number(complianceForecast?.mediumRiskCount || 0),
+        lowRiskCount: Number(complianceForecast?.lowRiskCount || 0),
+        avgRiskScore: Number(complianceForecast?.avgRiskScore || 0),
+      },
+      planningPipeline: {
+        plannedRouteCount,
+        plannedStoreCount,
+      },
+      topIncidentStores,
+      topStoreActionStores,
+      topForecastStores,
+    }
+
     const prompt = `
-      Act as a Senior Retail Compliance Officer. Analyze the following dashboard data for our retail chain:
-      
-      **IMPORTANT DATE CONTEXT:**
-      - Current Date: ${currentDate}
-      - Day of Year: ${dayOfYear} (we are ${dayOfYear} days into ${currentYear})
-      - Audit Schedule: First round audits are scheduled for the FIRST HALF of the year (January-June), and second round audits are scheduled for the SECOND HALF of the year (July-December).
-      - Each store needs ONE audit completed in the first half (Jan-Jun) and ONE audit completed in the second half (Jul-Dec).
-      
-      **DASHBOARD DATA:**
-      - Open Incidents: ${dashboardData.openIncidents}
-      - Under Investigation: ${dashboardData.underInvestigation}
-      - Overdue Actions: ${dashboardData.overdueActions}
-      - High/Critical Risk Incidents (30d): ${dashboardData.highCritical}
-      - Audit Completion: First Round ${dashboardData.auditStats.firstAuditPercentage}%, Second Round ${dashboardData.auditStats.secondAuditPercentage}%
-      - Top Stores with Issues: ${dashboardData.topStores.map((s: any) => `${s.name} (${s.count} incidents)`).join(', ')}
-      
-      **CRITICAL CONTEXT FOR ANALYSIS:**
-      - We are only ${dayOfYear} days into the year. The first round of audits has a 6-month window (January-June).
-      - Having ${dashboardData.auditStats.firstAuditPercentage}% completion after only ${dayOfYear} days in January is NOT concerning - there is plenty of time to complete first round audits throughout the first half of the year.
-      - Second round audits are NOT expected until the second half of the year (July-December), so ${dashboardData.auditStats.secondAuditPercentage}% completion is completely normal and expected at this point.
-      - When analyzing audit completion rates, consider that audits are spread across 6-month windows, not rushed at the start of each period.
-      
-      **OPERATIONAL CONTEXT:**
-      - We are Health and Safety Consultants conducting compliance audits for the retail chain.
-      - Audits are UNANNOUNCED (surprise audits) - store managers do not know when we will arrive.
-      - Store managers should NOT be preparing for audits, as the purpose is to assess their normal daily operations and compliance.
-      - We (the consultants) schedule and conduct the audits - store managers do not schedule audits themselves.
-      - Recommendations should focus on ensuring our audit team plans and schedules audits effectively, NOT on having store managers prepare for audits.
-      - Do NOT recommend that store managers schedule audits or prepare for audits - this would defeat the purpose of unannounced audits.
-      
-      Please provide a response in HTML format (no markdown code blocks, just raw HTML tags like <h3>, <p>, <ul>, <li>) with the following structure:
-      1. <h3>Executive Summary</h3>: A 2-sentence overview of the current risk landscape, taking into account that we are early in the year and audit completion rates should be evaluated against the 6-month windows, not daily expectations.
-      2. <h3>Key Concerns</h3>: A bulleted list of the most pressing issues based on the stats. Do NOT list low audit completion rates as a concern if we are early in the audit window - only flag if there are genuine compliance risks.
-      3. <h3>Recommended Actions</h3>: 3 specific, actionable steps for OUR audit team (Health and Safety Consultants) to take. Focus on planning and scheduling audits effectively. Do NOT recommend store managers schedule or prepare for audits - audits must remain unannounced.
-      
-      Keep the tone professional, realistic, and constructive. Do not create false urgency about audit completion rates when we are early in the audit period. Remember: we conduct unannounced audits as consultants, not store managers.
+      Act as a senior KSS NW compliance intelligence lead creating a concise internal briefing for Footasylum leadership.
+
+      IMPORTANT CONTEXT:
+      - Current date: ${currentDate}
+      - Day of year: ${dayOfYear} (${currentYear})
+      - Audit cadence: Round 1 runs Jan-Jun, Round 2 runs Jul-Dec.
+      - Audits are unannounced and executed by KSS NW consultants.
+      - Use all systems in your analysis: incidents, incident actions, store actions, FRA status, audit progress, visit planning, and predictive risk.
+
+      ANALYTICS SNAPSHOT (JSON):
+      ${JSON.stringify(intelligenceSnapshot, null, 2)}
+
+      INSTRUCTIONS:
+      - Do not create false urgency solely because round completion is low early in the cycle.
+      - Explicitly call out store actions (including overdue/high-urgent), FRA exposure, and compliance tracking gaps.
+      - Include at least one recommendation tied to each of:
+        1) store actions workflow,
+        2) FRA completion cadence,
+        3) next-visit planning / second-audit pipeline.
+      - If a metric is healthy, say so briefly.
+
+      Return HTML only (no markdown fences) using this exact structure:
+      1. <h3>Executive Summary</h3>
+         - One short paragraph summarizing overall risk and operational posture.
+      2. <h3>Cross-System Concerns</h3>
+         - Bullet list of the key concerns across incidents, store actions, FRA, and compliance progression.
+      3. <h3>Priority Store Focus</h3>
+         - Bullet list naming specific stores from the snapshot and why they need attention.
+      4. <h3>Recommended Actions</h3>
+         - 4 concrete, practical actions for KSS NW consultants and central ops to execute in the next 30 days.
+
+      Keep the tone professional, direct, and evidence-led.
     `
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -69,14 +176,14 @@ export async function POST(request: NextRequest) {
         messages: [
           {
             role: 'system',
-            content: 'You are a Senior Retail Compliance Officer. Provide responses in HTML format without markdown code blocks. Use proper HTML tags like <h3>, <p>, <ul>, <li> directly in your response.',
+            content: 'You are a senior compliance intelligence analyst. Respond with raw HTML only using <h3>, <p>, <ul>, and <li>.',
           },
           {
             role: 'user',
             content: prompt,
           },
         ],
-        temperature: 0.7,
+        temperature: 0.4,
       }),
     })
 
@@ -104,4 +211,3 @@ export async function POST(request: NextRequest) {
     )
   }
 }
-

@@ -27,7 +27,8 @@ async function getDashboardData() {
     { data: plannedRoutesRaw },
     { data: fraStores },
     { data: openIncidentsByStoreRaw },
-    { data: overdueActionsByStoreRaw }
+    { data: overdueActionsByStoreRaw },
+    { data: storeActionsRaw }
   ] = await Promise.all([
     supabase.from('fa_incidents').select('*', { count: 'exact', head: true }).in('status', ['open', 'under_investigation', 'actions_in_progress']),
     supabase.from('fa_incidents').select('*', { count: 'exact', head: true }).eq('status', 'under_investigation'),
@@ -70,7 +71,17 @@ async function getDashboardData() {
         )
       `)
       .lt('due_date', today)
-      .not('status', 'in', '(complete,cancelled)')
+      .not('status', 'in', '(complete,cancelled)'),
+    supabase
+      .from('fa_store_actions')
+      .select(`
+        store_id,
+        status,
+        due_date,
+        priority,
+        store:fa_stores!fa_store_actions_store_id_fkey(store_name, store_code)
+      `)
+      .not('status', 'eq', 'cancelled')
   ])
 
   // Data Processing
@@ -103,6 +114,75 @@ async function getDashboardData() {
     .map(([id, data]) => ({ id, ...data }))
   
   const maxStoreCount = topStores.length > 0 ? Math.max(...topStores.map(s => s.count)) : 0
+
+  const parseDateOnly = (value: string | null | undefined): Date | null => {
+    if (!value) return null
+    const parsed = new Date(value)
+    if (Number.isNaN(parsed.getTime())) return null
+    parsed.setHours(0, 0, 0, 0)
+    return parsed
+  }
+
+  const todayDateOnly = parseDateOnly(today) || new Date()
+
+  const storeActions = (storeActionsRaw || []) as any[]
+  const activeStoreActions = storeActions.filter((action) => {
+    const status = String(action?.status || '').toLowerCase()
+    return status !== 'complete' && status !== 'cancelled'
+  })
+
+  const overdueStoreActionsCount = activeStoreActions.filter((action) => {
+    const dueDate = parseDateOnly(action?.due_date)
+    return dueDate ? dueDate.getTime() < todayDateOnly.getTime() : false
+  }).length
+
+  const highUrgentStoreActionsCount = activeStoreActions.filter((action) => {
+    const priority = String(action?.priority || '').toLowerCase()
+    return priority === 'high' || priority === 'urgent'
+  }).length
+
+  const storeActionsByStatus = activeStoreActions.reduce((acc: Record<string, number>, action: any) => {
+    const status = String(action?.status || 'unknown').toLowerCase()
+    acc[status] = (acc[status] || 0) + 1
+    return acc
+  }, {})
+
+  const storeActionsByPriority = activeStoreActions.reduce((acc: Record<string, number>, action: any) => {
+    const priority = String(action?.priority || 'unknown').toLowerCase()
+    acc[priority] = (acc[priority] || 0) + 1
+    return acc
+  }, {})
+
+  const storeActionCountsByStore = activeStoreActions.reduce((acc: Record<string, { name: string; code?: string; count: number; overdue: number }>, action: any) => {
+    const storeId = String(action?.store_id || '')
+    if (!storeId) return acc
+
+    const storeRel = Array.isArray(action?.store) ? action.store[0] : action?.store
+    if (!acc[storeId]) {
+      acc[storeId] = {
+        name: storeRel?.store_name || 'Unknown',
+        code: storeRel?.store_code || undefined,
+        count: 0,
+        overdue: 0,
+      }
+    }
+
+    acc[storeId].count += 1
+    const dueDate = parseDateOnly(action?.due_date)
+    if (dueDate && dueDate.getTime() < todayDateOnly.getTime()) {
+      acc[storeId].overdue += 1
+    }
+
+    return acc
+  }, {})
+
+  const topStoresByStoreActions = Object.entries(storeActionCountsByStore)
+    .sort(([, a], [, b]) => {
+      if (b.overdue !== a.overdue) return b.overdue - a.overdue
+      return b.count - a.count
+    })
+    .slice(0, 5)
+    .map(([id, data]) => ({ id, ...data }))
 
   const openIncidentsByStore = (openIncidentsByStoreRaw || []).reduce((acc: Record<string, number>, row: any) => {
     if (!row?.store_id) return acc
@@ -343,6 +423,34 @@ async function getDashboardData() {
     return status === 'required' || status === 'overdue'
   }).length || 0
 
+  const allActiveStores = (allStores || []) as any[]
+  const audit1CompleteCount = allActiveStores.filter((store: any) => Boolean(store.compliance_audit_1_date && store.compliance_audit_1_overall_pct !== null)).length
+  const audit2CompleteCount = allActiveStores.filter((store: any) => Boolean(store.compliance_audit_2_date && store.compliance_audit_2_overall_pct !== null)).length
+  const noAuditStartedCount = allActiveStores.filter((store: any) => !store.compliance_audit_1_date && !store.compliance_audit_2_date).length
+  const awaitingSecondAuditCount = allActiveStores.filter((store: any) => Boolean(store.compliance_audit_1_date && !store.compliance_audit_2_date)).length
+  const secondAuditPlannedCount = allActiveStores.filter((store: any) => Boolean(store.compliance_audit_1_date && !store.compliance_audit_2_date && store.compliance_audit_2_planned_date)).length
+  const secondAuditUnplannedCount = Math.max(0, awaitingSecondAuditCount - secondAuditPlannedCount)
+
+  const fraStatusCounts = allActiveStores.reduce((acc: Record<'required' | 'due' | 'overdue' | 'up_to_date', number>, store: any) => {
+    const fraData = fraDataMap.get(store.id) || { fire_risk_assessment_date: null }
+    const status = getFRAStatusFromDate(fraData.fire_risk_assessment_date)
+    acc[status] = (acc[status] || 0) + 1
+    return acc
+  }, {
+    required: 0,
+    due: 0,
+    overdue: 0,
+    up_to_date: 0,
+  })
+
+  const fourteenDaysFromNow = new Date(todayDateOnly)
+  fourteenDaysFromNow.setDate(fourteenDaysFromNow.getDate() + 14)
+  const plannedVisitsNext14Days = routesWithOperationalItems.filter((route: any) => {
+    const plannedDate = parseDateOnly(route?.plannedDate)
+    if (!plannedDate) return false
+    return plannedDate.getTime() >= todayDateOnly.getTime() && plannedDate.getTime() <= fourteenDaysFromNow.getTime()
+  }).length
+
   // Fully compliant: at least one audit score of 80% or higher AND FRA in date (up_to_date or due).
   const totalAuditsComplete = (allStores || []).filter((store: any) => {
     const auditScores = [store.compliance_audit_1_overall_pct, store.compliance_audit_2_overall_pct]
@@ -379,6 +487,41 @@ async function getDashboardData() {
       firstAuditPercentage: totalStores > 0 ? truncateToDecimals((firstAuditsComplete / totalStores) * 100) : 0,
       secondAuditPercentage: totalStores > 0 ? truncateToDecimals((secondAuditsComplete / totalStores) * 100) : 0,
       totalAuditPercentage: totalStores > 0 ? truncateToDecimals((totalAuditsComplete / totalStores) * 100) : 0,
+    },
+    storeActionStats: {
+      totalTracked: storeActions.length,
+      active: activeStoreActions.length,
+      overdue: overdueStoreActionsCount,
+      highUrgent: highUrgentStoreActionsCount,
+      statusCounts: storeActionsByStatus,
+      priorityCounts: storeActionsByPriority,
+      topStores: topStoresByStoreActions,
+    },
+    combinedActionStats: {
+      incidentOverdue: overdueActions || 0,
+      storeOverdue: overdueStoreActionsCount,
+      totalOverdue: (overdueActions || 0) + overdueStoreActionsCount,
+    },
+    complianceTracking: {
+      noAuditStartedCount,
+      audit1CompleteCount,
+      audit2CompleteCount,
+      awaitingSecondAuditCount,
+      secondAuditPlannedCount,
+      secondAuditUnplannedCount,
+      storesNeedingSecondVisitCount: storesNeedingSecondVisit.length,
+      plannedRoutesCount: routesWithOperationalItems.length,
+      plannedVisitsNext14Days,
+    },
+    fraStats: {
+      required: fraStatusCounts.required,
+      due: fraStatusCounts.due,
+      overdue: fraStatusCounts.overdue,
+      upToDate: fraStatusCounts.up_to_date,
+      inDate: fraStatusCounts.due + fraStatusCounts.up_to_date,
+      inDateCoveragePercentage: totalStores > 0
+        ? truncateToDecimals(((fraStatusCounts.due + fraStatusCounts.up_to_date) / totalStores) * 100)
+        : 0,
     },
     storesRequiringFRA,
     complianceForecast,
