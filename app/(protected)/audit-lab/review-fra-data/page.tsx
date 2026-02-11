@@ -139,6 +139,7 @@ export default function ReviewFRADataPage({
     const colors: Record<string, string> = {
       PDF: 'bg-blue-100 text-blue-800 border-blue-300',
       DATABASE: 'bg-purple-100 text-purple-800 border-purple-300',
+      DEFAULT: 'bg-amber-100 text-amber-800 border-amber-300',
       NOT_FOUND: 'bg-gray-100 text-gray-800 border-gray-300',
     }
     const color = colors[source] || 'bg-gray-100 text-gray-800 border-gray-300'
@@ -373,7 +374,7 @@ export default function ReviewFRADataPage({
                   value={editedData.escapeRoutesEvidence || ''}
                   onChange={(e) => setEditedData({ ...editedData, escapeRoutesEvidence: e.target.value })}
                   placeholder="e.g., Observed during recent inspections: fire exits partially blocked... or leave blank if clear"
-                  className="min-h-[60px]"
+                  className="min-h-[120px]"
                 />
               </div>
 
@@ -395,7 +396,7 @@ export default function ReviewFRADataPage({
                   value={editedData.fireSafetyTrainingNarrative || ''}
                   onChange={(e) => setEditedData({ ...editedData, fireSafetyTrainingNarrative: e.target.value })}
                   placeholder="e.g., Fire safety training is delivered via induction and toolbox talks; improvements currently underway."
-                  className="min-h-[60px]"
+                  className="min-h-[120px]"
                 />
               </div>
 
@@ -406,7 +407,7 @@ export default function ReviewFRADataPage({
                   value={editedData.fireDoorsCondition || ''}
                   onChange={(e) => setEditedData({ ...editedData, fireDoorsCondition: e.target.value })}
                   placeholder="e.g., Good condition; intumescent strips present; not wedged open"
-                  className="min-h-[60px]"
+                  className="min-h-[120px]"
                 />
               </div>
 
@@ -417,7 +418,7 @@ export default function ReviewFRADataPage({
                   value={editedData.weeklyFireTests || ''}
                   onChange={(e) => setEditedData({ ...editedData, weeklyFireTests: e.target.value })}
                   placeholder="e.g., Documented or Yes"
-                  className="min-h-[40px]"
+                  className="min-h-[80px]"
                 />
               </div>
 
@@ -428,7 +429,7 @@ export default function ReviewFRADataPage({
                   value={editedData.emergencyLightingMonthlyTest || ''}
                   onChange={(e) => setEditedData({ ...editedData, emergencyLightingMonthlyTest: e.target.value })}
                   placeholder="e.g., Conducted or Yes"
-                  className="min-h-[40px]"
+                  className="min-h-[120px]"
                 />
               </div>
 
@@ -449,8 +450,8 @@ export default function ReviewFRADataPage({
                 <Textarea
                   value={editedData.managementReviewStatement || ''}
                   onChange={(e) => setEditedData({ ...editedData, managementReviewStatement: e.target.value })}
-                  placeholder="This assessment has been informed by recent health and safety inspections and site observations."
-                  className="min-h-[60px]"
+                  placeholder="No explicit management review statement found in PDF (leave blank if not present)."
+                  className="min-h-[80px]"
                 />
               </div>
 
@@ -549,7 +550,7 @@ export default function ReviewFRADataPage({
                   value={editedData.compartmentationStatus || ''}
                   onChange={(e) => setEditedData({ ...editedData, compartmentationStatus: e.target.value })}
                   placeholder="e.g., No breaches identified"
-                  className="min-h-[40px]"
+                  className="min-h-[120px]"
                 />
               </div>
 

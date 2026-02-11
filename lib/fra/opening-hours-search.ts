@@ -16,18 +16,124 @@ export async function getOpeningHoursFromSearch(params: {
     return null
   }
 
+  const OPENING_DAY_ORDER = [
+    'monday',
+    'tuesday',
+    'wednesday',
+    'thursday',
+    'friday',
+    'saturday',
+    'sunday',
+  ] as const
+
+  const toDisplayDay = (day: string): string =>
+    day.charAt(0).toUpperCase() + day.slice(1).toLowerCase()
+
+  const normalizeHoursLabel = (value: string): string => {
+    const cleaned = String(value || '')
+      .replace(/\r\n?/g, '\n')
+      .replace(/[–—]/g, '-')
+      .replace(/\s+/g, ' ')
+      .trim()
+    if (!cleaned) return ''
+    if (/^closed$/i.test(cleaned)) return 'Closed'
+    if (/^open\s*24\s*hours$/i.test(cleaned)) return 'Open 24 hours'
+    return cleaned.replace(/\s*-\s*/g, ' - ')
+  }
+
+  const formatOpeningTimesMap = (map: Record<string, unknown>): string | null => {
+    type OpeningDay = typeof OPENING_DAY_ORDER[number]
+    const entries: Array<{ day: OpeningDay; hours: string }> = []
+    for (const day of OPENING_DAY_ORDER) {
+      const value = map[day] ?? map[toDisplayDay(day)] ?? map[day.slice(0, 3)]
+      if (typeof value !== 'string') continue
+      const hours = normalizeHoursLabel(value)
+      if (!hours) continue
+      entries.push({ day, hours })
+    }
+
+    if (!entries.length) return null
+
+    const groups: Array<{ start: string; end: string; hours: string }> = []
+    for (const entry of entries) {
+      const previous = groups[groups.length - 1]
+      if (previous && previous.hours === entry.hours) {
+        previous.end = entry.day
+      } else {
+        groups.push({ start: entry.day, end: entry.day, hours: entry.hours })
+      }
+    }
+
+    return groups
+      .map((group) => {
+        const label = group.start === group.end
+          ? toDisplayDay(group.start)
+          : `${toDisplayDay(group.start)} to ${toDisplayDay(group.end)}`
+        return `${label}: ${group.hours}`
+      })
+      .join('; ')
+  }
+
+  const normalizeOpeningTimesStructuredText = (value: string): string | null => {
+    const trimmed = value.trim()
+    if (!/^\{[\s\S]*\}$/.test(trimmed)) return null
+    try {
+      const parsed = JSON.parse(trimmed) as unknown
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null
+      return formatOpeningTimesMap(parsed as Record<string, unknown>)
+    } catch {
+      return null
+    }
+  }
+
+  const sanitizeOpeningTimes = (value: string | null | undefined): string | null => {
+    const raw = String(value || '')
+      .replace(/\r\n?/g, '\n')
+      .replace(/\s+/g, ' ')
+      .trim()
+    const structured = normalizeOpeningTimesStructuredText(raw)
+    const cleaned = (structured || raw)
+      .replace(/^footasylum[^:]*:\s*/i, '')
+      .trim()
+    if (!cleaned) return null
+    if (!/\d/.test(cleaned)) return null
+    if (!/(am|pm|\d{1,2}:\d{2})/i.test(cleaned)) return null
+    return cleaned
+  }
+
+  const extractJsonObjectFromText = (value: string): Record<string, unknown> | null => {
+    const cleaned = value.replace(/```json|```/gi, '')
+    const match = cleaned.match(/\{[\s\S]*\}/)
+    if (!match) return null
+    try {
+      return JSON.parse(match[0]) as Record<string, unknown>
+    } catch {
+      return null
+    }
+  }
+
   try {
     const locationPart = [city, address].filter(Boolean).join(', ')
     console.log('[OPENING-HOURS] Searching for opening hours:', storeName, locationPart || '(no location)')
 
-    const prompt = `Find the opening hours/trading hours for this retail store. Return ONLY the opening hours in a clear, concise format (e.g., "Monday-Saturday: 9am-6pm, Sunday: 10am-4pm" or "Mon-Fri: 9am-6pm, Sat: 9am-5pm, Sun: 11am-4pm"). If you cannot find the opening hours, return "NOT_FOUND".
+    const prompt = `Find opening/trading hours for this exact Footasylum branch.
 
 Store: ${storeName}
 Location: ${locationPart || 'Unknown'}
 
-Return ONLY the opening hours format, nothing else.`
+Return ONLY valid JSON with exactly:
+{
+  "openingTimes": string|null,
+  "sourceUrl": string|null
+}
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+Rules:
+- Prefer an official Footasylum page (footasylum.com) for this branch.
+- If official page hours are unavailable, you may use a high-confidence Google/Maps listing for this exact branch.
+- If not explicit, set openingTimes to null.
+- Do not guess.`
+
+    const response = await fetch('https://api.openai.com/v1/responses', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -35,18 +141,8 @@ Return ONLY the opening hours format, nothing else.`
       },
       body: JSON.stringify({
         model: 'gpt-4o-mini',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a helpful assistant that finds store opening hours. Return only the opening hours in a clear format, or "NOT_FOUND" if unavailable.',
-          },
-          {
-            role: 'user',
-            content: prompt,
-          },
-        ],
-        max_tokens: 150,
-        temperature: 0.3,
+        tools: [{ type: 'web_search_preview' }],
+        input: prompt,
       }),
     })
 
@@ -57,17 +153,20 @@ Return ONLY the opening hours format, nothing else.`
     }
 
     const data = await response.json()
-    const content = data.choices?.[0]?.message?.content?.trim() || ''
+    const message = (data.output || []).find((o: any) => o?.type === 'message')
+    const outputText = Array.isArray(message?.content)
+      ? message.content
+          .map((item: any) => String(item?.text || item?.output_text || ''))
+          .join('\n')
+      : ''
+    const parsed = extractJsonObjectFromText(outputText)
+    const openingTimes = sanitizeOpeningTimes(typeof parsed?.openingTimes === 'string' ? parsed.openingTimes : null)
 
-    if (
-      content &&
-      content !== 'NOT_FOUND' &&
-      !content.toLowerCase().includes('cannot find') &&
-      !content.toLowerCase().includes('unable to find')
-    ) {
-      console.log('[OPENING-HOURS] ✓ Found:', content)
-      return content
+    if (openingTimes) {
+      console.log('[OPENING-HOURS] ✓ Found:', openingTimes)
+      return openingTimes
     }
+
     console.log('[OPENING-HOURS] No opening hours found')
     return null
   } catch (error) {

@@ -3,6 +3,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { summarizeHSAuditForFRA } from '@/lib/ai/fra-summarize'
 import { getOpeningHoursFromSearch } from '@/lib/fra/opening-hours-search'
+import { getBuildDateFromSearch } from '@/lib/fra/build-date-search'
+import { getStoreDataFromGoogleSearch } from '@/lib/fra/google-store-data-search'
 import { getAuditInstance } from './safehub'
 
 /**
@@ -493,10 +495,22 @@ export async function mapHSAuditToFRAData(fraInstanceId: string) {
     }
 
     // Fire Panel Faults
-    const firePanelFaultsMatch = originalText.match(/(?:is panel free of faults|panel free of faults|panel faults)[\s:]*([^\n\r]+?)(?:\n|$|location of emergency)/i)
-    if (firePanelFaultsMatch) {
-      pdfExtractedData.firePanelFaults = firePanelFaultsMatch[1]?.trim() || null
-      console.log('[FRA] Found fire panel faults from PDF:', pdfExtractedData.firePanelFaults)
+    const firePanelFaultsQuestion = parseYesNoQuestionBlock(
+      originalText,
+      /is panel free of faults\?/i
+    )
+    if (firePanelFaultsQuestion.answer === 'no') {
+      pdfExtractedData.firePanelFaults = firePanelFaultsQuestion.comment || 'Fault present at time of inspection'
+      console.log('[FRA] Found fire panel faults from PDF (anchored NO):', pdfExtractedData.firePanelFaults)
+    } else if (firePanelFaultsQuestion.answer === 'yes') {
+      pdfExtractedData.firePanelFaults = firePanelFaultsQuestion.comment || 'No faults'
+      console.log('[FRA] Found fire panel faults from PDF (anchored YES):', pdfExtractedData.firePanelFaults)
+    } else {
+      const firePanelFaultsMatch = originalText.match(/(?:is panel free of faults|panel free of faults|panel faults)[\s:]*([^\n\r]+?)(?:\n|$|location of emergency)/i)
+      if (firePanelFaultsMatch) {
+        pdfExtractedData.firePanelFaults = firePanelFaultsMatch[1]?.trim() || null
+        console.log('[FRA] Found fire panel faults from PDF:', pdfExtractedData.firePanelFaults)
+      }
     }
 
     // Emergency Lighting Switch
@@ -1078,32 +1092,359 @@ export async function mapHSAuditToFRAData(fraInstanceId: string) {
     ].join('\n')
   }
 
-  const floorAreaStr = customData?.floorArea || squareFootage?.value || squareFootage?.comment || ''
-  const floorAreaSqFt = parseFloorAreaSqFt(floorAreaStr)
   const hasCustomOccupancy = !!customData?.occupancy?.trim()
   const defaultOccupancyText = 'To be calculated based on floor area'
-  const occupancyFromFloorArea =
-    !hasCustomOccupancy && floorAreaSqFt != null
-      ? formatRetailOccupancyFromSqFt(floorAreaSqFt)
-      : null
 
-  // Try to get opening hours from ChatGPT search when we don't have edited or PDF value
-  let openingHoursFromSearch: string | null = null
-  if (!editedExtractedData?.operatingHours && !pdfExtractedData.operatingHours && store) {
-    openingHoursFromSearch = await getOpeningHoursFromSearch({
+  // Load persisted store metadata when available.
+  const { data: persistedStoreData } = await supabase
+    .from('fa_stores')
+    .select('*')
+    .eq('id', storeId)
+    .maybeSingle()
+
+  const storedOpeningTimesRaw = typeof persistedStoreData?.opening_times === 'string'
+    ? persistedStoreData.opening_times.trim()
+    : null
+  const storedBuildDateRaw = typeof persistedStoreData?.build_date === 'string'
+    ? persistedStoreData.build_date.trim()
+    : null
+  const storedBuildDate = storedBuildDateRaw && storedBuildDateRaw !== '2009'
+    ? storedBuildDateRaw
+    : null
+
+  const normalizeCustomText = (value: unknown, placeholders: RegExp[]): string | null => {
+    if (typeof value !== 'string') return null
+    const trimmed = value.trim()
+    if (!trimmed) return null
+    if (placeholders.some((pattern) => pattern.test(trimmed))) return null
+    return trimmed
+  }
+
+  const OPENING_DAY_ORDER = [
+    'monday',
+    'tuesday',
+    'wednesday',
+    'thursday',
+    'friday',
+    'saturday',
+    'sunday',
+  ] as const
+
+  const toDisplayDay = (day: string): string =>
+    day.charAt(0).toUpperCase() + day.slice(1).toLowerCase()
+
+  const normalizeHoursLabel = (value: string): string => {
+    const cleaned = normalizeWhitespace(String(value || '').replace(/[–—]/g, '-'))
+    if (!cleaned) return ''
+    if (/^closed$/i.test(cleaned)) return 'Closed'
+    if (/^open\s*24\s*hours$/i.test(cleaned)) return 'Open 24 hours'
+    return cleaned.replace(/\s*-\s*/g, ' - ')
+  }
+
+  const formatOpeningTimesMap = (map: Record<string, unknown>): string | null => {
+    type OpeningDay = typeof OPENING_DAY_ORDER[number]
+    const entries: Array<{ day: OpeningDay; hours: string }> = []
+    for (const day of OPENING_DAY_ORDER) {
+      const value = map[day] ?? map[toDisplayDay(day)] ?? map[day.slice(0, 3)]
+      if (typeof value !== 'string') continue
+      const hours = normalizeHoursLabel(value)
+      if (!hours) continue
+      entries.push({ day, hours })
+    }
+
+    if (!entries.length) return null
+
+    const groups: Array<{ start: string; end: string; hours: string }> = []
+    for (const entry of entries) {
+      const previous = groups[groups.length - 1]
+      if (previous && previous.hours === entry.hours) {
+        previous.end = entry.day
+      } else {
+        groups.push({ start: entry.day, end: entry.day, hours: entry.hours })
+      }
+    }
+
+    return groups
+      .map((group) => {
+        const label = group.start === group.end
+          ? toDisplayDay(group.start)
+          : `${toDisplayDay(group.start)} to ${toDisplayDay(group.end)}`
+        return `${label}: ${group.hours}`
+      })
+      .join('; ')
+  }
+
+  const normalizeOpeningTimesText = (value: unknown): string | null => {
+    if (typeof value !== 'string') return null
+    const trimmed = normalizeWhitespace(value)
+    if (!trimmed) return null
+    if (/^\{[\s\S]*\}$/.test(trimmed)) {
+      try {
+        const parsed = JSON.parse(trimmed) as unknown
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          const formatted = formatOpeningTimesMap(parsed as Record<string, unknown>)
+          if (formatted) return formatted
+        }
+      } catch {
+        // fall through
+      }
+    }
+    return trimmed
+  }
+
+  const storedOpeningTimes = normalizeOpeningTimesText(storedOpeningTimesRaw)
+
+  const scoreOpeningTimes = (value: string | null | undefined): number => {
+    const normalized = normalizeWhitespace(value || '')
+    if (!normalized) return -100
+    if (!/\d/.test(normalized)) return -100
+    if (!/(am|pm|\d{1,2}:\d{2})/i.test(normalized)) return -40
+
+    let score = 0
+    if (/(monday\s+to\s+saturday|mon(?:day)?\s*-\s*sat(?:urday)?)/i.test(normalized)) score += 45
+    if (/sunday/i.test(normalized)) score += 20
+    if (/\d{1,2}:\d{2}/.test(normalized)) score += 20
+    if (/\d{1,2}\s*(am|pm)/i.test(normalized)) score += 10
+    if (/[;|]/.test(normalized)) score += 10
+    if (/\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i.test(normalized)) score += 12
+
+    const dayEntries = normalized.match(
+      /\b(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|Mon|Tue|Wed|Thu|Fri|Sat|Sun)\b[^,;|]*/gi
+    ) || []
+    if (dayEntries.length >= 6) {
+      const ranges = dayEntries
+        .map((entry) => {
+          const range = entry.match(/(\d{1,2}(?::\d{2})?\s*(?:am|pm)?\s*(?:-|–|to)\s*\d{1,2}(?::\d{2})?\s*(?:am|pm)?)/i)
+          return range ? normalizeWhitespace(range[1].toLowerCase()) : ''
+        })
+        .filter(Boolean)
+      const uniqueRanges = new Set(ranges)
+      if (ranges.length >= 6 && uniqueRanges.size <= 1) {
+        score -= 35
+      }
+    }
+
+    return score
+  }
+
+  const pickPreferredOpeningTimes = (
+    ...candidates: Array<string | null | undefined>
+  ): string | null => {
+    const valid = candidates
+      .map((candidate) => (typeof candidate === 'string' ? normalizeWhitespace(candidate) : ''))
+      .filter(Boolean)
+    if (!valid.length) return null
+
+    const unique = Array.from(new Set(valid))
+    const ranked = unique
+      .map((value) => ({ value, score: scoreOpeningTimes(value) }))
+      .sort((a, b) => b.score - a.score)
+
+    const best = ranked[0]
+    return best && best.score >= 20 ? best.value : null
+  }
+
+  const customBuildDate = normalizeCustomText(customData?.buildDate, [
+    /^to\s+be\s+confirmed$/i,
+    /^unknown$/i,
+    /^n\/a$/i,
+    /^na$/i,
+  ])
+  const customFloorArea = normalizeCustomText(customData?.floorArea, [
+    /^to\s+be\s+confirmed$/i,
+    /^unknown$/i,
+    /^n\/a$/i,
+    /^na$/i,
+  ])
+  const customOperatingHoursRaw = normalizeCustomText(customData?.operatingHours, [
+    /^to\s+be\s+confirmed$/i,
+    /^unknown$/i,
+    /^n\/a$/i,
+    /^na$/i,
+  ])
+  const customOperatingHours = normalizeOpeningTimesText(customOperatingHoursRaw) || customOperatingHoursRaw
+  const customAdjacentOccupancies = normalizeCustomText(customData?.adjacentOccupancies, [
+    /^see\s+description$/i,
+    /^to\s+be\s+confirmed$/i,
+    /^unknown$/i,
+    /^n\/a$/i,
+    /^na$/i,
+  ])
+
+  const extractedFloorAreaCandidate = squareFootage?.value || squareFootage?.comment || null
+  const extractedFloorAreaSqFt = parseFloorAreaSqFt(extractedFloorAreaCandidate)
+  const isWeakExtractedFloorArea =
+    !!extractedFloorAreaCandidate
+    && extractedFloorAreaSqFt != null
+    && extractedFloorAreaSqFt < 500
+  const isPossiblyOverstatedExtractedFloorArea =
+    !!extractedFloorAreaCandidate
+    && extractedFloorAreaSqFt != null
+    && extractedFloorAreaSqFt > 13000
+
+  const storedOpeningTimesScore = scoreOpeningTimes(storedOpeningTimes)
+  const storedOpeningTimesIsLowConfidence = !!storedOpeningTimes && storedOpeningTimesScore < 35
+
+  const needsOpeningSearch = !customOperatingHours
+    && !editedExtractedData?.operatingHours
+    && !pdfExtractedData.operatingHours
+    && (!storedOpeningTimes || storedOpeningTimesIsLowConfidence)
+  const needsBuildSearch = !customBuildDate && !storedBuildDate
+  const needsFloorAreaSearch = !customFloorArea && (
+    !extractedFloorAreaCandidate
+    || isWeakExtractedFloorArea
+    || isPossiblyOverstatedExtractedFloorArea
+  )
+  const needsAdjacentSearch = !customAdjacentOccupancies
+
+  // Google-first search for store profile data when values are missing.
+  let googleSearchData: { openingTimes: string | null; buildDate: string | null; adjacentOccupancies: string | null; squareFootage: string | null } = {
+    openingTimes: null,
+    buildDate: null,
+    adjacentOccupancies: null,
+    squareFootage: null,
+  }
+  const needsSearch = needsOpeningSearch || needsBuildSearch || needsFloorAreaSearch || needsAdjacentSearch
+  if (needsSearch && store) {
+    googleSearchData = await getStoreDataFromGoogleSearch({
       storeName: store.store_name,
       address: store.address_line_1,
       city: store.city,
     })
   }
 
+  // OpenAI fallback when Google does not return a value.
+  let openingHoursFromSearch: string | null = normalizeOpeningTimesText(googleSearchData.openingTimes) || googleSearchData.openingTimes || null
+  const openingHoursSearchScore = scoreOpeningTimes(openingHoursFromSearch)
+  if ((!openingHoursFromSearch || openingHoursSearchScore < 45) && needsOpeningSearch && store) {
+    const fallbackOpeningHours = await getOpeningHoursFromSearch({
+      storeName: store.store_name,
+      address: store.address_line_1,
+      city: store.city,
+    })
+    openingHoursFromSearch = pickPreferredOpeningTimes(
+      normalizeOpeningTimesText(openingHoursFromSearch),
+      normalizeOpeningTimesText(fallbackOpeningHours),
+    )
+  }
+
+  let buildDateFromSearch: string | null = googleSearchData.buildDate || null
+  if (!buildDateFromSearch && needsBuildSearch && store) {
+    buildDateFromSearch = await getBuildDateFromSearch({
+      storeName: store.store_name,
+      address: store.address_line_1,
+      city: store.city,
+    })
+  }
+
+  const resolvedBuildDate = customBuildDate
+    || storedBuildDate
+    || buildDateFromSearch
+    || 'To be confirmed'
+
+  const extractedFloorAreaSource = editedExtractedData?.squareFootage
+    ? 'REVIEW'
+    : pdfExtractedData.squareFootage
+      ? 'PDF'
+      : extractedFloorAreaCandidate
+        ? 'H&S_AUDIT'
+        : null
+  const webFloorAreaCandidate = googleSearchData.squareFootage
+  const webFloorAreaSqFt = parseFloorAreaSqFt(webFloorAreaCandidate)
+  const hasLargeAreaMismatch =
+    extractedFloorAreaSqFt != null
+    && webFloorAreaSqFt != null
+    && Math.max(extractedFloorAreaSqFt, webFloorAreaSqFt) / Math.max(1, Math.min(extractedFloorAreaSqFt, webFloorAreaSqFt)) >= 1.45
+  const webAppearsMorePlausibleForBranch =
+    extractedFloorAreaSqFt != null
+    && webFloorAreaSqFt != null
+    && webFloorAreaSqFt >= 1000
+    && webFloorAreaSqFt <= 13000
+    && extractedFloorAreaSqFt > webFloorAreaSqFt
+  const shouldPreferWebFloorArea =
+    !!webFloorAreaCandidate
+    && (
+      !extractedFloorAreaCandidate
+      || (
+        extractedFloorAreaSqFt != null
+        && webFloorAreaSqFt != null
+        && extractedFloorAreaSqFt < 500
+        && webFloorAreaSqFt >= 1000
+      )
+      || (
+        hasLargeAreaMismatch
+        && webAppearsMorePlausibleForBranch
+      )
+    )
+
+  let resolvedFloorArea: string
+  let resolvedFloorAreaSource: string
+  if (customFloorArea) {
+    resolvedFloorArea = customFloorArea
+    resolvedFloorAreaSource = 'CUSTOM'
+  } else if (shouldPreferWebFloorArea) {
+    resolvedFloorArea = webFloorAreaCandidate || 'To be confirmed'
+    resolvedFloorAreaSource = webFloorAreaCandidate ? 'WEB_SEARCH' : 'DEFAULT'
+  } else if (extractedFloorAreaCandidate) {
+    resolvedFloorArea = extractedFloorAreaCandidate
+    resolvedFloorAreaSource = extractedFloorAreaSource || 'H&S_AUDIT'
+  } else if (webFloorAreaCandidate) {
+    resolvedFloorArea = webFloorAreaCandidate
+    resolvedFloorAreaSource = 'WEB_SEARCH'
+  } else {
+    resolvedFloorArea = 'To be confirmed'
+    resolvedFloorAreaSource = 'DEFAULT'
+  }
+
+  const floorAreaSqFt = parseFloorAreaSqFt(resolvedFloorArea)
+  const occupancyFromFloorArea =
+    !hasCustomOccupancy && floorAreaSqFt != null
+      ? formatRetailOccupancyFromSqFt(floorAreaSqFt)
+      : null
+
+  const resolvedAdjacentOccupancies = customAdjacentOccupancies
+    || googleSearchData.adjacentOccupancies
+    || null
+
+  const preferredAutoOpeningTimes = pickPreferredOpeningTimes(storedOpeningTimes, openingHoursFromSearch)
+  const preferredAutoOpeningTimesSource = preferredAutoOpeningTimes
+    ? (preferredAutoOpeningTimes === openingHoursFromSearch ? 'WEB_SEARCH' : 'DATABASE')
+    : null
+
+  // Persist discovered values for later report loads.
+  const discoveredStoreFields: Record<string, string> = {}
+  if (
+    openingHoursFromSearch
+    && (
+      !storedOpeningTimes
+      || storedOpeningTimesIsLowConfidence
+      || scoreOpeningTimes(openingHoursFromSearch) > scoreOpeningTimes(storedOpeningTimes) + 10
+    )
+  ) {
+    discoveredStoreFields.opening_times = normalizeOpeningTimesText(openingHoursFromSearch) || openingHoursFromSearch
+  }
+  if (!storedBuildDate && buildDateFromSearch) {
+    discoveredStoreFields.build_date = buildDateFromSearch
+  }
+  if (Object.keys(discoveredStoreFields).length > 0) {
+    const { error: storeUpdateError } = await supabase
+      .from('fa_stores')
+      .update(discoveredStoreFields)
+      .eq('id', storeId)
+    if (storeUpdateError) {
+      console.warn('[FRA] Could not persist discovered store fields:', storeUpdateError.message)
+    }
+  }
+
   // Try to find operating hours - prioritize edited data, then PDF, then ChatGPT search, then database
-  const operatingHoursData = editedExtractedData?.operatingHours
-    ? { value: editedExtractedData.operatingHours, comment: undefined }
+  const operatingHoursData = customOperatingHours
+    ? { value: customOperatingHours, comment: undefined }
+    : editedExtractedData?.operatingHours
+    ? { value: normalizeOpeningTimesText(editedExtractedData.operatingHours) || editedExtractedData.operatingHours, comment: undefined }
     : pdfExtractedData.operatingHours
-      ? { value: pdfExtractedData.operatingHours, comment: undefined }
-      : openingHoursFromSearch
-        ? { value: openingHoursFromSearch, comment: undefined }
+      ? { value: normalizeOpeningTimesText(pdfExtractedData.operatingHours) || pdfExtractedData.operatingHours, comment: undefined }
+      : preferredAutoOpeningTimes
+        ? { value: preferredAutoOpeningTimes, comment: undefined }
         : findAnswer('operating hours')
           || findAnswer('trading hours')
           || findAnswer('opening hours')
@@ -1316,15 +1657,34 @@ export async function mapHSAuditToFRAData(fraInstanceId: string) {
   // Format panel faults answer
   let panelFaultsText = 'Panel status to be verified'
   if (firePanelFaults) {
-    const faultsValue = String(firePanelFaults.value || '').toLowerCase()
-    if (faultsValue === 'yes' || faultsValue === 'y') {
-      panelFaultsText = firePanelFaults.comment || 'No faults'
+    const rawValue = normalizeWhitespace(String(firePanelFaults.value || ''))
+    const rawComment = normalizeWhitespace(String(firePanelFaults.comment || ''))
+    const faultsValue = rawValue.toLowerCase()
+    const combined = normalizeWhitespace(`${rawValue} ${rawComment}`).toLowerCase()
+
+    const hasExplicitFaultPresent =
+      /\b(fault(?:s)? (?:at|present|detected|indicated)|indicates? a fault|fault condition|panel fault)\b/i.test(combined)
+      && !/\b(no faults?|fault[\s-]*free|free of faults)\b/i.test(combined)
+    const hasExplicitNoFault =
+      /\b(no faults?|fault[\s-]*free|free of faults|normal)\b/i.test(combined)
+
+    if (hasExplicitFaultPresent) {
+      panelFaultsText = rawComment || rawValue || 'Fault present at time of inspection'
+    } else if (hasExplicitNoFault) {
+      panelFaultsText = rawComment || rawValue || 'No faults'
+    } else if (faultsValue === 'yes' || faultsValue === 'y') {
+      panelFaultsText = rawComment || 'No faults'
     } else if (faultsValue === 'no' || faultsValue === 'n') {
-      panelFaultsText = firePanelFaults.comment || 'Faults present - to be verified'
-    } else if (firePanelFaults.comment) {
-      panelFaultsText = firePanelFaults.comment
+      panelFaultsText = rawComment || 'Fault present at time of inspection'
+    } else if (rawComment) {
+      panelFaultsText = rawComment
+    } else if (rawValue) {
+      panelFaultsText = rawValue
     }
   }
+  const hasPanelFaultCondition =
+    /\b(fault(?:s)? (?:at|present|detected|indicated)|indicates? a fault|fault condition|panel fault)\b/i.test(panelFaultsText)
+    && !/\b(no faults?|fault[\s-]*free|free of faults|normal)\b/i.test(panelFaultsText)
 
   // Emergency Lighting - extract test switch location - prioritize edited data, then PDF, then database
   const emergencyLightingSwitchLocation = editedExtractedData?.emergencyLightingSwitch
@@ -1449,13 +1809,30 @@ export async function mapHSAuditToFRAData(fraInstanceId: string) {
         : (hsAuditConductedAt ? (pdfExtractedData.conductedDate ? 'PDF' : 'H&S_AUDIT') : 'FRA_INSTANCE'),
       assessmentEndTime: 'N/A',
       assessmentReviewDate: hsAuditConductedAt ? (pdfExtractedData.conductedDate ? 'PDF_CALCULATED' : 'H&S_AUDIT_CALCULATED') : 'FRA_INSTANCE_CALCULATED',
-      buildDate: customData?.buildDate ? 'CUSTOM' : 'WEB_SEARCH', // Will be searched, fallback to default if not found
+      buildDate: customBuildDate
+        ? 'CUSTOM'
+        : storedBuildDate
+          ? 'DATABASE'
+          : buildDateFromSearch
+            ? 'WEB_SEARCH'
+            : 'DEFAULT',
       propertyType: 'DEFAULT',
       numberOfFloors: generalSiteInfo?.value || generalSiteInfo?.comment ? (pdfExtractedData.numberOfFloors ? 'PDF' : 'H&S_AUDIT') : 'DEFAULT',
-      floorArea: customData?.floorArea ? 'CUSTOM' : (squareFootage?.value || squareFootage?.comment ? (pdfExtractedData.squareFootage ? 'PDF' : 'H&S_AUDIT') : 'DEFAULT'),
+      floorArea: resolvedFloorAreaSource,
       occupancy: customData?.occupancy ? 'CUSTOM' : (occupancyFromFloorArea ? 'FRA_INSTANCE_CALCULATED' : (occupancyData?.value || occupancyData?.comment ? 'H&S_AUDIT' : 'DEFAULT')),
-      operatingHours: customData?.operatingHours ? 'CUSTOM' : (operatingHoursData?.value || operatingHoursData?.comment ? (pdfExtractedData.operatingHours ? 'PDF' : openingHoursFromSearch ? 'WEB_SEARCH' : 'H&S_AUDIT') : 'WEB_SEARCH'),
-      storeOpeningTimes: operatingHoursData?.value || operatingHoursData?.comment ? (pdfExtractedData.operatingHours ? 'PDF' : openingHoursFromSearch ? 'WEB_SEARCH' : 'H&S_AUDIT') : 'WEB_SEARCH',
+      operatingHours: customOperatingHours
+        ? 'CUSTOM'
+        : pdfExtractedData.operatingHours
+          ? 'PDF'
+          : preferredAutoOpeningTimesSource
+            ? preferredAutoOpeningTimesSource
+            : (operatingHoursData?.value || operatingHoursData?.comment ? 'H&S_AUDIT' : 'WEB_SEARCH'),
+      storeOpeningTimes: operatingHoursData?.value || operatingHoursData?.comment
+        ? (pdfExtractedData.operatingHours
+          ? 'PDF'
+          : (preferredAutoOpeningTimesSource || 'H&S_AUDIT'))
+        : 'WEB_SEARCH',
+      adjacentOccupancies: customAdjacentOccupancies ? 'CUSTOM' : (resolvedAdjacentOccupancies ? 'WEB_SEARCH' : 'DEFAULT'),
       accessDescription: 'CHATGPT',
       fireAlarmPanelLocation: firePanelLocation?.value || firePanelLocation?.comment ? (pdfExtractedData.firePanelLocation ? 'PDF' : 'H&S_AUDIT') : 'DEFAULT',
       fireAlarmPanelFaults: firePanelFaults?.value || firePanelFaults?.comment ? (pdfExtractedData.firePanelFaults ? 'PDF' : 'H&S_AUDIT') : 'DEFAULT',
@@ -1502,7 +1879,7 @@ export async function mapHSAuditToFRAData(fraInstanceId: string) {
       : formatDate(new Date(new Date(fraInstance.conducted_at || fraInstance.created_at).setFullYear(new Date(fraInstance.conducted_at || fraInstance.created_at).getFullYear() + 1)).toISOString()),
 
     // About the Property (customData overrides when set)
-    buildDate: customData?.buildDate || '2009',
+    buildDate: resolvedBuildDate,
     propertyType: customData?.propertyType ?? 'Retail unit used for the sale of branded fashion apparel and footwear to members of the public.',
     description: (() => {
       if (customData?.description?.trim()) return customData.description.trim()
@@ -1522,10 +1899,10 @@ The premises is a mid-unit with adjoining retail occupancies to either side.`
 The unit is of modern construction, consisting primarily of steel frame with blockwork, modern internal wall finishes and commercial-grade floor coverings.
 The premises is a mid-unit with adjoining retail occupancies to either side.`
     })(),
-    adjacentOccupancies: customData?.adjacentOccupancies ?? null,
+    adjacentOccupancies: resolvedAdjacentOccupancies,
     numberOfFloors: customData?.numberOfFloors ?? generalSiteInfo?.value ?? generalSiteInfo?.comment ?? '1',
-    floorArea: customData?.floorArea || squareFootage?.value || squareFootage?.comment || 'To be confirmed', // Use custom data if available
-    floorAreaComment: !customData?.floorArea && !squareFootage?.value && !squareFootage?.comment ? 'Please add floor area information' : null,
+    floorArea: resolvedFloorArea, // Custom > extracted > web-search > fallback
+    floorAreaComment: resolvedFloorArea === 'To be confirmed' ? 'Please add floor area information' : null,
     occupancy:
       customData?.occupancy ||
       occupancyFromFloorArea ||
@@ -1537,8 +1914,8 @@ The premises is a mid-unit with adjoining retail occupancies to either side.`
       : !customData?.occupancy && !occupancyData?.value && !occupancyData?.comment
         ? 'Please add floor area information to calculate both Standard (60 sq ft/person) and Peak (30 sq ft/person) occupancy.'
         : null,
-    operatingHours: customData?.operatingHours || operatingHoursData?.value || operatingHoursData?.comment || 'To be confirmed',
-    operatingHoursComment: !customData?.operatingHours && !operatingHoursData?.value && !operatingHoursData?.comment ? 'Please add operating hours information' : null,
+    operatingHours: customOperatingHours || operatingHoursData?.value || operatingHoursData?.comment || 'To be confirmed',
+    operatingHoursComment: !customOperatingHours && !operatingHoursData?.value && !operatingHoursData?.comment ? 'Please add operating hours information' : null,
     sleepingRisk: customData?.sleepingRisk ?? 'No sleeping occupants',
     internalFireDoors: (() => {
       // Check if fire doors are in good condition and intumescent strips are present
@@ -1685,6 +2062,7 @@ Sprinkler heads are installed throughout the premises in accordance with the ori
       coshhSheets?.value === 'No' ? 'Ensure fire safety documentation relevant to the premises is available on site and maintained in an accessible format, including COSHH safety data sheets.' : null,
       laddersNumbered?.value === 'No' ? 'Ensure all ladders and steps are clearly numbered for identification purposes.' : null,
       hasCompartmentationDefect ? compartmentationActionRecommendation : null,
+      hasPanelFaultCondition ? 'Fire alarm panel fault condition identified: arrange immediate inspection/repair by a competent fire alarm engineer, record remedial works, and confirm system reset to normal operation.' : null,
       hasEscapeRouteConcern ? 'Address any obstruction to fire exits and escape routes; ensure final exits and evacuation paths remain clear and unobstructed.' : 'Continue to ensure escape routes and final exits are always kept clear and unobstructed.',
       combustibleEscapeCompromise ? 'Maintain good housekeeping standards; ensure combustible materials and packaging do not compromise escape routes.' : 'Maintain good housekeeping standards, particularly in relation to the control and storage of combustible materials and packaging.',
       'Continue routine testing, inspection and servicing of fire alarm systems, emergency lighting and fire-fighting equipment in accordance with statutory requirements and British Standards.',
@@ -1707,10 +2085,31 @@ Sprinkler heads are installed throughout the premises in accordance with the ori
     actionPlanItems: (() => {
       const edited = (editedExtractedData as any)?.actionPlanItems
       if (edited && Array.isArray(edited) && edited.length > 0) {
+        if (hasPanelFaultCondition) {
+          const hasPanelFaultActionAlready = edited.some((item: any) => {
+            const text = String(item?.recommendation || '').toLowerCase()
+            return /\b(panel|fire alarm).*\bfault\b|\bfault\b.*\b(panel|fire alarm)\b/.test(text)
+          })
+          if (!hasPanelFaultActionAlready) {
+            return [
+              {
+                priority: 'High',
+                recommendation: 'Fire alarm panel fault condition identified: arrange immediate attendance by a competent fire alarm engineer, rectify the fault, and record corrective action and confirmation testing in the fire logbook.',
+              },
+              ...edited,
+            ]
+          }
+        }
         return edited
       }
       type ActionItem = { recommendation: string; priority: 'Low' | 'Medium' | 'High'; dueNote?: string }
       const derived: ActionItem[] = []
+      if (hasPanelFaultCondition) {
+        derived.push({
+          priority: 'High',
+          recommendation: 'Fire alarm panel fault condition identified: arrange immediate attendance by a competent fire alarm engineer, rectify the fault, and record corrective action and confirmation testing in the fire logbook.',
+        })
+      }
       const hasEscapeIssue = hasEscapeRouteConcern
       if (hasEscapeIssue) {
         derived.push({

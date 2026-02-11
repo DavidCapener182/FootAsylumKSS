@@ -44,7 +44,11 @@ export default function FRAPrintReportPage({
           const storeInfoResponse = await fetch(`/api/fra-reports/store-info?storeId=${data.store.id}`)
           if (storeInfoResponse.ok) {
             const storeInfo = await storeInfoResponse.json()
-            if ((!storeInfo.store.build_date || storeInfo.store.build_date === '2009') && data.store?.store_name && data.address) {
+            const missingBuildDate = !storeInfo.store.build_date || storeInfo.store.build_date === '2009'
+            const missingOpeningTimes = !storeInfo.store.opening_times && !data.storeOpeningTimes
+            const missingFloorArea = !data.floorArea || data.floorArea === 'To be confirmed'
+            const missingAdjacentOccupancies = !data.adjacentOccupancies
+            if ((missingBuildDate || missingOpeningTimes || missingFloorArea || missingAdjacentOccupancies) && data.store?.store_name && data.address) {
               try {
                 const searchResponse = await fetch('/api/fra-reports/search-store-data', {
                   method: 'POST',
@@ -53,12 +57,15 @@ export default function FRAPrintReportPage({
                     storeName: data.store.store_name,
                     address: data.address,
                     city: data.store.city || '',
+                    storeId: data.store.id,
                   }),
                 })
                 if (searchResponse.ok) {
                   const searchData = await searchResponse.json()
                   if (searchData.buildDate) data.buildDate = searchData.buildDate
                   if (searchData.openingTimes) data.storeOpeningTimes = searchData.openingTimes
+                  if (searchData.squareFootage && (!data.floorArea || data.floorArea === 'To be confirmed')) data.floorArea = searchData.squareFootage
+                  if (searchData.adjacentOccupancies && !data.adjacentOccupancies) data.adjacentOccupancies = searchData.adjacentOccupancies
                 }
               } catch (_) {}
             }

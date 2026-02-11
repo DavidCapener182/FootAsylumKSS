@@ -52,8 +52,12 @@ export default function FRAReportViewPage({
           const storeInfoResponse = await fetch(`/api/fra-reports/store-info?storeId=${data.store.id}`)
           if (storeInfoResponse.ok) {
             const storeInfo = await storeInfoResponse.json()
-            // If build date or opening times are missing, try web search
-            if ((!storeInfo.store.build_date || storeInfo.store.build_date === '2009') && data.store?.store_name && data.address) {
+            const missingBuildDate = !storeInfo.store.build_date || storeInfo.store.build_date === '2009'
+            const missingOpeningTimes = !storeInfo.store.opening_times && !data.storeOpeningTimes
+            const missingFloorArea = !data.floorArea || data.floorArea === 'To be confirmed'
+            const missingAdjacentOccupancies = !data.adjacentOccupancies
+            // If key About Property values are missing, try web search
+            if ((missingBuildDate || missingOpeningTimes || missingFloorArea || missingAdjacentOccupancies) && data.store?.store_name && data.address) {
               try {
                 const searchResponse = await fetch('/api/fra-reports/search-store-data', {
                   method: 'POST',
@@ -62,6 +66,7 @@ export default function FRAReportViewPage({
                     storeName: data.store.store_name,
                     address: data.address,
                     city: data.store.city || '',
+                    storeId: data.store.id,
                   }),
                 })
                 if (searchResponse.ok) {
@@ -73,6 +78,14 @@ export default function FRAReportViewPage({
                   if (searchData.openingTimes) {
                     data.storeOpeningTimes = searchData.openingTimes
                     data._sources = { ...data._sources, storeOpeningTimes: 'WEB_SEARCH' }
+                  }
+                  if (searchData.squareFootage && (!data.floorArea || data.floorArea === 'To be confirmed')) {
+                    data.floorArea = searchData.squareFootage
+                    data._sources = { ...data._sources, floorArea: 'WEB_SEARCH' }
+                  }
+                  if (searchData.adjacentOccupancies && !data.adjacentOccupancies) {
+                    data.adjacentOccupancies = searchData.adjacentOccupancies
+                    data._sources = { ...data._sources, adjacentOccupancies: 'WEB_SEARCH' }
                   }
                 }
               } catch (searchErr) {

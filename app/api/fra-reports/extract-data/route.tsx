@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getLatestHSAuditForStore } from '@/app/actions/fra-reports'
 import { getAuditInstance } from '@/app/actions/safehub'
-import { POST as searchStoreData } from '../search-store-data/route'
+import { getStoreDataFromGoogleSearch } from '@/lib/fra/google-store-data-search'
+import { getOpeningHoursFromSearch } from '@/lib/fra/opening-hours-search'
 
 export const dynamic = 'force-dynamic'
 
@@ -158,6 +159,532 @@ function extractSquareFootageAfterLabel(text: string): string | null {
   }
 
   return null
+}
+
+type ParsedAnchoredQuestion = {
+  answer: 'yes' | 'no' | 'na' | null
+  comment: string | null
+  windowText: string
+}
+
+type ExtractSectionMap = {
+  full: string
+  generalSiteInformation?: string
+  statutoryTesting?: string
+  fireSafety?: string
+  training?: string
+}
+
+function normalizeLines(text: string): string[] {
+  return text.replace(/\r\n?/g, '\n').split('\n')
+}
+
+function isPhotoOnlyLine(value: string): boolean {
+  return /^\s*photo\s+\d+(?:\s+photo\s+\d+)*\s*$/i.test(value)
+}
+
+function isSectionHeadingLine(value: string): boolean {
+  const line = normalizeWhitespace(value)
+  if (!line) return false
+  return [
+    'General Site Information',
+    'Statutory Testing',
+    'Fire Safety',
+    'Store Compliance',
+    'COSHH',
+    'Training',
+  ].some((heading) => new RegExp(`^${heading}\\b`, 'i').test(line))
+}
+
+function isLikelyNewQuestionLine(value: string): boolean {
+  const line = normalizeWhitespace(value)
+  if (!line) return false
+  if (/\?$/.test(line) && line.length > 12) return true
+  if (/^(number of|location of|evidence of|is panel|are all|fire drill has|h&s)/i.test(line)) return true
+  return false
+}
+
+function isInvalidLocationValue(value: string | null | undefined): boolean {
+  const normalized = normalizeWhitespace(value || '')
+  if (!normalized) return true
+  if (/^(yes|no|n\/a|na)$/i.test(normalized)) return true
+  if (/^photo\s+\d+(?:\s+photo\s+\d+)*$/i.test(normalized)) return true
+  if (/^emergency\s+lighting\s+switch\s+photo$/i.test(normalized)) return true
+  if (/^location\s+of\s+emergency\s+lighting\s+test\s+switch/i.test(normalized)) return true
+  return false
+}
+
+const NEXT_QUESTION_BOUNDARIES: RegExp[] = [
+  /fire\s+exit\s+routes\s+clear\s+and\s+unobstructed\?/i,
+  /combustible\s+materials\s+are\s+stored\s+correctly\?/i,
+  /fire\s+doors\s+in\s+a\s+good\s+condition\?/i,
+  /are\s+fire\s+door\s+intumescent\s+strips\s+in\s+place\s+and\s+intact\?/i,
+  /fire\s+doors\s+closed\s+and\s+not\s+held\s+open\?/i,
+  /weekly\s+fire\s+tests\s+carried\s+out\s+and\s+documented\?/i,
+  /evidence\s+of\s+monthly\s+emergency\s+lighting\s+test\s+being\s+conducted\?/i,
+  /fire\s+extinguisher\s+service\?/i,
+  /fire\s+drill\s+has\s+been\s+carried\s+out\s+in\s+the\s+past\s+6\s+months\s+and\s+records?\s+available\s+on\s+site\?/i,
+]
+
+function splitBeforeNextQuestionBoundary(value: string): { before: string; hitBoundary: boolean } {
+  let cutIndex = -1
+  for (const pattern of NEXT_QUESTION_BOUNDARIES) {
+    const match = pattern.exec(value)
+    if (!match || typeof match.index !== 'number') continue
+    if (cutIndex < 0 || match.index < cutIndex) cutIndex = match.index
+  }
+  if (cutIndex < 0) {
+    return { before: value, hitBoundary: false }
+  }
+  return { before: value.slice(0, cutIndex).trim(), hitBoundary: true }
+}
+
+function extractEmergencyLightingSwitchLocation(text: string): string | null {
+  const sameLinePatterns = [
+    /location\s+of\s+emergency\s+lighting\s+test\s+switch\s*\([^)]*photograph[^)]*\)\s*[:\-]?[ \t]*([^\n\r]+)/i,
+    /location\s+of\s+emergency\s+lighting\s+test\s+switch\s*[:\-]?[ \t]*([^\n\r]+)/i,
+  ]
+
+  for (const pattern of sameLinePatterns) {
+    const match = pattern.exec(text)
+    const candidate = normalizeWhitespace(
+      (match?.[1] || '')
+        .replace(/\([^)]*photograph[^)]*\)/gi, '')
+        .replace(/photograph/gi, '')
+        .trim()
+    )
+    if (candidate && !isInvalidLocationValue(candidate) && candidate.length > 2) {
+      return candidate
+    }
+  }
+
+  const lines = normalizeLines(text)
+  const anchorIndex = findAnchorLineIndex(
+    text,
+    /location\s+of\s+emergency\s+lighting\s+test\s+switch\s*(?:\([^)]*photograph[^)]*\))?/i
+  )
+  if (anchorIndex < 0) return null
+
+  for (let i = anchorIndex + 1; i < lines.length && i <= anchorIndex + 6; i += 1) {
+    const line = normalizeWhitespace(lines[i])
+    if (!line) continue
+    if (isSectionHeadingLine(line)) break
+    if (i > anchorIndex + 1 && isLikelyNewQuestionLine(line)) break
+    if (isInvalidLocationValue(line)) continue
+    return line
+  }
+
+  return null
+}
+
+function preCleanAuditText(text: string): string {
+  let cleaned = text.replace(/\r\n?/g, '\n').replace(/\u00A0/g, ' ')
+  cleaned = cleaned.replace(/disclaimer[\s\S]*?(?=general site information)/i, '')
+  cleaned = cleaned.replace(/media summary[\s\S]*$/i, '')
+  cleaned = normalizeLines(cleaned)
+    .filter((line) => !isPhotoOnlyLine(line))
+    .join('\n')
+  return cleaned.replace(/\n{3,}/g, '\n\n').trim()
+}
+
+function splitAuditSections(cleanedText: string): ExtractSectionMap {
+  const normalizedText = cleanedText.replace(/\r\n?/g, '\n')
+  const lines = normalizedText.split('\n')
+  const offsets: number[] = []
+  let cursor = 0
+  for (const line of lines) {
+    offsets.push(cursor)
+    cursor += line.length + 1
+  }
+
+  const sectionDefs: Array<{ key: keyof Omit<ExtractSectionMap, 'full'>; title: string }> = [
+    { key: 'generalSiteInformation', title: 'General Site Information' },
+    { key: 'statutoryTesting', title: 'Statutory Testing' },
+    { key: 'fireSafety', title: 'Fire Safety' },
+    { key: 'training', title: 'Training' },
+  ]
+
+  const findHeadingOffset = (title: string): number | null => {
+    const normalizedTitle = normalizeWhitespace(title).toLowerCase()
+    let fallback: number | null = null
+
+    for (let i = 0; i < lines.length; i += 1) {
+      const current = normalizeWhitespace(lines[i]).toLowerCase()
+      if (!current.startsWith(normalizedTitle)) continue
+      if (fallback === null) fallback = offsets[i]
+      const prev = i > 0 ? normalizeWhitespace(lines[i - 1]) : ''
+      if (i === 0 || prev === '') return offsets[i]
+    }
+
+    return fallback
+  }
+
+  const hits: Array<{ key: keyof Omit<ExtractSectionMap, 'full'>; index: number }> = []
+  for (const def of sectionDefs) {
+    const index = findHeadingOffset(def.title)
+    if (typeof index === 'number' && index >= 0) {
+      hits.push({ key: def.key, index })
+    }
+  }
+
+  hits.sort((a, b) => a.index - b.index)
+
+  const sections: ExtractSectionMap = { full: normalizedText }
+  for (let i = 0; i < hits.length; i += 1) {
+    const current = hits[i]
+    const next = hits[i + 1]
+    const start = current.index
+    const end = next ? next.index : normalizedText.length
+    sections[current.key] = normalizedText.slice(start, end).trim()
+  }
+
+  return sections
+}
+
+function findAnchorLineIndex(sectionText: string, anchorRegex: RegExp): number {
+  const safeRegex = new RegExp(anchorRegex.source, anchorRegex.flags.replace(/g/g, ''))
+  const match = safeRegex.exec(sectionText)
+  if (!match || typeof match.index !== 'number') return -1
+  return sectionText.slice(0, match.index).split(/\r\n?|\n/).length - 1
+}
+
+function parseAnchoredQuestionBlock(
+  sectionText: string,
+  anchorRegex: RegExp,
+  options?: { maxLines?: number; skipLinePatterns?: RegExp[] }
+): ParsedAnchoredQuestion {
+  const lines = normalizeLines(sectionText)
+  const anchorIndex = findAnchorLineIndex(sectionText, anchorRegex)
+  if (anchorIndex < 0) {
+    return { answer: null, comment: null, windowText: '' }
+  }
+
+  const maxLines = options?.maxLines ?? 18
+  let answer: ParsedAnchoredQuestion['answer'] = null
+  const commentParts: string[] = []
+  const windowParts: string[] = []
+  const safeRegex = new RegExp(anchorRegex.source, anchorRegex.flags.replace(/g/g, ''))
+
+  const anchorLine = normalizeWhitespace(lines[anchorIndex] || '')
+  if (anchorLine) {
+    windowParts.push(anchorLine)
+  }
+
+  const anchorRemainder = normalizeWhitespace(anchorLine.replace(safeRegex, '').replace(/^[:\-–\s]+/, ''))
+  if (anchorRemainder) {
+    const standaloneAnswer = anchorRemainder.match(/^(yes|no|n\/a|na)$/i)
+    if (standaloneAnswer) {
+      const raw = standaloneAnswer[1].toLowerCase()
+      answer = raw === 'yes' ? 'yes' : raw === 'no' ? 'no' : 'na'
+    } else {
+      commentParts.push(anchorRemainder)
+    }
+  }
+
+  for (let i = anchorIndex + 1; i < lines.length && i <= anchorIndex + maxLines; i += 1) {
+    const line = normalizeWhitespace(lines[i])
+    if (!line) continue
+
+    if (options?.skipLinePatterns?.some((re) => re.test(line))) {
+      windowParts.push(line)
+      continue
+    }
+
+    if (isPhotoOnlyLine(line) || isSectionHeadingLine(line)) break
+    if (i > anchorIndex + 1 && isLikelyNewQuestionLine(line)) break
+
+    windowParts.push(line)
+
+    const standaloneAnswer = line.match(/^(yes|no|n\/a|na)$/i)
+    if (standaloneAnswer) {
+      const raw = standaloneAnswer[1].toLowerCase()
+      answer = raw === 'yes' ? 'yes' : raw === 'no' ? 'no' : 'na'
+      break
+    }
+
+    const leadingAnswer = line.match(/^(yes|no|n\/a|na)\b(?:\s*[:\-]\s*(.*))?$/i)
+    if (leadingAnswer) {
+      const raw = leadingAnswer[1].toLowerCase()
+      answer = raw === 'yes' ? 'yes' : raw === 'no' ? 'no' : 'na'
+      if (leadingAnswer[2]) commentParts.push(leadingAnswer[2])
+      break
+    }
+
+    commentParts.push(line)
+  }
+
+  const comment = normalizeWhitespace(
+    commentParts
+      .join(' ')
+      .replace(safeRegex, ' ')
+      .replace(/\bPhoto\s+\d+(?:\s+Photo\s+\d+)*/gi, ' ')
+      .replace(/^[:\-–\s]+/, '')
+  ) || null
+
+  return {
+    answer,
+    comment,
+    windowText: normalizeWhitespace(windowParts.join(' ')),
+  }
+}
+
+function extractNumericAfterAnchoredLabel(sectionText: string, anchorRegex: RegExp): string | null {
+  const lines = normalizeLines(sectionText)
+  const anchorIndex = findAnchorLineIndex(sectionText, anchorRegex)
+  if (anchorIndex < 0) return null
+
+  const sameLine = normalizeWhitespace(lines[anchorIndex] || '')
+  const sameLineNumber = sameLine.match(/[:\-–]\s*(\d+)\b/)?.[1] || sameLine.match(/\b(\d+)\s*$/)?.[1] || null
+  if (sameLineNumber) return sameLineNumber
+
+  for (let i = anchorIndex + 1; i < lines.length && i <= anchorIndex + 6; i += 1) {
+    const line = normalizeWhitespace(lines[i])
+    if (!line) continue
+    if (isPhotoOnlyLine(line)) continue
+    if (isLikelyGeneralSiteLabel(line) || isSectionHeadingLine(line) || (i > anchorIndex + 1 && isLikelyNewQuestionLine(line))) break
+    const numeric = line.match(/\b(\d+)\b/)?.[1] || null
+    if (numeric) return numeric
+  }
+
+  return null
+}
+
+function extractSquareFootageAfterAnchoredLabel(sectionText: string): string | null {
+  const anchor = /square\s+footage\s+or\s+square\s+meterage\s+of\s+site/i
+  const lines = normalizeLines(sectionText)
+  const anchorIndex = findAnchorLineIndex(sectionText, anchor)
+  if (anchorIndex < 0) return null
+
+  const sameLine = normalizeWhitespace(lines[anchorIndex] || '')
+  const sameLineCandidate = normalizeWhitespace(sameLine.replace(anchor, '').replace(/^[:\-–\s]+/, ''))
+  if (sameLineCandidate && isValidSquareFootageValue(sameLineCandidate)) {
+    return sameLineCandidate
+  }
+
+  for (let i = anchorIndex + 1; i < lines.length && i <= anchorIndex + 8; i += 1) {
+    const line = normalizeWhitespace(lines[i]).replace(/^[:\-–\s]+/, '')
+    if (!line) continue
+    if (isPhotoOnlyLine(line)) continue
+    if (isLikelyGeneralSiteLabel(line) || isSectionHeadingLine(line) || (i > anchorIndex + 1 && isLikelyNewQuestionLine(line))) break
+    if (isValidSquareFootageValue(line)) return line
+  }
+
+  return null
+}
+
+function extractExplicitManagementReviewStatement(cleanedText: string): string | null {
+  const directMatch = cleanedText.match(/management\s+review\s+statement\s*[:\-]\s*([^\n]+)/i)
+  if (directMatch?.[1]) {
+    const value = normalizeWhitespace(directMatch[1])
+    if (value) return value
+  }
+
+  const lines = normalizeLines(cleanedText)
+  const anchorIndex = findAnchorLineIndex(cleanedText, /management\s+review\s+statement/i)
+  if (anchorIndex >= 0) {
+    const captured: string[] = []
+    for (let i = anchorIndex + 1; i < lines.length && i <= anchorIndex + 5; i += 1) {
+      const line = normalizeWhitespace(lines[i])
+      if (!line) continue
+      if (isPhotoOnlyLine(line) || isSectionHeadingLine(line) || isLikelyNewQuestionLine(line)) break
+      if (/^(yes|no|n\/a|na)$/i.test(line)) break
+      captured.push(line)
+    }
+    const value = normalizeWhitespace(captured.join(' '))
+    if (value) return value
+  }
+
+  const sentenceMatch = cleanedText.match(/this assessment has been informed by[^.!?\n]*(?:[.!?])/i)
+  return sentenceMatch?.[0] ? normalizeWhitespace(sentenceMatch[0]) : null
+}
+
+function extractValueAfterAnchoredLabel(
+  sectionText: string,
+  anchorRegex: RegExp,
+  options?: {
+    maxLines?: number
+    disallowLinePatterns?: RegExp[]
+  }
+): string | null {
+  const lines = normalizeLines(sectionText)
+  const anchorIndex = findAnchorLineIndex(sectionText, anchorRegex)
+  if (anchorIndex < 0) return null
+
+  const safeRegex = new RegExp(anchorRegex.source, anchorRegex.flags.replace(/g/g, ''))
+  const maxLines = options?.maxLines ?? 6
+
+  const sameLine = normalizeWhitespace(lines[anchorIndex] || '')
+  const sameLineRemainder = normalizeWhitespace(sameLine.replace(safeRegex, '').replace(/^[:\-–\s]+/, ''))
+  if (
+    sameLineRemainder
+    && !options?.disallowLinePatterns?.some((re) => re.test(sameLineRemainder))
+  ) {
+    return sameLineRemainder
+  }
+
+  for (let i = anchorIndex + 1; i < lines.length && i <= anchorIndex + maxLines; i += 1) {
+    const line = normalizeWhitespace(lines[i])
+    if (!line) continue
+    if (isPhotoOnlyLine(line)) continue
+    if (isSectionHeadingLine(line)) break
+    if (i > anchorIndex + 1 && isLikelyNewQuestionLine(line)) break
+    if (options?.disallowLinePatterns?.some((re) => re.test(line))) continue
+    return line
+  }
+
+  return null
+}
+
+function extractAssessmentStartTime(text: string): string | null {
+  const patterns = [
+    /(?:conducted on|conducted at|assessment date)[^\n\r]{0,120}?(\d{1,2}:\d{2}\s*(?:am|pm)\s*(?:gmt|bst|utc)?)/i,
+    /(?:conducted on|conducted at|assessment date)[^\n\r]{0,120}?(\d{1,2}\.\d{2}\s*(?:am|pm)\s*(?:gmt|bst|utc)?)/i,
+    /\b(\d{1,2}:\d{2}\s*(?:am|pm)\s*(?:gmt|bst|utc))\b/i,
+  ]
+
+  for (const pattern of patterns) {
+    const match = text.match(pattern)
+    if (!match?.[1]) continue
+    const raw = normalizeWhitespace(match[1].replace(/\./g, ':'))
+    const normalized = raw
+      .replace(/\bam\b/i, 'AM')
+      .replace(/\bpm\b/i, 'PM')
+      .replace(/\bgmt\b/i, 'GMT')
+      .replace(/\bbst\b/i, 'BST')
+      .replace(/\butc\b/i, 'UTC')
+    if (normalized) return normalized
+  }
+
+  return null
+}
+
+function extractFireDrillDateFromAnchorBlock(
+  text: string
+): { dateOrStatus: string | null; answer: 'yes' | 'no' | 'na' | null; block: string } {
+  const anchorPatterns = [
+    /fire\s+drill\s+has\s+been?\s+carried\s+out\s+in\s+the\s+past\s+6\s+months\s+and\s+records?\s+available\s+on\s+site\s*\??/i,
+    /fire\s+drill\s+has\s+been?\s+carried\s+out\s+in\s+the\s+past\s+6\s+months[\s\S]{0,80}?records?\s+available\s+on\s+site\s*\??/i,
+  ]
+
+  let match: RegExpExecArray | null = null
+  for (const pattern of anchorPatterns) {
+    match = pattern.exec(text)
+    if (match) break
+  }
+  if (!match || typeof match.index !== 'number') {
+    return { dateOrStatus: null, answer: null, block: '' }
+  }
+
+  const lines = normalizeLines(text)
+  const anchorLineIndex = text.slice(0, match.index).split(/\r\n?|\n/).length - 1
+  const blockParts: string[] = []
+  for (let i = anchorLineIndex; i < lines.length && i <= anchorLineIndex + 16; i += 1) {
+    const line = normalizeWhitespace(lines[i])
+    if (!line) continue
+    if (i > anchorLineIndex && isSectionHeadingLine(line)) break
+    if (i > anchorLineIndex + 1 && isLikelyNewQuestionLine(line)) break
+    blockParts.push(line)
+  }
+
+  const block = normalizeWhitespace(blockParts.join(' '))
+  if (!block) return { dateOrStatus: null, answer: null, block: '' }
+
+  const explicitDate = extractDateFromText(block)
+  const yesNoMatch =
+    block.match(/\?\s*(Yes|No|N\/A|NA)\b/i)?.[1]
+    || block.match(/\b(Yes|No|N\/A|NA)\b/i)?.[1]
+    || null
+  const answer: 'yes' | 'no' | 'na' | null =
+    !yesNoMatch ? null :
+      yesNoMatch.toLowerCase() === 'yes' ? 'yes' :
+      yesNoMatch.toLowerCase() === 'no' ? 'no' :
+      'na'
+
+  if (explicitDate) {
+    return { dateOrStatus: explicitDate, answer, block }
+  }
+
+  if (
+    (answer === 'yes' || /marked\s+as\s+completed\s*\(yes\)/i.test(block))
+    && /no date|not been recorded|not recorded/i.test(block)
+  ) {
+    return {
+      dateOrStatus: 'The fire drill is marked as completed (Yes) on the weekly check sheet, but no date has been recorded.',
+      answer,
+      block,
+    }
+  }
+
+  return { dateOrStatus: null, answer, block }
+}
+
+function extractCompartmentationNarrativeFromAnchor(text: string): string | null {
+  const anchorPatterns = [
+    /structure\s+found\s+to\s+be\s+in\s+a\s+good\s+condition[\s\S]{0,140}?gaps?\s+from\s+area\s+to\s+area\?/i,
+    /structure\s+found\s+to\s+be\s+in\s+a\s+good\s+condition[\s\S]{0,140}?ceiling\s+tiles?[\s\S]{0,80}\?/i,
+  ]
+
+  let anchorMatch: RegExpExecArray | null = null
+  for (const pattern of anchorPatterns) {
+    anchorMatch = pattern.exec(text)
+    if (anchorMatch) break
+  }
+  if (!anchorMatch || typeof anchorMatch.index !== 'number') return null
+
+  const lines = normalizeLines(text)
+  const anchorLineIndex = text.slice(0, anchorMatch.index).split(/\r\n?|\n/).length - 1
+  const captured: string[] = []
+  let captureStarted = false
+  let sawAnswerToken = false
+
+  const isQuestionFragment = (line: string): boolean => (
+    /\?$/.test(line)
+    || /structure\s+found\s+to\s+be\s+in\s+a\s+good\s+condition/i.test(line)
+    || /would\s+compromise\s+fire\s+safety/i.test(line)
+    || /\beg\s+missing\b/i.test(line)
+    || /missing\s+.*(?:tiles?|gaps?\s+from\s+area\s+to\s+area)/i.test(line)
+    || /gaps?\s+from\s+area\s+to\s+area/i.test(line)
+  )
+
+  for (let i = anchorLineIndex + 1; i < lines.length && i <= anchorLineIndex + 16; i += 1) {
+    const rawLine = normalizeWhitespace(lines[i])
+    const { before, hitBoundary } = splitBeforeNextQuestionBoundary(rawLine)
+    const line = before
+    if (!line) continue
+    if (isPhotoOnlyLine(line)) continue
+    if (isSectionHeadingLine(line)) break
+    if ((i > anchorLineIndex + 1 && isLikelyNewQuestionLine(line) && captureStarted) || (hitBoundary && captureStarted)) break
+    if (/^photo\b/i.test(line)) continue
+
+    if (/^(yes|no|n\/a|na)$/i.test(line)) {
+      sawAnswerToken = true
+      if (hitBoundary && captureStarted) break
+      continue
+    }
+
+    if (!captureStarted) {
+      if (/^(there\s+are|overall\b|no\s+other\b)/i.test(line)) {
+        captureStarted = true
+      } else if (sawAnswerToken && !isQuestionFragment(line)) {
+        captureStarted = true
+      } else if (isQuestionFragment(line)) {
+        continue
+      } else {
+        // Do not start capture before seeing answer or clear narrative opener.
+        continue
+      }
+    }
+
+    if (isQuestionFragment(line)) continue
+
+    captured.push(line)
+
+    if (captured.join(' ').length > 260 && /[.!?]$/.test(line)) break
+    if (hitBoundary) break
+  }
+
+  const narrative = normalizeWhitespace(captured.join(' '))
+  return narrative.length >= 20 ? narrative : null
 }
 
 /**
@@ -328,6 +855,11 @@ export async function GET(request: NextRequest) {
       // Don't normalize to lowercase - keep original case for better matching
       const originalText = pdfText
       const normalizedText = pdfText.replace(/\s+/g, ' ')
+      const cleanedAuditText = preCleanAuditText(originalText)
+      const sectionText = splitAuditSections(cleanedAuditText)
+      const generalSiteText = sectionText.generalSiteInformation || cleanedAuditText
+      const fireSafetyText = sectionText.fireSafety || cleanedAuditText
+      const trainingText = sectionText.training || cleanedAuditText
       
       // Store Manager - look for "Signature of Person in Charge of store at time of assessment"
       let storeManagerMatch = null
@@ -381,27 +913,50 @@ export async function GET(request: NextRequest) {
       }
 
       // Fire Panel Faults - look for Yes/No or status
-      const firePanelFaultsMatch = originalText.match(/(?:is panel free of faults|panel free of faults|panel faults)[\s:]*([^\n\r]+?)(?:\n|$|location of emergency)/i)
-      if (firePanelFaultsMatch) {
-        pdfExtractedData.firePanelFaults = firePanelFaultsMatch[1]?.trim() || null
-        console.log('[EXTRACT] Found fire panel faults:', pdfExtractedData.firePanelFaults)
+      const firePanelFaultsQuestion = parseYesNoQuestionBlock(
+        originalText,
+        /is panel free of faults\?/i
+      )
+      if (firePanelFaultsQuestion.answer === 'no') {
+        pdfExtractedData.firePanelFaults = firePanelFaultsQuestion.comment || 'Fault present at time of inspection'
+        console.log('[EXTRACT] Found fire panel faults (anchored NO):', pdfExtractedData.firePanelFaults)
+      } else if (firePanelFaultsQuestion.answer === 'yes') {
+        pdfExtractedData.firePanelFaults = firePanelFaultsQuestion.comment || 'No faults'
+        console.log('[EXTRACT] Found fire panel faults (anchored YES):', pdfExtractedData.firePanelFaults)
+      } else {
+        const firePanelFaultsMatch = originalText.match(/(?:is panel free of faults|panel free of faults|panel faults)[\s:]*([^\n\r]+?)(?:\n|$|location of emergency)/i)
+        if (firePanelFaultsMatch) {
+          pdfExtractedData.firePanelFaults = firePanelFaultsMatch[1]?.trim() || null
+          console.log('[EXTRACT] Found fire panel faults:', pdfExtractedData.firePanelFaults)
+        }
       }
 
       // Emergency Lighting Switch - look for "Location of Emergency Lighting Test Switch (Photograph)"
       // Pattern: "Location of Emergency Lighting Test Switch (Photograph) Electrical cupboard by the rear fire doors"
+      const strictSwitchLocation =
+        extractEmergencyLightingSwitchLocation(cleanedAuditText)
+        || extractEmergencyLightingSwitchLocation(originalText)
+      if (strictSwitchLocation) {
+        pdfExtractedData.emergencyLightingSwitch = strictSwitchLocation
+        console.log('[EXTRACT] ✓ Found emergency lighting switch (strict row):', strictSwitchLocation)
+      }
+
       let emergencyLightingMatch = null
       const emergencyLightingPatterns = [
         // Pattern 1: "Location of Emergency Lighting Test Switch (Photograph)" followed by location
-        /location of emergency lighting test switch\s*\([^)]*photograph[^)]*\)\s*([^\n\r]+?)(?:\n|$|emergency lighting switch photo|photo \d+)/i,
+        /location of emergency lighting test switch\s*\([^)]*photograph[^)]*\)[ \t]*([^\n\r]+?)(?:\n|$|emergency lighting switch photo|photo \d+)/i,
         // Pattern 2: "Location of Emergency Lighting Test Switch" followed by location (without photograph)
-        /location of emergency lighting test switch[:\s]*([^\n\r]+?)(?:\n|$|emergency lighting switch photo|photo \d+)/i,
+        /location of emergency lighting test switch[: \t]*([^\n\r]+?)(?:\n|$|emergency lighting switch photo|photo \d+)/i,
         // Pattern 3: Just "emergency lighting" with location on next line
-        /emergency lighting test switch[:\s]*([^\n\r]+?)(?:\n|$|photo)/i,
+        /emergency lighting test switch[: \t]*([^\n\r]+?)(?:\n|$|photo)/i,
         // Pattern 4: "Electrical cupboard" pattern (common location)
         /(?:emergency lighting|test switch)[\s\S]{0,200}(electrical cupboard[^\n\r]+?)(?:\n|$|photo|photograph)/i,
       ]
       
       for (const pattern of emergencyLightingPatterns) {
+        if (pdfExtractedData.emergencyLightingSwitch && !isInvalidLocationValue(pdfExtractedData.emergencyLightingSwitch)) {
+          break
+        }
         emergencyLightingMatch = originalText.match(pattern)
         if (emergencyLightingMatch) {
           console.log('[EXTRACT] Emergency lighting pattern matched:', pattern.toString())
@@ -413,7 +968,7 @@ export async function GET(request: NextRequest) {
             location = location.replace(/photograph/gi, '')
             location = location.replace(/^[(\s]+/, '').replace(/[\s)]+$/, '').trim()
             // Reject if it's just punctuation or too short
-            if (location.length > 3 && !/^[^\w]+$/.test(location)) {
+            if (location.length > 3 && !/^[^\w]+$/.test(location) && !isInvalidLocationValue(location)) {
               pdfExtractedData.emergencyLightingSwitch = location
               console.log('[EXTRACT] ✓ Found emergency lighting switch:', pdfExtractedData.emergencyLightingSwitch)
               break
@@ -428,8 +983,52 @@ export async function GET(request: NextRequest) {
         console.log('[EXTRACT] ✗ No emergency lighting switch found')
       }
 
+      // If regex captured the photo label or missed the location, use strict anchored extraction.
+      if (
+        !pdfExtractedData.emergencyLightingSwitch
+        || isInvalidLocationValue(pdfExtractedData.emergencyLightingSwitch)
+        || /switch\s+photo|photograph|^photo\b/i.test(pdfExtractedData.emergencyLightingSwitch)
+      ) {
+        const anchoredSwitchLocation = extractValueAfterAnchoredLabel(
+          cleanedAuditText,
+          /location\s+of\s+emergency\s+lighting\s+test\s+switch\s*\([^)]*photograph[^)]*\)/i,
+          {
+            maxLines: 6,
+            disallowLinePatterns: [
+              /^(yes|no|n\/a|na)$/i,
+              /emergency\s+lighting\s+switch\s+photo/i,
+              /^photo\b/i,
+            ],
+          }
+        ) || extractValueAfterAnchoredLabel(
+          cleanedAuditText,
+          /location\s+of\s+emergency\s+lighting\s+test\s+switch/i,
+          {
+            maxLines: 6,
+            disallowLinePatterns: [
+              /^(yes|no|n\/a|na)$/i,
+              /emergency\s+lighting\s+switch\s+photo/i,
+              /^photo\b/i,
+            ],
+          }
+        )
+
+        if (anchoredSwitchLocation && !isInvalidLocationValue(anchoredSwitchLocation)) {
+          pdfExtractedData.emergencyLightingSwitch = anchoredSwitchLocation
+          console.log('[EXTRACT] ✓ Found emergency lighting switch (anchored):', anchoredSwitchLocation)
+        }
+      }
+
       // Number of floors: strict extraction from the matching General Site Information label.
-      const extractedFloors = extractNumericAfterLabel(originalText, /number of floors/i)
+      const extractedFloors =
+        extractNumericAfterAnchoredLabel(
+          generalSiteText,
+          /number\s+of\s+floors\s*\(.*comments?\s*section\)?/i
+        )
+        || extractNumericAfterAnchoredLabel(generalSiteText, /number\s+of\s+floors?/i)
+        || extractNumericAfterAnchoredLabel(generalSiteText, /number\s+of\s+floor/i)
+        || extractNumericAfterLabel(cleanedAuditText, /number\s+of\s+floors?/i)
+        || extractNumericAfterLabel(cleanedAuditText, /number\s+of\s+floor/i)
       if (extractedFloors) {
         pdfExtractedData.numberOfFloors = extractedFloors
         console.log('[EXTRACT] ✓ Found number of floors:', extractedFloors)
@@ -437,73 +1036,31 @@ export async function GET(request: NextRequest) {
         console.log('[EXTRACT] ✗ No number of floors found')
       }
 
-      // Operating Hours - search via web search instead of extracting from PDF
-      // Get store information for web search
+      // Operating Hours - search via Google-first web search (not from PDF extraction)
       let operatingHoursFromWeb: string | null = null
+      let squareFootageFromWeb: string | null = null
       try {
-        const { data: fraInstanceForStore } = await supabase
-          .from('fa_audit_instances')
-          .select(`
-            fa_stores (
-              store_name,
-              city,
-              address_line_1
-            )
-          `)
-          .eq('id', instanceId)
-          .single()
-        
-        if (fraInstanceForStore?.fa_stores) {
-          const store = fraInstanceForStore.fa_stores as any
-          const storeName = store.store_name
-          const city = store.city || ''
-          const address = store.address_line_1 || ''
-          
-          if (storeName) {
-            console.log('[EXTRACT] Searching web for opening hours:', storeName, city)
-            
-            // Call the web search API endpoint (server-side)
-            try {
-              // Create a request object for the search API
-              const searchRequest = new NextRequest(new URL('http://localhost/api/fra-reports/search-store-data'), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  storeName,
-                  address,
-                  city,
-                }),
-              })
-              
-              // Call the search function directly
-              const searchResponse = await searchStoreData(searchRequest)
-              
-              if (searchResponse.ok) {
-                const searchData = await searchResponse.json()
-                if (searchData.openingTimes) {
-                  operatingHoursFromWeb = searchData.openingTimes
-                  console.log('[EXTRACT] ✓ Found opening hours from web search:', operatingHoursFromWeb)
-                } else {
-                  console.log('[EXTRACT] Opening hours not found via web search, will need manual entry')
-                }
-              } else {
-                console.log('[EXTRACT] Web search API returned error, opening hours will need manual entry')
-              }
-            } catch (webSearchError) {
-              console.error('[EXTRACT] Web search error:', webSearchError)
-              console.log('[EXTRACT] Opening hours will need manual entry')
-            }
+        const storeName = store?.store_name || ''
+        const city = store?.city || ''
+        const address = store?.address_line_1 || ''
+        if (storeName) {
+          const googleData = await getStoreDataFromGoogleSearch({ storeName, address, city })
+          operatingHoursFromWeb = googleData.openingTimes
+          squareFootageFromWeb = googleData.squareFootage
+          if (!operatingHoursFromWeb) {
+            operatingHoursFromWeb = await getOpeningHoursFromSearch({ storeName, address, city })
+          }
+          if (operatingHoursFromWeb) {
+            console.log('[EXTRACT] ✓ Found opening hours from web search:', operatingHoursFromWeb)
+          } else {
+            console.log('[EXTRACT] Opening hours not found via web search, will need manual entry')
           }
         }
-      } catch (storeError) {
-        console.error('[EXTRACT] Error getting store info for web search:', storeError)
+      } catch (webSearchError) {
+        console.error('[EXTRACT] Web search error:', webSearchError)
       }
-      
-      // Don't try to extract from PDF - always use web search
+
       pdfExtractedData.operatingHours = operatingHoursFromWeb
-      if (!operatingHoursFromWeb) {
-        console.log('[EXTRACT] Opening hours will be searched via web (not extracted from PDF)')
-      }
 
       // Conducted Date - look for date patterns near "conducted"
       const conductedDateMatch = originalText.match(/(?:conducted on|conducted at|assessment date)[\s:]*(\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s+\d{4})/i)
@@ -519,11 +1076,25 @@ export async function GET(request: NextRequest) {
         }
       }
 
+      const extractedStartTime = extractAssessmentStartTime(originalText)
+      if (extractedStartTime) {
+        pdfExtractedData.assessmentStartTime = extractedStartTime
+        console.log('[EXTRACT] ✓ Found assessment start time:', extractedStartTime)
+      }
+
       // Square footage: strict extraction from its own label only.
-      const extractedSquareFootage = extractSquareFootageAfterLabel(originalText)
+      const extractedSquareFootage =
+        extractSquareFootageAfterAnchoredLabel(generalSiteText)
+        || extractSquareFootageAfterAnchoredLabel(cleanedAuditText)
+        || extractSquareFootageAfterLabel(cleanedAuditText)
       if (extractedSquareFootage) {
         pdfExtractedData.squareFootage = extractedSquareFootage
+        pdfExtractedData.squareFootageSource = 'PDF'
         console.log('[EXTRACT] ✓ Found square footage:', extractedSquareFootage)
+      } else if (squareFootageFromWeb) {
+        pdfExtractedData.squareFootage = squareFootageFromWeb
+        pdfExtractedData.squareFootageSource = 'WEB_SEARCH'
+        console.log('[EXTRACT] ✓ Found square footage from web search:', squareFootageFromWeb)
       } else {
         console.log('[EXTRACT] ✗ No square footage found')
       }
@@ -552,19 +1123,31 @@ export async function GET(request: NextRequest) {
         pdfExtractedData.combustibleStorageEscapeCompromise = 'OK'
       }
 
-      const trainingShortfallMatch = originalText.match(/(?:toolbox|fire\s+safety\s+training).*?(?:not\s+100%|incomplete)/i)
-        || originalText.match(/(?:induction\s+training).*?incomplete/i)
-        || originalText.match(/training\s+not\s+at\s+100%|incomplete\s+for\s+(?:two\s+)?staff/i)
-      if (trainingShortfallMatch) {
-        pdfExtractedData.fireSafetyTrainingNarrative = 'Fire safety training is delivered via induction and toolbox talks; refresher completion is monitored, with improvements currently underway.'
-      } else if (
-        originalText.match(/(?:toolbox|fire\s+safety\s+training).*?100%|100%\s+completion/i)
-        || originalText.match(/(?:h&s\s+induction\s+training|induction\s+training)\s+onboarding\s+up to date at 100%/i)
-        || originalText.match(/(?:induction\s+training|onboarding).*?(?:up to date at 100%|100%)/i)
-        || originalText.match(/onboarding\s+up to date at 100%/i)
-      ) {
-        pdfExtractedData.fireSafetyTrainingNarrative = 'Fire safety training is delivered via induction and toolbox talks; H&S Induction Training / Onboarding up to date at 100%.'
-        console.log('[EXTRACT] ✓ Found fire safety training (induction/onboarding 100%)')
+      const inductionTrainingQuestion = parseAnchoredQuestionBlock(
+        trainingText,
+        /h\s*&\s*s\s+induction\s+training\s+onboarding\s+up\s+to\s+date\s+and\s+at\s+100%\s*\?/i,
+        { maxLines: 16 }
+      )
+      const toolboxTrainingQuestion = parseAnchoredQuestionBlock(
+        trainingText,
+        /h\s*&\s*s\s+toolbox\s+refresher\s+training\s+completed\s+in\s+the\s+last\s+12\s+months(?:\s+and\s+records\s+available\s+for)?\s*\??/i,
+        {
+          maxLines: 18,
+          skipLinePatterns: [
+            /^manual handling$/i,
+            /^housekeeping$/i,
+            /^fire safety$/i,
+            /^stepladders$/i,
+          ],
+        }
+      )
+      if (inductionTrainingQuestion.comment && toolboxTrainingQuestion.comment) {
+        pdfExtractedData.fireSafetyTrainingNarrative =
+          `${inductionTrainingQuestion.comment} ${toolboxTrainingQuestion.comment}`.trim()
+      } else if (inductionTrainingQuestion.comment) {
+        pdfExtractedData.fireSafetyTrainingNarrative = inductionTrainingQuestion.comment
+      } else if (toolboxTrainingQuestion.comment) {
+        pdfExtractedData.fireSafetyTrainingNarrative = toolboxTrainingQuestion.comment
       }
 
       // Fire doors and compartmentation: use the matching fire-door questions.
@@ -602,9 +1185,10 @@ export async function GET(request: NextRequest) {
       }
 
       // Monthly emergency lighting tests: exact question mapping.
-      const monthlyEmergencyLightingQuestion = parseYesNoQuestionBlock(
-        originalText,
-        /evidence of monthly emergency lighting test being conducted\?/i
+      const monthlyEmergencyLightingQuestion = parseAnchoredQuestionBlock(
+        fireSafetyText,
+        /evidence\s+of\s+monthly\s+emergency\s+lighting\s+test\s+being\s+conducted\s*\?/i,
+        { maxLines: 18 }
       )
       if (monthlyEmergencyLightingQuestion.comment) {
         pdfExtractedData.emergencyLightingMonthlyTest = monthlyEmergencyLightingQuestion.comment
@@ -629,8 +1213,14 @@ export async function GET(request: NextRequest) {
         pdfExtractedData.extinguisherServiceDate = extinguisherDateFromQuestion
       }
 
-      if (pdfText) {
-        pdfExtractedData.managementReviewStatement = 'This assessment has been informed by recent health and safety inspections and site observations.'
+      pdfExtractedData.managementReviewStatement =
+        extractExplicitManagementReviewStatement(cleanedAuditText)
+      if (pdfExtractedData.managementReviewStatement) {
+        pdfExtractedData.managementReviewStatementSource = 'PDF'
+      } else {
+        pdfExtractedData.managementReviewStatement =
+          'This assessment has been informed by recent health and safety inspections and site observations.'
+        pdfExtractedData.managementReviewStatementSource = 'DEFAULT'
       }
 
       // Number of fire exits: strict extraction from the General Site Information label.
@@ -696,34 +1286,57 @@ export async function GET(request: NextRequest) {
       }
 
       // Fire drill date: use exact question comment first, then fallback date patterns.
-      const fireDrillQuestion = parseYesNoQuestionBlock(
-        originalText,
-        /fire drill has been carried out in the past 6 months and records available on site\?/i
+      const fireDrillQuestion = parseAnchoredQuestionBlock(
+        fireSafetyText,
+        /fire\s+drill\s+has\s+been\s+carried\s+out\s+in\s+the\s+past\s+6\s+months\s+and\s+records\s+available\s+on\s+site\s*\?/i,
+        { maxLines: 20 }
       )
-      const fireDrillDateFromQuestion = extractDateFromText(fireDrillQuestion.comment || '')
+      const fireDrillText = fireDrillQuestion.windowText || fireDrillQuestion.comment || ''
+      let fireDrillAnswer = fireDrillQuestion.answer
+      if (!fireDrillAnswer) {
+        const inlineAnswer =
+          fireDrillText.match(/\?\s*(Yes|No|N\/A|NA)\b/i)?.[1]
+          || fireDrillText.match(/marked\s+as\s+completed\s*\((Yes|No|N\/A|NA)\)/i)?.[1]
+          || fireDrillText.match(/\((Yes|No|N\/A|NA)\)/i)?.[1]
+          || null
+        if (inlineAnswer) {
+          const lower = inlineAnswer.toLowerCase()
+          fireDrillAnswer =
+            lower === 'yes' ? 'yes' :
+            lower === 'no' ? 'no' :
+            'na'
+        }
+      }
+      const fireDrillDateFromQuestion = extractDateFromText(fireDrillText)
       if (fireDrillDateFromQuestion) {
         pdfExtractedData.fireDrillDate = fireDrillDateFromQuestion
       } else if (
-        fireDrillQuestion.answer === 'yes'
-        && fireDrillQuestion.comment
-        && /no date|not been recorded|not recorded/i.test(fireDrillQuestion.comment)
+        (
+          fireDrillAnswer === 'yes'
+          || /marked\s+as\s+completed\s*\(yes\)/i.test(fireDrillText)
+        )
+        && /no date|not been recorded|not recorded/i.test(fireDrillText)
       ) {
-        pdfExtractedData.fireDrillDate = 'Not recorded (drill marked complete)'
+        pdfExtractedData.fireDrillDate =
+          'The fire drill is marked as completed (Yes) on the weekly check sheet, but no date has been recorded.'
       }
+
+      // Dedicated fallback tied strictly to the fire drill anchor block.
       if (!pdfExtractedData.fireDrillDate) {
-        const fireDrillPatterns = [
-          /(?:fire drill|last drill|drill.*carried out|evacuation drill)[\s\S]{0,50}?(\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s+\d{4})/i,
-          /(?:fire drill|last drill|drill.*carried out)[\s\S]{0,50}?(\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4})/i,
-          /(?:drill|evacuation).*?(?:date|carried out|conducted)[\s\S]{0,30}?(\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s+\d{4})/i,
-          /(?:fire drill has been carried out)[\s\S]{0,100}?(\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s+\d{4})/i,
-          /(?:when was.*drill|last fire drill)[\s\S]{0,50}?(\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s+\d{4})/i,
-        ]
-        for (const pattern of fireDrillPatterns) {
-          const match = originalText.match(pattern)
-          if (match) {
-            pdfExtractedData.fireDrillDate = match[1]
-            break
-          }
+        const anchoredFireDrill =
+          extractFireDrillDateFromAnchorBlock(fireSafetyText)
+        if (anchoredFireDrill.dateOrStatus) {
+          pdfExtractedData.fireDrillDate = anchoredFireDrill.dateOrStatus
+          console.log('[EXTRACT] ✓ Found fire drill date/status (anchored block):', anchoredFireDrill.dateOrStatus)
+        }
+      }
+
+      if (!pdfExtractedData.fireDrillDate) {
+        const anchoredFireDrillFromFull =
+          extractFireDrillDateFromAnchorBlock(cleanedAuditText)
+        if (anchoredFireDrillFromFull.dateOrStatus) {
+          pdfExtractedData.fireDrillDate = anchoredFireDrillFromFull.dateOrStatus
+          console.log('[EXTRACT] ✓ Found fire drill date/status (full anchored block):', anchoredFireDrillFromFull.dateOrStatus)
         }
       }
       if (pdfExtractedData.fireDrillDate) {
@@ -816,10 +1429,29 @@ export async function GET(request: NextRequest) {
         return noBreachDetected ? 'No breaches identified' : null
       }
 
-      const compartmentationStatusFromText = extractCompartmentationStatusFromText(originalText)
-      if (compartmentationStatusFromText) {
-        pdfExtractedData.compartmentationStatus = compartmentationStatusFromText
-        console.log('[EXTRACT] ✓ Found compartmentation status:', compartmentationStatusFromText)
+      const anchoredCompartmentationNarrative =
+        extractCompartmentationNarrativeFromAnchor(cleanedAuditText)
+        || extractCompartmentationNarrativeFromAnchor(originalText)
+
+      if (anchoredCompartmentationNarrative) {
+        pdfExtractedData.compartmentationStatus = anchoredCompartmentationNarrative
+        console.log('[EXTRACT] ✓ Found compartmentation status (anchored narrative):', anchoredCompartmentationNarrative)
+      } else {
+        const compartmentationQuestion = parseAnchoredQuestionBlock(
+          cleanedAuditText,
+          /structure\s+found\s+to\s+be\s+in\s+a\s+good\s+condition[\s\S]{0,80}?missing\s+ceiling\s+tiles?\s*\/\s*gaps?\s+from\s+area\s+to\s+area\?/i,
+          { maxLines: 10 }
+        )
+        if (compartmentationQuestion.comment && compartmentationQuestion.comment.length > 20) {
+          pdfExtractedData.compartmentationStatus = compartmentationQuestion.comment
+          console.log('[EXTRACT] ✓ Found compartmentation status (anchored):', compartmentationQuestion.comment)
+        } else {
+          const compartmentationStatusFromText = extractCompartmentationStatusFromText(originalText)
+          if (compartmentationStatusFromText) {
+            pdfExtractedData.compartmentationStatus = compartmentationStatusFromText
+            console.log('[EXTRACT] ✓ Found compartmentation status:', compartmentationStatusFromText)
+          }
+        }
       }
 
       // MEDIUM PRIORITY: Fire extinguisher service date - more patterns
@@ -863,12 +1495,12 @@ export async function GET(request: NextRequest) {
       emergencyLightingSwitch: 'Location of Emergency Lighting Test Switch (Photograph)',
       escapeRoutesEvidence: 'Fire exit routes clear and unobstructed?',
       combustibleStorageEscapeCompromise: 'Combustible materials are stored correctly?',
-      fireSafetyTrainingNarrative: 'H&S induction training onboarding... / H&S toolbox refresher training...',
+      fireSafetyTrainingNarrative: 'H&S induction training onboarding up to date and at 100%? + H&S toolbox refresher training completed in the last 12 months...',
       fireDoorsCondition: 'Fire doors in a good condition? / Are fire door intumescent strips in place and intact? / Fire doors closed and not held open?',
       weeklyFireTests: 'Weekly Fire Tests carried out and documented?',
       emergencyLightingMonthlyTest: 'Evidence of Monthly Emergency Lighting test being conducted?',
       fireExtinguisherService: 'Fire Extinguisher Service?',
-      managementReviewStatement: 'Derived from full uploaded H&S audit content',
+      managementReviewStatement: 'Management review statement / explicit sentence (e.g., "This assessment has been informed by...")',
       numberOfFireExits: 'Number of Fire Exits',
       totalStaffEmployed: 'Number of Staff employed at the site',
       maxStaffOnSite: 'Maximum number of staff working on site at any one time',
@@ -884,6 +1516,7 @@ export async function GET(request: NextRequest) {
 
     const extractedData = {
       storeManager: pdfExtractedData.storeManager || null,
+      assessmentStartTime: pdfExtractedData.assessmentStartTime || null,
       firePanelLocation: pdfExtractedData.firePanelLocation || null,
       firePanelFaults: pdfExtractedData.firePanelFaults || null,
       emergencyLightingSwitch: pdfExtractedData.emergencyLightingSwitch || null,
@@ -914,13 +1547,16 @@ export async function GET(request: NextRequest) {
       callPointAccessibility: pdfExtractedData.callPointAccessibility || null,
       sources: {
         storeManager: pdfExtractedData.storeManager ? 'PDF' : 'NOT_FOUND',
+        assessmentStartTime: pdfExtractedData.assessmentStartTime ? 'PDF' : 'NOT_FOUND',
         firePanelLocation: pdfExtractedData.firePanelLocation ? 'PDF' : 'NOT_FOUND',
         firePanelFaults: pdfExtractedData.firePanelFaults ? 'PDF' : 'NOT_FOUND',
         emergencyLightingSwitch: pdfExtractedData.emergencyLightingSwitch ? 'PDF' : 'NOT_FOUND',
         numberOfFloors: pdfExtractedData.numberOfFloors ? 'PDF' : 'NOT_FOUND',
         operatingHours: pdfExtractedData.operatingHours ? 'PDF' : 'NOT_FOUND',
         conductedDate: pdfExtractedData.conductedDate ? 'PDF' : 'NOT_FOUND',
-        squareFootage: pdfExtractedData.squareFootage ? 'PDF' : 'NOT_FOUND',
+        squareFootage:
+          (pdfExtractedData.squareFootageSource as string)
+          || (pdfExtractedData.squareFootage ? 'PDF' : 'NOT_FOUND'),
         escapeRoutesEvidence: pdfExtractedData.escapeRoutesEvidence ? 'PDF' : 'NOT_FOUND',
         combustibleStorageEscapeCompromise: pdfExtractedData.combustibleStorageEscapeCompromise ? 'PDF' : 'NOT_FOUND',
         fireSafetyTrainingNarrative: pdfExtractedData.fireSafetyTrainingNarrative ? 'PDF' : 'NOT_FOUND',
@@ -928,7 +1564,9 @@ export async function GET(request: NextRequest) {
         weeklyFireTests: pdfExtractedData.weeklyFireTests ? 'PDF' : 'NOT_FOUND',
         emergencyLightingMonthlyTest: pdfExtractedData.emergencyLightingMonthlyTest ? 'PDF' : 'NOT_FOUND',
         fireExtinguisherService: pdfExtractedData.fireExtinguisherService ? 'PDF' : 'NOT_FOUND',
-        managementReviewStatement: pdfExtractedData.managementReviewStatement ? 'PDF' : 'NOT_FOUND',
+        managementReviewStatement:
+          (pdfExtractedData.managementReviewStatementSource as string)
+          || (pdfExtractedData.managementReviewStatement ? 'PDF' : 'NOT_FOUND'),
         // High priority fields
         numberOfFireExits: pdfExtractedData.numberOfFireExits ? 'PDF' : 'NOT_FOUND',
         totalStaffEmployed: pdfExtractedData.totalStaffEmployed ? 'PDF' : 'NOT_FOUND',
