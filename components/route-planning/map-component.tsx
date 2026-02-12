@@ -128,6 +128,23 @@ function MapBounds({ stores, managerHome }: { stores: Store[], managerHome: Mana
 
 export default function MapComponent({ stores, managerHome, selectedStores, onStoreSelect, filteredArea }: MapComponentProps) {
   const mapRef = useRef<L.Map | null>(null)
+  const mapKey = useMemo(() => {
+    const homeKey = managerHome ? `${managerHome.latitude},${managerHome.longitude}` : 'no-home'
+    return `${filteredArea || 'all'}|${stores.length}|${homeKey}`
+  }, [filteredArea, stores.length, managerHome])
+
+  useEffect(() => {
+    return () => {
+      if (!mapRef.current) return
+      try {
+        mapRef.current.remove()
+      } catch {
+        // Ignore cleanup race conditions during fast refresh.
+      } finally {
+        mapRef.current = null
+      }
+    }
+  }, [])
 
   // Default center (UK)
   const defaultCenter: [number, number] = [54.5, -2.0]
@@ -189,6 +206,7 @@ export default function MapComponent({ stores, managerHome, selectedStores, onSt
 
   return (
     <MapContainer
+      key={mapKey}
       center={defaultCenter}
       zoom={defaultZoom}
       style={{ height: '100%', width: '100%' }}

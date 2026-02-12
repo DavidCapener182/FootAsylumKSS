@@ -105,6 +105,23 @@ export default function RouteMapComponent({ stores, managerHome }: RouteMapCompo
   // Default center (UK)
   const defaultCenter: [number, number] = [54.5, -2.0]
   const defaultZoom = 6
+  const mapKey = useMemo(() => {
+    const homeKey = managerHome ? `${managerHome.latitude},${managerHome.longitude}` : 'no-home'
+    return `${storesWithCoords.length}|${homeKey}`
+  }, [storesWithCoords.length, managerHome])
+
+  useEffect(() => {
+    return () => {
+      if (!mapRef.current) return
+      try {
+        mapRef.current.remove()
+      } catch {
+        // Ignore cleanup race conditions during fast refresh.
+      } finally {
+        mapRef.current = null
+      }
+    }
+  }, [])
 
   // Build waypoint order for the route (home -> stores -> home)
   const routeCoordinates = useMemo(() => {
@@ -212,6 +229,7 @@ export default function RouteMapComponent({ stores, managerHome }: RouteMapCompo
 
   return (
     <MapContainer
+      key={mapKey}
       center={defaultCenter}
       zoom={defaultZoom}
       style={{ height: '400px', width: '100%', borderRadius: '0.5rem' }}

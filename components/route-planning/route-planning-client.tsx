@@ -177,22 +177,15 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
     return Array.from(areas).sort()
   }, [stores])
 
-  // Filter stores with locations and available for planning (not planned, not completed within 6 months, not completed today)
-  const storesWithLocations = useMemo<StoreWithCoords[]>(() => {
+  // Filter stores available for planning (not planned, not completed within 6 months, not completed today)
+  const storesAvailableForPlanning = useMemo<Store[]>(() => {
     const sixMonthsAgo = new Date()
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
     sixMonthsAgo.setHours(0, 0, 0, 0) // Start of day
     const today = new Date()
     today.setHours(0, 0, 0, 0) // Start of today
-    const hiddenStoreCodes = ['M3', 'POINT 62', 'Sharp Project', 'S0777']
     
     return stores.filter(s => {
-      // Must have coordinates
-      if (s.latitude === null || s.longitude === null) return false
-      
-      // Hide warehouse/photo studio stores
-      if (hiddenStoreCodes.includes(s.store_code || '')) return false
-      
       // Hide stores that have been planned (for map display only)
       if (s.compliance_audit_2_planned_date) return false
       
@@ -234,15 +227,40 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
       }
       
       return true
-    }).map((s) => ({
-      ...s,
-      latitude: typeof s.latitude === 'number' ? s.latitude : Number(s.latitude),
-      longitude: typeof s.longitude === 'number' ? s.longitude : Number(s.longitude),
-    }))
+    })
   }, [stores])
 
-  // Get stores in the selected area (or all areas) for route building.
+  // Stores with valid coordinates are used for map display and route optimization.
+  const storesWithLocations = useMemo<StoreWithCoords[]>(() => {
+    return storesAvailableForPlanning
+      .filter((s): s is StoreWithCoords => (
+        s.latitude !== null &&
+        s.longitude !== null &&
+        Number.isFinite(Number(s.latitude)) &&
+        Number.isFinite(Number(s.longitude))
+      ))
+      .map((s) => ({
+        ...s,
+        latitude: Number(s.latitude),
+        longitude: Number(s.longitude),
+      }))
+  }, [storesAvailableForPlanning])
+
+  // Get stores in the selected area (or all areas) for route building table.
   const storesInRouteArea = useMemo(() => {
+    const candidateStores = routeArea
+      ? storesAvailableForPlanning.filter((s) => s.region === routeArea)
+      : storesAvailableForPlanning
+
+    return [...candidateStores].sort((a, b) => {
+      const areaA = a.region || 'ZZZ'
+      const areaB = b.region || 'ZZZ'
+      if (areaA !== areaB) return areaA.localeCompare(areaB)
+      return a.store_name.localeCompare(b.store_name)
+    })
+  }, [routeArea, storesAvailableForPlanning])
+
+  const storesInRouteAreaWithLocations = useMemo(() => {
     const candidateStores = routeArea
       ? storesWithLocations.filter((s) => s.region === routeArea)
       : storesWithLocations
@@ -575,9 +593,9 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
   }
 
   const handleOptimizeRoute = async () => {
-    const targetStopCount = Math.min(routeStopLimit, storesInRouteArea.length)
+    const targetStopCount = Math.min(routeStopLimit, storesInRouteAreaWithLocations.length)
 
-    if (!routeManager || storesInRouteArea.length < 2) {
+    if (!routeManager || storesInRouteAreaWithLocations.length < 2) {
       alert('Please select a manager and ensure at least 2 stores are available for optimization.')
       return
     }
@@ -615,7 +633,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          stores: storesInRouteArea,
+          stores: storesInRouteAreaWithLocations,
           managerHome,
           constraints: {
             stopLimit: targetStopCount,
@@ -639,7 +657,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
       if (result.storeIds && Array.isArray(result.storeIds)) {
         const validStoreIds = result.storeIds.filter((id: string) => {
           const idStr = String(id).trim()
-          const found = storesInRouteArea.some(store => {
+          const found = storesInRouteAreaWithLocations.some(store => {
             const storeIdStr = String(store.id).trim()
             return storeIdStr === idStr
           })
@@ -758,10 +776,11 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
     }
   }
 
-  const availableStoreCount = storesWithLocations.length
+  const availableStoreCount = storesAvailableForPlanning.length
   const plannedRouteCount = plannedRoutes.length
   const plannedStoreCount = plannedRoutes.reduce((total, route) => total + route.stores.length, 0)
   const managerCount = profiles.length
+  const storesInRouteAreaMissingCoordsCount = storesInRouteArea.length - storesInRouteAreaWithLocations.length
 
   return (
     <div className="flex flex-col gap-4 md:gap-6">
@@ -973,18 +992,25 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
           {storesInRouteArea.length > 0 && (
             <div className="mt-4 p-4 bg-white rounded-lg border border-slate-200">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold text-slate-700">
-                  Stores in {getAreaDisplayName(routeArea)} ({storesInRouteArea.length} stores)
-                </h3>
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-700">
+                    Stores in {getAreaDisplayName(routeArea)} ({storesInRouteArea.length} stores)
+                  </h3>
+                  {storesInRouteAreaMissingCoordsCount > 0 && (
+                    <p className="text-xs text-amber-700 mt-1">
+                      {storesInRouteAreaMissingCoordsCount} store{storesInRouteAreaMissingCoordsCount === 1 ? '' : 's'} missing map coordinates
+                    </p>
+                  )}
+                </div>
                 <div className="flex items-center gap-2">
-                  {storesInRouteArea.length >= 2 && (
+                  {storesInRouteAreaWithLocations.length >= 2 && (
                     <Button
                       variant="default"
                       size="sm"
                       onClick={handleOptimizeRoute}
                       disabled={isOptimizing}
                       className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
-                      title={`Suggest an optimal ${Math.min(routeStopLimit, storesInRouteArea.length)}-stop route`}
+                      title={`Suggest an optimal ${Math.min(routeStopLimit, storesInRouteAreaWithLocations.length)}-stop route`}
                     >
                       {isOptimizing ? (
                         <>
@@ -994,7 +1020,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
                       ) : (
                         <>
                           <Sparkles className="h-4 w-4 mr-2" />
-                          Suggest Optimal {Math.min(routeStopLimit, storesInRouteArea.length)} Stores
+                          Suggest Optimal {Math.min(routeStopLimit, storesInRouteAreaWithLocations.length)} Stores
                         </>
                       )}
                     </Button>
@@ -1025,11 +1051,17 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
                     {storesInRouteArea.map((store) => {
                       const isSelected = routeSelectedStores.has(store.id)
                       const isDisabled = !isSelected && routeSelectedStores.size >= routeStopLimit
+                      const hasCoords =
+                        store.latitude !== null &&
+                        store.longitude !== null &&
+                        Number.isFinite(Number(store.latitude)) &&
+                        Number.isFinite(Number(store.longitude))
                       return (
                         <div
                           key={store.id}
                           data-store-id={store.id}
                           onClick={() => {
+                            if (isDisabled) return
                             handleRouteStoreToggle(store.id)
                           }}
                           className={`flex items-center gap-3 p-2 rounded-lg transition-colors ${
@@ -1061,6 +1093,11 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
                           <div className="text-xs text-slate-500">
                             {store.store_code}
                             {store.region ? ` • ${getAreaDisplayName(store.region)}` : ''}
+                          </div>
+                        )}
+                        {!hasCoords && (
+                          <div className="text-xs text-amber-700">
+                            Missing map coordinates
                           </div>
                         )}
                       </div>
