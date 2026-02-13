@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Eye } from 'lucide-react'
 import Link from 'next/link'
 import { format } from 'date-fns'
+import { getStoreActionListTitle } from '@/components/shared/store-action-title'
 
 interface ActionsTableRowProps {
   action: any
@@ -18,6 +19,7 @@ interface ActionsTableRowProps {
 export function ActionsTableRow({ action }: ActionsTableRowProps) {
   const [modalOpen, setModalOpen] = useState(false)
   const isStoreAction = action.source_type === 'store' || !action.incident_id
+  const displayTitle = isStoreAction ? getStoreActionListTitle(action) : action.title
   const isOverdue = new Date(action.due_date) < new Date() && 
     !['complete', 'cancelled'].includes(action.status)
   const assigneeName = action.assigned_to?.full_name?.trim() || ''
@@ -35,9 +37,13 @@ export function ActionsTableRow({ action }: ActionsTableRowProps) {
 
   return (
     <>
-      <TableRow key={action.id} className={`hover:bg-slate-50/50 transition-colors ${isOverdue ? 'bg-rose-50/50' : ''}`}>
+      <TableRow
+        key={action.id}
+        onClick={() => setModalOpen(true)}
+        className={`cursor-pointer hover:bg-slate-50/50 transition-colors ${isOverdue ? 'bg-rose-50/50' : ''}`}
+      >
         <TableCell className="font-medium text-slate-900" style={{ paddingTop: '0.5rem', paddingBottom: '0.5rem' }}>
-          {action.title}
+          {displayTitle}
         </TableCell>
         <TableCell style={{ paddingTop: '0.5rem', paddingBottom: '0.5rem' }}>
           {isStoreAction ? (
@@ -45,7 +51,11 @@ export function ActionsTableRow({ action }: ActionsTableRowProps) {
               {action.incident?.reference_no || 'Store Action'}
             </span>
           ) : (
-            <Link href={`/incidents/${action.incident_id}`} className="hover:text-indigo-600 transition-colors">
+            <Link
+              href={`/incidents/${action.incident_id}`}
+              className="hover:text-indigo-600 transition-colors"
+              onClick={(event) => event.stopPropagation()}
+            >
               <span className="font-mono text-xs font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded">
                 {action.incident?.reference_no || 'Unknown'}
               </span>
@@ -82,15 +92,22 @@ export function ActionsTableRow({ action }: ActionsTableRowProps) {
               variant="ghost" 
               size="sm" 
               className="h-7 px-2 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50"
-              onClick={() => setModalOpen(true)}
+              onClick={(event) => {
+                event.stopPropagation()
+                setModalOpen(true)
+              }}
             >
               <Eye className="h-3.5 w-3.5 mr-1.5" />
               View
             </Button>
             {!isStoreAction ? (
               <>
-                <CloseActionButton actionId={action.id} actionTitle={action.title} currentStatus={action.status} />
-                <DeleteActionButton actionId={action.id} actionTitle={action.title} />
+                <div onClick={(event) => event.stopPropagation()}>
+                  <CloseActionButton actionId={action.id} actionTitle={action.title} currentStatus={action.status} />
+                </div>
+                <div onClick={(event) => event.stopPropagation()}>
+                  <DeleteActionButton actionId={action.id} actionTitle={action.title} />
+                </div>
               </>
             ) : null}
           </div>

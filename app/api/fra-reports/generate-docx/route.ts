@@ -132,7 +132,7 @@ function buildSectionCover(ctx: BuildContext): (Paragraph | Table)[] {
   out.push(...labelValue('Client Name', data.clientName))
   out.push(...labelValue('Premises', data.premises || ''))
   out.push(...labelValue('Address', data.address || ''))
-  out.push(...labelValue('Responsible person (as defined by the Regulatory Reform (Fire Safety) Order 2025)', data.responsiblePerson))
+  out.push(...labelValue('Responsible person (as defined by the Regulatory Reform (Fire Safety) Order 2005)', data.responsiblePerson))
   out.push(...labelValue('Ultimate responsible person', data.ultimateResponsiblePerson))
   out.push(...labelValue(`Appointed Person at ${data.premises || 'premises'}`, data.appointedPerson))
   out.push(para('Responsibilities of Appointed Person', { bold: true }))
@@ -367,7 +367,7 @@ function buildSectionTermsLimitations(ctx: BuildContext): (Paragraph | Table)[] 
   const dateStr = data.assessmentDate || 'the assessment date'
   return [
     H2('Fire Risk Assessment – Terms, Conditions and Limitations'),
-    para('This Fire Risk Assessment has been undertaken in accordance with the requirements of the Regulatory Reform (Fire Safety) Order 2005 (as applicable in Scotland) and relevant supporting guidance.'),
+    para('This Fire Risk Assessment has been undertaken in accordance with the requirements of the Regulatory Reform (Fire Safety) Order 2005 and relevant supporting guidance.'),
     para('It is agreed that, in order to enable a thorough inspection and assessment, the Fire Risk Assessor was permitted open and free access to all areas of the premises reasonably accessible at the time of the assessment and review.'),
     para("It is the responsibility of the Responsible Person to ensure that all relevant personnel are aware of the Fire Risk Assessor's visit and that the assessor is not hindered in the carrying out of their duties."),
     para('Scope of Assessment', { bold: true }),

@@ -68,6 +68,14 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Only image files are allowed' }, { status: 400 })
       }
 
+      // Bucket policy does not accept WEBP uploads.
+      if (file.type === 'image/webp') {
+        return NextResponse.json(
+          { error: 'WEBP photos are not supported. Please upload JPG or PNG files.' },
+          { status: 400 }
+        )
+      }
+
       // Validate file size (max 25MB for high-res site/premises photos)
       const maxSize = 25 * 1024 * 1024 // 25MB
       if (file.size > maxSize) {

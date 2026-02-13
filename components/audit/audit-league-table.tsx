@@ -50,11 +50,12 @@ export function AuditLeagueTable({
     return Array.from(set).sort()
   }, [rows])
 
-  // Helper to check if both audits are complete
-  const areBothAuditsComplete = (row: AuditRow): boolean => {
+  // Helper to check if a store has any completed audit.
+  // "Hide Completed" should surface stores with no completed audits yet.
+  const hasAnyCompletedAudit = (row: AuditRow): boolean => {
     const audit1Complete = !!(row.compliance_audit_1_date && row.compliance_audit_1_overall_pct !== null)
     const audit2Complete = !!(row.compliance_audit_2_date && row.compliance_audit_2_overall_pct !== null)
-    return audit1Complete && audit2Complete
+    return audit1Complete || audit2Complete
   }
 
   // Rank all stores by their latest compliance percentage
@@ -66,7 +67,7 @@ export function AuditLeagueTable({
         term.length === 0 ||
         row.store_name.toLowerCase().includes(term) ||
         (row.store_code || '').toLowerCase().includes(term)
-      const matchesCompletedFilter = !hideCompleted || !areBothAuditsComplete(row)
+      const matchesCompletedFilter = !hideCompleted || !hasAnyCompletedAudit(row)
       return matchesArea && matchesSearch && matchesCompletedFilter
     })
 

@@ -5,6 +5,16 @@ import dynamic from 'next/dynamic'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Save, Loader2, Upload, X } from 'lucide-react'
+import {
+  buildFRAConsistencyNarratives,
+  FRA_RISK_CONSEQUENCE_ORDER,
+  FRA_RISK_LIKELIHOOD_ORDER,
+  FRA_RISK_MATRIX,
+  type FRAOverallRisk,
+  type FRARiskConsequence,
+  type FRARiskFindings,
+  type FRARiskLikelihood,
+} from '@/lib/fra/risk-rating'
 import { getFraAssessmentReference } from '@/lib/utils'
 
 /** Parse floor area string to sq ft. Supports values in sq ft and m². */
@@ -176,6 +186,8 @@ interface FRAData {
   riskRatingConsequences?: 'Slight Harm' | 'Moderate Harm' | 'Extreme Harm'
   summaryOfRiskRating?: string
   actionPlanLevel?: string
+  riskRatingRationale?: string[]
+  fireFindings?: FRARiskFindings
   actionPlanItems?: Array<{ recommendation: string; priority: 'Low' | 'Medium' | 'High'; dueNote?: string }>
   /** Intumescent strips on fire doors present (custom toggle). When false, an action plan item is added. */
   intumescentStripsPresent?: boolean
@@ -199,8 +211,8 @@ const COMPRESSION_QUALITIES = [0.78, 0.68, 0.58]
 
 function buildCompressedFileName(originalName: string, mimeType: string): string {
   const baseName = originalName.replace(/\.[^/.]+$/, '')
-  if (mimeType === 'image/webp') return `${baseName}.webp`
   if (mimeType === 'image/jpeg') return `${baseName}.jpg`
+  if (mimeType === 'image/png') return `${baseName}.png`
   return originalName
 }
 
@@ -253,7 +265,9 @@ async function optimizeImageForUpload(file: File): Promise<File> {
 
     ctx.drawImage(img, 0, 0, targetWidth, targetHeight)
 
-    const outputType = file.type === 'image/png' ? 'image/webp' : 'image/jpeg'
+    // fa-attachments bucket rejects image/webp in production, so always normalize
+    // to broadly supported upload MIME types.
+    const outputType = 'image/jpeg'
     let bestBlob: Blob | null = null
 
     for (const quality of COMPRESSION_QUALITIES) {
@@ -307,7 +321,60 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
   const [deletingPhotoPath, setDeletingPhotoPath] = useState<string | null>(null)
   const [placeholderPhotos, setPlaceholderPhotos] = useState<Record<string, any[]>>({})
   const [logoError, setLogoError] = useState(false)
+  const lowerEscapeEvidence = String(data.escapeRoutesEvidence || '').toLowerCase()
+  const lowerFireDoorText = `${String(data.internalFireDoors || '')} ${String(data.compartmentationStatus || '')}`.toLowerCase()
+  const fallbackHeldOpenSentences = lowerFireDoorText.match(/[^.!?\n]*\b(held open|wedged open|propped open)\b[^.!?\n]*/gi) || []
+  const fallbackHeldOpenSignal = fallbackHeldOpenSentences.some((sentence) => !/\bnot\b/i.test(sentence))
+  const fallbackDoorBlockedSentences =
+    lowerFireDoorText.match(/[^.!?\n]*\b(fire door(?:s)?|door(?:s)?)\b[^.!?\n]*\b(blocked|obstructed)\b[^.!?\n]*/gi)
+    || lowerFireDoorText.match(/[^.!?\n]*\b(blocked|obstructed)\b[^.!?\n]*\b(fire door(?:s)?|door(?:s)?)\b[^.!?\n]*/gi)
+    || []
+  const fallbackDoorBlockedSignal = fallbackDoorBlockedSentences.some((sentence) => !/\b(not blocked|unobstructed|clear|free from obstruction)\b/i.test(sentence))
+  const fallbackExplicitDoorSafeSignal = /\b(closed and not held open|not held open|not wedged|not propped open|in the close position)\b/.test(lowerFireDoorText)
+  const fallbackFindings: FRARiskFindings = {
+    escape_routes_obstructed: /\b(obstructed|blocked|restricted|compromised|impeded)\b/.test(lowerEscapeEvidence),
+    fire_exits_obstructed: /\b(final exits?|fire exits?|exit doors?)\b[\s\S]{0,30}\b(obstructed|blocked|restricted|compromised|impeded)\b/.test(lowerEscapeEvidence),
+    fire_doors_held_open: fallbackHeldOpenSignal && !fallbackExplicitDoorSafeSignal,
+    fire_doors_blocked: fallbackDoorBlockedSignal && !fallbackExplicitDoorSafeSignal,
+    combustibles_in_escape_routes: /\b(combustible|stock|packaging|cardboard)\b[\s\S]{0,40}\b(escape routes?|final exits?)\b/.test(lowerEscapeEvidence),
+    combustibles_poorly_stored: false,
+    fire_panel_access_obstructed: /\b(panel)\b[\s\S]{0,30}\b(blocked|obstructed|restricted)\b/.test(String(data.fireAlarmPanelLocation || '').toLowerCase()),
+    fire_door_integrity_issues: /\b(missing|damaged|defect|breach|gap)\b/.test(lowerFireDoorText),
+    housekeeping_poor_back_of_house: false,
+    housekeeping_good: true,
+    training_completion_rate: null,
+    recent_fire_drill_within_6_months: null,
+    emergency_lighting_tests_current: null,
+    fire_alarm_tests_current: null,
+    extinguishers_serviced_current: null,
+  }
+  const fireFindings = data.fireFindings ?? fallbackFindings
   const effectiveFloorCount = parseFloorCount(customData.numberOfFloors || data.numberOfFloors)
+  const effectiveRiskLikelihood: FRARiskLikelihood = data.riskRatingLikelihood ?? 'Normal'
+  const effectiveRiskConsequence: FRARiskConsequence = data.riskRatingConsequences ?? 'Moderate Harm'
+  const matrixDerivedOverallRisk = FRA_RISK_MATRIX[effectiveRiskLikelihood][effectiveRiskConsequence]
+  const effectiveOverallRisk = matrixDerivedOverallRisk
+  const consistencyNarratives = buildFRAConsistencyNarratives(
+    fireFindings,
+    effectiveOverallRisk as FRAOverallRisk
+  )
+  const hasHighRiskTriggers =
+    fireFindings.escape_routes_obstructed
+    || fireFindings.fire_exits_obstructed
+    || fireFindings.combustibles_in_escape_routes
+    || fireFindings.fire_doors_held_open
+    || fireFindings.fire_doors_blocked
+  const effectiveOverallRiskLower = effectiveOverallRisk.toLowerCase()
+  const overallRiskNarrative = effectiveOverallRiskLower === 'tolerable' || effectiveOverallRiskLower === 'low'
+    ? 'indicating that existing controls are generally adequate; ongoing monitoring and routine management are required.'
+    : effectiveOverallRiskLower === 'moderate'
+      ? 'indicating that improvement actions are required to strengthen day-to-day fire safety controls and maintain compliance.'
+      : effectiveOverallRiskLower === 'substantial'
+        ? 'indicating significant control weaknesses requiring urgent corrective action and close management oversight.'
+        : 'indicating unacceptable risk exposure requiring immediate remedial action.'
+  const formattedAssessmentReviewDate = data.assessmentReviewDate
+    ? new Date(data.assessmentReviewDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+    : null
 
   // Rehydrate placeholder photos from server (so PDF and refresh show uploaded photos)
   useEffect(() => {
@@ -380,6 +447,14 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
     if (v === 'tolerable' || v === 'low' || v === 'acceptable') return 'bg-green-600 text-white border-green-800'
     return 'bg-amber-500 text-slate-900 border-amber-700'
   }
+  const getRiskMatrixCellClass = (value: string, selected: boolean) => {
+    const v = value.toLowerCase()
+    const base = selected ? 'ring-2 ring-slate-900 ring-inset font-black' : 'font-semibold'
+    if (v.includes('intolerable')) return `${base} bg-red-600 text-white`
+    if (v.includes('substantial')) return `${base} bg-orange-500 text-white`
+    if (v.includes('moderate')) return `${base} bg-amber-300 text-slate-900`
+    return `${base} bg-emerald-500 text-white`
+  }
 
   // Update local state when data prop changes
   useEffect(() => {
@@ -420,17 +495,14 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
         throw new Error(error.error || 'Failed to save data')
       }
 
+      // Re-fetch persisted data so the UI reflects exactly what is stored.
+      if (onDataUpdate) {
+        await onDataUpdate()
+      }
+
       setSaved(true)
       setEditing(false)
       setTimeout(() => setSaved(false), 3000)
-      
-      // Refresh data if callback provided
-      if (onDataUpdate) {
-        onDataUpdate()
-      } else {
-        // Fallback: reload the page data
-        window.location.reload()
-      }
     } catch (error: any) {
       console.error('Error saving custom data:', error)
       alert(`Failed to save: ${error.message}`)
@@ -454,7 +526,6 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
         const err = await response.json().catch(() => ({}))
         throw new Error(err.error || 'Failed to save')
       }
-      if (onDataUpdate) onDataUpdate()
     } catch (e: any) {
       setCustomData(prev => ({ ...prev, intumescentStripsPresent: !value }))
       alert(e?.message || 'Failed to save intumescent strips setting')
@@ -864,7 +935,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
 
           <div className="space-y-2 text-sm">
             <div>
-              <span className="font-semibold">Responsible person (as defined by the Regulatory Reform (Fire Safety) Order 2025):</span> {data.responsiblePerson}
+              <span className="font-semibold">Responsible person (as defined by the Regulatory Reform (Fire Safety) Order 2005):</span> {data.responsiblePerson}
             </div>
             <div>
               <span className="font-semibold">Ultimate responsible person:</span> {data.ultimateResponsiblePerson}
@@ -1262,7 +1333,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
         <div className="space-y-4 text-sm leading-relaxed">
           <p>
             This Fire Risk Assessment has been undertaken in accordance with the requirements of the
-            Regulatory Reform (Fire Safety) Order 2005 (as applicable in Scotland) and relevant supporting
+            Regulatory Reform (Fire Safety) Order 2005 and relevant supporting
             guidance.
           </p>
           <p>
@@ -1351,19 +1422,19 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
                 <td className="border border-slate-300 px-3 py-1.5">
                   {editing ? (
                     <input type="text" value={customData.propertyType} onChange={(e) => setCustomData({ ...customData, propertyType: e.target.value })} className="w-full border border-slate-300 rounded px-2 py-1 text-sm" placeholder="e.g. Retail unit..." />
-                  ) : (data.propertyType?.split('.')[0] || data.propertyType)}
+                  ) : (customData.propertyType || data.propertyType?.split('.')[0] || data.propertyType)}
                 </td>
               </tr>
               <tr>
                 <td className="border border-slate-300 px-3 py-1.5 font-semibold bg-slate-50">Floors</td>
                 <td className="border border-slate-300 px-3 py-1.5">
-                  {editing ? <input type="text" value={customData.numberOfFloors} onChange={(e) => setCustomData({ ...customData, numberOfFloors: e.target.value })} className="w-full border border-slate-300 rounded px-2 py-1 text-sm" /> : data.numberOfFloors}
+                  {editing ? <input type="text" value={customData.numberOfFloors} onChange={(e) => setCustomData({ ...customData, numberOfFloors: e.target.value })} className="w-full border border-slate-300 rounded px-2 py-1 text-sm" /> : (customData.numberOfFloors || data.numberOfFloors)}
                 </td>
               </tr>
               <tr>
                 <td className="border border-slate-300 px-3 py-1.5 font-semibold bg-slate-50">Number of fire exits</td>
                 <td className="border border-slate-300 px-3 py-1.5">
-                  {editing ? <input type="text" value={customData.numberOfFireExits} onChange={(e) => setCustomData({ ...customData, numberOfFireExits: e.target.value })} className="w-full border border-slate-300 rounded px-2 py-1 text-sm" placeholder="e.g. 2 or Other" /> : (data.numberOfFireExits || 'To be confirmed')}
+                  {editing ? <input type="text" value={customData.numberOfFireExits} onChange={(e) => setCustomData({ ...customData, numberOfFireExits: e.target.value })} className="w-full border border-slate-300 rounded px-2 py-1 text-sm" placeholder="e.g. 2 or Other" /> : (customData.numberOfFireExits || data.numberOfFireExits || 'To be confirmed')}
                 </td>
               </tr>
               <tr>
@@ -1375,37 +1446,37 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
               <tr>
                 <td className="border border-slate-300 px-3 py-1.5 font-semibold bg-slate-50">Adjacent occupancies</td>
                 <td className="border border-slate-300 px-3 py-1.5">
-                  {editing ? <input type="text" value={customData.adjacentOccupancies} onChange={(e) => setCustomData({ ...customData, adjacentOccupancies: e.target.value })} className="w-full border border-slate-300 rounded px-2 py-1 text-sm" placeholder="e.g. Yes – mid-unit" /> : (data.adjacentOccupancies ?? (data.description?.includes('mid-unit') || data.description?.includes('adjoining') ? 'Yes – mid-unit' : 'See description'))}
+                  {editing ? <input type="text" value={customData.adjacentOccupancies} onChange={(e) => setCustomData({ ...customData, adjacentOccupancies: e.target.value })} className="w-full border border-slate-300 rounded px-2 py-1 text-sm" placeholder="e.g. Yes – mid-unit" /> : (customData.adjacentOccupancies || data.adjacentOccupancies || (data.description?.includes('mid-unit') || data.description?.includes('adjoining') ? 'Yes – mid-unit' : 'See description'))}
                 </td>
               </tr>
               <tr>
                 <td className="border border-slate-300 px-3 py-1.5 font-semibold bg-slate-50">Sleeping risk</td>
                 <td className="border border-slate-300 px-3 py-1.5">
-                  {editing ? <input type="text" value={customData.sleepingRisk} onChange={(e) => setCustomData({ ...customData, sleepingRisk: e.target.value })} className="w-full border border-slate-300 rounded px-2 py-1 text-sm" /> : data.sleepingRisk}
+                  {editing ? <input type="text" value={customData.sleepingRisk} onChange={(e) => setCustomData({ ...customData, sleepingRisk: e.target.value })} className="w-full border border-slate-300 rounded px-2 py-1 text-sm" /> : (customData.sleepingRisk || data.sleepingRisk)}
                 </td>
               </tr>
               <tr>
                 <td className="border border-slate-300 px-3 py-1.5 font-semibold bg-slate-50">Trading hours</td>
                 <td className="border border-slate-300 px-3 py-1.5">
-                  {editing ? <input type="text" value={customData.operatingHours} onChange={(e) => setCustomData({ ...customData, operatingHours: e.target.value })} className="w-full border border-slate-300 rounded px-2 py-1 text-sm" placeholder="e.g. Mon–Sat 9am–6pm" /> : (data.storeOpeningTimes || data.operatingHours || 'To be confirmed')}
+                  {editing ? <input type="text" value={customData.operatingHours} onChange={(e) => setCustomData({ ...customData, operatingHours: e.target.value })} className="w-full border border-slate-300 rounded px-2 py-1 text-sm" placeholder="e.g. Mon–Sat 9am–6pm" /> : (customData.operatingHours || data.storeOpeningTimes || data.operatingHours || 'To be confirmed')}
                 </td>
               </tr>
               <tr>
                 <td className="border border-slate-300 px-3 py-1.5 font-semibold bg-slate-50">Total staff employed</td>
                 <td className="border border-slate-300 px-3 py-1.5">
-                  {editing ? <input type="text" value={customData.totalStaffEmployed} onChange={(e) => setCustomData({ ...customData, totalStaffEmployed: e.target.value })} className="w-full border border-slate-300 rounded px-2 py-1 text-sm" /> : (data.totalStaffEmployed || 'To be confirmed')}
+                  {editing ? <input type="text" value={customData.totalStaffEmployed} onChange={(e) => setCustomData({ ...customData, totalStaffEmployed: e.target.value })} className="w-full border border-slate-300 rounded px-2 py-1 text-sm" /> : (customData.totalStaffEmployed || data.totalStaffEmployed || 'To be confirmed')}
                 </td>
               </tr>
               <tr>
                 <td className="border border-slate-300 px-3 py-1.5 font-semibold bg-slate-50">Max staff on site</td>
                 <td className="border border-slate-300 px-3 py-1.5">
-                  {editing ? <input type="text" value={customData.maxStaffOnSite} onChange={(e) => setCustomData({ ...customData, maxStaffOnSite: e.target.value })} className="w-full border border-slate-300 rounded px-2 py-1 text-sm" /> : (data.maxStaffOnSite || 'To be confirmed')}
+                  {editing ? <input type="text" value={customData.maxStaffOnSite} onChange={(e) => setCustomData({ ...customData, maxStaffOnSite: e.target.value })} className="w-full border border-slate-300 rounded px-2 py-1 text-sm" /> : (customData.maxStaffOnSite || data.maxStaffOnSite || 'To be confirmed')}
                 </td>
               </tr>
               <tr>
                 <td className="border border-slate-300 px-3 py-1.5 font-semibold bg-slate-50">Young persons employed</td>
                 <td className="border border-slate-300 px-3 py-1.5">
-                  {editing ? <input type="text" value={customData.youngPersonsCount} onChange={(e) => setCustomData({ ...customData, youngPersonsCount: e.target.value })} className="w-full border border-slate-300 rounded px-2 py-1 text-sm" /> : (data.youngPersonsCount || 'None')}
+                  {editing ? <input type="text" value={customData.youngPersonsCount} onChange={(e) => setCustomData({ ...customData, youngPersonsCount: e.target.value })} className="w-full border border-slate-300 rounded px-2 py-1 text-sm" /> : (customData.youngPersonsCount || data.youngPersonsCount || 'None')}
                 </td>
               </tr>
             </tbody>
@@ -1436,7 +1507,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
                 placeholder="Describe the premises..."
               />
             ) : (
-              <p className="mt-2 whitespace-pre-line">{data.description}</p>
+              <p className="mt-2 whitespace-pre-line">{customData.description || data.description}</p>
             )}
             {!editing && <DebugBadge source={data._sources?.description} fieldName="Description" />}
           </div>
@@ -1644,6 +1715,11 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
               </div>
             )}
           </div>
+          {consistencyNarratives.firePanelAccessStatement && (
+            <div className="mt-2 rounded border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900">
+              <strong>Panel access:</strong> {consistencyNarratives.firePanelAccessStatement}
+            </div>
+          )}
           {data.callPointAccessibility && (
             <div>
               <span className="font-semibold">Call point accessibility:</span>
@@ -1702,7 +1778,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
         <div className="space-y-4 text-sm leading-relaxed">
           <p>
             Manual call points (break-glass units) are provided throughout the premises in accordance with BS 5839-1,
-            positioned on escape routes and at final exits to allow occupants to raise the alarm in the event of a fire.
+            positioned on escape routes and at fire exits to allow occupants to raise the alarm in the event of a fire.
           </p>
           {data.callPointAccessibility && (
             <p>
@@ -1749,7 +1825,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
                 Intumescent strips (and where fitted, intumescent smoke seals) are present on fire-resisting doors within the premises. These strips expand when exposed to heat, sealing the gap between the door leaf and the frame and helping to prevent smoke and fire spread. This maintains the fire resistance of the door assembly and supports compartmentation, giving occupants time to evacuate.
               </p>
               <p>
-                Fire doors were observed to be in good condition with intumescent protection in place and intact. Doors are not wedged open and self-closing devices are operational.
+                {consistencyNarratives.fireDoorsStatement}
               </p>
             </>
           ) : (
@@ -2048,17 +2124,21 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
             <h3 className="font-semibold mb-1">Evaluate the risk of a fire occurring</h3>
             <p>
               Considering the nature of the premises, the activities undertaken, the fire load associated with retail stock, and the fire
-              protection measures in place, the likelihood of a fire occurring is normal for this type of retail environment.
-              Ignition sources are typical of retail premises and are subject to appropriate controls.
+              protection measures in place, the likelihood is assessed as {effectiveRiskLikelihood.toLowerCase()}.
+              {effectiveRiskLikelihood === 'High'
+                ? ' This rating is driven by observed deficiencies in management controls that materially increase the probability of fire spread and escalation if an ignition occurs.'
+                : effectiveRiskLikelihood === 'Normal'
+                  ? ' Ignition sources are typical of retail premises; however, day-to-day controls must be consistently maintained where findings have been identified.'
+                  : ' Housekeeping and operational controls were observed as good, with no material indicators of elevated fire likelihood.'}
             </p>
           </div>
 
           <div>
             <h3 className="font-semibold mb-1">Evaluate the risk to people from a fire starting in the premises</h3>
             <p>
-              In the event of a fire, there is a potential risk to staff and members of the public; however, the overall risk to life is
-              reduced by the presence of automatic fire detection, emergency lighting, protected escape routes and established
-              evacuation procedures. Based on the controls observed, the risk to people is acceptable and manageable.
+              In the event of a fire, there is a potential risk to staff and members of the public. The potential consequence is assessed as{' '}
+              {effectiveRiskConsequence.toLowerCase()}, taking account of escape route management, compartmentation performance and evacuation controls observed
+              at the time of assessment. The resulting overall risk level is {effectiveOverallRisk.toLowerCase()}.
             </p>
           </div>
 
@@ -2079,9 +2159,9 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
             <p className="mb-1">Measures in place to reduce the risk to people include:</p>
             <ul className="list-disc list-inside ml-4 space-y-0.5 mt-1">
               <li>Automatic fire detection and alarm systems providing early warning</li>
-              <li>Clearly defined and unobstructed escape routes</li>
+              <li>{consistencyNarratives.stage3EscapeRoutesBullet}</li>
               <li>Emergency lighting to support evacuation during lighting failure</li>
-              <li>Fire-resisting construction and internal fire doors to limit fire and smoke spread</li>
+              <li>{consistencyNarratives.stage3FireDoorsBullet}</li>
               <li>Regular testing, inspection and maintenance of fire safety systems and staff training and fire drills</li>
             </ul>
           </div>
@@ -2095,7 +2175,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
             <p className="mt-1">
               The building is provided with fire-resisting construction, including compartmentation and internal fire doors,
               designed to restrict the spread of fire and smoke and to provide sufficient time for occupants to evacuate safely.
-              Fire doors are fitted with appropriate self-closing devices and intumescent protection where required.
+              {consistencyNarratives.fireDoorsStatement}
               {data.compartmentationStatus && (
                 <span className="block mt-1">
                   <span className="font-medium">Compartmentation / ceiling tiles:</span> {data.compartmentationStatus}.
@@ -2108,8 +2188,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
               failure of the normal lighting supply.
             </p>
             <p className="mt-1">
-              Clearly defined escape routes are provided and are required to be always kept clear and unobstructed. Final exits
-              open in the direction of travel and discharge to a place of relative safety.
+              {consistencyNarratives.escapeRoutesStatement}
             </p>
             <p className="mt-1">
               Fire safety management arrangements include staff fire safety training, regular testing and maintenance of fire
@@ -2206,9 +2285,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
           <div>
             <h3 className="font-semibold mb-2">Arrangements for the safe evacuation of people identified at risk</h3>
             <p>
-              All persons within the premises will be instructed to evacuate immediately via the nearest available
-              fire exit upon activation of the fire alarm. Escape routes are clearly identified and lead to a place of
-              relative safety.
+              {consistencyNarratives.evacuationStatement}
             </p>
             <p className="mt-2">
               Visitors and contractors will be accompanied or directed by staff to ensure their safe evacuation.
@@ -2240,6 +2317,9 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
             <p>
               {data.fireSafetyTrainingNarrative ?? 'All staff receive fire safety training as part of their induction and refresher training. Fire drills are conducted at appropriate intervals and records are maintained. Training and drills are designed to ensure staff are familiar with evacuation procedures and their responsibilities in the event of a fire.'}
             </p>
+            {consistencyNarratives.trainingStatement && (
+              <p className="mt-2">{consistencyNarratives.trainingStatement}</p>
+            )}
             {data.fireDrillDate && (
               <p className="mt-2 text-sm">
                 <span className="font-medium">Last fire drill:</span> {data.fireDrillDate}
@@ -2315,7 +2395,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
             <p className="mt-2">
               The premises is provided with designated fire exit routes serving the sales floor and back-of-house
               areas, which discharge to a place of relative safety via the shopping centre&apos;s managed evacuation
-              routes. Escape routes and final exits were observed
+              routes. Escape routes and back-of-house circulation routes were observed
               to be available and in use at the time of assessment.
             </p>
           </div>
@@ -2373,13 +2453,14 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
               ))}
             </ul>
             <p className="mt-4">
-              These matters do not present an immediate risk to life but require continued management
-              attention to ensure ongoing compliance and consistency.
+              {hasHighRiskTriggers || effectiveOverallRisk === 'Substantial' || effectiveOverallRisk === 'Intolerable'
+                ? 'These findings indicate elevated operational fire risk and require prompt management action to restore control and maintain compliance.'
+                : 'These matters do not present an immediate risk to life but require continued management attention to ensure ongoing compliance and consistency.'}
             </p>
             <p className="mt-2">
-              No significant deficiencies were identified that would prevent the safe evacuation of occupants in
-              the event of a fire, provided existing control measures are maintained, and management actions
-              are completed.
+              {hasHighRiskTriggers || effectiveOverallRisk === 'Substantial' || effectiveOverallRisk === 'Intolerable'
+                ? 'Until corrective actions are completed, evacuation effectiveness may be adversely affected by the identified route and/or compartmentation management issues.'
+                : 'No significant deficiencies were identified that would prevent the safe evacuation of occupants in the event of a fire, provided existing control measures are maintained, and management actions are completed.'}
             </p>
           </div>
 
@@ -2430,23 +2511,9 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
               relevant).</li>
             </ul>
             <p className="mt-4">
-              {data.escapeRoutesEvidence ? (
-                <>
-                  {data.escapeRoutesEvidence} The premises is fully operational and it remains important for store
-                  management to ensure that escape routes and final exits are always kept clear during trading and
-                  non-trading periods, including deliveries, replenishment and peak trading activity.
-                </>
-              ) : (
-                <>
-                  At the time of conducting this assessment, fire escape routes were found to be generally clear and
-                  unobstructed internally and externally (as required under Article 14(1) of the Regulatory Reform
-                  (Fire Safety) Order 2005, herein referred to as the FSO 2005), and provision and accessibility to
-                  portable fire extinguishers was found to be satisfactory (as required under Article 13(1)(b)). The
-                  premises is fully operational and it remains important for store management to ensure that these
-                  standards are always maintained during trading and non-trading periods, including deliveries,
-                  replenishment and peak trading activity.
-                </>
-              )}
+              {data.escapeRoutesEvidence
+                ? `${data.escapeRoutesEvidence} ${consistencyNarratives.escapeRoutesStatement}`
+                : consistencyNarratives.escapeRoutesStatement}
             </p>
             <p className="mt-2">
               Signage throughout was installed and clearly visible
@@ -2464,18 +2531,13 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
             </p>
             <p className="mt-2">
               Emergency lighting (EEL), as previously detailed, was
-              installed and found suitable and sufficient in
-              accordance with Article 14(2)(e–h) of the FSO 2005.
-              Fire doors, as prescribed, were found to be in good
-              condition, with suitable door sets, intumescent strips
-              and fixed door closers where required (BS EN 1154).
-              Door gaps were observed to be within acceptable
-              tolerances, consistent with AD-B Volume 2 Appendix
-              C guidance. Final exit doors were installed with &quot;push
-              bar to open&quot; door devices where applicable and
-              were found to be in good condition and
-              appropriately signed in line with relevant standards
-              (including BS EN 1125 and BS EN 179).
+              {fireFindings.emergency_lighting_tests_current === false
+                ? ' installed, however monthly emergency lighting test evidence was not current and requires corrective follow-up in line with Article 14(2)(e–h) of the FSO 2005.'
+                : ' installed and found suitable and sufficient in accordance with Article 14(2)(e–h) of the FSO 2005.'}
+              {' '}
+              {consistencyNarratives.fireDoorsStatement}
+              {' '}
+              Final exit doors were installed with &quot;push bar to open&quot; door devices where applicable and were expected to be maintained in good condition and appropriately signed in line with relevant standards (including BS EN 1125 and BS EN 179).
             </p>
             <p className="mt-2">
               Other than low level cleaning products which are sourced centrally and sent to the store, all
@@ -2488,19 +2550,17 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
             </p>
             <p className="mt-4 font-semibold">Overall:</p>
             <p className="mt-2">
-              The fire management controls in the site are good with some minor observations, which have
-              been submitted as recommendations as suitable control measures. I would further recommend
-              that under Article 9 of the FSO 2005, a review of the fire risk associated with this site be
-              conducted at a suitable period or if there are any significant changes to the premises or processes
-              within, or if this Fire Risk Assessment is no longer valid due to experiencing a fire for example. In
-              view of the fact that Footasylum Ltd employ more than 5 persons, under Article 9(6)(a) of the
-              Regulatory Reform (Fire Safety) Order 2005, there is a requirement for the Responsible Person to
-              record the findings in writing. I would recommend a review of this assessment within 12 months.
+              {consistencyNarratives.controlsOverallStatement} I would further recommend that under Article 9 of the FSO 2005, a review of the fire risk associated with this site be conducted at a suitable period or if there are any significant changes to the premises or processes within, or if this Fire Risk Assessment is no longer valid due to experiencing a fire, for example. In view of the fact that Footasylum Ltd employ more than 5 persons, under Article 9(6)(a) of the Regulatory Reform (Fire Safety) Order 2005, there is a requirement for the Responsible Person to record the findings in writing. {formattedAssessmentReviewDate ? `Review by ${formattedAssessmentReviewDate}, or sooner if significant change occurs.` : 'Review by the stated assessment review date, or sooner if significant change occurs.'}
             </p>
             <p className="mt-4">
               <span className="font-semibold">Submitted by:</span> {data.assessorName} – KSS NW LTD
             </p>
             <p className="mt-2">{data.assessmentDate || ''}</p>
+            {formattedAssessmentReviewDate && (
+              <p className="mt-2">
+                Review by {formattedAssessmentReviewDate}, or sooner if significant change occurs.
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -2517,11 +2577,50 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
           The overall fire risk rating has been determined by assessing the likelihood of fire occurring against the potential severity of consequences, taking into account existing fire precautions and management arrangements.
         </p>
         <figure className="fra-figure mb-4">
-          <img
-            src="/fire-risk-rating-matrix.png"
-            alt="Risk rating matrix: likelihood versus severity with risk levels from low to high"
-            className="w-full max-w-2xl mx-auto rounded border border-slate-200 print:max-w-full"
-          />
+          <div className="overflow-x-auto">
+            <table className="w-full max-w-3xl mx-auto border border-slate-300 text-xs sm:text-sm">
+              <thead>
+                <tr>
+                  <th className="border border-slate-300 bg-slate-100 px-3 py-2 text-left font-bold">
+                    Likelihood \ Severity
+                  </th>
+                  {FRA_RISK_CONSEQUENCE_ORDER.map((consequence) => (
+                    <th
+                      key={consequence}
+                      className="border border-slate-300 bg-slate-100 px-3 py-2 text-center font-bold"
+                    >
+                      {consequence}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {FRA_RISK_LIKELIHOOD_ORDER.map((likelihood) => (
+                  <tr key={likelihood}>
+                    <th className="border border-slate-300 bg-slate-100 px-3 py-2 text-left font-bold">
+                      {likelihood}
+                    </th>
+                    {FRA_RISK_CONSEQUENCE_ORDER.map((consequence) => {
+                      const overall = FRA_RISK_MATRIX[likelihood][consequence]
+                      const selected =
+                        likelihood === effectiveRiskLikelihood && consequence === effectiveRiskConsequence
+                      return (
+                        <td
+                          key={`${likelihood}-${consequence}`}
+                          className={`border border-slate-300 px-3 py-2 text-center ${getRiskMatrixCellClass(overall, selected)}`}
+                        >
+                          <div>{overall}</div>
+                          {selected && (
+                            <div className="text-[10px] mt-1 uppercase tracking-wide opacity-90">Current assessment</div>
+                          )}
+                        </td>
+                      )
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
           <figcaption className="text-xs text-slate-600 mt-2 text-center italic">
             Figure 3: Fire Risk Rating Matrix used to determine the overall risk level for the premises.
           </figcaption>
@@ -2534,10 +2633,8 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
         </figure>
         <p className="text-sm leading-relaxed mb-6">
           Based on the findings of this assessment, the overall fire risk level for the premises is assessed as{' '}
-          <span className={`inline-block px-2 py-0.5 font-bold text-sm rounded border align-middle ${getOverallRiskBadgeClass(data.actionPlanLevel)}`}>{data.actionPlanLevel ?? 'Tolerable'}</span>
-          {(data.actionPlanLevel ?? 'Tolerable').toLowerCase() === 'tolerable' || (data.actionPlanLevel ?? '').toLowerCase() === 'low'
-            ? ', indicating that existing controls are generally adequate; ongoing monitoring and routine management are required.'
-            : ', indicating that existing controls require ongoing monitoring and improvement where identified; remedial actions are set out in the Action Plan.'}
+          <span className={`inline-block px-2 py-0.5 font-bold text-sm rounded border align-middle ${getOverallRiskBadgeClass(effectiveOverallRisk)}`}>{effectiveOverallRisk}</span>,{' '}
+          {overallRiskNarrative}
         </p>
 
         <div className="space-y-6 text-sm">
@@ -2545,8 +2642,8 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
             <h3 className="font-semibold mb-2">7.1.1 Likelihood of Fire</h3>
             <p className="mb-2">Taking into account the fire prevention measures observed at the time of this risk assessment, it is considered that the hazard from fire (likelihood of fire) at these premises is:</p>
             <p className="mt-2 mb-2">
-              <span className={`inline-block px-3 py-1.5 font-bold text-base rounded border ${getLikelihoodBadgeClass(data.riskRatingLikelihood)}`}>
-                {data.riskRatingLikelihood ?? 'Normal'}
+              <span className={`inline-block px-3 py-1.5 font-bold text-base rounded border ${getLikelihoodBadgeClass(effectiveRiskLikelihood)}`}>
+                {effectiveRiskLikelihood}
               </span>
             </p>
             <ul className="list-disc list-inside mt-2 text-slate-600 space-y-1">
@@ -2558,8 +2655,8 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
           <div>
             <h3 className="font-semibold mb-2">7.1.2 Potential Consequences of Fire</h3>
             <p className="mt-2 mb-2">
-              <span className={`inline-block px-3 py-1.5 font-bold text-base rounded border ${getConsequencesBadgeClass(data.riskRatingConsequences)}`}>
-                {data.riskRatingConsequences ?? 'Moderate Harm'}
+              <span className={`inline-block px-3 py-1.5 font-bold text-base rounded border ${getConsequencesBadgeClass(effectiveRiskConsequence)}`}>
+                {effectiveRiskConsequence}
               </span>
             </p>
             <ul className="list-disc list-inside mt-2 text-slate-600 space-y-1">
@@ -2571,10 +2668,17 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
           <div>
             <h3 className="font-semibold mb-2">7.1.3 Summary of Risk Rating</h3>
             <p className="mb-2 whitespace-pre-line">{data.summaryOfRiskRating ?? 'Taking into account the nature of the building and the occupants, as well as the fire protection and procedural arrangements observed at the time of this fire risk assessment, it is considered that the consequences for life safety in the event of fire would be: Moderate Harm. Accordingly, it is considered that the risk from fire at these premises is: Tolerable.'}</p>
+            {data.riskRatingRationale && data.riskRatingRationale.length > 0 && (
+              <ul className="list-disc list-inside text-slate-700 space-y-1 mb-2">
+                {data.riskRatingRationale.map((reason, idx) => (
+                  <li key={`risk-rationale-${idx}`}>{reason}</li>
+                ))}
+              </ul>
+            )}
             <p className="mt-2">
               <span className="text-slate-600 text-sm">Overall risk level: </span>
-              <span className={`inline-block px-3 py-1.5 font-bold text-base rounded border mt-1 ${getOverallRiskBadgeClass(data.actionPlanLevel)}`}>
-                {data.actionPlanLevel ?? 'Tolerable'}
+              <span className={`inline-block px-3 py-1.5 font-bold text-base rounded border mt-1 ${getOverallRiskBadgeClass(effectiveOverallRisk)}`}>
+                {effectiveOverallRisk}
               </span>
             </p>
           </div>
@@ -2587,7 +2691,14 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
           {printHeaderContent}
         </div>
         <h2 className="text-xl font-semibold mb-4">8. Action Plan</h2>
-        <p className="text-sm mb-4">It is considered that the following recommendations should be implemented in order to reduce fire risk to, or maintain it at, the following level: <span className={`inline-block px-2 py-0.5 font-bold text-sm rounded border align-middle ${getOverallRiskBadgeClass(data.actionPlanLevel)}`}>{data.actionPlanLevel ?? 'Tolerable'}</span>.</p>
+        <p className="text-sm mb-4">
+          It is considered that the following recommendations should be implemented in order to reduce fire risk to a tolerable level:{' '}
+          <span className={`inline-block px-3 py-1.5 font-bold text-base rounded border align-middle ${getOverallRiskBadgeClass('Tolerable')}`}>
+            Tolerable
+          </span>
+          .
+        </p>
+        <p className="text-sm mb-4">The target risk level is contingent upon completion and ongoing maintenance of the actions listed below.</p>
         <p className="text-sm font-semibold mb-2">The priority given for each recommendation should be acted upon as follows:</p>
         <ul className="list-disc list-inside text-sm text-slate-700 mb-6 space-y-1">
           <li><strong>Low:</strong> Remedy when next refurbishing or next reviewing management policy.</li>

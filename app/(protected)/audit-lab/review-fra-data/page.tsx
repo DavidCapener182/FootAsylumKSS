@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { Loader2, CheckCircle2, XCircle, FileText, ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -8,11 +9,61 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 
+const REVIEW_DRAFT_STORAGE_PREFIX = 'fra-review-draft-v4'
+
+function getReviewDraftStorageKey(instanceId: string) {
+  return `${REVIEW_DRAFT_STORAGE_PREFIX}:${instanceId}`
+}
+
+function getBaseSignature(data: any): string {
+  try {
+    return JSON.stringify(buildEditedDataFromExtracted(data))
+  } catch {
+    return ''
+  }
+}
+
+function buildEditedDataFromExtracted(data: any) {
+  return {
+    storeManager: data.storeManager || '',
+    firePanelLocation: data.firePanelLocation || '',
+    firePanelFaults: data.firePanelFaults || '',
+    emergencyLightingSwitch: data.emergencyLightingSwitch || '',
+    numberOfFloors: data.numberOfFloors || '',
+    operatingHours: data.operatingHours || '',
+    conductedDate: data.conductedDate || '',
+    assessmentStartTime: data.assessmentStartTime || '',
+    squareFootage: data.squareFootage || '',
+    escapeRoutesEvidence: data.escapeRoutesEvidence || '',
+    combustibleStorageEscapeCompromise: data.combustibleStorageEscapeCompromise || '',
+    fireSafetyTrainingNarrative: data.fireSafetyTrainingNarrative || '',
+    fireDoorsCondition: data.fireDoorsCondition || '',
+    weeklyFireTests: data.weeklyFireTests || '',
+    emergencyLightingMonthlyTest: data.emergencyLightingMonthlyTest || '',
+    fireExtinguisherService: data.fireExtinguisherService || '',
+    managementReviewStatement: data.managementReviewStatement || '',
+    // High priority fields
+    numberOfFireExits: data.numberOfFireExits || '',
+    totalStaffEmployed: data.totalStaffEmployed || '',
+    maxStaffOnSite: data.maxStaffOnSite || '',
+    youngPersonsCount: data.youngPersonsCount || '',
+    fireDrillDate: data.fireDrillDate || '',
+    patTestingStatus: data.patTestingStatus || '',
+    fixedWireTestDate: data.fixedWireTestDate || '',
+    // Medium priority fields
+    exitSignageCondition: data.exitSignageCondition || '',
+    compartmentationStatus: data.compartmentationStatus || '',
+    extinguisherServiceDate: data.extinguisherServiceDate || '',
+    callPointAccessibility: data.callPointAccessibility || '',
+  }
+}
+
 export default function ReviewFRADataPage({
   searchParams,
 }: {
   searchParams: { instanceId?: string }
 }) {
+  const router = useRouter()
   const instanceId = searchParams?.instanceId
   const [extractedData, setExtractedData] = useState<any>(null)
   const [editedData, setEditedData] = useState<any>({})
@@ -21,6 +72,7 @@ export default function ReviewFRADataPage({
   const [creatingReport, setCreatingReport] = useState(false)
   const [showDebug, setShowDebug] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [draftRestored, setDraftRestored] = useState(false)
 
   useEffect(() => {
     if (!instanceId) {
@@ -61,39 +113,44 @@ export default function ReviewFRADataPage({
         // After retries (or when we have data), show the page; do not retry again
         
         setExtractedData(data)
-        // Initialize edited data with extracted values
-        setEditedData({
-          storeManager: data.storeManager || '',
-          firePanelLocation: data.firePanelLocation || '',
-          firePanelFaults: data.firePanelFaults || '',
-          emergencyLightingSwitch: data.emergencyLightingSwitch || '',
-          numberOfFloors: data.numberOfFloors || '',
-          operatingHours: data.operatingHours || '',
-          conductedDate: data.conductedDate || '',
-          assessmentStartTime: data.assessmentStartTime || '',
-          squareFootage: data.squareFootage || '',
-          escapeRoutesEvidence: data.escapeRoutesEvidence || '',
-          combustibleStorageEscapeCompromise: data.combustibleStorageEscapeCompromise || '',
-          fireSafetyTrainingNarrative: data.fireSafetyTrainingNarrative || '',
-          fireDoorsCondition: data.fireDoorsCondition || '',
-          weeklyFireTests: data.weeklyFireTests || '',
-          emergencyLightingMonthlyTest: data.emergencyLightingMonthlyTest || '',
-          fireExtinguisherService: data.fireExtinguisherService || '',
-          managementReviewStatement: data.managementReviewStatement || '',
-          // High priority fields
-          numberOfFireExits: data.numberOfFireExits || '',
-          totalStaffEmployed: data.totalStaffEmployed || '',
-          maxStaffOnSite: data.maxStaffOnSite || '',
-          youngPersonsCount: data.youngPersonsCount || '',
-          fireDrillDate: data.fireDrillDate || '',
-          patTestingStatus: data.patTestingStatus || '',
-          fixedWireTestDate: data.fixedWireTestDate || '',
-          // Medium priority fields
-          exitSignageCondition: data.exitSignageCondition || '',
-          compartmentationStatus: data.compartmentationStatus || '',
-          extinguisherServiceDate: data.extinguisherServiceDate || '',
-          callPointAccessibility: data.callPointAccessibility || '',
-        })
+
+        const baseEditedData = buildEditedDataFromExtracted(data)
+        const baseSignature = getBaseSignature(data)
+        let mergedEditedData = baseEditedData
+        let restoredDraft = false
+
+        if (instanceId && typeof window !== 'undefined') {
+          try {
+            const rawDraft = window.localStorage.getItem(getReviewDraftStorageKey(instanceId))
+            if (rawDraft) {
+              const parsedDraft = JSON.parse(rawDraft)
+              if (parsedDraft && typeof parsedDraft === 'object') {
+                // v3 shape: { __meta: { baseSignature }, fields: {...} }
+                const draftMeta = (parsedDraft as any).__meta
+                const draftFields = (parsedDraft as any).fields
+                if (
+                  draftMeta
+                  && typeof draftMeta === 'object'
+                  && typeof draftMeta.baseSignature === 'string'
+                  && draftMeta.baseSignature === baseSignature
+                  && draftFields
+                  && typeof draftFields === 'object'
+                ) {
+                  mergedEditedData = { ...baseEditedData, ...draftFields }
+                  restoredDraft = true
+                } else if (!(parsedDraft as any).__meta) {
+                  // Legacy plain-object drafts are intentionally ignored to avoid stale parser collisions.
+                  console.log('[REVIEW] Ignoring legacy local draft shape for parser consistency')
+                }
+              }
+            }
+          } catch (storageError) {
+            console.warn('[REVIEW] Unable to restore local draft:', storageError)
+          }
+        }
+
+        setEditedData(mergedEditedData)
+        setDraftRestored(restoredDraft)
       } catch (err: any) {
         console.error('[REVIEW] Error loading extracted data:', err)
         setError(err.message || 'Failed to load extracted data')
@@ -104,6 +161,28 @@ export default function ReviewFRADataPage({
 
     fetchData()
   }, [instanceId])
+
+  useEffect(() => {
+    if (!instanceId || !editedData || Object.keys(editedData).length === 0 || !extractedData) return
+    if (typeof window === 'undefined') return
+
+    try {
+      const payload = {
+        __meta: {
+          baseSignature: getBaseSignature(extractedData),
+          savedAt: new Date().toISOString(),
+        },
+        fields: editedData,
+      }
+      window.localStorage.setItem(getReviewDraftStorageKey(instanceId), JSON.stringify(payload))
+    } catch (storageError) {
+      console.warn('[REVIEW] Unable to persist local draft:', storageError)
+    }
+  }, [editedData, extractedData, instanceId])
+
+  const updateField = (fieldKey: string, value: string) => {
+    setEditedData((prev: Record<string, string>) => ({ ...prev, [fieldKey]: value }))
+  }
 
   const handleCreateReport = async () => {
     if (!instanceId) return
@@ -126,8 +205,12 @@ export default function ReviewFRADataPage({
         throw new Error(data.error || data.details || `Failed to save (${response.status})`)
       }
 
+      if (typeof window !== 'undefined') {
+        window.localStorage.removeItem(getReviewDraftStorageKey(instanceId))
+      }
+
       // Navigate to the FRA report view with the saved data
-      window.location.href = `/audit-lab/view-fra-report?instanceId=${instanceId}`
+      router.push(`/audit-lab/view-fra-report?instanceId=${instanceId}`)
     } catch (err: any) {
       console.error('Error creating report:', err)
       setSaveError(err.message || 'Failed to create report')
@@ -254,6 +337,11 @@ export default function ReviewFRADataPage({
                       <span className="text-red-700 font-semibold">✗ Not found</span>
                     )}
                   </div>
+                  {draftRestored && (
+                    <div className="mt-2 rounded border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-medium text-amber-900">
+                      Restored unsaved edits from local draft after refresh.
+                    </div>
+                  )}
                   {extractedData && !extractedData.hasPdfText && (
                     <div className="mt-2 p-3 bg-amber-50 border border-amber-300 rounded text-sm text-amber-900">
                       <strong>No PDF text was extracted from the H&S audit.</strong>
@@ -284,7 +372,7 @@ export default function ReviewFRADataPage({
                 {renderFieldLabel('Store Manager / Person in Charge', 'storeManager')}
                 <Textarea
                   value={editedData.storeManager || ''}
-                  onChange={(e) => setEditedData({ ...editedData, storeManager: e.target.value })}
+                  onChange={(e) => updateField('storeManager', e.target.value)}
                   placeholder="Store Manager name"
                   className="min-h-[60px]"
                 />
@@ -295,7 +383,7 @@ export default function ReviewFRADataPage({
                 {renderFieldLabel('Assessment Date (Conducted Date)', 'conductedDate')}
                 <Textarea
                   value={editedData.conductedDate || ''}
-                  onChange={(e) => setEditedData({ ...editedData, conductedDate: e.target.value })}
+                  onChange={(e) => updateField('conductedDate', e.target.value)}
                   placeholder="e.g., 22 Jan 2026"
                   className="min-h-[40px]"
                 />
@@ -306,7 +394,7 @@ export default function ReviewFRADataPage({
                 {renderFieldLabel('Assessment start time', 'assessmentStartTime')}
                 <Textarea
                   value={editedData.assessmentStartTime || ''}
-                  onChange={(e) => setEditedData({ ...editedData, assessmentStartTime: e.target.value })}
+                  onChange={(e) => updateField('assessmentStartTime', e.target.value)}
                   placeholder="e.g., 12:00 pm"
                   className="min-h-[40px]"
                 />
@@ -317,7 +405,7 @@ export default function ReviewFRADataPage({
                 {renderFieldLabel('Number of Floors', 'numberOfFloors')}
                 <Textarea
                   value={editedData.numberOfFloors || ''}
-                  onChange={(e) => setEditedData({ ...editedData, numberOfFloors: e.target.value })}
+                  onChange={(e) => updateField('numberOfFloors', e.target.value)}
                   placeholder="e.g., 1"
                   className="min-h-[40px]"
                 />
@@ -328,7 +416,7 @@ export default function ReviewFRADataPage({
                 {renderFieldLabel('Square Footage / Floor Area', 'squareFootage')}
                 <Textarea
                   value={editedData.squareFootage || ''}
-                  onChange={(e) => setEditedData({ ...editedData, squareFootage: e.target.value })}
+                  onChange={(e) => updateField('squareFootage', e.target.value)}
                   placeholder="e.g., 5000 sq ft"
                   className="min-h-[40px]"
                 />
@@ -339,7 +427,7 @@ export default function ReviewFRADataPage({
                 {renderFieldLabel('Fire Panel Location', 'firePanelLocation')}
                 <Textarea
                   value={editedData.firePanelLocation || ''}
-                  onChange={(e) => setEditedData({ ...editedData, firePanelLocation: e.target.value })}
+                  onChange={(e) => updateField('firePanelLocation', e.target.value)}
                   placeholder="e.g., Electrical cupboard by the rear fire door"
                   className="min-h-[60px]"
                 />
@@ -350,7 +438,7 @@ export default function ReviewFRADataPage({
                 {renderFieldLabel('Fire Panel Faults Status', 'firePanelFaults')}
                 <Textarea
                   value={editedData.firePanelFaults || ''}
-                  onChange={(e) => setEditedData({ ...editedData, firePanelFaults: e.target.value })}
+                  onChange={(e) => updateField('firePanelFaults', e.target.value)}
                   placeholder="e.g., Yes / No / Panel status to be verified"
                   className="min-h-[60px]"
                 />
@@ -361,7 +449,7 @@ export default function ReviewFRADataPage({
                 {renderFieldLabel('Emergency Lighting Test Switch Location', 'emergencyLightingSwitch')}
                 <Textarea
                   value={editedData.emergencyLightingSwitch || ''}
-                  onChange={(e) => setEditedData({ ...editedData, emergencyLightingSwitch: e.target.value })}
+                  onChange={(e) => updateField('emergencyLightingSwitch', e.target.value)}
                   placeholder="e.g., Electrical cupboard by the rear fire doors"
                   className="min-h-[60px]"
                 />
@@ -372,7 +460,7 @@ export default function ReviewFRADataPage({
                 {renderFieldLabel('Fire exit routes / escape routes', 'escapeRoutesEvidence')}
                 <Textarea
                   value={editedData.escapeRoutesEvidence || ''}
-                  onChange={(e) => setEditedData({ ...editedData, escapeRoutesEvidence: e.target.value })}
+                  onChange={(e) => updateField('escapeRoutesEvidence', e.target.value)}
                   placeholder="e.g., Observed during recent inspections: fire exits partially blocked... or leave blank if clear"
                   className="min-h-[120px]"
                 />
@@ -383,7 +471,7 @@ export default function ReviewFRADataPage({
                 {renderFieldLabel('Combustible storage & escape routes', 'combustibleStorageEscapeCompromise')}
                 <Textarea
                   value={editedData.combustibleStorageEscapeCompromise || ''}
-                  onChange={(e) => setEditedData({ ...editedData, combustibleStorageEscapeCompromise: e.target.value })}
+                  onChange={(e) => updateField('combustibleStorageEscapeCompromise', e.target.value)}
                   placeholder="e.g., OK or Escape routes compromised"
                   className="min-h-[40px]"
                 />
@@ -394,7 +482,7 @@ export default function ReviewFRADataPage({
                 {renderFieldLabel('Fire safety training', 'fireSafetyTrainingNarrative')}
                 <Textarea
                   value={editedData.fireSafetyTrainingNarrative || ''}
-                  onChange={(e) => setEditedData({ ...editedData, fireSafetyTrainingNarrative: e.target.value })}
+                  onChange={(e) => updateField('fireSafetyTrainingNarrative', e.target.value)}
                   placeholder="e.g., Fire safety training is delivered via induction and toolbox talks; improvements currently underway."
                   className="min-h-[120px]"
                 />
@@ -405,7 +493,7 @@ export default function ReviewFRADataPage({
                 {renderFieldLabel('Fire doors & compartmentation', 'fireDoorsCondition')}
                 <Textarea
                   value={editedData.fireDoorsCondition || ''}
-                  onChange={(e) => setEditedData({ ...editedData, fireDoorsCondition: e.target.value })}
+                  onChange={(e) => updateField('fireDoorsCondition', e.target.value)}
                   placeholder="e.g., Good condition; intumescent strips present; not wedged open"
                   className="min-h-[120px]"
                 />
@@ -416,7 +504,7 @@ export default function ReviewFRADataPage({
                 {renderFieldLabel('Weekly fire alarm tests', 'weeklyFireTests')}
                 <Textarea
                   value={editedData.weeklyFireTests || ''}
-                  onChange={(e) => setEditedData({ ...editedData, weeklyFireTests: e.target.value })}
+                  onChange={(e) => updateField('weeklyFireTests', e.target.value)}
                   placeholder="e.g., Documented or Yes"
                   className="min-h-[80px]"
                 />
@@ -427,7 +515,7 @@ export default function ReviewFRADataPage({
                 {renderFieldLabel('Monthly emergency lighting tests', 'emergencyLightingMonthlyTest')}
                 <Textarea
                   value={editedData.emergencyLightingMonthlyTest || ''}
-                  onChange={(e) => setEditedData({ ...editedData, emergencyLightingMonthlyTest: e.target.value })}
+                  onChange={(e) => updateField('emergencyLightingMonthlyTest', e.target.value)}
                   placeholder="e.g., Conducted or Yes"
                   className="min-h-[120px]"
                 />
@@ -438,7 +526,7 @@ export default function ReviewFRADataPage({
                 {renderFieldLabel('Fire extinguishers serviced', 'fireExtinguisherService')}
                 <Textarea
                   value={editedData.fireExtinguisherService || ''}
-                  onChange={(e) => setEditedData({ ...editedData, fireExtinguisherService: e.target.value })}
+                  onChange={(e) => updateField('fireExtinguisherService', e.target.value)}
                   placeholder="e.g., Serviced and accessible"
                   className="min-h-[40px]"
                 />
@@ -449,7 +537,7 @@ export default function ReviewFRADataPage({
                 {renderFieldLabel('Management review statement', 'managementReviewStatement')}
                 <Textarea
                   value={editedData.managementReviewStatement || ''}
-                  onChange={(e) => setEditedData({ ...editedData, managementReviewStatement: e.target.value })}
+                  onChange={(e) => updateField('managementReviewStatement', e.target.value)}
                   placeholder="No explicit management review statement found in PDF (leave blank if not present)."
                   className="min-h-[80px]"
                 />
@@ -460,7 +548,7 @@ export default function ReviewFRADataPage({
                 {renderFieldLabel('Number of fire exits', 'numberOfFireExits')}
                 <Textarea
                   value={editedData.numberOfFireExits || ''}
-                  onChange={(e) => setEditedData({ ...editedData, numberOfFireExits: e.target.value })}
+                  onChange={(e) => updateField('numberOfFireExits', e.target.value)}
                   placeholder="e.g., 2"
                   className="min-h-[40px]"
                 />
@@ -471,7 +559,7 @@ export default function ReviewFRADataPage({
                 {renderFieldLabel('Total staff employed', 'totalStaffEmployed')}
                 <Textarea
                   value={editedData.totalStaffEmployed || ''}
-                  onChange={(e) => setEditedData({ ...editedData, totalStaffEmployed: e.target.value })}
+                  onChange={(e) => updateField('totalStaffEmployed', e.target.value)}
                   placeholder="e.g., 9"
                   className="min-h-[40px]"
                 />
@@ -482,7 +570,7 @@ export default function ReviewFRADataPage({
                 {renderFieldLabel('Maximum staff on site at any time', 'maxStaffOnSite')}
                 <Textarea
                   value={editedData.maxStaffOnSite || ''}
-                  onChange={(e) => setEditedData({ ...editedData, maxStaffOnSite: e.target.value })}
+                  onChange={(e) => updateField('maxStaffOnSite', e.target.value)}
                   placeholder="e.g., 3"
                   className="min-h-[40px]"
                 />
@@ -493,7 +581,7 @@ export default function ReviewFRADataPage({
                 {renderFieldLabel('Young persons employed', 'youngPersonsCount')}
                 <Textarea
                   value={editedData.youngPersonsCount || ''}
-                  onChange={(e) => setEditedData({ ...editedData, youngPersonsCount: e.target.value })}
+                  onChange={(e) => updateField('youngPersonsCount', e.target.value)}
                   placeholder="e.g., 1"
                   className="min-h-[40px]"
                 />
@@ -504,7 +592,7 @@ export default function ReviewFRADataPage({
                 {renderFieldLabel('Last fire drill date', 'fireDrillDate')}
                 <Textarea
                   value={editedData.fireDrillDate || ''}
-                  onChange={(e) => setEditedData({ ...editedData, fireDrillDate: e.target.value })}
+                  onChange={(e) => updateField('fireDrillDate', e.target.value)}
                   placeholder="e.g., 15 July 2025"
                   className="min-h-[40px]"
                 />
@@ -515,7 +603,7 @@ export default function ReviewFRADataPage({
                 {renderFieldLabel('PAT / electrical testing status', 'patTestingStatus')}
                 <Textarea
                   value={editedData.patTestingStatus || ''}
-                  onChange={(e) => setEditedData({ ...editedData, patTestingStatus: e.target.value })}
+                  onChange={(e) => updateField('patTestingStatus', e.target.value)}
                   placeholder="e.g., Satisfactory"
                   className="min-h-[40px]"
                 />
@@ -526,7 +614,7 @@ export default function ReviewFRADataPage({
                 {renderFieldLabel('Fixed wire installation – date inspected/tested', 'fixedWireTestDate')}
                 <Textarea
                   value={editedData.fixedWireTestDate || ''}
-                  onChange={(e) => setEditedData({ ...editedData, fixedWireTestDate: e.target.value })}
+                  onChange={(e) => updateField('fixedWireTestDate', e.target.value)}
                   placeholder="e.g., 01/09/2025 or 1 September 2025"
                   className="min-h-[40px]"
                 />
@@ -537,7 +625,7 @@ export default function ReviewFRADataPage({
                 {renderFieldLabel('Exit signage condition', 'exitSignageCondition')}
                 <Textarea
                   value={editedData.exitSignageCondition || ''}
-                  onChange={(e) => setEditedData({ ...editedData, exitSignageCondition: e.target.value })}
+                  onChange={(e) => updateField('exitSignageCondition', e.target.value)}
                   placeholder="e.g., Good condition"
                   className="min-h-[40px]"
                 />
@@ -548,7 +636,7 @@ export default function ReviewFRADataPage({
                 {renderFieldLabel('Compartmentation / ceiling tiles', 'compartmentationStatus')}
                 <Textarea
                   value={editedData.compartmentationStatus || ''}
-                  onChange={(e) => setEditedData({ ...editedData, compartmentationStatus: e.target.value })}
+                  onChange={(e) => updateField('compartmentationStatus', e.target.value)}
                   placeholder="e.g., No breaches identified"
                   className="min-h-[120px]"
                 />
@@ -559,7 +647,7 @@ export default function ReviewFRADataPage({
                 {renderFieldLabel('Last fire extinguisher service date', 'extinguisherServiceDate')}
                 <Textarea
                   value={editedData.extinguisherServiceDate || ''}
-                  onChange={(e) => setEditedData({ ...editedData, extinguisherServiceDate: e.target.value })}
+                  onChange={(e) => updateField('extinguisherServiceDate', e.target.value)}
                   placeholder="e.g., 10 January 2025"
                   className="min-h-[40px]"
                 />
@@ -570,7 +658,7 @@ export default function ReviewFRADataPage({
                 {renderFieldLabel('Call point accessibility', 'callPointAccessibility')}
                 <Textarea
                   value={editedData.callPointAccessibility || ''}
-                  onChange={(e) => setEditedData({ ...editedData, callPointAccessibility: e.target.value })}
+                  onChange={(e) => updateField('callPointAccessibility', e.target.value)}
                   placeholder="e.g., Accessible and unobstructed"
                   className="min-h-[40px]"
                 />

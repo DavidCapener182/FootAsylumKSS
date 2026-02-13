@@ -12,6 +12,14 @@ import { createStoreActions } from '@/app/actions/store-actions'
 import { UserRole } from '@/lib/auth'
 import { AuditRow, getLatestPct, pctBadge } from './audit-table-helpers'
 import { createClient } from '@/lib/supabase/client'
+import {
+  calculateNextDueDate,
+  formatDate as formatFRADate,
+  getDaysUntilDue,
+  getFRAStatus,
+  statusBadge,
+} from '@/components/fra/fra-table-helpers'
+import { getStoreActionListTitle } from '@/components/shared/store-action-title'
 
 type StoreActionPriority = 'low' | 'medium' | 'high' | 'urgent'
 
@@ -108,6 +116,22 @@ export function StoreActionsModal({
       row.fire_risk_assessment_pdf_path ||
       row.fire_risk_assessment_pct !== null
     )
+  }, [row])
+  const needsFRA = useMemo(() => {
+    if (!row) return false
+    return Boolean(row.compliance_audit_1_date || row.compliance_audit_2_date)
+  }, [row])
+  const fraStatus = useMemo(() => {
+    if (!row) return 'not_required' as const
+    return getFRAStatus(row.fire_risk_assessment_date, needsFRA)
+  }, [row, needsFRA])
+  const fraDaysUntilDue = useMemo(() => {
+    if (!row) return null
+    return getDaysUntilDue(row.fire_risk_assessment_date)
+  }, [row])
+  const fraNextDueDate = useMemo(() => {
+    if (!row) return null
+    return calculateNextDueDate(row.fire_risk_assessment_date)
   }, [row])
   const canCreate = canCreateStoreActions(userRole)
   const hasExistingActions = existingActions.length > 0
@@ -304,21 +328,19 @@ export function StoreActionsModal({
                 <div className="mt-2">{pctBadge(latestAuditScore)}</div>
               </div>
               <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">FRA Completed</p>
-                <div className="mt-2 flex items-center gap-2">
-                  <Badge
-                    variant="outline"
-                    className={
-                      fraCompleted
-                        ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
-                        : 'border-slate-300 bg-slate-50 text-slate-600'
-                    }
-                  >
-                    {fraCompleted ? 'Completed' : 'Not Completed'}
-                  </Badge>
-                  {row.fire_risk_assessment_date ? (
-                    <span className="text-xs text-slate-500">{new Date(row.fire_risk_assessment_date).toLocaleDateString('en-GB')}</span>
-                  ) : null}
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">FRA Status</p>
+                <div className="mt-2">{statusBadge(fraStatus, fraDaysUntilDue)}</div>
+                <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+                  <div className="rounded-md border border-slate-200 bg-white px-2 py-1.5">
+                    <span className="block uppercase tracking-wide text-[10px] text-slate-500">Last FRA</span>
+                    <span className="text-slate-700">{formatFRADate(row.fire_risk_assessment_date)}</span>
+                  </div>
+                  <div className="rounded-md border border-slate-200 bg-white px-2 py-1.5">
+                    <span className="block uppercase tracking-wide text-[10px] text-slate-500">Next Due</span>
+                    <span className="text-slate-700">
+                      {fraNextDueDate ? formatFRADate(fraNextDueDate.toISOString().split('T')[0]) : '—'}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -359,7 +381,7 @@ export function StoreActionsModal({
                           </Badge>
                         </div>
                       </div>
-                      <p className="text-sm text-slate-900 font-medium">{action.title}</p>
+                      <p className="text-sm text-slate-900 font-medium">{getStoreActionListTitle(action)}</p>
                       {action.description ? (
                         <p className="text-sm text-slate-600">{action.description}</p>
                       ) : null}

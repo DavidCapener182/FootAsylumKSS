@@ -5,6 +5,7 @@ import { summarizeHSAuditForFRA } from '@/lib/ai/fra-summarize'
 import { getOpeningHoursFromSearch } from '@/lib/fra/opening-hours-search'
 import { getBuildDateFromSearch } from '@/lib/fra/build-date-search'
 import { getStoreDataFromGoogleSearch } from '@/lib/fra/google-store-data-search'
+import { buildFRARiskSummary, computeFRARiskRating, type FRARiskFindings } from '@/lib/fra/risk-rating'
 import { getAuditInstance } from './safehub'
 
 /**
@@ -35,36 +36,204 @@ type ParsedYesNoQuestion = {
   comment: string | null
 }
 
+const NEXT_QUESTION_BOUNDARIES: RegExp[] = [
+  /location\s+of\s+fire\s+panel/i,
+  /is\s+panel\s+free\s+of\s+faults\?/i,
+  /location\s+of\s+emergency\s+lighting\s+test\s+switch/i,
+  /fire\s+panel\s+location/i,
+  /fire\s+exit\s+routes\s+clear\s+and\s+unobstructed\?/i,
+  /combustible\s+materials\s+are\s+stored\s+correctly\?/i,
+  /fire\s+doors\s+in\s+a\s+good\s+condition\?/i,
+  /are\s+fire\s+door\s+intumescent\s+strips\s+in\s+place\s+and\s+intact/i,
+  /fire\s+doors\s+closed\s+and\s+not\s+held\s+open\?/i,
+  /are\s+all\s+call\s+points\s+clear\s+and\s+easily\s+accessible/i,
+  /records?\s+available\s+on\s+site\?/i,
+  /are\s+all\s+fire\s+extinguishers?\s+clear\s+and\s+easily\s+accessible/i,
+  /is\s+there\s+a\s+50mm\s+clearance\s+from\s+stock\s+to\s+sprinkler\s+head/i,
+  /are\s+plugs\s+and\s+extension\s+leads\s+managed\s+and\s+not\s+overloaded/i,
+  /fire\s+drill\s+has\s+been\s+carried\s+out\s+in\s+the\s+past\s+6\s+months/i,
+  /weekly\s+fire\s+tests\s+carried\s+out\s+and\s+documented\?/i,
+  /weekly\s+fire\s+alarm\s+testing\s+is\s+being\s+completed\s+and\s+recorded/i,
+  /evidence\s+of\s+monthly\s+emergency\s+lighting\s+test\s+being\s+conducted\?/i,
+  /fire\s+extinguisher\s+service\?/i,
+  /\bpat\s*\?/i,
+  /fixed\s+electrical\s+wiring\?/i,
+  /store\s+compliance/i,
+  /action\s+plan\s+sign\s+off/i,
+  /due\s+date\s+to\s+resolve\/complete/i,
+  /actions?\s+by\s+the\s+set\s+due\s+date/i,
+  /signature\s+of\s+person\s+in\s+charge/i,
+]
+
+function normalizeLines(text: string): string[] {
+  return text.replace(/\r\n?/g, '\n').split('\n')
+}
+
+function isPhotoOnlyLine(value: string): boolean {
+  return /^\s*photo\s+\d+(?:\s+photo\s+\d+)*\s*$/i.test(value)
+}
+
+function isSectionHeadingLine(value: string): boolean {
+  const line = normalizeWhitespace(value)
+  if (!line) return false
+  return [
+    'General Site Information',
+    'Statutory Testing',
+    'Fire Safety',
+    'Store Compliance',
+    'COSHH',
+    'Training',
+  ].some((heading) => new RegExp(`^${heading}\\b`, 'i').test(line))
+}
+
+function isLikelyNewQuestionLine(value: string): boolean {
+  const line = normalizeWhitespace(value)
+  if (!line) return false
+  if (/\?$/.test(line) && line.length > 12) return true
+  if (/^(number of|location of|evidence of|is panel|are all|fire drill has|h&s)/i.test(line)) return true
+  return false
+}
+
+function splitBeforeNextQuestionBoundary(value: string): { before: string; hitBoundary: boolean } {
+  let cutIndex = -1
+  for (const pattern of NEXT_QUESTION_BOUNDARIES) {
+    const match = pattern.exec(value)
+    if (!match || typeof match.index !== 'number') continue
+    if (cutIndex < 0 || match.index < cutIndex) cutIndex = match.index
+  }
+  if (cutIndex < 0) {
+    return { before: value, hitBoundary: false }
+  }
+  return { before: value.slice(0, cutIndex).trim(), hitBoundary: true }
+}
+
+const TRAILING_CONTAMINATION_PATTERNS: RegExp[] = [
+  /records?\s+available\s+on\s+site\??/i,
+  /recorded\s+on\s+zipline/i,
+  /weekly\s+fire\s+(?:tests?|alarm\s+testing)/i,
+  /fire\s+drill\s+has\s+been\s+carried\s+out/i,
+  /evidence\s+of\s+monthly\s+emergency\s+lighting\s+test/i,
+  /is\s+there\s+a\s+50mm\s+clearance\s+from\s+stock\s+to\s+sprinkler\s+head/i,
+  /are\s+plugs?\s+and\s+extension\s+leads?\s+managed\s+and\s+not\s+overloaded/i,
+  /location\s+of\s+fire\s+panel/i,
+  /is\s+panel\s+free\s+of\s+faults/i,
+  /location\s+of\s+emergency\s+lighting\s+test\s+switch/i,
+  /store\s+compliance/i,
+  /action\s+plan\s+sign\s+off/i,
+  /due\s+date\s+to\s+resolve\/complete/i,
+  /actions?\s+by\s+the\s+set\s+due\s+date/i,
+  /signature\s+of\s+person\s+in\s+charge/i,
+]
+
+function cutAtEarliestPattern(value: string, patterns: RegExp[]): string {
+  let cutIndex = -1
+  for (const pattern of patterns) {
+    const safePattern = new RegExp(pattern.source, pattern.flags.replace(/g/g, ''))
+    const match = safePattern.exec(value)
+    if (!match || typeof match.index !== 'number') continue
+    if (cutIndex < 0 || match.index < cutIndex) {
+      cutIndex = match.index
+    }
+  }
+  return cutIndex >= 0 ? value.slice(0, cutIndex).trim() : value
+}
+
+function isInvalidLocationText(value: string | null | undefined): boolean {
+  const normalized = normalizeWhitespace(value || '')
+  if (!normalized) return true
+  if (/^(yes|no|n\/a|na)$/i.test(normalized)) return true
+  if (/^photo\s+\d+(?:\s+photo\s+\d+)*$/i.test(normalized)) return true
+  if (/(?:alarm\s+panel\s+photo|emergency\s+lighting\s+switch\s+photo)/i.test(normalized)) return true
+  if (/^location\s+of\s+(?:fire\s+panel|emergency\s+lighting\s+test\s+switch)/i.test(normalized)) return true
+  if (/(?:action\s+plan\s+sign\s+off|actions?\s+by\s+the\s+set\s+due\s+date|sign\s+off\s+and\s+acceptance|due\s+date\s+to\s+resolve\/complete|signature\s+of\s+person\s+in\s+charge)/i.test(normalized)) return true
+  if (/(?:records?\s+available\s+on\s+site|recorded\s+on\s+zipline|weekly\s+fire\s+(?:tests?|alarm\s+testing)|fire\s+drill\s+has\s+been\s+carried\s+out|evidence\s+of\s+monthly\s+emergency\s+lighting\s+test)/i.test(normalized)) return true
+  return false
+}
+
+function isLikelyLocationText(value: string | null | undefined): boolean {
+  const normalized = normalizeWhitespace(value || '')
+  if (!normalized || isInvalidLocationText(normalized)) return false
+  if (normalized.length < 3) return false
+  if (normalized.length > 90) return false
+  return /(?:rear|front|side|stock(?:room)?|fire\s+door|door|alarm\s*panel|panel|cupboard|electrical|entrance|exit|stair|corridor|office|room|wall|next to|beside|by\s+(?:alarm|panel|rear|fire|door|exit|stock|office|stairs?|corridor|electrical|cupboard))/i.test(normalized)
+}
+
+function sanitizeExtractedValue(
+  value: string | null | undefined,
+  options?: { asLocation?: boolean }
+): string | null {
+  if (!value) return null
+  const boundaryTrimmed = splitBeforeNextQuestionBoundary(normalizeWhitespace(value)).before
+  let cleaned = normalizeWhitespace(
+    boundaryTrimmed
+      .replace(/\bPhoto\s+\d+(?:\s+Photo\s+\d+)*/gi, ' ')
+      .replace(/\b(?:Alarm Panel Photo|Emergency Lighting Switch Photo)\b/gi, ' ')
+      .replace(/\([^)]*photograph[^)]*\)/gi, ' ')
+      .replace(/\bphotograph\b/gi, ' ')
+  )
+  cleaned = cutAtEarliestPattern(cleaned, TRAILING_CONTAMINATION_PATTERNS)
+  cleaned = normalizeWhitespace(cleaned.replace(/^[:\-–\s]+/, '').replace(/[.]+$/, ''))
+  if (!cleaned) return null
+  if (options?.asLocation) {
+    cleaned = cutAtEarliestPattern(cleaned, [/\b(?:yes|no|n\/a|na)\b/i])
+    cleaned = normalizeWhitespace(cleaned)
+    if (!cleaned) return null
+    if (!isLikelyLocationText(cleaned) || isInvalidLocationText(cleaned)) {
+      return null
+    }
+  }
+  return cleaned
+}
+
 function parseYesNoQuestionBlock(
   text: string,
   questionRegex: RegExp
 ): ParsedYesNoQuestion {
-  const questionMatch = text.match(questionRegex)
+  const safeRegex = new RegExp(questionRegex.source, questionRegex.flags.replace(/g/g, ''))
+  const questionMatch = safeRegex.exec(text)
   if (!questionMatch || questionMatch.index === undefined) {
     return { answer: null, comment: null }
   }
 
-  const start = questionMatch.index + questionMatch[0].length
-  const afterQuestion = text.slice(start, start + 2000)
-  const answerMatch = afterQuestion.match(/(?:^|\n)\s*(Yes|No|N\/A|NA)\s*(?:\n|$)/im)
-  const rawAnswer = answerMatch?.[1]?.toLowerCase() || ''
-  const answer: ParsedYesNoQuestion['answer'] =
-    rawAnswer === 'yes' ? 'yes' :
-    rawAnswer === 'no' ? 'no' :
-    rawAnswer === 'n/a' || rawAnswer === 'na' ? 'na' :
-    null
+  const lines = normalizeLines(text)
+  const anchorLineIndex = text.slice(0, questionMatch.index).split(/\r\n?|\n/).length - 1
+  let answer: ParsedYesNoQuestion['answer'] = null
+  const commentParts: string[] = []
 
-  let commentRaw = ''
-  if (answerMatch && answerMatch.index !== undefined) {
-    commentRaw = afterQuestion.slice(0, answerMatch.index)
-  } else {
-    commentRaw = afterQuestion
+  for (let i = anchorLineIndex + 1; i < lines.length && i <= anchorLineIndex + 18; i += 1) {
+    const rawLine = normalizeWhitespace(lines[i])
+    const { before, hitBoundary } = splitBeforeNextQuestionBoundary(rawLine)
+    const line = before
+    if (!line) continue
+    if (isPhotoOnlyLine(line)) continue
+    if (isSectionHeadingLine(line)) break
+    if (i > anchorLineIndex + 1 && isLikelyNewQuestionLine(line)) break
+
+    const standaloneAnswer = line.match(/^(yes|no|n\/a|na)$/i)
+    if (standaloneAnswer) {
+      const raw = standaloneAnswer[1].toLowerCase()
+      answer = raw === 'yes' ? 'yes' : raw === 'no' ? 'no' : 'na'
+      break
+    }
+
+    const leadingAnswer = line.match(/^(yes|no|n\/a|na)\b(?:\s*[:\-]\s*(.*))?$/i)
+    if (leadingAnswer) {
+      const raw = leadingAnswer[1].toLowerCase()
+      answer = raw === 'yes' ? 'yes' : raw === 'no' ? 'no' : 'na'
+      if (leadingAnswer[2]) commentParts.push(leadingAnswer[2])
+      break
+    }
+
+    commentParts.push(line)
+    if (hitBoundary) break
   }
 
-  const comment = commentRaw
-    .replace(/\bPhoto\s+\d+(?:\s+Photo\s+\d+)*/gi, '')
-    .replace(/\s+/g, ' ')
-    .trim()
+  const comment = sanitizeExtractedValue(
+    commentParts
+      .join(' ')
+      .replace(/\s{2,}/g, ' ')
+      .trim()
+  )
 
   return {
     answer,
@@ -423,12 +592,15 @@ export async function mapHSAuditToFRAData(fraInstanceId: string) {
       .maybeSingle()
 
     if (firstQuestion) {
-      const { data: customResponse } = await supabase
+      const { data: customResponses } = await supabase
         .from('fa_audit_responses')
-        .select('response_json')
+        .select('response_json, created_at')
         .eq('audit_instance_id', fraInstanceId)
         .eq('question_id', firstQuestion.id)
-        .maybeSingle()
+        .order('created_at', { ascending: false })
+        .limit(1)
+
+      const customResponse = customResponses?.[0] ?? null
 
       if (customResponse?.response_json) {
         if (customResponse.response_json.fra_custom_data) {
@@ -441,17 +613,24 @@ export async function mapHSAuditToFRAData(fraInstanceId: string) {
     }
   }
 
-  // If no edited data from first question, check any response for fra_extracted_data
-  if (!editedExtractedData) {
+  // Fallback scan for custom and extracted metadata across any response row.
+  // This handles legacy/duplicate response rows where metadata may not be on the
+  // template's first question.
+  if (!customData || !editedExtractedData) {
     const { data: allResponses } = await supabase
       .from('fa_audit_responses')
-      .select('response_json')
+      .select('response_json, created_at')
       .eq('audit_instance_id', fraInstanceId)
+      .order('created_at', { ascending: false })
+
     for (const row of allResponses || []) {
-      if (row?.response_json?.fra_extracted_data) {
-        editedExtractedData = row.response_json.fra_extracted_data
-        break
+      if (!customData && row?.response_json?.fra_custom_data) {
+        customData = row.response_json.fra_custom_data
       }
+      if (!editedExtractedData && row?.response_json?.fra_extracted_data) {
+        editedExtractedData = row.response_json.fra_extracted_data
+      }
+      if (customData && editedExtractedData) break
     }
   }
 
@@ -594,6 +773,29 @@ export async function mapHSAuditToFRAData(fraInstanceId: string) {
       pdfExtractedData.combustibleStorageEscapeCompromise = 'no'
     }
 
+    // Fire doors held open / blocked: use exact question answer first.
+    const fireDoorsHeldOpenQuestion = parseYesNoQuestionBlock(
+      originalText,
+      /fire doors closed and not held open\?/i
+    )
+    if (fireDoorsHeldOpenQuestion.answer === 'no') {
+      pdfExtractedData.fireDoorsHeldOpen = 'yes'
+      console.log('[FRA] Found fire doors question = NO (held open)')
+    } else if (fireDoorsHeldOpenQuestion.answer === 'yes') {
+      pdfExtractedData.fireDoorsHeldOpen = 'no'
+    }
+    if (fireDoorsHeldOpenQuestion.comment) {
+      pdfExtractedData.fireDoorsHeldOpenComment = fireDoorsHeldOpenQuestion.comment
+    }
+
+    const fireDoorsBlockedMatch = originalText.match(
+      /\b(fire door(?:s)?|door(?:s)?)\b[\s\S]{0,60}\b(blocked|obstructed|restricted|impeded)\b/i
+    )
+    if (fireDoorsBlockedMatch && !/\bnot blocked|unobstructed\b/i.test(fireDoorsBlockedMatch[0])) {
+      pdfExtractedData.fireDoorsBlocked = 'yes'
+      console.log('[FRA] Found fire doors blocked signal from PDF')
+    }
+
     // Fire safety training shortfall (toolbox not 100%, induction incomplete)
     const trainingShortfallMatch = originalText.match(/(?:toolbox|fire\s+safety\s+training).*?(?:not\s+100%|incomplete)/i)
       || originalText.match(/(?:induction\s+training).*?incomplete/i)
@@ -601,6 +803,17 @@ export async function mapHSAuditToFRAData(fraInstanceId: string) {
     if (trainingShortfallMatch) {
       pdfExtractedData.fireSafetyTrainingShortfall = 'yes'
       console.log('[FRA] Found fire safety training shortfall from PDF')
+    }
+
+    const trainingCompletionMatch =
+      originalText.match(/(?:toolbox(?:\s+refresher)?\s+training|refresher\s+training|completion\s+rate)[\s\S]{0,180}?(\d{1,3}(?:\.\d+)?)\s*%/i)
+      || originalText.match(/standing\s+at\s+(\d{1,3}(?:\.\d+)?)\s*%/i)
+    if (trainingCompletionMatch) {
+      const parsedCompletion = Number.parseFloat(trainingCompletionMatch[1])
+      if (Number.isFinite(parsedCompletion)) {
+        pdfExtractedData.trainingCompletionRate = String(parsedCompletion)
+        console.log('[FRA] Found training completion rate from PDF:', pdfExtractedData.trainingCompletionRate)
+      }
     }
 
     // Number of fire exits: strict extraction from the General Site Information label.
@@ -808,6 +1021,18 @@ export async function mapHSAuditToFRAData(fraInstanceId: string) {
       console.log('[FRA] Found call point accessibility from PDF: Accessible')
     }
 
+    // Strip cross-question contamination from legacy PDF parsing output.
+    pdfExtractedData.firePanelLocation = sanitizeExtractedValue(pdfExtractedData.firePanelLocation, { asLocation: true })
+    pdfExtractedData.emergencyLightingSwitch = sanitizeExtractedValue(pdfExtractedData.emergencyLightingSwitch, { asLocation: true })
+    pdfExtractedData.firePanelFaults = sanitizeExtractedValue(pdfExtractedData.firePanelFaults)
+    pdfExtractedData.escapeRoutesEvidence = sanitizeExtractedValue(pdfExtractedData.escapeRoutesEvidence)
+    pdfExtractedData.fireDoorsCondition = sanitizeExtractedValue(pdfExtractedData.fireDoorsCondition)
+    pdfExtractedData.fireDoorsHeldOpenComment = sanitizeExtractedValue(pdfExtractedData.fireDoorsHeldOpenComment)
+    pdfExtractedData.weeklyFireTests = sanitizeExtractedValue(pdfExtractedData.weeklyFireTests)
+    pdfExtractedData.emergencyLightingMonthlyTest = sanitizeExtractedValue(pdfExtractedData.emergencyLightingMonthlyTest)
+    pdfExtractedData.callPointAccessibility = sanitizeExtractedValue(pdfExtractedData.callPointAccessibility)
+    pdfExtractedData.compartmentationStatus = sanitizeExtractedValue(pdfExtractedData.compartmentationStatus)
+
     console.log('[FRA] Final PDF Extracted Data:', pdfExtractedData)
   }
 
@@ -979,6 +1204,7 @@ export async function mapHSAuditToFRAData(fraInstanceId: string) {
   const staffCount = findAnswer('Number of Staff employed')
   const maxStaff = findAnswer('Maximum number of staff working')
   const youngPersons = findAnswer('Young persons')
+  const buildDateAnswer = findAnswer('Approx. build date') || findAnswer('build date')
   const enforcementAction = findAnswer('enforcement action')
   const fireDrillAnswer = findAnswer('Fire drill has been carried out') || findAnswer('fire drill')
   const patTestingAnswer = findAnswer('PAT testing') || findAnswer('portable appliance testing')
@@ -1337,10 +1563,23 @@ export async function mapHSAuditToFRAData(fraInstanceId: string) {
     })
   }
 
+  const normalizeBuildDateText = (value: unknown): string | null => {
+    if (typeof value !== 'string') return null
+    const normalized = normalizeWhitespace(value)
+    if (!normalized) return null
+    if (/^(to be confirmed|unknown|n\/a|na|not available|not confirmed)$/i.test(normalized)) return null
+    return normalized
+  }
+
+  const auditBuildDate = normalizeBuildDateText(
+    editedExtractedData?.buildDate
+    || buildDateAnswer?.value
+    || buildDateAnswer?.comment
+  )
+
   const resolvedBuildDate = customBuildDate
-    || storedBuildDate
-    || buildDateFromSearch
-    || 'To be confirmed'
+    || auditBuildDate
+    || 'Unknown / not confirmed'
 
   const extractedFloorAreaSource = editedExtractedData?.squareFootage
     ? 'REVIEW'
@@ -1423,9 +1662,6 @@ export async function mapHSAuditToFRAData(fraInstanceId: string) {
   ) {
     discoveredStoreFields.opening_times = normalizeOpeningTimesText(openingHoursFromSearch) || openingHoursFromSearch
   }
-  if (!storedBuildDate && buildDateFromSearch) {
-    discoveredStoreFields.build_date = buildDateFromSearch
-  }
   if (Object.keys(discoveredStoreFields).length > 0) {
     const { error: storeUpdateError } = await supabase
       .from('fa_stores')
@@ -1470,6 +1706,11 @@ export async function mapHSAuditToFRAData(fraInstanceId: string) {
   const sprinklerSystemAnswer = findAnswer('Sprinkler System')
   const hasSprinklers = sprinklerSystemAnswer?.value === 'Yes' || sprinklerClearance?.value === 'Yes' || sprinklerSystemAnswer?.comment?.toLowerCase().includes('sprinkler')
   const plugsExtensionLeads = findAnswer('plugs and Extension leads')
+  const cleanAsYouGo = findAnswer('clean as you go policy')
+  const stockroomSafety = findAnswer('Stock rooms')
+  const lightingCondition = findAnswer('lighting in a good condition and working correctly and deemed to be suitable and sufficient')
+    || findAnswer('lighting in a good condition and working correctly')
+    || findAnswer('lighting in a good condition')
 
   const normalizeNarrativeText = (value: unknown): string | null => {
     if (typeof value !== 'string') return null
@@ -1479,9 +1720,40 @@ export async function mapHSAuditToFRAData(fraInstanceId: string) {
     return trimmed
   }
 
-  const reviewedEscapeRoutesNarrative = normalizeNarrativeText(editedExtractedData?.escapeRoutesEvidence)
-  const pdfEscapeRoutesNarrative = normalizeNarrativeText((pdfExtractedData as any).escapeRoutesEvidence)
-  const auditEscapeRoutesNarrative = normalizeNarrativeText(fireExitRoutes?.comment)
+  const sanitizeReportNarrative = (value: unknown): string | null => {
+    const normalized = normalizeNarrativeText(value)
+    if (!normalized) return null
+    if (/^no explicit management review statement found/i.test(normalized)) return null
+    if (/^management review statement .*not found/i.test(normalized)) return null
+    return normalizeWhitespace(
+      normalized
+        .replace(/\bmetalworks\b/gi, 'metal stock cages and shopfitting')
+        .replace(/([a-z])\.(?=[A-Z])/g, '$1. ')
+        .replace(/\.{2,}/g, '.')
+        .replace(/\b(Stage\s*1[^.]{0,200}?)(Stage\s*2\b)/gi, '$1. $2')
+        .replace(/\b(Stage\s*2[^.]{0,200}?)(Stage\s*3\b)/gi, '$1. $2')
+    )
+  }
+
+  const normalizeYesNo = (value: unknown): 'yes' | 'no' | 'na' | null => {
+    const normalized = normalizeWhitespace(String(value ?? '')).toLowerCase()
+    if (!normalized) return null
+    if (normalized === 'yes' || normalized === 'y' || normalized === 'true') return 'yes'
+    if (normalized === 'no' || normalized === 'n' || normalized === 'false') return 'no'
+    if (normalized === 'n/a' || normalized === 'na') return 'na'
+    return null
+  }
+
+  const normalizeBooleanAnswer = (value: unknown): boolean | null => {
+    const normalized = normalizeYesNo(value)
+    if (normalized === 'yes') return true
+    if (normalized === 'no') return false
+    return null
+  }
+
+  const reviewedEscapeRoutesNarrative = sanitizeReportNarrative(editedExtractedData?.escapeRoutesEvidence)
+  const pdfEscapeRoutesNarrative = sanitizeReportNarrative((pdfExtractedData as any).escapeRoutesEvidence)
+  const auditEscapeRoutesNarrative = sanitizeReportNarrative(fireExitRoutes?.comment)
 
   const isLikelyLegacyEscapeRoutesFallback = (value: string | null): boolean => {
     if (!value) return false
@@ -1527,14 +1799,47 @@ export async function mapHSAuditToFRAData(fraInstanceId: string) {
 
   type CompartmentationSource = 'REVIEW' | 'PDF' | 'H&S_AUDIT'
   const normalizeCompartmentationNarrative = (value: unknown): string | null => {
-    return normalizeNarrativeText(value)
+    const normalized = sanitizeExtractedValue(normalizeNarrativeText(value))
+    if (!normalized) return null
+    const looksLikeQuestionFragment =
+      /(?:missing\s+ceiling\s+tiles?|c\s*wiling\s+tiles?|gaps?\s+from\s+area\s+to\s+area)/i.test(normalized)
+      && !/(?:there are|overall|building|structure|no obvious damage|no evident breaches|no breaches|no evidence|compromise|compromising|identified|observed)/i.test(normalized)
+    if (looksLikeQuestionFragment) return null
+    return normalized
+  }
+  const hasCompartmentationIssueSignal = (value: string): boolean => {
+    const normalized = normalizeWhitespace(value).toLowerCase()
+    if (!normalized) return false
+    const sentences = normalized
+      .split(/(?<=[.!?])\s+/)
+      .map((sentence) => sentence.trim())
+      .filter(Boolean)
+
+    const issuePattern = /(missing ceiling tiles?|ceiling tiles? missing|gaps? from area to area|compartmentation[\s\S]{0,40}?(?:damage|breach|issue|defect)|breaches?\s+(?:observed|identified|noted|present)|allow fire\/smoke spread)/i
+    const explicitIssuePattern = /\b(missing|breach(?:es)?|gap(?:s)?|damage|defect|issue)\b[\s\S]{0,20}\b(identified|noted|observed|present|found)\b/i
+    const negationPattern = /\b(no|not|none|without)\b[\s\S]{0,20}\b(missing|damage|breach|gap|issue|defect)\b|no\s+obvious\s+damage|no\s+evident\s+breaches?|no\s+evidence\s+of\s+damage|no\s+missing\s+ceiling\s+tiles?|no\s+gaps?\b/i
+
+    for (const sentence of sentences) {
+      if (!issuePattern.test(sentence) && !explicitIssuePattern.test(sentence)) continue
+      if (negationPattern.test(sentence)) continue
+      return true
+    }
+    return false
+  }
+  const hasCompartmentationCompliantSignal = (value: string): boolean => {
+    const normalized = normalizeWhitespace(value).toLowerCase()
+    if (!normalized) return false
+    return /(no\s+obvious\s+damage|no\s+evidence\s+of\s+damage|no\s+evident\s+breaches?|no\s+breaches?\s+identified|good\s+condition|effective\s+containment)/i.test(normalized)
   }
   const compartmentationPriority = (text: string): number => {
-    if (/^(no breaches identified|no breaches|none identified|no evidence of damage)\.?$/i.test(text)) {
-      return 1
-    }
-    if (/(missing ceiling tiles?|ceiling tiles? missing|gaps? from area to area|ceiling[\s\S]{0,30}?(?:damage|gap|hole)|compartmentation[\s\S]{0,40}?(?:damage|breach|issue)|breaches?\s+(?:observed|identified|noted|present))/i.test(text)) {
+    if (hasCompartmentationIssueSignal(text)) {
       return 3
+    }
+    if (
+      hasCompartmentationCompliantSignal(text)
+      || /^(no breaches identified|no breaches|none identified|no evidence of damage)\.?$/i.test(text)
+    ) {
+      return 1
     }
     return 2
   }
@@ -1565,17 +1870,20 @@ export async function mapHSAuditToFRAData(fraInstanceId: string) {
   const selectedCompartmentationSource = selectedCompartmentation?.source || 'NOT_FOUND'
   const hasCompartmentationDefect = (() => {
     const status = selectedCompartmentationStatus || ''
-    const lower = status.toLowerCase()
-    if (!lower) return false
-    if (/(missing ceiling tiles?|ceiling tiles? missing|breaches?\s+(?:observed|identified|noted|present)|gaps?\s+from\s+area\s+to\s+area|ceiling[\s\S]{0,30}?(?:damage|gap|hole)|compartmentation[\s\S]{0,40}?(?:issue|damage|breach))/i.test(status)) {
-      return true
-    }
-    if (/(no breaches identified|no breaches|none identified|no evidence of damage|no evident breaches)/i.test(status)) {
+    if (!status) return false
+    if (hasCompartmentationIssueSignal(status)) return true
+    if (
+      hasCompartmentationCompliantSignal(status)
+      || /(no breaches identified|no breaches|none identified|no evidence of damage|no evident breaches)/i.test(status)
+    ) {
       return false
     }
-    return /(breach|gap|damage|hole|missing)/i.test(status)
+    return false
   })()
-  const compartmentationActionRecommendation = 'Repair and reinstate missing or damaged ceiling tiles and any associated gaps in stock/staff areas to maintain effective compartmentation and fire/smoke resistance.'
+  const compartmentationActionRecommendation =
+    selectedCompartmentationStatus && /ceiling|tile|gap/i.test(selectedCompartmentationStatus)
+      ? 'Repair and reinstate missing or damaged ceiling tiles and any associated gaps in stock/staff areas to maintain effective compartmentation and fire/smoke resistance.'
+      : 'Rectify identified compartmentation defects to restore effective fire and smoke containment between areas.'
   console.log('[FRA] Compartmentation selection:', {
     selectedCompartmentationStatus,
     selectedCompartmentationSource,
@@ -1609,7 +1917,7 @@ export async function mapHSAuditToFRAData(fraInstanceId: string) {
   const escapeObstructed = escapeObstructedFromAnswers || escapeObstructedFromNarrative
   const hasEscapeRouteConcern = escapeObstructed
   const combustibleEscapeCompromise = pdfExtractedData.combustibleStorageEscapeCompromise === 'yes' ||
-    (combustibleMaterials && String(combustibleMaterials.value).toLowerCase() === 'no')
+    Boolean(combustibleMaterials && String(combustibleMaterials.value).toLowerCase() === 'no')
   const fireSafetyTrainingShortfall = pdfExtractedData.fireSafetyTrainingShortfall === 'yes' ||
     trainingInduction?.value === 'No' || trainingToolbox?.value === 'No'
 
@@ -1631,15 +1939,29 @@ export async function mapHSAuditToFRAData(fraInstanceId: string) {
   const floorsInfo = premisesDescription?.value || premisesDescription?.comment || generalSiteInfo?.value || generalSiteInfo?.comment || '1'
 
   // Fire Alarm System - extract location and panel status - prioritize edited data, then PDF, then database
-  const firePanelLocation = editedExtractedData?.firePanelLocation
-    ? { value: editedExtractedData.firePanelLocation, comment: undefined }
-    : pdfExtractedData.firePanelLocation
-      ? { value: pdfExtractedData.firePanelLocation, comment: undefined }
-      : findAnswer('Location of Fire Panel')
-        || findAnswer('Fire Panel Location')
-        || findAnswer('Fire Alarm Panel Location')
-        || findAnswer('Panel Location')
-        || findAnswer('fire panel')
+  const reviewedFirePanelLocation = sanitizeExtractedValue(editedExtractedData?.firePanelLocation, { asLocation: true })
+  const pdfFirePanelLocation = sanitizeExtractedValue(pdfExtractedData.firePanelLocation, { asLocation: true })
+  const firePanelLocationAnswer =
+    findAnswer('Location of Fire Panel')
+    || findAnswer('Fire Panel Location')
+    || findAnswer('Fire Alarm Panel Location')
+    || findAnswer('Panel Location')
+    || findAnswer('fire panel')
+  const auditFirePanelLocation = sanitizeExtractedValue(
+    typeof firePanelLocationAnswer?.value === 'string'
+      ? firePanelLocationAnswer.value
+      : typeof firePanelLocationAnswer?.comment === 'string'
+        ? firePanelLocationAnswer.comment
+        : null,
+    { asLocation: true }
+  )
+  const firePanelLocation = reviewedFirePanelLocation
+    ? { value: reviewedFirePanelLocation, comment: undefined }
+    : pdfFirePanelLocation
+      ? { value: pdfFirePanelLocation, comment: undefined }
+      : auditFirePanelLocation
+        ? { value: auditFirePanelLocation, comment: undefined }
+        : null
   const firePanelFaults = editedExtractedData?.firePanelFaults
     ? { value: editedExtractedData.firePanelFaults, comment: undefined }
     : pdfExtractedData.firePanelFaults
@@ -1687,18 +2009,333 @@ export async function mapHSAuditToFRAData(fraInstanceId: string) {
     && !/\b(no faults?|fault[\s-]*free|free of faults|normal)\b/i.test(panelFaultsText)
 
   // Emergency Lighting - extract test switch location - prioritize edited data, then PDF, then database
-  const emergencyLightingSwitchLocation = editedExtractedData?.emergencyLightingSwitch
-    ? { value: editedExtractedData.emergencyLightingSwitch, comment: undefined }
-    : pdfExtractedData.emergencyLightingSwitch
-      ? { value: pdfExtractedData.emergencyLightingSwitch, comment: undefined }
-      : findAnswer('Location of Emergency Lighting Test Switch') 
-        || findAnswer('Emergency Lighting Test Switch')
-        || findAnswer('Emergency Lighting Switch')
-        || findAnswer('emergency lighting test')
-        || findAnswer('lighting test switch')
+  const reviewedEmergencySwitchLocation = sanitizeExtractedValue(editedExtractedData?.emergencyLightingSwitch, { asLocation: true })
+  const pdfEmergencySwitchLocation = sanitizeExtractedValue(pdfExtractedData.emergencyLightingSwitch, { asLocation: true })
+  const emergencyLightingSwitchAnswer =
+    findAnswer('Location of Emergency Lighting Test Switch')
+    || findAnswer('Emergency Lighting Test Switch')
+    || findAnswer('Emergency Lighting Switch')
+    || findAnswer('emergency lighting test')
+    || findAnswer('lighting test switch')
+  const auditEmergencySwitchLocation = sanitizeExtractedValue(
+    typeof emergencyLightingSwitchAnswer?.value === 'string'
+      ? emergencyLightingSwitchAnswer.value
+      : typeof emergencyLightingSwitchAnswer?.comment === 'string'
+        ? emergencyLightingSwitchAnswer.comment
+        : null,
+    { asLocation: true }
+  )
+  const emergencyLightingSwitchLocation = reviewedEmergencySwitchLocation
+    ? { value: reviewedEmergencySwitchLocation, comment: undefined }
+    : pdfEmergencySwitchLocation
+      ? { value: pdfEmergencySwitchLocation, comment: undefined }
+      : auditEmergencySwitchLocation
+        ? { value: auditEmergencySwitchLocation, comment: undefined }
+        : null
   
   // Debug logging
   console.log('[FRA] Emergency Lighting Switch Location found:', !!emergencyLightingSwitchLocation, emergencyLightingSwitchLocation?.value || emergencyLightingSwitchLocation?.comment)
+
+  const fireDoorPrimaryEvidenceText = normalizeWhitespace(
+    [
+      fireDoorsClosed?.value,
+      fireDoorsClosed?.comment,
+    ]
+      .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+      .join(' ')
+  ).toLowerCase()
+
+  const fireDoorEvidenceText = normalizeWhitespace(
+    [
+      fireDoorsClosed?.value,
+      fireDoorsClosed?.comment,
+      fireDoorsCondition?.value,
+      fireDoorsCondition?.comment,
+      editedExtractedData?.fireDoorsCondition,
+      pdfExtractedData.fireDoorsCondition,
+      pdfExtractedData.fireDoorsHeldOpenComment,
+    ]
+      .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+      .join(' ')
+  ).toLowerCase()
+
+  const hasPositiveDoorSignal = (value: string, pattern: RegExp): boolean => {
+    const sentenceMatches = value.match(new RegExp(`[^.!?\\n]*${pattern.source}[^.!?\\n]*`, 'gi')) || []
+    return sentenceMatches.some((sentence) => !/\b(?:not|unobstructed|clear|free from obstruction)\b/i.test(sentence))
+  }
+
+  const fireDoorsHeldOpen = (() => {
+    const answer = normalizeYesNo(fireDoorsClosed?.value)
+    const primaryPositiveSignal = hasPositiveDoorSignal(fireDoorPrimaryEvidenceText, /\b(held open|wedged open|propped open)\b/)
+    const primaryNegativeSignal =
+      /\b(closed and not held open|not held open|not wedged(?:\s+or\s+held\s+open)?|not propped open|in the close position)\b/.test(fireDoorPrimaryEvidenceText)
+
+    if (answer === 'yes' && !primaryPositiveSignal) return false
+    if (answer === 'no') return true
+
+    const evidence = fireDoorEvidenceText
+    if (!evidence) return false
+
+    const explicitNegativeSignal =
+      /\b(closed and not held open|not held open|not wedged(?:\s+or\s+held\s+open)?|not propped open|in the close position)\b/.test(evidence)
+    const explicitPositiveSignal = hasPositiveDoorSignal(evidence, /\b(held open|wedged open|propped open)\b/)
+
+    if ((primaryNegativeSignal || explicitNegativeSignal) && !explicitPositiveSignal) return false
+    return explicitPositiveSignal
+  })()
+
+  const fireDoorsBlocked = (() => {
+    const answer = normalizeYesNo(fireDoorsClosed?.value)
+    const primaryEvidence = fireDoorPrimaryEvidenceText
+    const primaryBlockedSignal = hasPositiveDoorSignal(
+      primaryEvidence,
+      /\b(fire door(?:s)?|door(?:s)?)\b[\s\S]{0,40}\b(blocked|obstructed|restricted|impeded|unable to close)\b|\b(blocked|obstructed|restricted|impeded|unable to close)\b[\s\S]{0,40}\b(fire door(?:s)?|door(?:s)?)\b/
+    )
+
+    if (answer === 'yes' && !primaryBlockedSignal) return false
+
+    const combined = fireDoorEvidenceText
+    if (!combined) return false
+
+    const blockedSignal = hasPositiveDoorSignal(
+      combined,
+      /\b(fire door(?:s)?|door(?:s)?)\b[\s\S]{0,40}\b(blocked|obstructed|restricted|impeded|unable to close)\b|\b(blocked|obstructed|restricted|impeded|unable to close)\b[\s\S]{0,40}\b(fire door(?:s)?|door(?:s)?)\b/
+    )
+    const explicitlyNotBlocked = /\b(fire door(?:s)?|door(?:s)?)\b[\s\S]{0,40}\b(not blocked|clear|unobstructed|free from obstruction)\b/.test(combined)
+    return blockedSignal && !explicitlyNotBlocked
+  })()
+
+  const fireDoorIntegrityIssues = (() => {
+    const doorsCondition = normalizeYesNo(fireDoorsCondition?.value)
+    const stripsCondition = normalizeYesNo(intumescentStrips?.value)
+    return doorsCondition === 'no' || stripsCondition === 'no' || hasCompartmentationDefect
+  })()
+
+  const panelAccessObstructed = (() => {
+    const combined = [
+      firePanelLocation?.value,
+      firePanelLocation?.comment,
+      panelFaultsText,
+      escapeRoutesNarrativeFromAudit,
+    ]
+      .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+      .join(' ')
+      .toLowerCase()
+
+    if (!combined) return false
+
+    return (
+      /\b(panel|fire panel)\b[\s\S]{0,40}\b(blocked|obstructed|restricted|inaccessible)\b/.test(combined)
+      || /\b(blocked|obstructed|restricted|inaccessible)\b[\s\S]{0,40}\b(panel|fire panel)\b/.test(combined)
+      || /\bladder\b[\s\S]{0,50}\b(panel|fire panel)\b/.test(combined)
+    )
+  })()
+
+  const escapeRoutesObstructed = (() => {
+    const narrative = normalizeWhitespace(String(escapeRoutesNarrativeFromAudit ?? '')).toLowerCase()
+    if (!narrative) return hasEscapeRouteConcern
+    const obstructionSignal = /\b(escape routes?|evacuation routes?|egress routes?)\b[\s\S]{0,45}\b(obstructed|blocked|restricted|compromised|impeded)\b/.test(narrative)
+      || /\b(obstructed|blocked|restricted|compromised|impeded)\b[\s\S]{0,45}\b(escape routes?|evacuation routes?|egress routes?)\b/.test(narrative)
+    const explicitClearSignal = /\b(escape routes?|evacuation routes?)\b[\s\S]{0,45}\b(clear|unobstructed|fully accessible)\b/.test(narrative)
+    if (obstructionSignal && !explicitClearSignal) return true
+    if (explicitClearSignal && !obstructionSignal) return false
+    return hasEscapeRouteConcern
+  })()
+
+  const fireExitsObstructed = (() => {
+    const combined = normalizeWhitespace(
+      `${fireExitRoutes?.value ?? ''} ${fireExitRoutes?.comment ?? ''} ${escapeRoutesNarrativeFromAudit ?? ''}`
+    ).toLowerCase()
+    if (!combined) return hasEscapeRouteConcern
+    const obstructionSignal = /\b(final exits?|fire exits?|exit doors?)\b[\s\S]{0,45}\b(obstructed|blocked|restricted|compromised|impeded)\b/.test(combined)
+      || /\b(obstructed|blocked|restricted|compromised|impeded)\b[\s\S]{0,45}\b(final exits?|fire exits?|exit doors?)\b/.test(combined)
+    const explicitClearSignal = /\b(final exits?|fire exits?|exit doors?)\b[\s\S]{0,45}\b(clear|unobstructed|fully accessible)\b/.test(combined)
+    if (obstructionSignal && !explicitClearSignal) return true
+    if (explicitClearSignal && !obstructionSignal) return false
+    return hasEscapeRouteConcern
+  })()
+
+  const cleanAsYouGoAnswer = normalizeYesNo(cleanAsYouGo?.value)
+  const stockroomSafetyAnswer = normalizeYesNo(stockroomSafety?.value)
+  const combustiblesManagedAnswer = normalizeYesNo(combustibleMaterials?.value)
+  const housekeepingNarrative = normalizeWhitespace(
+    `${cleanAsYouGo?.comment ?? ''} ${stockroomSafety?.comment ?? ''} ${combustibleMaterials?.comment ?? ''}`
+  ).toLowerCase()
+  const housekeepingNegativeSignal =
+    /\b(poor housekeeping|housekeeping (?:issues?|deficien|inconsistent|concern)|clutter|untidy|accumulation of combustible)\b/.test(housekeepingNarrative)
+
+  const housekeepingGood = (() => {
+    if (cleanAsYouGoAnswer === 'no' || stockroomSafetyAnswer === 'no') return false
+    if (housekeepingNegativeSignal) return false
+    return cleanAsYouGoAnswer === 'yes' || stockroomSafetyAnswer === 'yes' || combustiblesManagedAnswer === 'yes'
+  })()
+
+  const housekeepingPoorBackOfHouse = (() => {
+    if (cleanAsYouGoAnswer === 'no' || stockroomSafetyAnswer === 'no') return true
+    if (housekeepingNegativeSignal) return true
+    return false
+  })()
+
+  const combustiblesPoorlyStored = (() => {
+    if (normalizeYesNo(combustibleMaterials?.value) === 'no') return true
+    const narrative = normalizeWhitespace(
+      `${combustibleMaterials?.comment ?? ''} ${stockroomSafety?.comment ?? ''}`
+    ).toLowerCase()
+    if (!narrative) return false
+    const poorStorageSignal = /\b(poor(?:ly)? stored|unsafe storage|stacked unsafely|combustible accumulation|stock piled|cluttered|tipping hazards?)\b/.test(narrative)
+    const explicitGoodSignal = /\b(stored correctly|safe storage|neatly organised|well organised|no hazards)\b/.test(narrative)
+    return poorStorageSignal && !explicitGoodSignal
+  })()
+
+  const lightingConditionAnswer = normalizeYesNo(lightingCondition?.value)
+  const hasTillLightingDefect = (() => {
+    if (lightingConditionAnswer === 'no') return true
+    const narrative = normalizeWhitespace(
+      `${lightingCondition?.value ?? ''} ${lightingCondition?.comment ?? ''}`
+    ).toLowerCase()
+    if (!narrative) return false
+    const defectSignal =
+      /\b(strip lighting|lighting)\b[\s\S]{0,40}\b(broken|not working|failed|faulty|dark|dim|insufficient|defect)\b/.test(narrative)
+      || /\b(rather dark|poor illumination)\b/.test(narrative)
+    const explicitGoodSignal =
+      /\b(in good condition|working correctly|suitable and sufficient)\b/.test(narrative)
+    return defectSignal && !explicitGoodSignal
+  })()
+  const tillLightingDefectObservation = hasTillLightingDefect
+    ? sanitizeReportNarrative(lightingCondition?.comment)
+      || 'Defective lighting was reported around the till areas; repairs/refit resolution should be tracked to ensure adequate illumination for safe circulation and effective evacuation management.'
+    : null
+
+  const trainingCompletionRate = (() => {
+    if (typeof editedExtractedData?.trainingCompletionRate === 'number') {
+      return Math.min(100, Math.max(0, editedExtractedData.trainingCompletionRate))
+    }
+    if (typeof editedExtractedData?.trainingCompletionRate === 'string') {
+      const parsedEdited = Number.parseFloat(editedExtractedData.trainingCompletionRate)
+      if (Number.isFinite(parsedEdited)) {
+        return Math.min(100, Math.max(0, parsedEdited))
+      }
+    }
+    if (typeof pdfExtractedData.trainingCompletionRate === 'string') {
+      const parsedPdf = Number.parseFloat(pdfExtractedData.trainingCompletionRate)
+      if (Number.isFinite(parsedPdf)) {
+        return Math.min(100, Math.max(0, parsedPdf))
+      }
+    }
+
+    const narrativeCandidates = [
+      editedExtractedData?.fireSafetyTrainingNarrative,
+      pdfExtractedData.fireSafetyTrainingNarrative,
+      fireSafetyTrainingShortfall ? (trainingToolbox?.comment || trainingInduction?.comment || null) : null,
+    ].filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+
+    for (const candidate of narrativeCandidates) {
+      const percentageMatch = normalizeWhitespace(candidate).match(/(\d{1,3}(?:\.\d+)?)\s*%/)
+      if (!percentageMatch) continue
+      const parsed = Number.parseFloat(percentageMatch[1])
+      if (Number.isFinite(parsed)) {
+        return Math.min(100, Math.max(0, parsed))
+      }
+    }
+
+    const combined = normalizeWhitespace(
+      `${trainingInduction?.comment ?? ''} ${trainingToolbox?.comment ?? ''}`
+    )
+    const percentageMatch = combined.match(/(\d{1,3}(?:\.\d+)?)\s*%/)
+    if (percentageMatch) {
+      const parsed = Number.parseFloat(percentageMatch[1])
+      if (Number.isFinite(parsed)) {
+        return Math.min(100, Math.max(0, parsed))
+      }
+    }
+    if (normalizeYesNo(trainingInduction?.value) === 'yes' && normalizeYesNo(trainingToolbox?.value) === 'yes') {
+      return 100
+    }
+    return null
+  })()
+
+  const recentFireDrillWithin6Months = normalizeBooleanAnswer(fireDrill?.value)
+  const emergencyLightingTestsCurrent = normalizeBooleanAnswer(emergencyLighting?.value)
+  const fireAlarmTestsCurrent = normalizeBooleanAnswer(weeklyFireTests?.value)
+  const extinguishersServicedCurrent = normalizeBooleanAnswer(fireExtinguisherService?.value)
+  const emergencyLightingMaintenanceNarrative = (() => {
+    const explicitComment = sanitizeReportNarrative(emergencyLightingMaintenance?.comment)
+    if (explicitComment) {
+      const date = extractDateFromText(explicitComment)
+      if (date) {
+        return `Emergency lighting maintenance: last conducted ${date} (records evidenced).`
+      }
+      return explicitComment
+    }
+    const explicitValue = sanitizeReportNarrative(
+      typeof emergencyLightingMaintenance?.value === 'string' ? emergencyLightingMaintenance.value : null
+    )
+    if (explicitValue) {
+      const date = extractDateFromText(explicitValue)
+      if (date) {
+        return `Emergency lighting maintenance: last conducted ${date} (records evidenced).`
+      }
+      return explicitValue
+    }
+    return 'Monthly functional tests and annual full-duration tests are undertaken by competent persons, with records maintained as part of the store\'s health and safety compliance checks.'
+  })()
+
+  const fireFindings: FRARiskFindings = {
+    escape_routes_obstructed: escapeRoutesObstructed,
+    fire_exits_obstructed: fireExitsObstructed,
+    fire_doors_held_open: fireDoorsHeldOpen,
+    fire_doors_blocked: fireDoorsBlocked,
+    combustibles_in_escape_routes: combustibleEscapeCompromise,
+    combustibles_poorly_stored: combustiblesPoorlyStored,
+    fire_panel_access_obstructed: panelAccessObstructed,
+    fire_door_integrity_issues: fireDoorIntegrityIssues,
+    housekeeping_poor_back_of_house: housekeepingPoorBackOfHouse,
+    housekeeping_good: housekeepingGood,
+    training_completion_rate: trainingCompletionRate,
+    recent_fire_drill_within_6_months: recentFireDrillWithin6Months,
+    emergency_lighting_tests_current: emergencyLightingTestsCurrent,
+    fire_alarm_tests_current: fireAlarmTestsCurrent,
+    extinguishers_serviced_current: extinguishersServicedCurrent,
+  }
+  const calculatedRiskRating = computeFRARiskRating(fireFindings)
+  const calculatedRiskSummary = buildFRARiskSummary(fireFindings, calculatedRiskRating)
+  const cleanedCompartmentationStatus = sanitizeExtractedValue(
+    String(selectedCompartmentationStatus || '').replace(/\s+yes\.?$/i, '')
+  )
+  const cleanedCallPointAccessibility = sanitizeExtractedValue(
+    String(
+      editedExtractedData?.callPointAccessibility
+      || pdfExtractedData.callPointAccessibility
+      || callPointsAnswer?.value
+      || callPointsAnswer?.comment
+      || ''
+    )
+  )
+  const obstructedRoutesEvidenceText = fireFindings.fire_exits_obstructed
+    ? 'Observed during recent inspections: escape routes and/or fire exits were obstructed, reducing effective egress width.'
+    : 'Observed during recent inspections: escape routes and/or back-of-house circulation routes were obstructed, reducing effective egress width.'
+  const obstructedRoutesActionText = fireFindings.fire_exits_obstructed
+    ? 'Address any obstruction to fire exits and escape routes; ensure fire exits and evacuation paths are kept clear and unobstructed.'
+    : 'Address any obstruction to escape routes and back-of-house circulation routes; ensure evacuation paths are kept clear and unobstructed.'
+  const maintainRoutesActionText = fireFindings.fire_exits_obstructed
+    ? 'Continue to ensure escape routes and fire exits are always kept clear and unobstructed.'
+    : 'Continue to ensure escape routes and back-of-house circulation routes are always kept clear and unobstructed.'
+  const resolvedAccessDescription = (() => {
+    const reviewed = normalizeWhitespace(String(editedExtractedData?.accessDescription || ''))
+    if (reviewed) return reviewed
+
+    const statements = [
+      'Access for Fire and Rescue Services is available via the main customer entrance and the rear service/loading access point.',
+      (fireFindings.escape_routes_obstructed || fireFindings.fire_exits_obstructed || fireFindings.combustibles_in_escape_routes)
+        ? 'At the time of inspection, obstructions and/or combustible encroachment were identified in back-of-house circulation and escape routes and required immediate management action.'
+        : 'No route obstructions affecting Fire and Rescue access were identified at the time of inspection.',
+      fireFindings.fire_panel_access_obstructed
+        ? 'Access to the fire alarm panel was impeded and should be kept clear at all times.'
+        : null,
+    ]
+
+    return statements.filter(Boolean).join(' ')
+  })()
 
   // Format dates
   const formatDate = (dateString: string | null) => {
@@ -1811,11 +2448,9 @@ export async function mapHSAuditToFRAData(fraInstanceId: string) {
       assessmentReviewDate: hsAuditConductedAt ? (pdfExtractedData.conductedDate ? 'PDF_CALCULATED' : 'H&S_AUDIT_CALCULATED') : 'FRA_INSTANCE_CALCULATED',
       buildDate: customBuildDate
         ? 'CUSTOM'
-        : storedBuildDate
-          ? 'DATABASE'
-          : buildDateFromSearch
-            ? 'WEB_SEARCH'
-            : 'DEFAULT',
+        : auditBuildDate
+          ? (editedExtractedData?.buildDate ? 'REVIEW' : 'H&S_AUDIT')
+          : 'DEFAULT',
       propertyType: 'DEFAULT',
       numberOfFloors: generalSiteInfo?.value || generalSiteInfo?.comment ? (pdfExtractedData.numberOfFloors ? 'PDF' : 'H&S_AUDIT') : 'DEFAULT',
       floorArea: resolvedFloorAreaSource,
@@ -1833,7 +2468,7 @@ export async function mapHSAuditToFRAData(fraInstanceId: string) {
           : (preferredAutoOpeningTimesSource || 'H&S_AUDIT'))
         : 'WEB_SEARCH',
       adjacentOccupancies: customAdjacentOccupancies ? 'CUSTOM' : (resolvedAdjacentOccupancies ? 'WEB_SEARCH' : 'DEFAULT'),
-      accessDescription: 'CHATGPT',
+      accessDescription: editedExtractedData?.accessDescription ? 'REVIEW' : 'CALCULATED',
       fireAlarmPanelLocation: firePanelLocation?.value || firePanelLocation?.comment ? (pdfExtractedData.firePanelLocation ? 'PDF' : 'H&S_AUDIT') : 'DEFAULT',
       fireAlarmPanelFaults: firePanelFaults?.value || firePanelFaults?.comment ? (pdfExtractedData.firePanelFaults ? 'PDF' : 'H&S_AUDIT') : 'DEFAULT',
       emergencyLightingTestSwitchLocation: emergencyLightingSwitchLocation?.value || emergencyLightingSwitchLocation?.comment ? (pdfExtractedData.emergencyLightingSwitch ? 'PDF' : 'H&S_AUDIT') : 'DEFAULT',
@@ -1853,11 +2488,14 @@ export async function mapHSAuditToFRAData(fraInstanceId: string) {
       peopleAtRisk: 'DEFAULT',
       recommendedControls: 'H&S_AUDIT_MIXED',
       escapeRoutesEvidence: escapeRoutesNarrativeSource || (aiSummaries?.escapeRoutesSummary ? 'AI' : (escapeObstructed ? 'H&S_AUDIT' : 'N/A')),
-      fireSafetyTrainingNarrative: editedExtractedData?.fireSafetyTrainingNarrative ? 'REVIEW' : (aiSummaries?.fireSafetyTrainingSummary ? 'AI' : (fireSafetyTrainingShortfall ? 'H&S_AUDIT' : 'DEFAULT')),
+      fireSafetyTrainingNarrative: editedExtractedData?.fireSafetyTrainingNarrative ? 'REVIEW' : (aiSummaries?.fireSafetyTrainingSummary ? 'AI' : ((fireSafetyTrainingShortfall || (typeof trainingCompletionRate === 'number' && trainingCompletionRate < 100)) ? 'H&S_AUDIT' : 'DEFAULT')),
       managementReviewStatement: editedExtractedData?.managementReviewStatement ? 'REVIEW' : (aiSummaries?.managementReviewStatement ? 'AI' : ((pdfText || hsAudit) ? 'H&S_AUDIT' : 'N/A')),
       significantFindings: aiSummaries?.significantFindings?.length ? 'AI' : ((pdfText || hsAudit) ? 'H&S_AUDIT' : 'DEFAULT'),
-      summaryOfRiskRating: editedExtractedData?.summaryOfRiskRating ? 'REVIEW' : (aiSummaries?.riskRatingJustification ? 'AI' : 'DEFAULT'),
-      description: aiSummaries?.premisesDescription ? 'AI' : (generalSiteInfo?.value || generalSiteInfo?.comment ? (pdfExtractedData.numberOfFloors ? 'PDF' : 'H&S_AUDIT') : 'DEFAULT'),
+      riskRatingLikelihood: 'CALCULATED',
+      riskRatingConsequences: 'CALCULATED',
+      summaryOfRiskRating: 'CALCULATED',
+      actionPlanLevel: 'CALCULATED',
+      description: customData?.description?.trim() ? 'CUSTOM' : (generalSiteInfo?.value || generalSiteInfo?.comment ? (pdfExtractedData.numberOfFloors ? 'PDF' : 'H&S_AUDIT') : 'DEFAULT'),
       sourcesOfFuelCoshhNote: 'DEFAULT',
     } as Record<string, string>,
     premises: `Footasylum – ${store.store_name}`,
@@ -1882,20 +2520,52 @@ export async function mapHSAuditToFRAData(fraInstanceId: string) {
     buildDate: resolvedBuildDate,
     propertyType: customData?.propertyType ?? 'Retail unit used for the sale of branded fashion apparel and footwear to members of the public.',
     description: (() => {
-      if (customData?.description?.trim()) return customData.description.trim()
-      if (aiSummaries?.premisesDescription?.trim()) return aiSummaries.premisesDescription.trim()
+      const normalizeAddressComparable = (value: string): string =>
+        value
+          .toLowerCase()
+          .replace(/[^a-z0-9\s]/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim()
+
+      const storeAddressForDescription = [
+        normalizeWhitespace(String(store.address_line_1 || '')),
+        normalizeWhitespace(String(store.city || '')),
+      ]
+        .filter(Boolean)
+        .join(', ')
+
+      const customDescription = customData?.description?.trim()
+      if (customDescription) {
+        const normalizedDescription = normalizeAddressComparable(customDescription)
+        const storePostcode = normalizeWhitespace(String(store.postcode || '')).toUpperCase().replace(/\s+/g, '')
+        const normalizedStoreAddressLine = normalizeAddressComparable(String(store.address_line_1 || ''))
+        const normalizedStoreCity = normalizeAddressComparable(String(store.city || ''))
+        const mentionedPostcodes = customDescription.match(/\b[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}\b/gi) || []
+        const hasMismatchedPostcode = storePostcode.length > 0
+          && mentionedPostcodes.some((postcode: string) => normalizeWhitespace(postcode).toUpperCase().replace(/\s+/g, '') !== storePostcode)
+        const mentionsAddressLinePattern = /\b(unit|street|st\b|road|rd\b|avenue|ave\b|centre|center|court|ct\b|way|park)\b/i.test(customDescription)
+        const hasStoreAddressLine = normalizedStoreAddressLine.length > 0 && normalizedDescription.includes(normalizedStoreAddressLine)
+        const hasStoreCity = normalizedStoreCity.length > 0 && normalizedDescription.includes(normalizedStoreCity)
+        const hasMismatchedAddressNarrative =
+          mentionsAddressLinePattern
+          && !hasStoreAddressLine
+
+        if (!hasMismatchedPostcode && !hasMismatchedAddressNarrative) {
+          return customDescription
+        }
+      }
       const numFloors = customData?.numberOfFloors || generalSiteInfo?.value || generalSiteInfo?.comment || '1'
       const floorsNum = parseInt(String(numFloors).replace(/\D/g, '')) || 1
       if (floorsNum === 1) {
-        return `The premises operates over one level (Ground Floor) and comprises a main sales floor to the front of the unit with associated back-of-house areas to the rear, including stockroom, office and staff welfare facilities.
+        return `The premises is located at ${storeAddressForDescription || 'the recorded store address'} and operates over one level (Ground Floor) with a main sales floor to the front of the unit and associated back-of-house areas to the rear, including stockroom, office and staff welfare facilities.
 The unit is of modern construction, consisting primarily of steel frame with blockwork, modern internal wall finishes and commercial-grade floor coverings.
 The premises is a mid-unit with adjoining retail occupancies to either side.`
       }
       const floorNames = floorsNum === 2 ? 'Ground Floor and First Floor' : floorsNum === 3 ? 'Ground Floor, First Floor and Second Floor' : `Ground Floor and ${floorsNum - 1} upper level(s)`
-      return `The premises is arranged over ${floorsNum} level(s) (${floorNames}) and comprises:
+      return `The premises is located at ${storeAddressForDescription || 'the recorded store address'} and is arranged over ${floorsNum} level(s) (${floorNames}), comprising:
 • Main sales floor to the front of the unit
 • Stockroom, staff welfare facilities and management office to the rear
-• Rear service corridor providing access to final exits
+• Rear service corridor providing access to fire exits
 The unit is of modern construction, consisting primarily of steel frame with blockwork, modern internal wall finishes and commercial-grade floor coverings.
 The premises is a mid-unit with adjoining retail occupancies to either side.`
     })(),
@@ -1916,6 +2586,7 @@ The premises is a mid-unit with adjoining retail occupancies to either side.`
         : null,
     operatingHours: customOperatingHours || operatingHoursData?.value || operatingHoursData?.comment || 'To be confirmed',
     operatingHoursComment: !customOperatingHours && !operatingHoursData?.value && !operatingHoursData?.comment ? 'Please add operating hours information' : null,
+    accessDescription: resolvedAccessDescription,
     sleepingRisk: customData?.sleepingRisk ?? 'No sleeping occupants',
     internalFireDoors: (() => {
       // Check if fire doors are in good condition and intumescent strips are present
@@ -1924,15 +2595,19 @@ The premises is a mid-unit with adjoining retail occupancies to either side.`
       const stripsPresent = intumescentStrips?.value === 'Yes' || intumescentStrips?.value === true ||
                             (typeof intumescentStrips?.value === 'string' && intumescentStrips.value.toLowerCase().includes('yes'))
       
+      if (fireFindings.fire_doors_held_open || fireFindings.fire_doors_blocked) {
+        return 'Internal fire doors are present but were observed held open and/or obstructed. Corrective management controls are required to maintain effective compartmentation.'
+      }
       if (doorsGood && stripsPresent) {
         return 'All internal fire doors within the premises are of an appropriate fire-resisting standard and form part of the building\'s passive fire protection measures. Intumescent strips are present and in good condition.'
-      } else if (doorsGood && !stripsPresent) {
-        return 'Internal fire doors within the premises are of an appropriate fire-resisting standard and form part of the building\'s passive fire protection measures. However, intumescent strips require attention to ensure full compliance with fire safety standards.'
-      } else if (fireDoorsCondition?.comment) {
-        return fireDoorsCondition.comment
-      } else {
-        return 'All internal fire doors within the premises are of an appropriate fire-resisting standard and form part of the building\'s passive fire protection measures. Fire door condition and intumescent strip presence should be verified during the assessment.'
       }
+      if (doorsGood && !stripsPresent) {
+        return 'Internal fire doors within the premises are of an appropriate fire-resisting standard and form part of the building\'s passive fire protection measures. However, intumescent strips require attention to ensure full compliance with fire safety standards.'
+      }
+      if (fireDoorsCondition?.comment) {
+        return fireDoorsCondition.comment
+      }
+      return 'All internal fire doors within the premises are of an appropriate fire-resisting standard and form part of the building\'s passive fire protection measures. Fire door condition and intumescent strip presence should be verified during the assessment.'
     })(),
     historyOfFires: enforcementAction?.value === 'None' ? 'No reported fire-related incidents in the previous 12 months.' : 'No reported fire-related incidents in the previous 12 months.',
 
@@ -1951,10 +2626,10 @@ Manual call points are provided throughout the premises and are positioned in ac
 The emergency lighting system was observed to be operational at the time of assessment.`,
     emergencyLightingTestSwitchLocation: emergencyLightingSwitchLocation?.value || emergencyLightingSwitchLocation?.comment || 'To be confirmed',
     emergencyLightingTestSwitchLocationComment: !emergencyLightingSwitchLocation?.value && !emergencyLightingSwitchLocation?.comment ? 'Please add emergency lighting test switch location' : null,
-    emergencyLightingMaintenance: emergencyLightingMaintenance?.comment || 'Monthly functional tests and annual full-duration tests are undertaken by competent persons, with records maintained as part of the store\'s health and safety compliance checks.',
+    emergencyLightingMaintenance: emergencyLightingMaintenanceNarrative,
 
     // Portable Fire-Fighting Equipment
-    fireExtinguishersDescription: `Portable fire-fighting equipment is provided throughout the premises in appropriate locations, including near final exits and areas of increased electrical risk. Fire extinguishers are suitable for the identified risks within the store environment and are mounted on brackets or stands with clear signage.
+    fireExtinguishersDescription: `Portable fire-fighting equipment is provided throughout the premises in appropriate locations, including near fire exits and areas of increased electrical risk. Fire extinguishers are suitable for the identified risks within the store environment and are mounted on brackets or stands with clear signage.
 Fire extinguishers are subject to annual inspection and servicing by a suitably competent contractor in accordance with BS 5306.`,
     fireExtinguisherService: fireExtinguisherService?.comment || 'Fire extinguishers were observed to be in position, clearly visible and unobstructed.',
 
@@ -1999,24 +2674,31 @@ Sprinkler heads are installed throughout the premises in accordance with the ori
 
     // Evidence-led narrative: escape routes (prefer reviewed/audit evidence first, then AI)
     escapeRoutesEvidence: escapeRoutesNarrativeFromAudit
-      || (aiSummaries?.escapeRoutesSummary?.trim())
-      || (escapeObstructed
-        ? 'Observed during recent inspections: escape routes and/or final exits were obstructed, reducing effective egress width.'
+      || sanitizeReportNarrative(aiSummaries?.escapeRoutesSummary?.trim())
+      || ((fireFindings.escape_routes_obstructed || fireFindings.fire_exits_obstructed)
+        ? obstructedRoutesEvidenceText
         : null),
 
     // Evidence-led narrative: fire safety training (prefer edited, then AI, then regex-derived)
     fireSafetyTrainingNarrative: (editedExtractedData?.fireSafetyTrainingNarrative?.trim())
-      || (aiSummaries?.fireSafetyTrainingSummary?.trim())
-      || (fireSafetyTrainingShortfall
-        ? 'Fire safety training is delivered via induction and toolbox talks; refresher completion is monitored, with improvements currently underway.'
-        : 'Fire safety training is delivered via induction and toolbox talks; records are maintained.'),
+      || (sanitizeReportNarrative(aiSummaries?.fireSafetyTrainingSummary)?.trim())
+      || (() => {
+        const inductionNarrative = sanitizeReportNarrative(
+          trainingInduction?.comment
+          || (typeof trainingInduction?.value === 'string' ? trainingInduction.value : null)
+        )
+        const toolboxNarrative = sanitizeReportNarrative(
+          trainingToolbox?.comment
+          || (typeof trainingToolbox?.value === 'string' ? trainingToolbox.value : null)
+        )
+        if (inductionNarrative && toolboxNarrative) return `${inductionNarrative} ${toolboxNarrative}`
+        return inductionNarrative || toolboxNarrative || 'Fire safety training is delivered via induction and toolbox talks; records are maintained.'
+      })(),
 
-    // Management & Review: prefer edited, then AI, then default
-    managementReviewStatement: (editedExtractedData?.managementReviewStatement?.trim())
-      || (aiSummaries?.managementReviewStatement?.trim())
-      || ((pdfText || hsAudit)
-        ? 'This assessment has been informed by recent health and safety inspections and site observations.'
-        : null),
+    // Management & Review: only use explicit statement supplied via extraction/review.
+    managementReviewStatement: sanitizeReportNarrative(editedExtractedData?.managementReviewStatement?.trim())
+      || sanitizeReportNarrative(pdfExtractedData.managementReviewStatement?.trim())
+      || null,
 
     // COSHH reference for Sources of fuel (brief; detail in H&S only)
     sourcesOfFuelCoshhNote: 'Cleaning materials are low-risk and non-flammable. COSHH is managed under a separate assessment.',
@@ -2040,33 +2722,58 @@ Sprinkler heads are installed throughout the premises in accordance with the ori
       }
 
       if (aiSummaries?.significantFindings?.length) {
-        return normalizeFindings(aiSummaries.significantFindings as string[])
+        return normalizeFindings(
+          (aiSummaries.significantFindings as string[])
+            .map((line) => sanitizeReportNarrative(line) || line)
+        )
       }
       const escapeSentence = escapeRoutesNarrativeFromAudit
-        || (hasEscapeRouteConcern
-          ? 'Observed during recent inspections: escape routes and/or final exits were obstructed, reducing effective egress width.'
+        || ((fireFindings.escape_routes_obstructed || fireFindings.fire_exits_obstructed)
+          ? obstructedRoutesEvidenceText
           : 'Escape routes were clearly identifiable and generally maintained free from obstruction.')
       const detectionFinding = 'The premises is provided with appropriate fire detection and alarm systems, emergency lighting, fire-fighting equipment and clearly defined escape routes. These systems were observed to be in place and operational, supporting safe evacuation in the event of a fire.'
-      const fireDoorsFinding = hasCompartmentationDefect
+      const fireDoorsFinding = (fireFindings.fire_doors_held_open || fireFindings.fire_doors_blocked)
+        ? `Fire doors were observed held open and/or obstructed, which can compromise compartmentation performance during an emergency. ${escapeSentence}`
+        : fireFindings.fire_door_integrity_issues
+        ? `Fire door integrity issues were identified (including intumescent-strip and/or maintenance defects) and require corrective action to maintain effective compartmentation. ${escapeSentence}`
+        : hasCompartmentationDefect
         ? `${formatCompartmentationFinding()} ${escapeSentence}`
         : 'Fire doors and compartmentation arrangements were observed to be in satisfactory condition, with doors not wedged open and fitted with intact intumescent protection. ' + escapeSentence
-      const managementFinding = 'Routine fire safety management arrangements are in place, including weekly fire alarm testing, monthly emergency lighting checks and scheduled servicing of fire safety systems by competent contractors. Fire drills have been conducted, and records are maintained.'
-      return normalizeFindings([detectionFinding, fireDoorsFinding, managementFinding])
+      const managementFinding = (() => {
+        const findings: string[] = []
+        if (fireFindings.fire_alarm_tests_current === false) findings.push('weekly fire alarm testing was not evidenced as current')
+        if (fireFindings.emergency_lighting_tests_current === false) findings.push('monthly emergency lighting testing was not evidenced as current')
+        if (fireFindings.extinguishers_serviced_current === false) findings.push('fire extinguisher servicing was not evidenced as current')
+        if (fireFindings.recent_fire_drill_within_6_months === false) findings.push('a compliant fire drill within the last 6 months was not evidenced')
+        if (findings.length === 0) {
+          return 'Routine fire safety management arrangements are in place, including weekly fire alarm testing, monthly emergency lighting checks and scheduled servicing of fire safety systems by competent contractors. Fire drills have been conducted, and records are maintained.'
+        }
+        return `Fire safety management records indicate that ${findings.join(', ')}. Management action is required to restore compliance assurance.`
+      })()
+      return normalizeFindings([
+        detectionFinding,
+        fireDoorsFinding,
+        managementFinding,
+        ...(tillLightingDefectObservation ? [tillLightingDefectObservation] : []),
+      ])
     })(),
 
     // Recommended Controls (obstruction when edited text or PDF/findAnswer)
     recommendedControls: [
-      trainingInduction?.value === 'No' ? 'Ensure all staff fire safety training is completed, recorded and kept up to date, including induction training for new starters and periodic refresher training.' : null,
-      trainingToolbox?.value === 'No' ? 'Reinforce toolbox refresher training completion to meet the 100% target for the last 12 months.' : null,
       contractorManagement?.value === 'No' ? 'Reinforce contractor and visitor management procedures, including signing-in arrangements and briefing on emergency procedures.' : null,
       coshhSheets?.value === 'No' ? 'Ensure fire safety documentation relevant to the premises is available on site and maintained in an accessible format, including COSHH safety data sheets.' : null,
       laddersNumbered?.value === 'No' ? 'Ensure all ladders and steps are clearly numbered for identification purposes.' : null,
       hasCompartmentationDefect ? compartmentationActionRecommendation : null,
       hasPanelFaultCondition ? 'Fire alarm panel fault condition identified: arrange immediate inspection/repair by a competent fire alarm engineer, record remedial works, and confirm system reset to normal operation.' : null,
-      hasEscapeRouteConcern ? 'Address any obstruction to fire exits and escape routes; ensure final exits and evacuation paths remain clear and unobstructed.' : 'Continue to ensure escape routes and final exits are always kept clear and unobstructed.',
-      combustibleEscapeCompromise ? 'Maintain good housekeeping standards; ensure combustible materials and packaging do not compromise escape routes.' : 'Maintain good housekeeping standards, particularly in relation to the control and storage of combustible materials and packaging.',
-      'Continue routine testing, inspection and servicing of fire alarm systems, emergency lighting and fire-fighting equipment in accordance with statutory requirements and British Standards.',
-      'Ensure internal fire doors are maintained in effective working order and are not wedged or held open.',
+      fireFindings.escape_routes_obstructed || fireFindings.fire_exits_obstructed ? obstructedRoutesActionText : maintainRoutesActionText,
+      fireFindings.combustibles_in_escape_routes ? 'Remove combustible materials from escape routes immediately and reinforce stock control/housekeeping checks to prevent recurrence.' : (fireFindings.combustibles_poorly_stored || fireFindings.housekeeping_poor_back_of_house ? 'Improve housekeeping and storage controls in back-of-house areas to prevent combustible build-up and maintain safe access.' : 'Maintain existing housekeeping and combustible storage standards; no excessive fire loading was observed in escape routes at the time of inspection.'),
+      tillLightingDefectObservation ? 'Defective lighting reported around till areas should be repaired and tracked to maintain adequate illumination for safe circulation and effective evacuation management.' : null,
+      fireFindings.fire_doors_held_open || fireFindings.fire_doors_blocked
+        ? 'Stop fire doors from being held open or blocked; enforce local checks to maintain effective compartmentation at all times.'
+        : fireFindings.fire_door_integrity_issues
+          ? 'Rectify fire door integrity issues (including missing or damaged intumescent strips/seals) and verify all fire doors meet required fire-resisting standards.'
+          : 'Ensure internal fire doors are maintained in effective working order and are not wedged or held open.',
+      fireFindings.fire_alarm_tests_current === false || fireFindings.emergency_lighting_tests_current === false || fireFindings.extinguishers_serviced_current === false ? 'Bring routine testing and servicing records up to date for fire alarm systems, emergency lighting and fire-fighting equipment in accordance with statutory requirements and British Standards.' : 'Continue routine testing, inspection and servicing of fire alarm systems, emergency lighting and fire-fighting equipment in accordance with statutory requirements and British Standards.',
       'Continue to conduct and record fire drills at appropriate intervals to ensure staff familiarity with evacuation procedures.'
     ].filter(Boolean) as string[],
 
@@ -2076,31 +2783,71 @@ Sprinkler heads are installed throughout the premises in accordance with the ori
     fraInstance: fraInstance,
     // Photos from H&S audit
     photos: (hsAudit as any)?.media || null,
-    // Risk Rating (Middlesbrough FRA alignment)
-    riskRatingLikelihood: (editedExtractedData as any)?.riskRatingLikelihood || 'Normal',
-    riskRatingConsequences: (editedExtractedData as any)?.riskRatingConsequences || 'Moderate Harm',
-    summaryOfRiskRating: (editedExtractedData as any)?.summaryOfRiskRating || (aiSummaries?.riskRatingJustification?.trim()) || 'Taking into account the nature of the building and the occupants, as well as the fire protection and procedural arrangements observed at the time of this fire risk assessment, it is considered that the consequences for life safety in the event of fire would be: Moderate Harm. Accordingly, it is considered that the risk from fire at these premises is: Tolerable.',
-    actionPlanLevel: (editedExtractedData as any)?.actionPlanLevel || 'Tolerable',
+    // Risk Rating (deterministic from observed findings; do not use legacy extracted overrides)
+    riskRatingLikelihood: calculatedRiskRating.likelihood,
+    riskRatingConsequences: calculatedRiskRating.consequence,
+    summaryOfRiskRating: calculatedRiskSummary,
+    actionPlanLevel: calculatedRiskRating.overall,
+    riskRatingRationale: calculatedRiskRating.rationale,
+    fireFindings: fireFindings,
     // Recommended Actions: use edited action plan if set; otherwise derive from PDF/H&S findings
     actionPlanItems: (() => {
       const edited = (editedExtractedData as any)?.actionPlanItems
       if (edited && Array.isArray(edited) && edited.length > 0) {
-        if (hasPanelFaultCondition) {
-          const hasPanelFaultActionAlready = edited.some((item: any) => {
-            const text = String(item?.recommendation || '').toLowerCase()
-            return /\b(panel|fire alarm).*\bfault\b|\bfault\b.*\b(panel|fire alarm)\b/.test(text)
+        const keepDoorOpenActions = fireFindings.fire_doors_held_open || fireFindings.fire_doors_blocked
+        const doorOpenActionPattern = /\bfire doors?\b.*\b(held open|blocked|obstruct|compartmentation)\b|\b(held open|blocked|obstruct)\b.*\bfire doors?\b/
+        const trainingActionPattern = /\b(training|toolbox refresher|100%\s*completion|completion rate)\b/
+        const normalized = [...edited].filter((item: any) => {
+          const recommendation = String(item?.recommendation || '').toLowerCase()
+          if (!recommendation) return true
+          if (trainingActionPattern.test(recommendation)) return false
+          if (keepDoorOpenActions) return true
+          return !doorOpenActionPattern.test(recommendation)
+        })
+        const hasAction = (pattern: RegExp) =>
+          normalized.some((item: any) => pattern.test(String(item?.recommendation || '').toLowerCase()))
+
+        if (hasPanelFaultCondition && !hasAction(/\b(panel|fire alarm).*\bfault\b|\bfault\b.*\b(panel|fire alarm)\b/)) {
+          normalized.unshift({
+            priority: 'High',
+            recommendation: 'Fire alarm panel fault condition identified: arrange immediate attendance by a competent fire alarm engineer, rectify the fault, and record corrective action and confirmation testing in the fire logbook.',
           })
-          if (!hasPanelFaultActionAlready) {
-            return [
-              {
-                priority: 'High',
-                recommendation: 'Fire alarm panel fault condition identified: arrange immediate attendance by a competent fire alarm engineer, rectify the fault, and record corrective action and confirmation testing in the fire logbook.',
-              },
-              ...edited,
-            ]
-          }
         }
-        return edited
+        if ((fireFindings.escape_routes_obstructed || fireFindings.fire_exits_obstructed) && !hasAction(/\b(escape route|final exit|fire exit).*\b(obstruct|clear)\b|\bobstruct.*\b(escape route|final exit|fire exit)\b/)) {
+          normalized.unshift({
+            priority: 'High',
+            recommendation: obstructedRoutesActionText,
+          })
+        }
+        if ((fireFindings.fire_doors_held_open || fireFindings.fire_doors_blocked) && !hasAction(/\bfire doors?\b.*\b(held open|blocked|obstruct|compartmentation)\b/)) {
+          normalized.unshift({
+            priority: 'High',
+            recommendation: 'Fire doors were observed held open and/or blocked. Reinstate effective door management immediately to maintain compartmentation and smoke control.',
+          })
+        } else if (fireFindings.fire_door_integrity_issues && !hasAction(/\bfire door\b.*\b(intumescent|integrity|seal|strip|compartmentation)\b/)) {
+          normalized.push({
+            priority: 'Medium',
+            recommendation: 'Rectify fire door integrity defects (including missing or damaged intumescent strips/seals) and record completion checks.',
+          })
+        }
+        if (fireFindings.combustibles_in_escape_routes && !hasAction(/\bcombustible\b.*\b(escape route|final exit)\b|\bescape route\b.*\bcombustible\b/)) {
+          normalized.push({
+            priority: 'High',
+            recommendation: 'Remove combustible materials from escape routes immediately and implement controls to prevent route encroachment.',
+          })
+        } else if ((fireFindings.combustibles_poorly_stored || fireFindings.housekeeping_poor_back_of_house) && !hasAction(/\b(housekeeping|storage|combustible)\b/)) {
+          normalized.push({
+            priority: 'Medium',
+            recommendation: 'Improve housekeeping and stock storage standards in back-of-house areas to prevent combustible accumulation.',
+          })
+        }
+        if (hasTillLightingDefect && !hasAction(/\b(lighting|illuminat)\b.*\b(till|evacuat|circulation)\b|\b(till|lighting)\b.*\b(repair|defect)\b/)) {
+          normalized.push({
+            priority: 'Medium',
+            recommendation: 'Track and complete repairs to defective till-area lighting to ensure adequate illumination for safe circulation and evacuation management.',
+          })
+        }
+        return normalized
       }
       type ActionItem = { recommendation: string; priority: 'Low' | 'Medium' | 'High'; dueNote?: string }
       const derived: ActionItem[] = []
@@ -2110,29 +2857,39 @@ Sprinkler heads are installed throughout the premises in accordance with the ori
           recommendation: 'Fire alarm panel fault condition identified: arrange immediate attendance by a competent fire alarm engineer, rectify the fault, and record corrective action and confirmation testing in the fire logbook.',
         })
       }
-      const hasEscapeIssue = hasEscapeRouteConcern
+      const hasEscapeIssue = fireFindings.escape_routes_obstructed || fireFindings.fire_exits_obstructed
       if (hasEscapeIssue) {
         derived.push({
           priority: 'High',
-          recommendation: 'Address any obstruction to fire exits and escape routes; ensure final exits and evacuation paths are kept clear and unobstructed.',
+          recommendation: obstructedRoutesActionText,
         })
       }
-      if (trainingInduction?.value === 'No') {
+      if (fireFindings.fire_doors_held_open || fireFindings.fire_doors_blocked) {
+        derived.push({
+          priority: 'High',
+          recommendation: 'Fire doors were observed held open and/or blocked. Reinstate effective door management immediately to maintain compartmentation and smoke control.',
+        })
+      } else if (fireFindings.fire_door_integrity_issues) {
         derived.push({
           priority: 'Medium',
-          recommendation: 'Ensure all staff fire safety training is completed, including induction training for new starters and periodic refresher training.',
+          recommendation: 'Rectify fire door integrity defects (including missing or damaged intumescent strips/seals) and record completion checks.',
         })
       }
-      if (trainingToolbox?.value === 'No') {
+      if (fireFindings.combustibles_in_escape_routes) {
+        derived.push({
+          priority: 'High',
+          recommendation: 'Remove combustible materials from escape routes immediately and implement controls to prevent route encroachment.',
+        })
+      } else if (fireFindings.combustibles_poorly_stored || fireFindings.housekeeping_poor_back_of_house) {
         derived.push({
           priority: 'Medium',
-          recommendation: 'Reinforce toolbox refresher training completion to meet the 100% target for the last 12 months.',
+          recommendation: 'Improve housekeeping and stock storage standards in back-of-house areas to prevent combustible accumulation.',
         })
       }
-      if (combustibleEscapeCompromise) {
+      if (hasTillLightingDefect) {
         derived.push({
           priority: 'Medium',
-          recommendation: 'Maintain good housekeeping; ensure combustible materials and packaging do not compromise escape routes.',
+          recommendation: 'Track and complete repairs to defective till-area lighting to ensure adequate illumination for safe circulation and evacuation management.',
         })
       }
       if (coshhSheets?.value === 'No') {
@@ -2161,10 +2918,16 @@ Sprinkler heads are installed throughout the premises in accordance with the ori
       }
       const priorityOrder = { High: 0, Medium: 1, Low: 2 }
       derived.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority])
-      derived.push({
-        priority: 'Low',
-        recommendation: 'Continue routine checks and testing of fire alarm, emergency lighting and fire-fighting equipment.',
-      })
+      if (
+        fireFindings.fire_alarm_tests_current !== false
+        && fireFindings.emergency_lighting_tests_current !== false
+        && fireFindings.extinguishers_serviced_current !== false
+      ) {
+        derived.push({
+          priority: 'Low',
+          recommendation: 'Continue routine checks and testing of fire alarm, emergency lighting and fire-fighting equipment.',
+        })
+      }
       return derived
     })(),
     sitePremisesPhotos: (editedExtractedData as any)?.sitePremisesPhotos || null,
@@ -2180,9 +2943,9 @@ Sprinkler heads are installed throughout the premises in accordance with the ori
 
     // MEDIUM PRIORITY: New H&S audit fields
     exitSignageCondition: editedExtractedData?.exitSignageCondition || pdfExtractedData.exitSignageCondition || exitSignageAnswer?.value || exitSignageAnswer?.comment || null,
-    compartmentationStatus: selectedCompartmentationStatus,
+    compartmentationStatus: cleanedCompartmentationStatus,
     extinguisherServiceDate: editedExtractedData?.extinguisherServiceDate || pdfExtractedData.extinguisherServiceDate || fireExtinguisherService?.comment || null,
-    callPointAccessibility: editedExtractedData?.callPointAccessibility || pdfExtractedData.callPointAccessibility || callPointsAnswer?.value || callPointsAnswer?.comment || null,
+    callPointAccessibility: cleanedCallPointAccessibility,
 
     // Intumescent strips on doors: use audit question Yes/No when no custom override; custom toggle can override
     intumescentStripsPresent: (() => {
@@ -2224,6 +2987,8 @@ Sprinkler heads are installed throughout the premises in accordance with the ori
     compartmentationStatus: selectedCompartmentationSource,
     extinguisherServiceDate: editedExtractedData?.extinguisherServiceDate ? 'REVIEW' : pdfExtractedData.extinguisherServiceDate ? 'PDF' : fireExtinguisherService?.comment ? 'H&S_AUDIT' : 'NOT_FOUND',
     callPointAccessibility: editedExtractedData?.callPointAccessibility ? 'REVIEW' : pdfExtractedData.callPointAccessibility ? 'PDF' : (callPointsAnswer?.value || callPointsAnswer?.comment) ? 'H&S_AUDIT' : 'NOT_FOUND',
+    fireFindings: 'CALCULATED',
+    riskRatingRationale: 'CALCULATED',
   }
   
   // Return the data with sources

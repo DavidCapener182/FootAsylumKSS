@@ -8,6 +8,94 @@ import { Button } from '@/components/ui/button'
 import { Loader2, Save, Printer, X, Download } from 'lucide-react'
 import { getFraReportFilename } from '@/lib/utils'
 
+const DAY_ORDER = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const
+const GENERIC_PLACEHOLDERS = [/^to\s+be\s+confirmed$/i, /^unknown$/i, /^n\/?a$/i, /^na$/i]
+const BUILD_DATE_PLACEHOLDERS = [...GENERIC_PLACEHOLDERS, /^2009$/i]
+const ADJACENT_PLACEHOLDERS = [...GENERIC_PLACEHOLDERS, /^see\s+description$/i]
+
+const normalizeFieldText = (value: unknown): string => {
+  if (typeof value === 'string') return value.trim()
+  if (typeof value === 'number') return String(value).trim()
+  return ''
+}
+
+const isMeaningfulValue = (value: unknown, placeholders: RegExp[] = GENERIC_PLACEHOLDERS): boolean => {
+  const normalized = normalizeFieldText(value)
+  if (!normalized) return false
+  return !placeholders.some((pattern) => pattern.test(normalized))
+}
+
+const toDisplayDay = (day: string): string => day.charAt(0).toUpperCase() + day.slice(1).toLowerCase()
+
+const normalizeHoursLabel = (value: string): string => {
+  const cleaned = value.replace(/[–—]/g, '-').replace(/\s+/g, ' ').trim()
+  if (!cleaned) return ''
+  if (/^closed$/i.test(cleaned)) return 'Closed'
+  if (/^open\s*24\s*hours$/i.test(cleaned)) return 'Open 24 hours'
+  return cleaned.replace(/\s*-\s*/g, ' - ')
+}
+
+const formatOpeningTimesMap = (map: Record<string, unknown>): string | null => {
+  type OpeningDay = typeof DAY_ORDER[number]
+  const entries: Array<{ day: OpeningDay; hours: string }> = []
+  for (const day of DAY_ORDER) {
+    const value = map[day] ?? map[toDisplayDay(day)] ?? map[day.slice(0, 3)]
+    if (typeof value !== 'string') continue
+    const hours = normalizeHoursLabel(value)
+    if (!hours) continue
+    entries.push({ day, hours })
+  }
+
+  if (!entries.length) return null
+
+  const groups: Array<{ start: OpeningDay; end: OpeningDay; hours: string }> = []
+  for (const entry of entries) {
+    const previous = groups[groups.length - 1]
+    if (previous && previous.hours === entry.hours) {
+      previous.end = entry.day
+    } else {
+      groups.push({ start: entry.day, end: entry.day, hours: entry.hours })
+    }
+  }
+
+  return groups
+    .map((group) => {
+      const label = group.start === group.end
+        ? toDisplayDay(group.start)
+        : `${toDisplayDay(group.start)} to ${toDisplayDay(group.end)}`
+      return `${label}: ${group.hours}`
+    })
+    .join('; ')
+}
+
+const normalizeOpeningTimesValue = (value: unknown): string | null => {
+  if (!value) return null
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    if (!trimmed) return null
+    if (/^\{[\s\S]*\}$/.test(trimmed)) {
+      try {
+        const parsed = JSON.parse(trimmed) as unknown
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          return formatOpeningTimesMap(parsed as Record<string, unknown>) || trimmed
+        }
+      } catch {
+        // keep original string when parsing fails
+      }
+    }
+    return trimmed
+  }
+  if (typeof value === 'object' && !Array.isArray(value)) {
+    return formatOpeningTimesMap(value as Record<string, unknown>)
+  }
+  return null
+}
+
+const isManualSource = (sources: Record<string, string> | undefined, fieldName: string): boolean => {
+  const source = normalizeFieldText(sources?.[fieldName]).toUpperCase()
+  return source === 'CUSTOM' || source === 'REVIEW'
+}
+
 export default function FRAReportViewPage({
   searchParams,
 }: {
@@ -45,6 +133,9 @@ export default function FRAReportViewPage({
         throw new Error(errorData.error || 'Failed to load FRA report')
       }
       let data = await response.json()
+
+      data.storeOpeningTimes = normalizeOpeningTimesValue(data.storeOpeningTimes) ?? data.storeOpeningTimes
+      data.operatingHours = normalizeOpeningTimesValue(data.operatingHours) ?? data.operatingHours
       
       // Fetch additional store info (opening times, build date)
       if (data.store?.id) {
@@ -52,10 +143,20 @@ export default function FRAReportViewPage({
           const storeInfoResponse = await fetch(`/api/fra-reports/store-info?storeId=${data.store.id}`)
           if (storeInfoResponse.ok) {
             const storeInfo = await storeInfoResponse.json()
-            const missingBuildDate = !storeInfo.store.build_date || storeInfo.store.build_date === '2009'
-            const missingOpeningTimes = !storeInfo.store.opening_times && !data.storeOpeningTimes
-            const missingFloorArea = !data.floorArea || data.floorArea === 'To be confirmed'
-            const missingAdjacentOccupancies = !data.adjacentOccupancies
+            const storeBuildDate = normalizeFieldText(storeInfo.store.build_date)
+            const storeOpeningTimes = normalizeOpeningTimesValue(storeInfo.store.opening_times)
+
+            let hasBuildDate = isManualSource(data._sources, 'buildDate') || isMeaningfulValue(data.buildDate, BUILD_DATE_PLACEHOLDERS)
+            let hasOpeningTimes = isManualSource(data._sources, 'storeOpeningTimes')
+              || isManualSource(data._sources, 'operatingHours')
+              || isMeaningfulValue(normalizeOpeningTimesValue(data.storeOpeningTimes) || normalizeOpeningTimesValue(data.operatingHours))
+            let hasFloorArea = isManualSource(data._sources, 'floorArea') || isMeaningfulValue(data.floorArea)
+            let hasAdjacentOccupancies = isManualSource(data._sources, 'adjacentOccupancies') || isMeaningfulValue(data.adjacentOccupancies, ADJACENT_PLACEHOLDERS)
+
+            const missingBuildDate = !hasBuildDate && !isMeaningfulValue(storeBuildDate, BUILD_DATE_PLACEHOLDERS)
+            const missingOpeningTimes = !hasOpeningTimes && !isMeaningfulValue(storeOpeningTimes)
+            const missingFloorArea = !hasFloorArea
+            const missingAdjacentOccupancies = !hasAdjacentOccupancies
             // If key About Property values are missing, try web search
             if ((missingBuildDate || missingOpeningTimes || missingFloorArea || missingAdjacentOccupancies) && data.store?.store_name && data.address) {
               try {
@@ -71,33 +172,46 @@ export default function FRAReportViewPage({
                 })
                 if (searchResponse.ok) {
                   const searchData = await searchResponse.json()
-                  if (searchData.buildDate) {
+                  if (searchData.buildDate && !hasBuildDate) {
                     data.buildDate = searchData.buildDate
                     data._sources = { ...data._sources, buildDate: 'WEB_SEARCH' }
+                    hasBuildDate = true
                   }
-                  if (searchData.openingTimes) {
-                    data.storeOpeningTimes = searchData.openingTimes
+                  const normalizedSearchOpeningTimes = normalizeOpeningTimesValue(searchData.openingTimes)
+                  if (normalizedSearchOpeningTimes && !hasOpeningTimes) {
+                    data.storeOpeningTimes = normalizedSearchOpeningTimes
                     data._sources = { ...data._sources, storeOpeningTimes: 'WEB_SEARCH' }
+                    hasOpeningTimes = true
                   }
-                  if (searchData.squareFootage && (!data.floorArea || data.floorArea === 'To be confirmed')) {
+                  if (searchData.squareFootage && !hasFloorArea) {
                     data.floorArea = searchData.squareFootage
                     data._sources = { ...data._sources, floorArea: 'WEB_SEARCH' }
+                    hasFloorArea = true
                   }
-                  if (searchData.adjacentOccupancies && !data.adjacentOccupancies) {
+                  if (searchData.adjacentOccupancies && !hasAdjacentOccupancies) {
                     data.adjacentOccupancies = searchData.adjacentOccupancies
                     data._sources = { ...data._sources, adjacentOccupancies: 'WEB_SEARCH' }
+                    hasAdjacentOccupancies = true
                   }
                 }
               } catch (searchErr) {
                 console.error('Error searching store data:', searchErr)
               }
             }
+
+            const shouldApplyStoreOpeningTimes = isMeaningfulValue(storeOpeningTimes) && !hasOpeningTimes
+            const shouldApplyStoreBuildDate = isMeaningfulValue(storeBuildDate, BUILD_DATE_PLACEHOLDERS) && !hasBuildDate
             data = {
               ...data,
-              storeOpeningTimes: storeInfo.store.opening_times || data.storeOpeningTimes,
-              buildDate: storeInfo.store.build_date && storeInfo.store.build_date !== '2009' 
-                ? storeInfo.store.build_date 
+              storeOpeningTimes: shouldApplyStoreOpeningTimes ? storeOpeningTimes : data.storeOpeningTimes,
+              buildDate: shouldApplyStoreBuildDate
+                ? storeBuildDate
                 : data.buildDate,
+              _sources: {
+                ...(data._sources || {}),
+                ...(shouldApplyStoreOpeningTimes ? { storeOpeningTimes: 'DATABASE' } : {}),
+                ...(shouldApplyStoreBuildDate ? { buildDate: 'DATABASE' } : {}),
+              },
             }
           }
         } catch (err) {

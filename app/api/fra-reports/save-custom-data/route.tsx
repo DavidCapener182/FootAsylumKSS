@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 
 export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
   try {
     const supabase = createClient()
+    let writeSupabase: ReturnType<typeof createAdminSupabaseClient> | ReturnType<typeof createClient> = supabase
+    try {
+      writeSupabase = createAdminSupabaseClient()
+    } catch (adminError) {
+      console.warn('save-custom-data: service role client unavailable, falling back to user client', adminError)
+    }
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
@@ -20,7 +27,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify the instance exists and user has access
-    const { data: instance, error: instanceError } = await supabase
+    const { data: instance, error: instanceError } = await writeSupabase
       .from('fa_audit_instances')
       .select('id, template_id, fa_audit_templates!inner(category)')
       .eq('id', instanceId)
@@ -38,18 +45,18 @@ export async function POST(request: NextRequest) {
     // Store custom data by finding or creating a special metadata response
     // We'll use the template's first question as a placeholder for metadata storage
     // Get the first question from the template
-    const { data: firstSection } = await supabase
+    const { data: firstSection } = await writeSupabase
       .from('fa_audit_template_sections')
       .select('id')
       .eq('template_id', instance.template_id)
       .order('order_index', { ascending: true })
       .limit(1)
-      .single()
+      .maybeSingle()
 
     let questionIdForMetadata: string | null = null
     
     if (firstSection) {
-      const { data: firstQuestion } = await supabase
+      const { data: firstQuestion } = await writeSupabase
         .from('fa_audit_template_questions')
         .select('id')
         .eq('section_id', firstSection.id)
@@ -66,13 +73,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Template has no questions to store metadata' }, { status: 400 })
     }
 
-    // Check if there's already a metadata response for this question
-    const { data: existingResponse } = await supabase
+    // Check if there's already a metadata response for this question.
+    // Multiple rows can exist for the same question (no unique constraint),
+    // so always use the latest row deterministically instead of maybeSingle().
+    const { data: existingResponses, error: existingResponseError } = await writeSupabase
       .from('fa_audit_responses')
-      .select('id, response_value, response_json')
+      .select('id, response_value, response_json, created_at')
       .eq('audit_instance_id', instanceId)
       .eq('question_id', questionIdForMetadata)
-      .maybeSingle()
+      .order('created_at', { ascending: false })
+      .limit(1)
+
+    if (existingResponseError) {
+      throw new Error(`Failed to read existing custom data: ${existingResponseError.message}`)
+    }
+
+    const existingResponse = existingResponses?.[0] ?? null
 
     const existing = existingResponse as { id: string; response_value?: unknown; response_json?: { fra_custom_data?: Record<string, unknown> } } | null
     const existingCustom = existing?.response_json?.fra_custom_data && typeof existing.response_json.fra_custom_data === 'object' ? existing.response_json.fra_custom_data : {}
@@ -90,28 +106,38 @@ export async function POST(request: NextRequest) {
       },
     }
 
-    if (existingResponse) {
+    if (existingResponse?.id) {
       // Update existing response, preserving other data
-      const { error: updateError } = await supabase
+      const { data: updatedRow, error: updateError } = await writeSupabase
         .from('fa_audit_responses')
         .update(metadataResponse)
         .eq('id', existingResponse.id)
+        .select('id')
+        .maybeSingle()
 
       if (updateError) {
         throw new Error(`Failed to update custom data: ${updateError.message}`)
       }
+      if (!updatedRow?.id) {
+        throw new Error('Failed to update custom data: no rows were updated')
+      }
     } else {
       // Create new response with metadata
-      const { error: insertError } = await supabase
+      const { data: insertedRow, error: insertError } = await writeSupabase
         .from('fa_audit_responses')
         .insert({
           audit_instance_id: instanceId,
           question_id: questionIdForMetadata,
           ...metadataResponse,
         })
+        .select('id')
+        .maybeSingle()
 
       if (insertError) {
         throw new Error(`Failed to save custom data: ${insertError.message}`)
+      }
+      if (!insertedRow?.id) {
+        throw new Error('Failed to save custom data: no row was inserted')
       }
     }
 

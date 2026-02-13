@@ -10,6 +10,7 @@ import { Card } from '@/components/ui/card'
 import { Eye, Calendar, User, AlertCircle } from 'lucide-react'
 import Link from 'next/link'
 import { format } from 'date-fns'
+import { getStoreActionListTitle } from '@/components/shared/store-action-title'
 
 interface ActionMobileCardProps {
   action: any
@@ -18,6 +19,7 @@ interface ActionMobileCardProps {
 export function ActionMobileCard({ action }: ActionMobileCardProps) {
   const [modalOpen, setModalOpen] = useState(false)
   const isStoreAction = action.source_type === 'store' || !action.incident_id
+  const displayTitle = isStoreAction ? getStoreActionListTitle(action) : action.title
   const isOverdue = new Date(action.due_date) < new Date() && 
     !['complete', 'cancelled'].includes(action.status)
   const assigneeName = action.assigned_to?.full_name?.trim() || ''
@@ -42,7 +44,7 @@ export function ActionMobileCard({ action }: ActionMobileCardProps) {
           {/* Top Row: Title & View Button */}
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0 pr-2">
-              <h3 className="font-semibold text-slate-900 text-sm leading-tight mb-1">{action.title}</h3>
+              <h3 className="font-semibold text-slate-900 text-sm leading-tight mb-1">{displayTitle}</h3>
               {isStoreAction ? (
                 <span className="font-mono text-xs font-medium text-slate-500 bg-slate-50 px-2 py-0.5 rounded border border-slate-100 inline-block">
                   {action.incident?.reference_no || 'Store Action'}
