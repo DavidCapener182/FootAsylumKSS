@@ -36,6 +36,7 @@ import type {
   MonthlyNewsletterResponse,
   NewsletterAIPromptPack,
 } from '@/lib/reports/monthly-newsletter-types'
+import { NewsletterPosterPlaceholder } from '@/components/reports/newsletter-poster-placeholder'
 
 // --- REAL IMPORTS (Uncomment these in your project) ---
 // import { requireAuth } from '@/lib/auth'
@@ -364,6 +365,10 @@ function AreaNewsletterDashboardCard({
             ))}
           </ul>
         </div>
+      </div>
+
+      <div className="mb-4">
+        <NewsletterPosterPlaceholder report={report} newsletterMonth={newsletterMonth} />
       </div>
 
       <details className="rounded-xl border border-slate-200 bg-slate-50/60">

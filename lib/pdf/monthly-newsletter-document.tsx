@@ -1,5 +1,7 @@
 import React from 'react'
-import { Document, Page, StyleSheet, Text, View } from '@react-pdf/renderer'
+import fs from 'fs'
+import path from 'path'
+import { Document, Image, Page, StyleSheet, Text, View } from '@react-pdf/renderer'
 import { format } from 'date-fns'
 import type {
   AreaNewsletterReport,
@@ -16,6 +18,13 @@ interface MonthlyNewsletterPDFProps {
 }
 
 const MAX_CHART_ROWS = 4
+const MAX_POSTER_FOCUS_CARDS = 6
+const FOCUS_IMAGE_FALLBACK_PATH = '/newsletter-placeholders/focus-generic.svg'
+const REMINDERS_COMPOSITE_IMAGE_PATH =
+  '/newsletter-placeholders/reminders-updates-composite-user.png'
+const REMINDERS_COMPOSITE_FALLBACK_PATH =
+  '/newsletter-placeholders/reminders-updates-composite.svg'
+const imageDataUriCache = new Map<string, string | null>()
 
 const styles = StyleSheet.create({
   page: {
@@ -271,6 +280,256 @@ const styles = StyleSheet.create({
     fontSize: 6.7,
     color: '#475569',
   },
+  posterPage: {
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    fontFamily: 'Helvetica',
+    fontSize: 9,
+    color: '#e2e8f0',
+    backgroundColor: '#090d16',
+  },
+  posterFrame: {
+    borderWidth: 1,
+    borderColor: '#1e293b',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    backgroundColor: '#0b1220',
+    minHeight: '100%',
+  },
+  posterTopRule: {
+    height: 2,
+    backgroundColor: '#84cc16',
+    marginBottom: 6,
+  },
+  posterBrand: {
+    fontSize: 17,
+    fontWeight: 'bold',
+    color: '#f8fafc',
+    textAlign: 'center',
+    letterSpacing: 0.5,
+  },
+  posterTitle: {
+    marginTop: 3,
+    fontSize: 19,
+    fontWeight: 'bold',
+    color: '#f8fafc',
+    textAlign: 'center',
+  },
+  posterMeta: {
+    marginTop: 2,
+    marginBottom: 8,
+    textAlign: 'center',
+    fontSize: 8,
+    color: '#cbd5e1',
+  },
+  posterMetricsRow: {
+    flexDirection: 'row',
+    marginBottom: 6,
+  },
+  posterMetricTile: {
+    flex: 1,
+    marginRight: 4,
+    borderRadius: 8,
+    backgroundColor: '#f4be09',
+    paddingHorizontal: 6,
+    paddingVertical: 6,
+  },
+  posterMetricTileLast: {
+    marginRight: 0,
+  },
+  posterMetricLabel: {
+    fontSize: 6.2,
+    textTransform: 'uppercase',
+    fontWeight: 'bold',
+    color: '#1f2937',
+    letterSpacing: 0.4,
+  },
+  posterMetricValue: {
+    marginTop: 2,
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#020617',
+  },
+  posterStatusTile: {
+    backgroundColor: '#1f2937',
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  posterStatusLabel: {
+    color: '#cbd5e1',
+  },
+  posterStatusBadge: {
+    marginTop: 2,
+    alignSelf: 'flex-start',
+    backgroundColor: '#f4be09',
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    fontSize: 7.1,
+    color: '#111827',
+    fontWeight: 'bold',
+    textTransform: 'uppercase',
+  },
+  posterStatusMeta: {
+    marginTop: 3,
+    fontSize: 6.9,
+    color: '#d1d5db',
+    lineHeight: 1.3,
+  },
+  posterTrendLine: {
+    marginBottom: 5,
+    fontSize: 7.1,
+    color: '#cbd5e1',
+  },
+  posterLegend: {
+    borderWidth: 1,
+    borderColor: '#334155',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    marginBottom: 8,
+    backgroundColor: '#0f172a',
+  },
+  posterLegendTitle: {
+    fontSize: 7.2,
+    fontWeight: 'bold',
+    textTransform: 'uppercase',
+    color: '#f1f5f9',
+    marginBottom: 2,
+  },
+  posterLegendRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  posterLegendItem: {
+    fontSize: 6.8,
+    color: '#e2e8f0',
+    marginRight: 9,
+    marginBottom: 2,
+  },
+  posterSectionTitle: {
+    borderTopWidth: 1.4,
+    borderBottomWidth: 1.4,
+    borderTopColor: '#84cc16',
+    borderBottomColor: '#84cc16',
+    paddingVertical: 4,
+    marginBottom: 6,
+    textAlign: 'center',
+    color: '#f8fafc',
+    fontSize: 9.6,
+    fontWeight: 'bold',
+    textTransform: 'uppercase',
+  },
+  posterFocusRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  posterFocusRowCentered: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginBottom: 6,
+  },
+  posterFocusCard: {
+    width: '31.5%',
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: '#f8fafc',
+    color: '#0f172a',
+  },
+  posterFocusCardGap: {
+    marginRight: 6,
+  },
+  posterFocusHeader: {
+    minHeight: 34,
+    paddingHorizontal: 6,
+    paddingVertical: 5,
+    textAlign: 'center',
+    fontSize: 8.2,
+    lineHeight: 1.1,
+    textTransform: 'uppercase',
+    color: '#f8fafc',
+    fontWeight: 'bold',
+  },
+  posterFocusImageWrap: {
+    paddingHorizontal: 6,
+    paddingTop: 6,
+  },
+  posterFocusImage: {
+    width: '100%',
+    height: 80,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#94a3b8',
+  },
+  posterFocusPrompt: {
+    paddingHorizontal: 6,
+    paddingTop: 6,
+    paddingBottom: 7,
+    fontSize: 6.8,
+    color: '#1f2937',
+    lineHeight: 1.25,
+  },
+  posterReminderPanel: {
+    marginTop: 2,
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    borderRadius: 8,
+    padding: 7,
+    backgroundColor: '#ffffff',
+  },
+  posterSectionTitleDark: {
+    borderTopWidth: 1.4,
+    borderBottomWidth: 1.4,
+    borderTopColor: '#84cc16',
+    borderBottomColor: '#84cc16',
+    paddingVertical: 3,
+    marginBottom: 6,
+    textAlign: 'center',
+    color: '#111827',
+    fontSize: 8.8,
+    fontWeight: 'bold',
+    textTransform: 'uppercase',
+  },
+  posterRemindersImage: {
+    width: '100%',
+    height: 168,
+    borderRadius: 6,
+  },
+  posterReminderFallback: {
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: '#94a3b8',
+    borderRadius: 6,
+    height: 96,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+  },
+  posterReminderFallbackText: {
+    textAlign: 'center',
+    fontSize: 7,
+    color: '#334155',
+  },
+  posterAccountabilityLine: {
+    marginTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#84cc16',
+    paddingTop: 6,
+    textAlign: 'center',
+    fontSize: 7.4,
+    color: '#f1f5f9',
+  },
+  posterFooterMeta: {
+    marginTop: 5,
+    textAlign: 'center',
+    fontSize: 6.9,
+    color: '#cbd5e1',
+    lineHeight: 1.35,
+  },
   footer: {
     borderTopWidth: 1,
     borderTopColor: '#e2e8f0',
@@ -376,6 +635,186 @@ function formatFocusLine(item: NewsletterStoreActionFocusItem): string {
   return `${item.topic} - ${item.actionCount} actions across ${item.storeCount} stores. ${item.managerPrompt}`
 }
 
+type ComplianceStatus = 'GREEN' | 'AMBER' | 'RED'
+
+interface PosterFocusCard {
+  title: string
+  prompt: string
+  imageSrc: string | null
+  toneColor: string
+}
+
+function resolveComplianceStatus(
+  metrics: AreaNewsletterReport['storeActionMetrics']
+): ComplianceStatus {
+  if (metrics.overdueCount > 0) return 'RED'
+  if (metrics.highPriorityCount > 0 || metrics.activeCount > 0) return 'AMBER'
+  return 'GREEN'
+}
+
+function toLocalPublicFilePath(assetPath: string): string {
+  const normalized = assetPath.startsWith('/') ? assetPath.slice(1) : assetPath
+  return path.join(process.cwd(), 'public', normalized)
+}
+
+function mimeTypeFromAssetPath(assetPath: string): string {
+  const ext = path.extname(assetPath).toLowerCase()
+  if (ext === '.png') return 'image/png'
+  if (ext === '.jpg' || ext === '.jpeg') return 'image/jpeg'
+  if (ext === '.webp') return 'image/webp'
+  if (ext === '.svg') return 'image/svg+xml'
+  return 'application/octet-stream'
+}
+
+function toDataUriFromPublicAsset(assetPath: string): string | null {
+  if (imageDataUriCache.has(assetPath)) {
+    return imageDataUriCache.get(assetPath) || null
+  }
+
+  try {
+    const absolutePath = toLocalPublicFilePath(assetPath)
+    if (!fs.existsSync(absolutePath)) {
+      imageDataUriCache.set(assetPath, null)
+      return null
+    }
+
+    const file = fs.readFileSync(absolutePath)
+    const mime = mimeTypeFromAssetPath(assetPath)
+    const dataUri = `data:${mime};base64,${file.toString('base64')}`
+    imageDataUriCache.set(assetPath, dataUri)
+    return dataUri
+  } catch {
+    imageDataUriCache.set(assetPath, null)
+    return null
+  }
+}
+
+function resolveImageDataUri(primaryPath: string, fallbackPath: string): string | null {
+  return toDataUriFromPublicAsset(primaryPath) || toDataUriFromPublicAsset(fallbackPath)
+}
+
+function resolvePosterFocusImagePath(topic: string): string {
+  const lower = topic.toLowerCase()
+  if (lower.includes('emergency') && lower.includes('lighting')) {
+    return '/newsletter-placeholders/focus-emergency-lighting-tests.png'
+  }
+  if (lower.includes('panel') && lower.includes('fault')) {
+    return '/newsletter-placeholders/focus-fire-panel-fault-follow-up.png'
+  }
+  if (lower.includes('housekeeping') || lower.includes('slip') || lower.includes('trip')) {
+    return '/newsletter-placeholders/focus-housekeeping-safe-access.png'
+  }
+  if (lower.includes('contractor') || lower.includes('visitor') || lower.includes('permit')) {
+    return '/newsletter-placeholders/focus-contractor-visitor-controls.png'
+  }
+  if (
+    lower.includes('fire') ||
+    lower.includes('exit') ||
+    lower.includes('door') ||
+    lower.includes('escape')
+  ) {
+    return '/newsletter-placeholders/focus-fire-door-escape-routes.png'
+  }
+  if (lower.includes('height') || lower.includes('ladder') || lower.includes('step')) {
+    return '/newsletter-placeholders/focus-work-at-height-equipment.png'
+  }
+  if (lower.includes('training') || lower.includes('refresher') || lower.includes('induction')) {
+    return '/newsletter-placeholders/focus-training-refresher-completion.png'
+  }
+  if (
+    lower.includes('coshh') ||
+    lower.includes('hazardous') ||
+    lower.includes('chemical') ||
+    lower.includes('sds')
+  ) {
+    return '/newsletter-placeholders/focus-coshh-hazardous-substances.png'
+  }
+  return '/newsletter-placeholders/focus-generic.png'
+}
+
+function normalizePosterFocusTitle(topic: string, index: number): string {
+  const trimmed = topic.trim()
+  if (!trimmed) return `Focus Item ${index + 1}`
+
+  const lower = trimmed.toLowerCase()
+  if (lower.includes('housekeeping') || lower.includes('slip') || lower.includes('trip')) {
+    return 'Housekeeping And Safe Access'
+  }
+  if (lower.includes('contractor') || lower.includes('visitor') || lower.includes('permit')) {
+    return 'Contractor And Visitor Controls'
+  }
+  if (
+    lower.includes('fire') &&
+    (lower.includes('door') || lower.includes('exit') || lower.includes('escape'))
+  ) {
+    return 'Fire Door And Escape Route Controls'
+  }
+  if (lower.includes('height') || lower.includes('ladder') || lower.includes('step')) {
+    return 'Work-At-Height Equipment Checks'
+  }
+  if (lower.includes('training') || lower.includes('refresher') || lower.includes('induction')) {
+    return 'Training And Refresher Completion'
+  }
+  if (
+    lower.includes('coshh') ||
+    lower.includes('hazardous') ||
+    lower.includes('chemical') ||
+    lower.includes('sds')
+  ) {
+    return 'COSHH And Hazardous Substances'
+  }
+  if (lower.includes('emergency') && lower.includes('lighting')) {
+    return 'Emergency Lighting Tests'
+  }
+  if (lower.includes('panel') && lower.includes('fault')) {
+    return 'Fire Panel Fault Follow-Up'
+  }
+
+  const compact = trimmed.replace(/\s+/g, ' ').replace(/[.?!]+$/, '')
+  const words = compact.split(' ')
+  if (words.length <= 5) return compact
+  return `${words.slice(0, 5).join(' ')}...`
+}
+
+function tightenPosterPrompt(prompt: string): string {
+  const trimmed = prompt.trim()
+  if (!trimmed) return 'Maintain controls and verify evidence is logged against each action.'
+
+  return trimmed
+    .replace(
+      /reinforce daily housekeeping checks so walkways, stock areas, and exits stay clear throughout the trading day\./i,
+      'Ensure sales floor and stock routes remain clear throughout trading hours.'
+    )
+    .replace(
+      /check ladder and step equipment is uniquely identified, inspected, and used under the correct controls\./i,
+      'Verify work-at-height equipment is identified, inspected and logged.'
+    )
+    .replace(/^ask store teams to\s+/i, 'Store teams must ')
+    .replace(/^ask area managers to\s+/i, 'Area managers must ')
+}
+
+function buildPosterFocusCards(report: AreaNewsletterReport): PosterFocusCard[] {
+  const tones = ['#0f7a3f', '#1f2731', '#b3312b', '#6d9f23']
+
+  return report.storeActionMetrics.focusItems
+    .slice(0, MAX_POSTER_FOCUS_CARDS)
+    .map((item, index): PosterFocusCard => {
+      const imagePath = resolvePosterFocusImagePath(item.topic || '')
+      return {
+        title: normalizePosterFocusTitle(item.topic || '', index),
+        prompt: tightenPosterPrompt(item.managerPrompt || ''),
+        imageSrc: resolveImageDataUri(imagePath, FOCUS_IMAGE_FALLBACK_PATH),
+        toneColor: tones[index % tones.length],
+      }
+    })
+}
+
+function splitPosterFocusRows(cards: PosterFocusCard[]): [PosterFocusCard[], PosterFocusCard[]] {
+  if (cards.length <= 3) return [cards, []]
+  const topRowCount = Math.ceil(cards.length / 2)
+  return [cards.slice(0, topRowCount), cards.slice(topRowCount)]
+}
+
 function renderLeaderboardColumn(
   rows: NewsletterAreaStoreRow[],
   rankOffset: number,
@@ -447,6 +886,19 @@ export function MonthlyNewsletterPDF({
   const focusSplitIndex = Math.ceil(focusItems.length / 2)
   const focusLeftColumn = focusItems.slice(0, focusSplitIndex)
   const focusRightColumn = focusItems.slice(focusSplitIndex)
+  const complianceStatus = resolveComplianceStatus(report.storeActionMetrics)
+  const complianceStatusMeta =
+    complianceStatus === 'GREEN'
+      ? 'No open actions. Maintain standards and continue daily checks.'
+      : complianceStatus === 'AMBER'
+        ? 'Open actions require active management and evidence upload.'
+        : 'Escalation required. Immediate corrective action and evidence upload.'
+  const posterFocusCards = buildPosterFocusCards(report)
+  const [posterFocusTopRow, posterFocusBottomRow] = splitPosterFocusRows(posterFocusCards)
+  const remindersCompositeImageSrc = resolveImageDataUri(
+    REMINDERS_COMPOSITE_IMAGE_PATH,
+    REMINDERS_COMPOSITE_FALLBACK_PATH
+  )
 
   return (
     <Document>
@@ -622,6 +1074,150 @@ export function MonthlyNewsletterPDF({
         <Text style={styles.footer}>
           KSS NW Monthly Area Newsletter For Footasylum | {report.areaLabel} | {periodLabel}
         </Text>
+      </Page>
+
+      <Page size="A4" style={styles.posterPage}>
+        <View style={styles.posterFrame}>
+          <View style={styles.posterTopRule} />
+          <Text style={styles.posterBrand}>FOOTASYLUM</Text>
+          <Text style={styles.posterTitle}>HEALTH & SAFETY AUDIT UPDATE</Text>
+          <Text style={styles.posterMeta}>
+            {report.areaLabel} | {periodLabel}
+          </Text>
+
+          <View style={styles.posterMetricsRow}>
+            <View style={styles.posterMetricTile}>
+              <Text style={styles.posterMetricLabel}>Open Actions</Text>
+              <Text style={styles.posterMetricValue}>{report.storeActionMetrics.activeCount}</Text>
+            </View>
+            <View style={styles.posterMetricTile}>
+              <Text style={styles.posterMetricLabel}>High Risk</Text>
+              <Text style={styles.posterMetricValue}>{report.storeActionMetrics.highPriorityCount}</Text>
+            </View>
+            <View style={styles.posterMetricTile}>
+              <Text style={styles.posterMetricLabel}>Overdue</Text>
+              <Text style={styles.posterMetricValue}>{report.storeActionMetrics.overdueCount}</Text>
+            </View>
+            <View style={[styles.posterMetricTile, styles.posterMetricTileLast, styles.posterStatusTile]}>
+              <Text style={[styles.posterMetricLabel, styles.posterStatusLabel]}>Compliance Status</Text>
+              <Text style={styles.posterStatusBadge}>COMPLIANCE STATUS: {complianceStatus}</Text>
+              <Text style={styles.posterStatusMeta}>{complianceStatusMeta}</Text>
+            </View>
+          </View>
+
+          <Text style={styles.posterTrendLine}>
+            Previous Month: Baseline pending | This Month: {report.storeActionMetrics.activeCount} Open |{' '}
+            {report.storeActionMetrics.highPriorityCount} High Risk
+          </Text>
+
+          <View style={styles.posterLegend}>
+            <Text style={styles.posterLegendTitle}>Status Legend</Text>
+            <View style={styles.posterLegendRow}>
+              <Text style={styles.posterLegendItem}>GREEN: 0-2 low risk</Text>
+              <Text style={styles.posterLegendItem}>AMBER: 3-10 open or high risk present</Text>
+              <Text style={styles.posterLegendItem}>RED: escalation required</Text>
+            </View>
+          </View>
+
+          <Text style={styles.posterSectionTitle}>Area Focus From H&amp;S Tasks</Text>
+          {posterFocusCards.length > 0 ? (
+            <>
+              <View
+                style={
+                  posterFocusTopRow.length < 3
+                    ? styles.posterFocusRowCentered
+                    : styles.posterFocusRow
+                }
+              >
+                {posterFocusTopRow.map((card, index) => (
+                  <View
+                    key={`poster-focus-top-${index}`}
+                    style={[
+                      styles.posterFocusCard,
+                      { marginRight: index < posterFocusTopRow.length - 1 ? 6 : 0 },
+                    ]}
+                  >
+                    <Text style={[styles.posterFocusHeader, { backgroundColor: card.toneColor }]}>
+                      {card.title}
+                    </Text>
+                    <View style={styles.posterFocusImageWrap}>
+                      {card.imageSrc ? (
+                        // eslint-disable-next-line jsx-a11y/alt-text
+                        <Image src={card.imageSrc} style={styles.posterFocusImage} />
+                      ) : (
+                        <View style={styles.posterReminderFallback}>
+                          <Text style={styles.posterReminderFallbackText}>Image placeholder</Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text style={styles.posterFocusPrompt}>{card.prompt}</Text>
+                  </View>
+                ))}
+              </View>
+              {posterFocusBottomRow.length > 0 ? (
+                <View
+                  style={
+                    posterFocusBottomRow.length < posterFocusTopRow.length
+                      ? styles.posterFocusRowCentered
+                      : styles.posterFocusRow
+                  }
+                >
+                  {posterFocusBottomRow.map((card, index) => (
+                    <View
+                      key={`poster-focus-bottom-${index}`}
+                      style={[
+                        styles.posterFocusCard,
+                        { marginRight: index < posterFocusBottomRow.length - 1 ? 6 : 0 },
+                      ]}
+                    >
+                      <Text style={[styles.posterFocusHeader, { backgroundColor: card.toneColor }]}>
+                        {card.title}
+                      </Text>
+                      <View style={styles.posterFocusImageWrap}>
+                        {card.imageSrc ? (
+                          // eslint-disable-next-line jsx-a11y/alt-text
+                          <Image src={card.imageSrc} style={styles.posterFocusImage} />
+                        ) : (
+                          <View style={styles.posterReminderFallback}>
+                            <Text style={styles.posterReminderFallbackText}>Image placeholder</Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text style={styles.posterFocusPrompt}>{card.prompt}</Text>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+            </>
+          ) : (
+            <View style={styles.posterReminderFallback}>
+              <Text style={styles.posterReminderFallbackText}>
+                No active H&amp;S task themes available for this area.
+              </Text>
+            </View>
+          )}
+
+          <View style={styles.posterReminderPanel}>
+            <Text style={styles.posterSectionTitleDark}>Reminders &amp; Updates</Text>
+            {remindersCompositeImageSrc ? (
+              // eslint-disable-next-line jsx-a11y/alt-text
+              <Image src={remindersCompositeImageSrc} style={styles.posterRemindersImage} />
+            ) : (
+              <View style={styles.posterReminderFallback}>
+                <Text style={styles.posterReminderFallbackText}>
+                  Add reminders artwork at {REMINDERS_COMPOSITE_IMAGE_PATH}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          <Text style={styles.posterAccountabilityLine}>
+            All actions must include an owner, target date and evidence upload.
+          </Text>
+          <Text style={styles.posterFooterMeta}>
+            www.kssnwltd.co.uk - Health &amp; Safety Consultants
+          </Text>
+        </View>
       </Page>
     </Document>
   )
