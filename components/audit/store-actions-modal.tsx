@@ -324,10 +324,28 @@ export function StoreActionsModal({
     try {
       const result = await createStoreActions(row.id, selected)
       const createdCount = result?.count ?? selected.length
+      const skippedCount = Number(result?.skipped || 0)
+      const skippedNonActionableCount = Number(result?.skippedNonActionable || 0)
+      const skippedDetails = [
+        skippedCount > 0 ? `${skippedCount} duplicate action${skippedCount === 1 ? '' : 's'} skipped` : null,
+        skippedNonActionableCount > 0
+          ? `${skippedNonActionableCount} non-actionable risk assessment item${
+              skippedNonActionableCount === 1 ? '' : 's'
+            } skipped`
+          : null,
+      ].filter((value): value is string => Boolean(value))
       const successMessage =
-        createdCount === 1
-          ? '1 action created for this store.'
-          : `${createdCount} actions created for this store.`
+        createdCount === 0
+          ? skippedDetails.length > 0
+            ? `No new actions created. ${skippedDetails.join('; ')}.`
+            : 'No new actions created.'
+          : createdCount === 1
+            ? skippedDetails.length > 0
+              ? `1 action created for this store. ${skippedDetails.join('; ')}.`
+              : '1 action created for this store.'
+            : skippedDetails.length > 0
+              ? `${createdCount} actions created for this store. ${skippedDetails.join('; ')}.`
+              : `${createdCount} actions created for this store.`
       setSaveSuccess(successMessage)
       onActionsCreated?.(createdCount, row.store_name)
       handleOpenChange(false)

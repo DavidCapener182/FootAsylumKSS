@@ -10,6 +10,7 @@ import {
 } from '@/lib/store-action-titles'
 
 const WRITABLE_ROLES = new Set(['admin', 'ops'])
+const NON_ACTIONABLE_STORE_QUESTIONS = new Set<string>(['Young persons?', 'Expectant mothers?'])
 
 export interface CreateStoreActionInput {
   title: string
@@ -32,6 +33,16 @@ function toDateOnly(value: string | undefined, fallbackDate: string): string {
   const parsed = new Date(value)
   if (Number.isNaN(parsed.getTime())) return fallbackDate
   return parsed.toISOString().split('T')[0]
+}
+
+function toStoreActionDedupKey(title: string): string {
+  const normalized = normalizeStoreActionQuestion(title, title) || title
+  return normalized.trim().toLowerCase()
+}
+
+function isNonActionableStoreQuestion(question: string): boolean {
+  const normalized = normalizeStoreActionQuestion(question, question) || question
+  return NON_ACTIONABLE_STORE_QUESTIONS.has(normalized.trim())
 }
 
 export async function createStoreActions(
@@ -72,6 +83,7 @@ export async function createStoreActions(
   const fallbackDueDate = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
     .toISOString()
     .split('T')[0]
+  let skippedNonActionableCount = 0
 
   const rowsToInsert = actions
     .map((action) => {
@@ -81,6 +93,10 @@ export async function createStoreActions(
       const canonicalTitle = matchCanonicalStoreActionQuestion(rawTitle, context)
       const title = canonicalTitle || normalizeStoreActionQuestion(rawTitle, context) || rawTitle
       if (!title) return null
+      if (isNonActionableStoreQuestion(title)) {
+        skippedNonActionableCount += 1
+        return null
+      }
 
       if (!canonicalTitle && action.nonCanonicalConfirmed !== true) {
         throw new Error(
@@ -110,17 +126,56 @@ export async function createStoreActions(
     .filter((row): row is NonNullable<typeof row> => row !== null)
 
   if (rowsToInsert.length === 0) {
-    throw new Error('No valid actions to create')
+    return {
+      count: 0,
+      ids: [] as string[],
+      skipped: 0,
+      skippedNonActionable: skippedNonActionableCount,
+    }
+  }
+
+  const { data: existingActiveRows, error: existingError } = await supabase
+    .from('fa_store_actions')
+    .select('id, title, status')
+    .eq('store_id', storeId)
+    .in('status', ['open', 'in_progress'])
+
+  if (existingError) {
+    throw new Error(`Failed to check existing store actions: ${existingError.message}`)
+  }
+
+  const existingKeys = new Set(
+    (existingActiveRows || []).map((row: any) => toStoreActionDedupKey(String(row?.title || '')))
+  )
+  const pendingKeys = new Set<string>()
+  let skippedCount = 0
+  const dedupedRowsToInsert = rowsToInsert.filter((row) => {
+    const key = toStoreActionDedupKey(row.title)
+    if (existingKeys.has(key) || pendingKeys.has(key)) {
+      skippedCount += 1
+      return false
+    }
+    pendingKeys.add(key)
+    return true
+  })
+
+  if (dedupedRowsToInsert.length === 0) {
+    return {
+      count: 0,
+      ids: [] as string[],
+      skipped: skippedCount,
+      skippedNonActionable: skippedNonActionableCount,
+    }
   }
 
   let { data, error } = await supabase
     .from('fa_store_actions')
-    .insert(rowsToInsert)
+    .insert(dedupedRowsToInsert)
     .select('id')
 
   // Backward compatibility if DB migration for priority_summary has not been applied yet.
   if (error && /priority_summary/i.test(error.message || '')) {
-    const rowsWithoutSummary = rowsToInsert.map((row) => {
+    const rowsWithoutSummary = dedupedRowsToInsert.map((row) => {
       const { priority_summary: _prioritySummary, ...rest } = row
       return rest
     })
@@ -136,9 +191,12 @@ export async function createStoreActions(
 
   revalidatePath('/audit-tracker')
   revalidatePath('/stores')
+  revalidatePath('/actions')
 
   return {
-    count: data?.length ?? rowsToInsert.length,
+    count: data?.length ?? dedupedRowsToInsert.length,
     ids: data?.map((row) => row.id) ?? [],
+    skipped: skippedCount,
+    skippedNonActionable: skippedNonActionableCount,
   }
 }

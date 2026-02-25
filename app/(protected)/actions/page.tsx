@@ -41,6 +41,8 @@ type UnifiedAction = {
   id: string
   title: string
   description: string | null
+  source_flagged_item?: string | null
+  training_completion_rate?: number | null
   priority: string
   due_date: string
   status: string
@@ -56,6 +58,418 @@ type UnifiedAction = {
     region: string | null
     compliance_audit_2_assigned_manager_user_id: string | null
   } | null
+}
+
+const TOOLBOX_REFRESHER_QUESTION =
+  'H&S toolbox refresher training completed in the last 12 months and records available for Manual handling Housekeeping Fire Safety Stepladders?'
+const ACTION_SUMMARY_MODEL = 'gpt-4o-mini'
+const ACTION_SUMMARY_MAX_WORDS = 15
+const ACTION_SUMMARY_CHUNK_SIZE = 15
+const ACTION_SUMMARY_REQUEST_TIMEOUT_MS = 9000
+const ACTION_SUMMARY_PARALLEL_CHUNKS = 2
+const ACTION_SUMMARY_CACHE = new Map<string, string>()
+const NON_ACTIONABLE_STORE_QUESTIONS = new Set<string>(['Young persons?', 'Expectant mothers?'])
+
+const STORE_SUMMARY_OVERRIDES: Record<string, string> = {
+  'Are all ladders clearly numbered for identification purposes?': 'Ensure ladders are clearly numbered',
+  'Is manual handling being carried out safely and are good practices being followed and posters visible?':
+    'Ensure manual handling is being carried out safely with a Manual Handling poster displayed',
+  'Are contractors managed whilst working on site? (sign in/out, permit to work)':
+    'Ensure contractors are signed in and out on arrival',
+  'Is the visitors signing in / out book available and in use?': 'Ensure visitors are signed in and out on arrival',
+  'H&S induction training onboarding up to date and at 100%?':
+    'Ensure H&S induction training onboarding is at 100%',
+}
+
+function formatPercentage(value: number): string {
+  const clamped = Math.min(100, Math.max(0, value))
+  const rounded = Number.isInteger(clamped) ? String(clamped) : clamped.toFixed(1).replace(/\.0$/, '')
+  return `${rounded}%`
+}
+
+function collapseSummaryWhitespace(value: string): string {
+  return value.replace(/\s+/g, ' ').trim()
+}
+
+function extractSubHundredPercentage(text: string): string | null {
+  const matches = text.matchAll(/(\d{1,3}(?:\.\d+)?)\s*%/g)
+  for (const match of matches) {
+    const parsed = Number.parseFloat(match[1])
+    if (Number.isFinite(parsed) && parsed >= 0 && parsed < 100) {
+      return formatPercentage(parsed)
+    }
+  }
+  return null
+}
+
+function extractCompletionPercentage(action: UnifiedAction): string | null {
+  if (
+    typeof action.training_completion_rate === 'number' &&
+    Number.isFinite(action.training_completion_rate) &&
+    action.training_completion_rate < 100
+  ) {
+    return formatPercentage(action.training_completion_rate)
+  }
+
+  const candidates = [action.source_flagged_item, action.title, action.store_question]
+  for (const candidate of candidates) {
+    const text = String(candidate || '')
+    if (!text) continue
+    const percentage = extractSubHundredPercentage(text)
+    if (percentage) return percentage
+  }
+
+  const description = String(action.description || '')
+  if (description) {
+    const percentage = extractSubHundredPercentage(description)
+    if (percentage) return percentage
+  }
+
+  return null
+}
+
+function clampSummaryToMaxWords(summary: string, maxWords = ACTION_SUMMARY_MAX_WORDS): string {
+  const cleaned = collapseSummaryWhitespace(summary)
+  if (!cleaned) return ''
+
+  const words = cleaned.split(' ')
+  if (words.length <= maxWords) return cleaned
+  return words.slice(0, maxWords).join(' ')
+}
+
+function sanitizeAiSummary(value: string): string {
+  const trimmed = collapseSummaryWhitespace(
+    String(value || '')
+      .replace(/^[\-\u2022*]\s*/, '')
+      .replace(/^\d+[\.)]\s*/, '')
+      .replace(/[“”]/g, '"')
+  )
+  if (!trimmed) return ''
+
+  const singleLine = trimmed.split(/(?<=[.!?])\s+/)[0] || trimmed
+  return clampSummaryToMaxWords(singleLine)
+}
+
+function toEnsureStatement(question: string): string {
+  const cleaned = question
+    .replace(/\s*\((yes|no|n\/?a)\)\s*$/i, '')
+    .replace(/[?!.]+$/, '')
+    .trim()
+
+  if (!cleaned) return 'Ensure this action is completed'
+
+  const rewritten = cleaned
+    .replace(/^Are\s+/i, '')
+    .replace(/^Is\s+/i, '')
+    .replace(/^Has\s+/i, '')
+    .replace(/^Have\s+/i, '')
+    .replace(/^Can\s+/i, '')
+    .replace(/^Do\s+/i, '')
+    .replace(/^Does\s+/i, '')
+    .replace(/^Any\s+/i, 'any ')
+
+  const sentence = rewritten.charAt(0).toLowerCase() + rewritten.slice(1)
+  return `Ensure ${sentence}`.replace(/\s+/g, ' ').trim()
+}
+
+function getCanonicalStoreQuestion(action: UnifiedAction): string {
+  const rawQuestion = action.store_question || getStoreActionQuestion(action) || getStoreActionListTitle(action)
+  return normalizeStoreActionQuestion(rawQuestion) || rawQuestion
+}
+
+function isSuppressedStoreActionQuestion(question: string | null | undefined): boolean {
+  const normalized = normalizeStoreActionQuestion(String(question || '').trim()) || String(question || '').trim()
+  return NON_ACTIONABLE_STORE_QUESTIONS.has(normalized)
+}
+
+function buildFallbackStoreSummary(action: UnifiedAction): string | null {
+  if (action.source_type !== 'store') return null
+
+  const canonicalQuestion = getCanonicalStoreQuestion(action)
+
+  if (canonicalQuestion === TOOLBOX_REFRESHER_QUESTION) {
+    const completion = extractCompletionPercentage(action)
+    if (completion) {
+      return `Ensure H&S toolbox refresher training reaches 100% from current ${completion}, and update records.`
+    }
+    return 'Ensure H&S toolbox refresher training reaches 100% and records are updated.'
+  }
+
+  if (STORE_SUMMARY_OVERRIDES[canonicalQuestion]) {
+    return STORE_SUMMARY_OVERRIDES[canonicalQuestion]
+  }
+
+  return toEnsureStatement(canonicalQuestion)
+}
+
+type StoreActionSummarySeed = {
+  signature: string
+  question: string
+  context: string
+  percentage: string | null
+  fallback: string
+  actionIds: string[]
+}
+
+function parseChatGptJsonObject(rawContent: string): any | null {
+  try {
+    return JSON.parse(rawContent)
+  } catch {
+    const firstBrace = rawContent.indexOf('{')
+    const lastBrace = rawContent.lastIndexOf('}')
+    if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) return null
+    try {
+      return JSON.parse(rawContent.slice(firstBrace, lastBrace + 1))
+    } catch {
+      return null
+    }
+  }
+}
+
+function enforceHsToolboxLabel(summary: string): string {
+  if (!summary) return summary
+  if (/h\s*&\s*s/i.test(summary)) return summary
+  if (/toolbox/i.test(summary)) {
+    return summary.replace(/toolbox/i, 'H&S toolbox')
+  }
+  return `Ensure H&S ${summary.charAt(0).toLowerCase()}${summary.slice(1)}`
+}
+
+async function requestActionSummaryChunk(
+  apiKey: string,
+  items: Array<{ id: string; failed_question: string; context: string; failed_percentage: string | null }>
+): Promise<Map<string, string>> {
+  const result = new Map<string, string>()
+  if (items.length === 0) return result
+
+  const prompt = [
+    'You summarize failed retail health-and-safety checks for operations handoff.',
+    'Each item is a failed check, so write the corrective action needed.',
+    `Return exactly one sentence per item, 8 to ${ACTION_SUMMARY_MAX_WORDS} words.`,
+    'No bullets, no numbering, no markdown.',
+    'If failed_percentage is present, include that exact percentage in the sentence.',
+    'For toolbox refresher items, include both current failed_percentage and target 100%.',
+    'Return strict JSON only: {"summaries":[{"id":"...","summary":"..."}]}.',
+    '',
+    `Items JSON: ${JSON.stringify(items)}`,
+  ].join('\n')
+
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), ACTION_SUMMARY_REQUEST_TIMEOUT_MS)
+
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      signal: controller.signal,
+      body: JSON.stringify({
+        model: ACTION_SUMMARY_MODEL,
+        response_format: { type: 'json_object' },
+        temperature: 0,
+        max_tokens: Math.min(1200, items.length * 60),
+        messages: [
+          {
+            role: 'system',
+            content: 'Write concise corrective action summaries for failed safety checks.',
+          },
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
+      }),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      console.error('OpenAI action summary generation failed:', errorData)
+      return result
+    }
+
+    const data = await response.json().catch(() => ({}))
+    const content = String(data?.choices?.[0]?.message?.content || '')
+    const parsed = parseChatGptJsonObject(content)
+    const summaries = Array.isArray(parsed?.summaries) ? parsed.summaries : []
+
+    summaries.forEach((entry: any) => {
+      const id = String(entry?.id || '').trim()
+      const summary = sanitizeAiSummary(String(entry?.summary || ''))
+      if (!id || !summary) return
+      result.set(id, summary)
+    })
+  } catch (error: any) {
+    if (error?.name === 'AbortError') {
+      console.warn('OpenAI action summary request timed out')
+      return result
+    }
+    console.error('OpenAI action summary request failed:', error)
+    return result
+  } finally {
+    clearTimeout(timeout)
+  }
+
+  return result
+}
+
+async function buildStoreActionSummaryMap(actions: UnifiedAction[]): Promise<Map<string, string>> {
+  const output = new Map<string, string>()
+  const storeActions = actions.filter((action) => action.source_type === 'store')
+  if (storeActions.length === 0) return output
+
+  const seeds = new Map<string, StoreActionSummarySeed>()
+
+  storeActions.forEach((action) => {
+    const question = getCanonicalStoreQuestion(action)
+    const percentage = question === TOOLBOX_REFRESHER_QUESTION ? extractCompletionPercentage(action) : null
+    const fallback = clampSummaryToMaxWords(buildFallbackStoreSummary(action) || 'Resolve this failed check.')
+    const context = clampSummaryToMaxWords(
+      collapseSummaryWhitespace(
+        `${action.description || ''} ${action.source_flagged_item || ''} ${action.store_question || ''}`
+      ),
+      30
+    )
+    const signature = `${question}||${percentage || ''}`
+
+    if (!seeds.has(signature)) {
+      seeds.set(signature, {
+        signature,
+        question,
+        context,
+        percentage,
+        fallback,
+        actionIds: [],
+      })
+    }
+
+    seeds.get(signature)!.actionIds.push(action.id)
+  })
+
+  const seedList = Array.from(seeds.values())
+  const apiKey = process.env.OPENAI_API_KEY
+
+  const aiSummaryBySignature = new Map<string, string>()
+  seedList.forEach((seed) => {
+    const cached = ACTION_SUMMARY_CACHE.get(seed.signature)
+    if (cached) aiSummaryBySignature.set(seed.signature, cached)
+  })
+
+  if (apiKey) {
+    const uncachedSeeds = seedList.filter((seed) => !aiSummaryBySignature.has(seed.signature))
+    const chunks: StoreActionSummarySeed[][] = []
+
+    for (let index = 0; index < uncachedSeeds.length; index += ACTION_SUMMARY_CHUNK_SIZE) {
+      chunks.push(uncachedSeeds.slice(index, index + ACTION_SUMMARY_CHUNK_SIZE))
+    }
+
+    for (let index = 0; index < chunks.length; index += ACTION_SUMMARY_PARALLEL_CHUNKS) {
+      const batch = chunks.slice(index, index + ACTION_SUMMARY_PARALLEL_CHUNKS)
+      const batchResults = await Promise.all(
+        batch.map(async (chunk) => {
+          const payload = chunk.map((seed) => ({
+            id: seed.signature,
+            failed_question: seed.question,
+            context: seed.context,
+            failed_percentage: seed.percentage,
+          }))
+          return requestActionSummaryChunk(apiKey, payload)
+        })
+      )
+
+      batchResults.forEach((generated) => {
+        generated.forEach((summary, id) => {
+          aiSummaryBySignature.set(id, summary)
+          ACTION_SUMMARY_CACHE.set(id, summary)
+        })
+      })
+    }
+  }
+
+  if (apiKey) {
+    const aiResolvedCount = seedList.filter((seed) => aiSummaryBySignature.has(seed.signature)).length
+    if (aiResolvedCount === 0 && seedList.length > 0) {
+      console.warn(
+        `[actions] OpenAI summaries unavailable for ${seedList.length} seeds; using fallback summaries.`
+      )
+    }
+  }
+
+  seedList.forEach((seed) => {
+    let summary = aiSummaryBySignature.get(seed.signature) || seed.fallback
+
+    if (seed.percentage && !summary.includes(seed.percentage)) {
+      summary = seed.fallback
+    }
+    if (seed.question === TOOLBOX_REFRESHER_QUESTION) {
+      if (!summary.includes('100%')) {
+        summary = seed.fallback
+      }
+      summary = enforceHsToolboxLabel(summary)
+    }
+
+    summary = clampSummaryToMaxWords(summary)
+    if (!summary) summary = seed.fallback
+
+    seed.actionIds.forEach((actionId) => {
+      output.set(actionId, summary)
+    })
+  })
+
+  actions.forEach((action) => {
+    if (!output.has(action.id) && action.source_type === 'store') {
+      const fallback = clampSummaryToMaxWords(buildFallbackStoreSummary(action) || 'Resolve this failed check.')
+      output.set(action.id, fallback)
+    }
+  })
+
+  return output
+}
+
+function buildStoreSummaryBullets(actions: UnifiedAction[], summaryByActionId: Map<string, string>): string[] {
+  return actions
+    .filter((action) => action.source_type === 'store')
+    .map((action) => summaryByActionId.get(action.id) || clampSummaryToMaxWords(buildFallbackStoreSummary(action) || 'Resolve this failed check.'))
+    .filter((summary): summary is string => Boolean(summary))
+}
+
+function dedupeVisibleStoreActions(actions: UnifiedAction[]): UnifiedAction[] {
+  const activeByKey = new Map<string, UnifiedAction>()
+  const nonActiveActions: UnifiedAction[] = []
+
+  actions.forEach((action) => {
+    const status = String(action.status || '').toLowerCase()
+    if (!['open', 'in_progress'].includes(status)) {
+      nonActiveActions.push(action)
+      return
+    }
+
+    const storeId = String(action.store?.id || 'unknown')
+    const normalizedQuestion =
+      normalizeStoreActionQuestion(action.store_question || getStoreActionQuestion(action) || action.title || '') ||
+      String(action.title || '').trim()
+    const key = `${storeId}||${normalizedQuestion.toLowerCase()}||${status}`
+
+    const existing = activeByKey.get(key)
+    if (!existing) {
+      activeByKey.set(key, action)
+      return
+    }
+
+    const existingDue = Number.isFinite(new Date(existing.due_date).getTime())
+      ? new Date(existing.due_date).getTime()
+      : Number.POSITIVE_INFINITY
+    const nextDue = Number.isFinite(new Date(action.due_date).getTime())
+      ? new Date(action.due_date).getTime()
+      : Number.POSITIVE_INFINITY
+
+    if (nextDue < existingDue) {
+      activeByKey.set(key, action)
+    }
+  })
+
+  return [...activeByKey.values(), ...nonActiveActions]
 }
 
 async function getActions(filters?: ActionFilters): Promise<{ actions: UnifiedAction[]; storeQuestionOptions: string[] }> {
@@ -120,7 +534,7 @@ async function getActions(filters?: ActionFilters): Promise<{ actions: UnifiedAc
     store: null,
   }))
 
-  const storeActions: UnifiedAction[] = (storeData || []).map((action: any) => ({
+  const storeActionsRaw: UnifiedAction[] = (storeData || []).map((action: any) => ({
     ...action,
     source_type: 'store',
     incident_id: null,
@@ -141,7 +555,14 @@ async function getActions(filters?: ActionFilters): Promise<{ actions: UnifiedAc
     })(),
   }))
 
-  let actions: UnifiedAction[] = [...incidentActions, ...storeActions].sort(
+  const storeActions = storeActionsRaw.filter(
+    (action) =>
+      !isSuppressedStoreActionQuestion(action.store_question || getStoreActionQuestion(action) || action.title)
+  )
+
+  const dedupedStoreActions = dedupeVisibleStoreActions(storeActions)
+
+  let actions: UnifiedAction[] = [...incidentActions, ...dedupedStoreActions].sort(
     (a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime()
   )
 
@@ -251,6 +672,8 @@ export default async function ActionsPage({
       filters.date_to
   )
 
+  const storeSummaryByActionId = await buildStoreActionSummaryMap(actions)
+
   const groupedActions = Array.from(
     actions.reduce((groups, action) => {
       const isStoreAction = action.source_type === 'store'
@@ -264,14 +687,22 @@ export default async function ActionsPage({
         : action.incident?.reference_no || 'Incident Action'
 
       if (!groups.has(groupKey)) {
-        groups.set(groupKey, { key: groupKey, label: groupLabel, actions: [] as UnifiedAction[] })
+        groups.set(groupKey, {
+          key: groupKey,
+          label: groupLabel,
+          isStoreGroup: isStoreAction,
+          actions: [] as UnifiedAction[],
+        })
       }
 
       groups.get(groupKey)!.actions.push(action)
       return groups
-    }, new Map<string, { key: string; label: string; actions: UnifiedAction[] }>())
+    }, new Map<string, { key: string; label: string; isStoreGroup: boolean; actions: UnifiedAction[] }>())
   )
-    .map(([, value]) => value)
+    .map(([, value]) => ({
+      ...value,
+      summaryBullets: value.isStoreGroup ? buildStoreSummaryBullets(value.actions, storeSummaryByActionId) : [],
+    }))
     .sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: 'base' }))
 
   return (
@@ -454,6 +885,14 @@ export default async function ActionsPage({
                     {group.actions.map((action: any) => (
                       <ActionMobileCard key={action.id} action={action} />
                     ))}
+                    {group.isStoreGroup && group.summaryBullets.length > 0 ? (
+                      <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                          Ops copy summary
+                        </p>
+                        <pre className="mt-2 whitespace-pre-wrap font-sans text-xs leading-5 text-slate-700">{group.summaryBullets.map((bullet: string) => `- ${bullet}`).join('\n')}</pre>
+                      </div>
+                    ) : null}
                   </div>
                 </details>
               ))
@@ -502,6 +941,14 @@ export default async function ActionsPage({
                       ))}
                     </TableBody>
                   </Table>
+                  {group.isStoreGroup && group.summaryBullets.length > 0 ? (
+                    <div className="border-t bg-slate-50/60 px-4 py-3">
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                        Ops copy summary
+                      </p>
+                      <pre className="mt-2 whitespace-pre-wrap font-sans text-sm leading-6 text-slate-700">{group.summaryBullets.map((bullet: string) => `- ${bullet}`).join('\n')}</pre>
+                    </div>
+                  ) : null}
                 </details>
               ))
             )}

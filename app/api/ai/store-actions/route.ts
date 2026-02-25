@@ -19,6 +19,7 @@ interface ParsedFlaggedItem {
 }
 
 const REVIEW_MONTH_OFFSET = 6
+const NON_ACTIONABLE_STORE_QUESTIONS = new Set<string>(['Young persons?', 'Expectant mothers?'])
 
 function toDateOnlyFromNow(daysFromNow: number): string {
   const clampedDays = Number.isFinite(daysFromNow)
@@ -200,6 +201,11 @@ function stripTrailingQuestionMark(value: string): string {
   return value.replace(/\?+\s*$/, '').trim()
 }
 
+function isNonActionableQuestion(question: string): boolean {
+  const normalized = normalizeStoreActionQuestion(question, question) || question
+  return NON_ACTIONABLE_STORE_QUESTIONS.has(normalized.trim())
+}
+
 function buildCompletionInstructions(item: ParsedFlaggedItem): string {
   const q = item.question.toLowerCase()
 
@@ -243,20 +249,23 @@ function buildCompletionInstructions(item: ParsedFlaggedItem): string {
 }
 
 function questionActions(items: ParsedFlaggedItem[], reviewDate: string): GeneratedStoreAction[] {
-  return items.map((item) => {
+  return items.flatMap((item) => {
     const sourceText = formatParsedFlaggedItem(item)
     const normalizedQuestion =
       normalizeStoreActionQuestion(item.question, sourceText) || collapseWhitespace(item.question)
+    if (isNonActionableQuestion(normalizedQuestion)) {
+      return []
+    }
     const description = buildCompletionInstructions(item)
 
-    return {
+    return [{
       flaggedItem: sourceText,
       // Keep title equal to a normalized failed question for consistent analytics/search.
       title: normalizedQuestion,
       description,
       priority: normalizePriority(inferPriority(item)),
       dueDate: reviewDate,
-    }
+    }]
   })
 }
 
@@ -294,6 +303,12 @@ export async function POST(request: NextRequest) {
       toDateOnlyFromNow(14)
 
     const actions = questionActions(parsedItems, reviewDate).slice(0, 30)
+    if (actions.length === 0) {
+      return NextResponse.json(
+        { error: 'No actionable failed items were detected after filtering non-actionable risk assessment checks.' },
+        { status: 400 }
+      )
+    }
 
     return NextResponse.json({
       source: 'parsed',

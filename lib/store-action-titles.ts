@@ -280,7 +280,23 @@ function contextualMatch(candidate: string, context: string): string | null {
     return 'H&S toolbox refresher training completed in the last 12 months and records available for Manual handling Housekeeping Fire Safety Stepladders?'
   }
 
+  if (
+    /(toolbox|refresher|manual\s*handling|housekeeping|fire\s*safety|stepladders?)/i.test(combined) &&
+    /(\d{1,3}(?:\.\d+)?\s*%|not\s+at\s+100|incomplete|outstanding|not\s+completed|haven'?t\s+completed)/i.test(combined)
+  ) {
+    return 'H&S toolbox refresher training completed in the last 12 months and records available for Manual handling Housekeeping Fire Safety Stepladders?'
+  }
+
   if (/induction\s+training\s+onboarding/i.test(combined)) {
+    return 'H&S induction training onboarding up to date and at 100%?'
+  }
+
+  if (
+    /(onboarding|induction|training\s+matrix|new\s+starter)/i.test(combined) &&
+    /(not\s+at\s+100|incomplete|outstanding|not\s+completed|haven'?t\s+completed|not\s+fully\s+briefed|unaware)/i.test(
+      combined
+    )
+  ) {
     return 'H&S induction training onboarding up to date and at 100%?'
   }
 
@@ -518,13 +534,21 @@ export function getStoreActionQuestion(action: any): string | null {
   const context = `${title} ${source}`
 
   const explicitCandidates = [extractLastQuestion(title), extractLastQuestion(source)]
+  const fallbackCandidates = [extractFallbackQuestion(title), extractFallbackQuestion(source)]
+  const allCandidates = [...explicitCandidates, ...fallbackCandidates]
+
+  for (const candidate of allCandidates) {
+    if (!candidate) continue
+    const canonical = matchCanonicalStoreActionQuestion(candidate, context)
+    if (canonical) return canonical
+  }
+
   for (const candidate of explicitCandidates) {
     if (!candidate) continue
     const normalized = normalizeStoreActionQuestion(candidate, context)
     if (normalized) return normalized
   }
 
-  const fallbackCandidates = [extractFallbackQuestion(title), extractFallbackQuestion(source)]
   for (const candidate of fallbackCandidates) {
     if (!candidate) continue
     const normalized = normalizeStoreActionQuestion(candidate, context)
