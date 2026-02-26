@@ -73,6 +73,40 @@ export interface NewsletterStoreActionMetrics {
   focusItems: NewsletterStoreActionFocusItem[]
 }
 
+export interface NewsletterRevisitRiskRadarPoint {
+  axis: string
+  risk: number
+  target: number
+  benchmark: number
+}
+
+export interface NewsletterRevisitRiskStore {
+  storeName: string
+  storeCode: string | null
+  startOfYearAuditScore: number | null
+  projectedEndOfYearScore: number | null
+  riskScore: number
+  openP1Actions: number
+  openP2Actions: number
+  predictedRevisit: boolean
+}
+
+export interface NewsletterRevisitRiskMetrics {
+  atRiskStoreCount: number
+  borderlineStoreCount: number
+  predictedRevisitCount: number
+  alreadyBelowThresholdCount: number
+  openP1Count: number
+  openP2Count: number
+  overdueP1AtRiskCount: number
+  storesWithOpenIncidentsAtRiskCount: number
+  closeActionsTarget: number
+  immediateActionTarget: number
+  radar: NewsletterRevisitRiskRadarPoint[]
+  highRiskStores: NewsletterRevisitRiskStore[]
+  narrative: string
+}
+
 export interface NewsletterAIPromptPack {
   generateBriefing: string
   composeNewsletter: string
@@ -88,6 +122,7 @@ export interface AreaNewsletterReport {
   fraMetrics: NewsletterFRAMetrics
   hsAuditMetrics: NewsletterHSAuditMetrics
   storeActionMetrics: NewsletterStoreActionMetrics
+  revisitRiskMetrics: NewsletterRevisitRiskMetrics
   reminders: string[]
   legislationUpdates: string[]
   newsletterMarkdown: string

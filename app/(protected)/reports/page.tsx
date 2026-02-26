@@ -51,6 +51,104 @@ const DEFAULT_LEGISLATION_TEXT = [
   'Remind store teams to follow internal incident and near-miss reporting standards aligned with RIDDOR expectations.',
 ].join('\n')
 
+interface RadarAxisMeta {
+  shortLabel: string
+  detail: string
+}
+
+const RADAR_AXIS_META: Record<string, RadarAxisMeta> = {
+  'Stores <80% (%)': {
+    shortLabel: 'Stores <80%',
+    detail: 'Percentage of stores already in mandatory revisit status.',
+  },
+  'Stores 80-84% (%)': {
+    shortLabel: 'Stores 80-84%',
+    detail: 'Percentage of stores in the watch band near the threshold.',
+  },
+  'Predicted Fails (%)': {
+    shortLabel: 'Predicted Fails',
+    detail: 'Watch-band stores forecast to fall below 80% at End-of-Year.',
+  },
+  'Overdue P1 Actions (%)': {
+    shortLabel: 'Overdue P1',
+    detail: 'Share of P1 actions overdue across at-risk stores.',
+  },
+  'At-Risk Stores with Open Incidents (%)': {
+    shortLabel: 'Incident Burden',
+    detail: 'At-risk stores currently carrying one or more open incidents.',
+  },
+}
+
+function getRadarAxisMeta(axis: string): RadarAxisMeta {
+  return RADAR_AXIS_META[axis] || { shortLabel: axis, detail: axis }
+}
+
+function getRadarStatus(risk: number, target: number): {
+  label: string
+  className: string
+} {
+  const delta = risk - target
+  if (delta <= 0) {
+    return {
+      label: 'On Target',
+      className: 'bg-emerald-50 text-emerald-700 ring-emerald-600/20',
+    }
+  }
+
+  if (delta <= 10) {
+    return {
+      label: 'Watch',
+      className: 'bg-amber-50 text-amber-700 ring-amber-600/20',
+    }
+  }
+
+  return {
+    label: 'High',
+    className: 'bg-rose-50 text-rose-700 ring-rose-600/20',
+  }
+}
+
+function getRiskBarFillClass(risk: number, target: number): string {
+  const delta = risk - target
+  if (delta <= 0) return 'bg-emerald-500'
+  if (delta <= 10) return 'bg-amber-500'
+  return 'bg-rose-500'
+}
+
+function getRiskProfileValueLabel(
+  axis: string,
+  metrics: AreaNewsletterReport['revisitRiskMetrics']
+): string {
+  if (axis === 'Stores <80% (%)') {
+    return `${metrics.alreadyBelowThresholdCount} Stores`
+  }
+  if (axis === 'Stores 80-84% (%)') {
+    return `${metrics.borderlineStoreCount} Stores`
+  }
+  if (axis === 'Predicted Fails (%)') {
+    return `${metrics.predictedRevisitCount} Stores`
+  }
+  if (axis === 'Overdue P1 Actions (%)') {
+    return `${metrics.overdueP1AtRiskCount} Actions`
+  }
+  if (axis === 'At-Risk Stores with Open Incidents (%)') {
+    return `${metrics.storesWithOpenIncidentsAtRiskCount} Stores`
+  }
+  return `${axis}`
+}
+
+function getRiskProfileValueCount(
+  axis: string,
+  metrics: AreaNewsletterReport['revisitRiskMetrics']
+): number {
+  if (axis === 'Stores <80% (%)') return metrics.alreadyBelowThresholdCount
+  if (axis === 'Stores 80-84% (%)') return metrics.borderlineStoreCount
+  if (axis === 'Predicted Fails (%)') return metrics.predictedRevisitCount
+  if (axis === 'Overdue P1 Actions (%)') return metrics.overdueP1AtRiskCount
+  if (axis === 'At-Risk Stores with Open Incidents (%)') return metrics.storesWithOpenIncidentsAtRiskCount
+  return 0
+}
+
 function toLines(value: string): string[] {
   return value
     .split(/\r?\n/)
@@ -322,12 +420,40 @@ function AreaNewsletterDashboardCard({
   const leaderboardSplitIndex = Math.ceil(storesWithRank.length / 2)
   const leaderboardFirstColumn = storesWithRank.slice(0, leaderboardSplitIndex)
   const leaderboardSecondColumn = storesWithRank.slice(leaderboardSplitIndex)
-  const trendStores = storesWithRank
-    .filter(
-      (store): store is typeof store & { latestAuditScore: number } =>
-        typeof store.latestAuditScore === 'number'
-    )
-    .slice(0, 6)
+  const revisitRiskRadar = report.revisitRiskMetrics.radar.map((point) => {
+    const meta = getRadarAxisMeta(point.axis)
+    return {
+      ...point,
+      axisLabel: meta.shortLabel,
+      axisDetail: meta.detail,
+      valueLabel: getRiskProfileValueLabel(point.axis, report.revisitRiskMetrics),
+      valueCount: getRiskProfileValueCount(point.axis, report.revisitRiskMetrics),
+    }
+  })
+  const visibleRiskProfileItems = revisitRiskRadar.filter((point) => point.valueCount > 0)
+  const riskSummaryChips = [
+    {
+      label: '80-84% Watch',
+      value: report.revisitRiskMetrics.borderlineStoreCount,
+      className: 'border-amber-100 bg-amber-50 text-amber-700',
+    },
+    {
+      label: 'Predicted Revisits',
+      value: report.revisitRiskMetrics.predictedRevisitCount,
+      className: 'border-rose-100 bg-rose-50 text-rose-700',
+    },
+    {
+      label: 'Close This Week',
+      value: report.revisitRiskMetrics.closeActionsTarget,
+      className: 'border-blue-100 bg-blue-50 text-blue-700',
+    },
+    {
+      label: 'Already <80%',
+      value: report.revisitRiskMetrics.alreadyBelowThresholdCount,
+      className: 'border-red-100 bg-red-50 text-red-700',
+    },
+  ].filter((chip) => chip.value > 0)
+  const revisitRiskStores = report.revisitRiskMetrics.highRiskStores.slice(0, 4)
 
   const { activeCount, highPriorityCount, overdueCount } = report.storeActionMetrics
   const complianceStatus: 'GREEN' | 'AMBER' | 'RED' =
@@ -433,7 +559,7 @@ function AreaNewsletterDashboardCard({
 
       </div>
 
-      <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mb-6 grid grid-cols-4 gap-3">
         <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-[0_2px_8px_-3px_rgba(0,0,0,0.05)]">
           <div className="mb-3 inline-flex rounded-lg bg-emerald-50 p-2">
             <TrendingUp className="h-4 w-4 text-emerald-600" />
@@ -479,30 +605,113 @@ function AreaNewsletterDashboardCard({
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
             <h5 className="mb-4 inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-slate-500">
               <TrendingUp className="h-3.5 w-3.5" />
-              Performance Trend
+              Revisit Risk Profile
             </h5>
-            {trendStores.length > 0 ? (
-              <div className="space-y-3">
-                {trendStores.map((store) => (
-                  <div key={`trend-${store.storeName}-${store.storeCode || 'na'}`}>
-                    <div className="mb-1.5 flex items-end justify-between gap-2">
-                      <span className="truncate text-[11px] font-medium text-slate-700">{store.storeName}</span>
-                      <span className={`text-[11px] font-bold ${getScoreTextClass(store.latestAuditScore)}`}>
-                        {store.latestAuditScore.toFixed(0)}%
-                      </span>
-                    </div>
-                    <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
+            {visibleRiskProfileItems.length > 0 ? (
+              <div>
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <p className="text-[11px] text-slate-500">Revisit risk profile across key drivers</p>
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-blue-600">
+                    How is this calculated?
+                  </span>
+                </div>
+                <div className="space-y-4">
+                  {visibleRiskProfileItems.map((point) => {
+                    const status = getRadarStatus(point.risk, point.target)
+                    const exceedsThreshold = point.risk > point.target
+                    const targetLeft = Math.max(0, Math.min(100, point.target))
+                    const benchmarkLeft = Math.max(0, Math.min(100, point.benchmark))
+
+                    return (
+                      <div key={`risk-profile-${point.axis}`} className="rounded-lg border border-slate-200 bg-white/60 p-2.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-sm font-semibold text-slate-800">{point.axisLabel}</p>
+                          <p className="text-xs font-semibold text-slate-700">
+                            {point.valueLabel}
+                            <span className="text-slate-400"> | Target: {point.target}%</span>
+                          </p>
+                        </div>
+                        <p className="mt-0.5 text-[10px] text-slate-500">{point.axisDetail}</p>
+                        <div className="relative mt-2 h-4 overflow-hidden rounded-full bg-slate-200">
+                          <div
+                            className={`h-full rounded-full ${getRiskBarFillClass(point.risk, point.target)}`}
+                            style={{ width: `${point.risk}%` }}
+                          />
+                          <div
+                            className="absolute inset-y-0 w-0.5 border-l border-dashed border-white/90"
+                            style={{ left: `${targetLeft}%` }}
+                          />
+                          <div
+                            className="absolute inset-y-0 w-0.5 bg-blue-700/70"
+                            style={{ left: `${benchmarkLeft}%` }}
+                          />
+                        </div>
+                        <div className="mt-1.5 flex items-center justify-between gap-2">
+                          <p
+                            className={`text-[10px] font-bold uppercase tracking-wide ${
+                              exceedsThreshold ? 'text-rose-600' : 'text-emerald-600'
+                            }`}
+                          >
+                            {exceedsThreshold
+                              ? 'Exceeds acceptable risk threshold'
+                              : 'Within acceptable risk threshold'}
+                          </p>
+                          <span
+                            className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold ring-1 ring-inset ${status.className}`}
+                          >
+                            Area {point.risk}% | Network {point.benchmark}%
+                          </span>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+                {riskSummaryChips.length > 0 ? (
+                  <div
+                    className="grid gap-2"
+                    style={{ gridTemplateColumns: `repeat(${riskSummaryChips.length}, minmax(0, 1fr))` }}
+                  >
+                    {riskSummaryChips.map((chip) => (
                       <div
-                        className={`h-full rounded-full ${getScoreBarClass(store.latestAuditScore)}`}
-                        style={{ width: `${Math.max(0, Math.min(100, store.latestAuditScore))}%` }}
-                      />
-                    </div>
+                        key={`risk-chip-${chip.label}`}
+                        className={`rounded-lg border px-2.5 py-2 text-center ${chip.className}`}
+                      >
+                        <p className="text-[10px] uppercase tracking-wide">{chip.label}</p>
+                        <p className="text-sm font-bold">{chip.value}</p>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                ) : null}
+                {revisitRiskStores.length > 0 ? (
+                  <ul className="mt-3 space-y-1.5 text-[11px] text-slate-600">
+                    {revisitRiskStores.map((store, idx) => (
+                      <li key={`${store.storeName}-${store.storeCode || 'na'}-${idx}`}>
+                        {typeof store.startOfYearAuditScore === 'number' && store.startOfYearAuditScore < 80
+                          ? 'Mandatory revisit'
+                          : 'Watch list'}{' '}
+                        -{' '}
+                        {store.storeName}
+                        {store.storeCode ? ` (${store.storeCode})` : ''} | Risk {store.riskScore}%
+                        {store.openP1Actions + store.openP2Actions > 0
+                          ? ` | P1/P2 ${store.openP1Actions}/${store.openP2Actions}`
+                          : ''}
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
               </div>
             ) : (
-              <p className="text-sm text-slate-500">No scored audits available for charting.</p>
+              <p className="text-sm text-slate-500">No active revisit store/action risk indicators for this area.</p>
             )}
+
+            <div className="mt-4 rounded-xl border border-indigo-100 bg-indigo-50/70 p-3">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-indigo-700">
+                AI Revisit Prevention Alert
+              </p>
+              <p className="mt-1 text-xs leading-relaxed text-slate-700">
+                {report.revisitRiskMetrics.narrative}
+              </p>
+            </div>
           </div>
 
           <div className="relative overflow-hidden rounded-2xl border border-amber-100 bg-amber-50 p-4 shadow-sm">

@@ -1,9 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { requireRole } from '@/lib/auth'
 import { RoutePlanningClient } from '@/components/route-planning/route-planning-client'
-
-// Closed stores that should not appear in Route Planning.
-const ROUTE_PLANNING_EXCLUDED_STORE_CODES = new Set(['EXT-HUDDERSFIELD', 'EXT-GLASGOW'])
+import { applyStoreCoordinateOverride, shouldAlwaysIncludeStore, shouldHideStore } from '@/lib/store-normalization'
 
 async function getRoutePlanningData() {
   const supabase = createClient()
@@ -21,6 +19,7 @@ async function getRoutePlanningData() {
       .from('fa_stores')
       .select(`
         id,
+        is_active,
         store_code,
         store_name,
         address_line_1,
@@ -43,7 +42,6 @@ async function getRoutePlanningData() {
           home_longitude
         )
       `)
-      .eq('is_active', true)
       .order('store_name', { ascending: true })
     
     stores = result.data || []
@@ -55,6 +53,7 @@ async function getRoutePlanningData() {
         .from('fa_stores')
         .select(`
           id,
+          is_active,
           store_code,
           store_name,
           address_line_1,
@@ -76,7 +75,6 @@ async function getRoutePlanningData() {
             home_longitude
           )
         `)
-        .eq('is_active', true)
         .order('store_name', { ascending: true })
       
       stores = result.data || []
@@ -104,9 +102,14 @@ async function getRoutePlanningData() {
 
   // Filter out closed/excluded stores and stores that have completed Audit 1 with score >= 80% within the last 6 months.
   // These stores don't need a second audit for 6 months.
-  const filteredStores = (stores || []).filter((store: any) => {
-    const storeCode = String(store.store_code || '').trim().toUpperCase()
-    if (ROUTE_PLANNING_EXCLUDED_STORE_CODES.has(storeCode)) {
+  const storesWithCoordinates = (stores || []).map((store: any) => applyStoreCoordinateOverride(store))
+
+  const filteredStores = storesWithCoordinates.filter((store: any) => {
+    if (!store?.is_active && !shouldAlwaysIncludeStore(store)) {
+      return false
+    }
+
+    if (shouldHideStore(store)) {
       return false
     }
 

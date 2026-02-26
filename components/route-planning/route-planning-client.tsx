@@ -798,6 +798,45 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
     }
   }
 
+  const openRouteDirectionsForGroup = (
+    group: {
+      stores: Store[]
+      assignedManager: { full_name: string | null } | null
+      plannedDate: string
+      managerId: string | null
+      region: string | null
+    },
+    groupKey: string
+  ) => {
+    const routeManagerProfile = profiles.find((profile) => profile.id === group.managerId)
+    const routeManagerHome = routeManagerProfile && routeManagerProfile.home_latitude && routeManagerProfile.home_longitude
+      ? {
+          latitude: typeof routeManagerProfile.home_latitude === 'string'
+            ? parseFloat(routeManagerProfile.home_latitude)
+            : routeManagerProfile.home_latitude,
+          longitude: typeof routeManagerProfile.home_longitude === 'string'
+            ? parseFloat(routeManagerProfile.home_longitude)
+            : routeManagerProfile.home_longitude,
+          address: routeManagerProfile.home_address || 'Manager Home',
+        }
+      : null
+
+    const orderedStores = routeStoreOrder[groupKey]
+      ? routeStoreOrder[groupKey]
+          .map((id) => group.stores.find((store) => store.id === id))
+          .filter(Boolean) as Store[]
+      : group.stores
+
+    setSelectedRouteForDirections({
+      stores: orderedStores,
+      managerHome: routeManagerHome,
+      managerName: group.assignedManager?.full_name || 'Unassigned',
+      plannedDate: group.plannedDate,
+      managerUserId: group.managerId,
+      region: group.region,
+    })
+  }
+
   const availableStoreCount = storesAvailableForPlanning.length
   const plannedRouteCount = plannedRoutes.length
   const plannedStoreCount = plannedRoutes.reduce((total, route) => total + route.stores.length, 0)
@@ -1271,21 +1310,6 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
                     {plannedRoutes.map((group, groupIndex) => {
                       const groupKey = (group as any)._groupKey || getPlannedRouteGroupKey(group.plannedDate, group.managerId)
                       
-                      // Get manager home location for this route
-                      const routeManager = group.managerId
-                      const routeManagerProfile = profiles.find(p => p.id === routeManager)
-                      const routeManagerHome = routeManagerProfile && routeManagerProfile.home_latitude && routeManagerProfile.home_longitude
-                        ? {
-                            latitude: typeof routeManagerProfile.home_latitude === 'string' 
-                              ? parseFloat(routeManagerProfile.home_latitude) 
-                              : routeManagerProfile.home_latitude,
-                            longitude: typeof routeManagerProfile.home_longitude === 'string' 
-                              ? parseFloat(routeManagerProfile.home_longitude) 
-                              : routeManagerProfile.home_longitude,
-                            address: routeManagerProfile.home_address || 'Manager Home',
-                          }
-                        : null
-                      
                       return (
                         <TableRow 
                           key={groupKey}
@@ -1295,21 +1319,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
                             if ((e.target as HTMLElement).closest('button') || (e.target as HTMLElement).closest('input')) {
                               return
                             }
-                            // Use ordered stores if available, otherwise use group.stores
-                            const orderedStores = routeStoreOrder[groupKey] 
-                              ? routeStoreOrder[groupKey]
-                                  .map(id => group.stores.find(s => s.id === id))
-                                  .filter(Boolean) as Store[]
-                              : group.stores
-                            
-                            setSelectedRouteForDirections({
-                              stores: orderedStores,
-                              managerHome: routeManagerHome,
-                              managerName: group.assignedManager?.full_name || 'Unassigned',
-                              plannedDate: group.plannedDate,
-                              managerUserId: group.managerId,
-                              region: group.region
-                            })
+                            openRouteDirectionsForGroup(group, groupKey)
                           }}
                         >
                           <TableCell className="font-medium">

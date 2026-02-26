@@ -4,6 +4,7 @@ import { truncateToDecimals } from '@/lib/utils'
 import { subDays } from 'date-fns'
 import { DashboardClient } from '@/components/dashboard/dashboard-client'
 import { computeComplianceForecast, getFRAStatusFromDate } from '@/lib/compliance-forecast'
+import { buildStoreMergeContext, getCanonicalStoreId, shouldHideStore } from '@/lib/store-normalization'
 
 // --- Data Fetching ---
 
@@ -24,6 +25,7 @@ async function getDashboardData() {
     { data: storesNeedingSecondVisitRaw },
     { data: profiles },
     { data: allStores },
+    { data: allStoresForMergeRaw },
     { data: plannedRoutesRaw },
     { data: fraStores },
     { data: openIncidentsByStoreRaw },
@@ -55,6 +57,9 @@ async function getDashboardData() {
         compliance_audit_2_planned_date
       `)
       .eq('is_active', true),
+    supabase
+      .from('fa_stores')
+      .select('id, store_name, store_code, address_line_1, city, postcode, latitude, longitude'),
         supabase.from('fa_stores').select(`id, store_name, store_code, region, postcode, latitude, longitude, compliance_audit_2_planned_date, compliance_audit_2_assigned_manager_user_id, route_sequence, assigned_manager:fa_profiles!fa_stores_compliance_audit_2_assigned_manager_user_id_fkey(id, full_name, home_address, home_latitude, home_longitude)`).not('compliance_audit_2_planned_date', 'is', null).eq('is_active', true).order('compliance_audit_2_planned_date', { ascending: true }),
     supabase.from('fa_stores').select('id, compliance_audit_1_date, compliance_audit_2_date, fire_risk_assessment_date').eq('is_active', true),
     supabase
@@ -85,6 +90,21 @@ async function getDashboardData() {
   ])
 
   // Data Processing
+  const allStoreRows = (allStoresForMergeRaw || []) as any[]
+  const visibleAllStores = ((allStores || []) as any[]).filter((store) => !shouldHideStore(store))
+  const visibleAllStoreIds = new Set<string>(visibleAllStores.map((store: any) => String(store.id)))
+  const storeById = new Map<string, any>(allStoreRows.map((store: any) => [store.id, store]))
+  const mergeContext = buildStoreMergeContext(allStoreRows)
+
+  const toVisibleCanonicalStoreId = (storeId: string | null | undefined): string | null => {
+    const canonicalStoreId = getCanonicalStoreId(storeId, mergeContext)
+    if (!canonicalStoreId) return null
+    if (!visibleAllStoreIds.has(String(canonicalStoreId))) return null
+    const canonicalStore = storeById.get(canonicalStoreId)
+    if (!canonicalStore || shouldHideStore(canonicalStore)) return null
+    return canonicalStoreId
+  }
+
   const statusCounts = incidentsByStatus?.reduce((acc: Record<string, number>, incident) => {
     acc[incident.status] = (acc[incident.status] || 0) + 1
     return acc
@@ -96,11 +116,14 @@ async function getDashboardData() {
   }, {}) || {}
 
   const storeCounts = storeStats?.reduce((acc: Record<string, { name: string; code?: string; count: number }>, item: any) => {
-    const storeId = item.store_id
+    const storeId = toVisibleCanonicalStoreId(item?.store_id)
+    if (!storeId) return acc
+
+    const store = storeById.get(storeId)
     if (!acc[storeId]) {
       acc[storeId] = {
-        name: item.fa_stores?.store_name || 'Unknown',
-        code: item.fa_stores?.store_code,
+        name: store?.store_name || item.fa_stores?.store_name || 'Unknown',
+        code: store?.store_code || item.fa_stores?.store_code,
         count: 0,
       }
     }
@@ -125,7 +148,8 @@ async function getDashboardData() {
 
   const todayDateOnly = parseDateOnly(today) || new Date()
 
-  const storeActions = (storeActionsRaw || []) as any[]
+  const storeActions = ((storeActionsRaw || []) as any[]).filter((action) => toVisibleCanonicalStoreId(action?.store_id))
+
   const activeStoreActions = storeActions.filter((action) => {
     const status = String(action?.status || '').toLowerCase()
     return status !== 'complete' && status !== 'cancelled'
@@ -154,10 +178,10 @@ async function getDashboardData() {
   }, {})
 
   const storeActionCountsByStore = activeStoreActions.reduce((acc: Record<string, { name: string; code?: string; count: number; overdue: number }>, action: any) => {
-    const storeId = String(action?.store_id || '')
+    const storeId = toVisibleCanonicalStoreId(action?.store_id)
     if (!storeId) return acc
 
-    const storeRel = Array.isArray(action?.store) ? action.store[0] : action?.store
+    const storeRel = storeById.get(storeId) || (Array.isArray(action?.store) ? action.store[0] : action?.store)
     if (!acc[storeId]) {
       acc[storeId] = {
         name: storeRel?.store_name || 'Unknown',
@@ -185,20 +209,21 @@ async function getDashboardData() {
     .map(([id, data]) => ({ id, ...data }))
 
   const openIncidentsByStore = (openIncidentsByStoreRaw || []).reduce((acc: Record<string, number>, row: any) => {
-    if (!row?.store_id) return acc
-    acc[row.store_id] = (acc[row.store_id] || 0) + 1
-    return acc
-  }, {})
-
-  const overdueActionsByStore = (overdueActionsByStoreRaw || []).reduce((acc: Record<string, number>, row: any) => {
-    const incidentRel = Array.isArray(row.incident) ? row.incident[0] : row.incident
-    const storeId = incidentRel?.store_id
+    const storeId = toVisibleCanonicalStoreId(row?.store_id)
     if (!storeId) return acc
     acc[storeId] = (acc[storeId] || 0) + 1
     return acc
   }, {})
 
-  const complianceForecast = computeComplianceForecast((allStores || []) as any, {
+  const overdueActionsByStore = (overdueActionsByStoreRaw || []).reduce((acc: Record<string, number>, row: any) => {
+    const incidentRel = Array.isArray(row.incident) ? row.incident[0] : row.incident
+    const storeId = toVisibleCanonicalStoreId(incidentRel?.store_id)
+    if (!storeId) return acc
+    acc[storeId] = (acc[storeId] || 0) + 1
+    return acc
+  }, {})
+
+  const complianceForecast = computeComplianceForecast(visibleAllStores as any, {
     openIncidentsByStore,
     overdueActionsByStore,
     referenceDate: new Date(),
@@ -214,6 +239,8 @@ async function getDashboardData() {
 
   const storesNeedingSecondVisit = storesNeedingSecondVisitRaw
     ?.filter((store: any) => {
+      if (shouldHideStore(store)) return false
+
       // If store completed audit 1 today or within last 6 months (2026), hide it
       if (store.compliance_audit_1_date) {
         const audit1Date = new Date(store.compliance_audit_1_date)
@@ -234,7 +261,7 @@ async function getDashboardData() {
     })) || []
 
   // Process planned routes - group by manager, area, and date
-  const plannedRoutes = (plannedRoutesRaw || []).reduce((acc: any[], store: any) => {
+  const plannedRoutes = (plannedRoutesRaw || []).filter((store: any) => !shouldHideStore(store)).reduce((acc: any[], store: any) => {
     const managerId = store.compliance_audit_2_assigned_manager_user_id
     const region = store.region
     const plannedDate = store.compliance_audit_2_planned_date
@@ -339,9 +366,9 @@ async function getDashboardData() {
     }
   }))
 
-  const totalStores = allStores?.length || 0
-  const firstAuditsComplete = allStores?.filter(s => s.compliance_audit_1_date && s.compliance_audit_1_overall_pct !== null).length || 0
-  const secondAuditsComplete = allStores?.filter(s => s.compliance_audit_2_date && s.compliance_audit_2_overall_pct !== null).length || 0
+  const totalStores = visibleAllStores.length
+  const firstAuditsComplete = visibleAllStores.filter(s => s.compliance_audit_1_date && s.compliance_audit_1_overall_pct !== null).length
+  const secondAuditsComplete = visibleAllStores.filter(s => s.compliance_audit_2_date && s.compliance_audit_2_overall_pct !== null).length
 
   // Calculate stores requiring FRA (have audit 1 or 2 in current year, but haven't completed FRA)
   // Use same logic as FRA page - use allStores which we already have
@@ -351,6 +378,7 @@ async function getDashboardData() {
   let fraDataMap = new Map()
   if (fraStores && fraStores.length > 0) {
     fraStores.forEach((store: any) => {
+      if (shouldHideStore(storeById.get(store.id) || store)) return
       fraDataMap.set(store.id, {
         fire_risk_assessment_date: store.fire_risk_assessment_date || null,
         fire_risk_assessment_pct: null // Will try to fetch separately
@@ -378,8 +406,8 @@ async function getDashboardData() {
     }
   }
   
-  // Use allStores (which we already have) to calculate - more reliable
-  const storesRequiringFRA = (allStores || []).filter((store: any) => {
+  // Use visible stores to calculate - more reliable
+  const storesRequiringFRA = visibleAllStores.filter((store: any) => {
     // Check if store needs FRA (has audit 1 or 2 in current year)
     let needsFRA = false
     
@@ -423,7 +451,7 @@ async function getDashboardData() {
     return status === 'required' || status === 'overdue'
   }).length || 0
 
-  const allActiveStores = (allStores || []) as any[]
+  const allActiveStores = visibleAllStores as any[]
   const audit1CompleteCount = allActiveStores.filter((store: any) => Boolean(store.compliance_audit_1_date && store.compliance_audit_1_overall_pct !== null)).length
   const audit2CompleteCount = allActiveStores.filter((store: any) => Boolean(store.compliance_audit_2_date && store.compliance_audit_2_overall_pct !== null)).length
   const noAuditStartedCount = allActiveStores.filter((store: any) => !store.compliance_audit_1_date && !store.compliance_audit_2_date).length
@@ -452,7 +480,7 @@ async function getDashboardData() {
   }).length
 
   // Fully compliant: at least one audit score of 80% or higher AND FRA in date (up_to_date or due).
-  const totalAuditsComplete = (allStores || []).filter((store: any) => {
+  const totalAuditsComplete = visibleAllStores.filter((store: any) => {
     const auditScores = [store.compliance_audit_1_overall_pct, store.compliance_audit_2_overall_pct]
       .filter((score: unknown): score is number => typeof score === 'number' && !isNaN(score))
     const hasPassingAudit = auditScores.some((score) => score >= 80)

@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Loader2, MapPin, Clock, Home, Download, Calendar as CalendarIcon, Edit2, Plus, Trash2, Route as RouteIcon, Navigation, ClipboardPlus, AlertTriangle, CheckCircle2 } from 'lucide-react'
+import { Loader2, MapPin, Clock, Home, Download, Edit2, Plus, Trash2, Navigation, AlertTriangle, CheckCircle2, FileText, X, Car, Map as MapIcon, CalendarDays, ChevronDown } from 'lucide-react'
 import { format, addMinutes, addHours } from 'date-fns'
 import dynamic from 'next/dynamic'
 import { 
@@ -16,7 +16,8 @@ import {
   getRouteVisitTimes,
   saveRouteVisitTime,
   getCompletedRouteVisits,
-  markRouteVisitComplete
+  markRouteVisitComplete,
+  getRoutePreVisitBriefing
 } from '@/app/actions/route-planning'
 
 // Dynamically import the map component to avoid SSR issues
@@ -48,6 +49,32 @@ interface RouteDirectionsModalProps {
   plannedDate: string
   managerUserId: string | null
   region: string | null
+}
+
+interface PreVisitBriefingAction {
+  id: string
+  title: string
+  status: string
+  priority: string
+  due_date: string | null
+}
+
+interface PreVisitBriefingIncident {
+  id: string
+  reference_no: string
+  summary: string
+  severity: string
+  status: string
+  occurred_at: string
+}
+
+interface PreVisitBriefingStore {
+  store_id: string
+  previous_score: number | null
+  previous_score_date: string | null
+  previous_score_source: 'safehub' | 'legacy' | 'none'
+  open_actions: PreVisitBriefingAction[]
+  recent_incidents: PreVisitBriefingIncident[]
 }
 
 interface RouteSegment {
@@ -102,6 +129,25 @@ function estimateTravelTime(distanceMiles: number): number {
   const baseMinutes = distanceMiles / 0.517
   const bufferMinutes = distanceMiles < 1 ? 4 : 10
   return Math.max(1, Math.round(baseMinutes + bufferMinutes))
+}
+
+function getScoreTextColor(score: number): string {
+  if (score >= 90) return 'text-emerald-700'
+  if (score >= 80) return 'text-amber-700'
+  return 'text-rose-700'
+}
+
+function getPriorityColor(priority: string): string {
+  if (priority === 'High') return 'text-red-600 bg-red-50 border-red-100'
+  if (priority === 'Medium') return 'text-amber-600 bg-amber-50 border-amber-100'
+  if (priority === 'Low') return 'text-emerald-600 bg-emerald-50 border-emerald-100'
+  return 'text-slate-600 bg-slate-50 border-slate-100'
+}
+
+function toTitleCase(value: string): string {
+  return String(value || '')
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase())
 }
 
 // Format date for ICS format (YYYYMMDDTHHMMSS)
@@ -359,6 +405,11 @@ export function RouteDirectionsModal({
   const [opItemDuration, setOpItemDuration] = useState('60')
   const [completedVisitStoreIds, setCompletedVisitStoreIds] = useState<Set<string>>(new Set())
   const [quickActionLoading, setQuickActionLoading] = useState<string | null>(null)
+  const [preVisitBriefingsByStore, setPreVisitBriefingsByStore] = useState<Record<string, PreVisitBriefingStore>>({})
+  const [isGeneratingBriefing, setIsGeneratingBriefing] = useState(false)
+  const [briefingError, setBriefingError] = useState<string | null>(null)
+  const [briefingGeneratedAt, setBriefingGeneratedAt] = useState<Date | null>(null)
+  const [expandedBriefingStores, setExpandedBriefingStores] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     if (!isOpen || stores.length === 0) return
@@ -1166,8 +1217,80 @@ export function RouteDirectionsModal({
   const routeWindow = routeStart && routeEnd ? `${format(routeStart, 'HH:mm')} - ${format(routeEnd, 'HH:mm')}` : 'Not set'
   const missingCoordinatesCount = stores.filter((store) => !store.latitude || !store.longitude).length
   const visitItems = schedule.filter((item) => item.action === 'Visit' && item.storeId)
+  const visitStoreIds = useMemo(
+    () => Array.from(new Set(visitItems.map((item) => item.storeId).filter((id): id is string => Boolean(id)))),
+    [visitItems]
+  )
+  const briefingStoreIds = useMemo(() => {
+    if (visitStoreIds.length > 0) return visitStoreIds
+    return Array.from(new Set(stores.map((store) => store.id).filter((id): id is string => Boolean(id))))
+  }, [visitStoreIds, stores])
+  const visitStoreBriefings = useMemo(
+    () =>
+      briefingStoreIds.map((storeId) => {
+        const store = stores.find((candidate) => candidate.id === storeId)
+        return {
+          storeId,
+          storeName: store?.store_name || 'Unknown Store',
+          briefing: preVisitBriefingsByStore[storeId] || null,
+        }
+      }),
+    [briefingStoreIds, stores, preVisitBriefingsByStore]
+  )
+  const hasBriefingData = visitStoreBriefings.some((storeBriefing) => storeBriefing.briefing !== null)
   const nextPendingVisit = visitItems.find((item) => item.storeId && !completedVisitStoreIds.has(item.storeId))
   const quickActionStoreId = nextPendingVisit?.storeId || visitItems[0]?.storeId || null
+  const toggleBriefingStore = (storeId: string) => {
+    setExpandedBriefingStores((prev) => ({
+      ...prev,
+      [storeId]: !prev[storeId],
+    }))
+  }
+
+  const loadPreVisitBriefing = async (targetStoreIds: string[]) => {
+    if (targetStoreIds.length === 0) return
+
+    const sortedStoreIds = [...targetStoreIds].sort()
+
+    setIsGeneratingBriefing(true)
+    setBriefingError(null)
+
+    const result = await getRoutePreVisitBriefing(sortedStoreIds)
+    setIsGeneratingBriefing(false)
+
+    if (result.error || !result.data) {
+      setBriefingError(result.error || 'Failed to generate briefing.')
+      return
+    }
+
+    const nextBriefings = (result.data as PreVisitBriefingStore[]).reduce(
+      (acc, item) => {
+        acc[item.store_id] = item
+        return acc
+      },
+      {} as Record<string, PreVisitBriefingStore>
+    )
+
+    setPreVisitBriefingsByStore(nextBriefings)
+    setBriefingGeneratedAt(new Date())
+  }
+
+  useEffect(() => {
+    if (!isOpen) return
+    setPreVisitBriefingsByStore({})
+    setBriefingError(null)
+    setBriefingGeneratedAt(null)
+    setExpandedBriefingStores({})
+  }, [isOpen, plannedDate, managerUserId, region, stores])
+
+  const briefingStoreIdsKey = useMemo(() => [...briefingStoreIds].sort().join(','), [briefingStoreIds])
+
+  useEffect(() => {
+    if (!isOpen || isCalculating) return
+    if (briefingStoreIds.length === 0) return
+
+    void loadPreVisitBriefing(briefingStoreIds)
+  }, [isOpen, isCalculating, briefingStoreIdsKey, plannedDate, managerUserId, region])
 
   const handleMarkVisitComplete = async (storeId: string) => {
     if (!managerUserId || !plannedDate) {
@@ -1229,24 +1352,24 @@ export function RouteDirectionsModal({
   return (
     <>
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="!inset-[2vh_2vw] !h-auto !max-h-none !w-auto !max-w-none !overflow-y-auto !translate-x-0 !translate-y-0 border border-slate-200 p-0 data-[state=open]:animate-none data-[state=closed]:animate-none">
-        <div className="min-h-full flex flex-col bg-white">
-          <DialogHeader className="shrink-0 border-b border-slate-200 bg-white px-4 pb-4 pt-4 sm:px-6">
-            <div className="space-y-3 pr-12 md:pr-0">
-              <DialogTitle className="flex items-start gap-3 text-lg md:text-xl">
-                <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900 text-white">
-                  <RouteIcon className="h-4 w-4" />
-                </span>
-                <span className="min-w-0">
-                  <span className="block truncate">Route Directions</span>
-                  <span className="block text-sm font-medium text-slate-600">{managerName}</span>
-                </span>
-              </DialogTitle>
-              <DialogDescription className="text-xs md:text-sm text-slate-600">
-                Planned for {format(new Date(plannedDate), 'EEEE, dd MMMM yyyy')}
-              </DialogDescription>
-              {schedule.length > 0 && (
-                <div className="flex flex-wrap gap-2">
+      <DialogContent className="!inset-[2vh_2vw] !h-[96vh] !max-h-none !w-auto !max-w-none !overflow-hidden !translate-x-0 !translate-y-0 border border-slate-200 p-0 data-[state=open]:animate-none data-[state=closed]:animate-none [&>button]:hidden">
+        <div className="flex h-full flex-col overflow-hidden rounded-[inherit] bg-slate-50">
+          <DialogHeader className="flex-none border-b border-slate-200 bg-white p-4 md:px-8 md:py-5">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+              <div className="space-y-3 lg:w-1/2">
+                <div className="flex items-start gap-4">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white shadow-md">
+                    <Navigation className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <DialogTitle className="text-2xl font-black leading-tight text-slate-900">Route Directions</DialogTitle>
+                    <DialogDescription className="mt-1 text-sm font-medium text-slate-500">
+                      {managerName} <span className="text-slate-400">• Planned for {format(new Date(plannedDate), 'EEEE, dd MMMM yyyy')}</span>
+                    </DialogDescription>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
                   <Button
                     onClick={() => {
                       const icsContent = generateICS(schedule, managerName, plannedDate, stores)
@@ -1255,11 +1378,11 @@ export function RouteDirectionsModal({
                     }}
                     variant="outline"
                     size="sm"
-                    className="flex items-center gap-2 border-slate-300 bg-white min-h-[40px]"
+                    className="h-10 border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 hover:bg-slate-50"
                   >
-                    <CalendarIcon className="h-4 w-4" />
-                    <Download className="h-4 w-4" />
-                    <span>Download Calendar</span>
+                    <CalendarDays className="mr-1.5 h-4 w-4" />
+                    <Download className="mr-1.5 h-4 w-4" />
+                    Download Calendar
                   </Button>
                   <Button
                     onClick={() => {
@@ -1270,101 +1393,50 @@ export function RouteDirectionsModal({
                       setOpItemDuration('60')
                       setAddingOperational(true)
                     }}
-                    variant="outline"
                     size="sm"
-                    className="flex items-center gap-2 border-slate-300 bg-white min-h-[40px]"
+                    className="h-10 bg-slate-900 px-3 text-sm font-bold text-white hover:bg-slate-800"
                   >
-                    <Plus className="h-4 w-4" />
-                    <span>Add Operational Item</span>
+                    <Plus className="mr-1.5 h-4 w-4" />
+                    Add Operational Item
                   </Button>
                 </div>
-              )}
-            </div>
+              </div>
 
-            {schedule.length > 0 && (
-              <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                <div className="rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Visits</p>
-                  <p className="text-sm font-bold text-slate-900">{visitCount}</p>
-                  <p className="text-[10px] text-slate-500">{operationalCount} operational</p>
+              <div className="space-y-2 lg:ml-auto lg:w-1/2">
+                <div className="flex justify-end">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={onClose}
+                    className="h-10 w-10 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                    aria-label="Close route directions"
+                  >
+                    <X className="h-5 w-5" />
+                  </Button>
                 </div>
-                <div className="rounded-xl border border-blue-200 bg-blue-50/80 px-3 py-2">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-blue-700">Travel</p>
-                  <p className="text-sm font-bold text-blue-900">{totalTravelDistance.toFixed(1)} mi</p>
-                </div>
-                <div className="rounded-xl border border-amber-200 bg-amber-50/80 px-3 py-2">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-700">Drive Time</p>
-                  <p className="text-sm font-bold text-amber-900">{totalTravelMinutes} mins</p>
-                </div>
-                <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 px-3 py-2">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-700">Route Window</p>
-                  <p className="text-sm font-bold text-emerald-900">{routeWindow}</p>
+                <div className="grid grid-cols-4 gap-2">
+                  <div className="rounded-lg border border-slate-200 border-l-4 border-l-slate-400 bg-slate-50 p-3">
+                    <p className="mb-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-500">Visits</p>
+                    <p className="text-lg font-bold leading-none text-slate-900">
+                      {visitCount} <span className="ml-1 text-xs font-medium text-slate-500">{operationalCount} operational</span>
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-blue-100 border-l-4 border-l-blue-500 bg-blue-50 p-3">
+                    <p className="mb-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-600">Travel</p>
+                    <p className="text-lg font-bold leading-none text-blue-900">{totalTravelDistance.toFixed(1)} mi</p>
+                  </div>
+                  <div className="rounded-lg border border-amber-100 border-l-4 border-l-amber-500 bg-amber-50 p-3">
+                    <p className="mb-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-600">Drive Time</p>
+                    <p className="text-lg font-bold leading-none text-amber-900">{totalTravelMinutes} mins</p>
+                  </div>
+                  <div className="rounded-lg border border-emerald-100 border-l-4 border-l-emerald-500 bg-emerald-50 p-3">
+                    <p className="mb-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-600">Route Window</p>
+                    <p className="text-lg font-bold leading-none text-emerald-900">{routeWindow}</p>
+                  </div>
                 </div>
               </div>
-            )}
+            </div>
           </DialogHeader>
-
-          {schedule.length > 0 && (
-            <div className="border-b border-slate-200 bg-slate-50/70 px-4 py-3 sm:px-6 md:hidden">
-              <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-slate-500">Mobile Quick Actions</p>
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  size="sm"
-                  className="min-h-[40px] bg-blue-600 hover:bg-blue-700"
-                  onClick={openMapsRoute}
-                >
-                  <Navigation className="mr-1.5 h-3.5 w-3.5" />
-                  Start Route
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="min-h-[40px]"
-                  disabled={!nextPendingVisit?.storeId || quickActionLoading === `complete-${nextPendingVisit?.storeId}`}
-                  onClick={() => {
-                    if (nextPendingVisit?.storeId) {
-                      handleMarkVisitComplete(nextPendingVisit.storeId)
-                    }
-                  }}
-                >
-                  {quickActionLoading === `complete-${nextPendingVisit?.storeId}` ? (
-                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
-                  )}
-                  Mark Next
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="min-h-[40px]"
-                  disabled={!quickActionStoreId}
-                  onClick={() => {
-                    if (quickActionStoreId) {
-                      window.location.href = `/audit-tracker?storeId=${quickActionStoreId}`
-                    }
-                  }}
-                >
-                  <ClipboardPlus className="mr-1.5 h-3.5 w-3.5" />
-                  Add Evidence
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="min-h-[40px]"
-                  disabled={!quickActionStoreId}
-                  onClick={() => {
-                    if (quickActionStoreId) {
-                      window.location.href = `/incidents/new?storeId=${quickActionStoreId}`
-                    }
-                  }}
-                >
-                  <AlertTriangle className="mr-1.5 h-3.5 w-3.5" />
-                  Log Issue
-                </Button>
-              </div>
-            </div>
-          )}
 
           {isCalculating ? (
             <div className="flex flex-1 items-center justify-center py-12">
@@ -1372,214 +1444,419 @@ export function RouteDirectionsModal({
               <span className="ml-3 text-slate-600">Calculating route...</span>
             </div>
           ) : (
-            <div className="px-4 py-4 sm:px-6 sm:py-5">
-              <div className="space-y-5 lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-4 lg:space-y-0 xl:grid-cols-[minmax(0,1fr)_400px]">
-                {/* Schedule Timeline */}
-                <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:flex lg:flex-col">
-                  <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50/80 px-4 py-3">
-                    <h3 className="font-semibold text-sm md:text-base text-slate-900 flex items-center gap-2">
-                      <Clock className="h-4 w-4 flex-shrink-0" />
-                      Schedule
-                    </h3>
-                    <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
-                      {schedule.length} items
+            <div className="flex-1 min-h-0 bg-slate-100 p-3 md:p-5">
+              <div className="flex h-full min-h-0 flex-col gap-4 lg:flex-row lg:gap-6">
+                <section className="flex min-h-[360px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:w-[35%]">
+                  <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-5 py-4">
+                    <h2 className="flex items-center gap-2 font-bold text-slate-800">
+                      <Clock className="h-4.5 w-4.5 text-slate-400" />
+                      Itinerary
+                    </h2>
+                    <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600">
+                      {schedule.length} Items
                     </span>
                   </div>
-                  <div className="space-y-2.5 p-3 sm:p-4">
-                    {schedule.map((item) => {
-                      const isHomeAction = item.action.includes('Leave') || item.action.includes('Arrive home')
-                      const isVisitAction = item.action === 'Visit'
-                      const isTravelAction = item.action === 'Travel'
-                      const cardClass = isHomeAction
-                        ? 'border-blue-200 bg-blue-50/70'
-                        : isVisitAction
-                        ? 'border-emerald-200 bg-emerald-50/70'
-                        : isTravelAction
-                        ? 'border-amber-200 bg-amber-50/70'
-                        : 'border-violet-200 bg-violet-50/70'
-                      const badgeClass = isHomeAction
-                        ? 'border-blue-200 bg-blue-100 text-blue-700'
-                        : isVisitAction
-                        ? 'border-emerald-200 bg-emerald-100 text-emerald-700'
-                        : isTravelAction
-                        ? 'border-amber-200 bg-amber-100 text-amber-700'
-                        : 'border-violet-200 bg-violet-100 text-violet-700'
-                      const typeLabel = isHomeAction ? 'Home' : isVisitAction ? 'Visit' : isTravelAction ? 'Travel' : 'Operational'
-                      const actionLabel = isVisitAction
-                        ? `${item.location} Visit`
-                        : isTravelAction
-                        ? `Travel: ${item.location}`
-                        : item.action
-                      const isVisitCompleted = !!item.storeId && completedVisitStoreIds.has(item.storeId)
 
-                      return (
-                        <div key={item.id} className={`rounded-xl border p-3 shadow-sm ${cardClass}`}>
-                          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                            <div className="min-w-0 flex-1">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <span className="rounded-md bg-slate-900 px-2 py-0.5 text-[11px] font-semibold text-white">
-                                  {item.endTime ? `${format(item.time, 'HH:mm')} - ${format(item.endTime, 'HH:mm')}` : format(item.time, 'HH:mm')}
-                                </span>
-                                <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${badgeClass}`}>
-                                  {typeLabel}
-                                </span>
-                              </div>
-                              <p className="mt-2 text-sm font-semibold text-slate-900 break-words">{actionLabel}</p>
-                              {isVisitAction && (
-                                <div className="mt-1">
-                                  <span
-                                    className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
-                                      isVisitCompleted
-                                        ? 'border-emerald-200 bg-emerald-100 text-emerald-700'
-                                        : 'border-amber-200 bg-amber-100 text-amber-700'
-                                    }`}
-                                  >
-                                    {isVisitCompleted ? 'Completed' : 'Pending'}
-                                  </span>
-                                </div>
-                              )}
-                              {item.action !== 'Travel' && item.location && (
-                                <div className="mt-1 flex items-start gap-1.5 text-xs text-slate-600">
-                                  {item.action.includes('home') ? (
-                                    <Home className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
-                                  ) : (
-                                    <MapPin className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
-                                  )}
-                                  <span className="break-words">{item.location}</span>
-                                </div>
-                              )}
-                              {item.travelTime && (
-                                <div className="mt-1 text-xs font-medium text-slate-600">
-                                  {item.travelDistance?.toFixed(1)} miles • {item.travelTime} minutes
-                                </div>
+                  <div className="relative flex-1 overflow-y-auto p-4 md:p-5">
+                    <div className="absolute bottom-8 left-[31px] top-8 w-px bg-slate-100" />
+                    <div className="relative z-10 space-y-5">
+                      {schedule.map((item) => {
+                        const isHomeAction = item.action.includes('Leave') || item.action.includes('Arrive home')
+                        const isVisitAction = item.action === 'Visit'
+                        const isTravelAction = item.action === 'Travel'
+                        const isVisitCompleted = !!item.storeId && completedVisitStoreIds.has(item.storeId)
+                        const actionLabel = isVisitAction ? `${item.location} Visit` : isTravelAction ? `Travel: ${item.location}` : item.action
+
+                        const iconClass = isHomeAction
+                          ? 'bg-slate-100 text-slate-600'
+                          : isVisitAction
+                          ? 'bg-emerald-100 text-emerald-600'
+                          : isTravelAction
+                          ? 'bg-amber-100 text-amber-600'
+                          : 'bg-violet-100 text-violet-600'
+
+                        const cardClass = isHomeAction
+                          ? 'border-slate-200 bg-white'
+                          : isVisitAction
+                          ? 'border-emerald-100 bg-emerald-50/30'
+                          : isTravelAction
+                          ? 'border-amber-100 bg-amber-50/30'
+                          : 'border-violet-100 bg-violet-50/30'
+
+                        const timeBadgeClass = isHomeAction
+                          ? 'bg-slate-200 text-slate-700'
+                          : isVisitAction
+                          ? 'bg-emerald-200 text-emerald-800'
+                          : isTravelAction
+                          ? 'bg-amber-200 text-amber-800'
+                          : 'bg-violet-200 text-violet-800'
+
+                        return (
+                          <div key={item.id} className="flex gap-3">
+                            <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-white shadow-sm ${iconClass}`}>
+                              {isHomeAction ? (
+                                <Home className="h-4 w-4" />
+                              ) : isVisitAction ? (
+                                <MapPin className="h-4 w-4" />
+                              ) : isTravelAction ? (
+                                <Car className="h-4 w-4" />
+                              ) : (
+                                <FileText className="h-4 w-4" />
                               )}
                             </div>
 
-                            <div className="flex items-center gap-1 self-end sm:self-auto">
-                              {item.action === 'Visit' && (
-                                <>
-                                  <Button
-                                    onClick={() => {
-                                      if (item.storeId) {
-                                        handleMarkVisitComplete(item.storeId)
-                                      }
-                                    }}
-                                    variant="ghost"
-                                    size="sm"
-                                    disabled={!item.storeId || isVisitCompleted || quickActionLoading === `complete-${item.storeId}`}
-                                    className="h-8 px-2 rounded-lg hover:bg-white/80 text-emerald-700 disabled:text-slate-400"
-                                    title={isVisitCompleted ? 'Visit completed' : 'Mark visit complete'}
-                                  >
-                                    {quickActionLoading === `complete-${item.storeId}` ? (
-                                      <Loader2 className="h-4 w-4 animate-spin" />
-                                    ) : (
-                                      <CheckCircle2 className="h-4 w-4" />
-                                    )}
-                                  </Button>
-                                  <Button
-                                    onClick={() => handleEditVisit(item)}
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-8 w-8 p-0 rounded-lg hover:bg-white/80"
-                                    title="Edit times"
-                                  >
-                                    <Edit2 className="h-4 w-4" />
-                                  </Button>
-                                </>
-                              )}
-                              {item.isOperational && (
-                                <>
-                                  <Button
-                                    onClick={() => {
-                                      setEditingOpItemId(item.id)
-                                      setOpItemTitle(item.action)
-                                      setOpItemLocation(item.location)
-                                      setOpItemStartTime(format(item.time, 'HH:mm'))
-                                      setOpItemDuration(String(Math.round((item.endTime!.getTime() - item.time.getTime()) / 60000)))
-                                    }}
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-8 w-8 p-0 rounded-lg hover:bg-white/80"
-                                    title="Edit operational item"
-                                  >
-                                    <Edit2 className="h-4 w-4" />
-                                  </Button>
-                                  <Button
-                                    onClick={async () => {
-                                      if (!item.dbId) return
-                                      if (!confirm(`Are you sure you want to delete "${item.action}"?`)) return
+                            <div className={`flex-1 rounded-xl border p-3 shadow-sm ${cardClass}`}>
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <span className={`rounded px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${timeBadgeClass}`}>
+                                      {item.endTime ? `${format(item.time, 'HH:mm')} - ${format(item.endTime, 'HH:mm')}` : format(item.time, 'HH:mm')}
+                                    </span>
 
-                                      const { error } = await deleteRouteOperationalItem(item.dbId)
-                                      if (error) {
-                                        alert(`Error deleting operational item: ${error}`)
-                                        return
-                                      }
+                                    {isVisitAction ? (
+                                      <span
+                                        className={`rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
+                                          isVisitCompleted ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                                        }`}
+                                      >
+                                        {isVisitCompleted ? 'Completed' : 'Pending'}
+                                      </span>
+                                    ) : null}
+                                  </div>
 
-                                      setSchedule(prev => prev.filter(s => s.id !== item.id))
-                                    }}
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-8 w-8 p-0 rounded-lg text-red-600 hover:text-red-700 hover:bg-red-50"
-                                    title="Delete operational item"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </>
-                              )}
+                                  <h3 className="mt-2 break-words text-sm font-bold text-slate-900">{actionLabel}</h3>
+
+                                  {item.action !== 'Travel' && item.location && (
+                                    <p className="mt-1 flex items-start gap-1 text-xs text-slate-500">
+                                      {isHomeAction ? (
+                                        <Home className="mt-0.5 h-3 w-3 shrink-0" />
+                                      ) : (
+                                        <MapPin className="mt-0.5 h-3 w-3 shrink-0" />
+                                      )}
+                                      <span className="break-words">{item.location}</span>
+                                    </p>
+                                  )}
+
+                                  {item.travelTime && (
+                                    <p className="mt-2 w-fit rounded bg-white/60 px-1.5 py-0.5 font-mono text-xs font-medium text-slate-500">
+                                      {(item.travelDistance ?? 0).toFixed(1)} miles • {item.travelTime} minutes
+                                    </p>
+                                  )}
+                                </div>
+
+                                <div className="flex shrink-0 items-center gap-1">
+                                  {item.action === 'Visit' && (
+                                    <>
+                                      <Button
+                                        onClick={() => {
+                                          if (item.storeId) {
+                                            handleMarkVisitComplete(item.storeId)
+                                          }
+                                        }}
+                                        variant="ghost"
+                                        size="sm"
+                                        disabled={!item.storeId || isVisitCompleted || quickActionLoading === `complete-${item.storeId}`}
+                                        className="h-8 w-8 rounded-lg p-0 text-emerald-700 hover:bg-white/80 hover:text-emerald-700 disabled:text-slate-400"
+                                        title={isVisitCompleted ? 'Visit completed' : 'Mark visit complete'}
+                                      >
+                                        {quickActionLoading === `complete-${item.storeId}` ? (
+                                          <Loader2 className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                          <CheckCircle2 className="h-4 w-4" />
+                                        )}
+                                      </Button>
+                                      <Button
+                                        onClick={() => handleEditVisit(item)}
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-8 w-8 rounded-lg p-0 hover:bg-white/80"
+                                        title="Edit times"
+                                      >
+                                        <Edit2 className="h-4 w-4" />
+                                      </Button>
+                                    </>
+                                  )}
+
+                                  {item.isOperational && (
+                                    <>
+                                      <Button
+                                        onClick={() => {
+                                          setEditingOpItemId(item.id)
+                                          setOpItemTitle(item.action)
+                                          setOpItemLocation(item.location)
+                                          setOpItemStartTime(format(item.time, 'HH:mm'))
+                                          setOpItemDuration(
+                                            String(
+                                              Math.round(
+                                                ((item.endTime?.getTime() ?? item.time.getTime() + 60 * 60000) - item.time.getTime()) / 60000
+                                              )
+                                            )
+                                          )
+                                        }}
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-8 w-8 rounded-lg p-0 hover:bg-white/80"
+                                        title="Edit operational item"
+                                      >
+                                        <Edit2 className="h-4 w-4" />
+                                      </Button>
+                                      <Button
+                                        onClick={async () => {
+                                          if (!item.dbId) return
+                                          if (!confirm(`Are you sure you want to delete "${item.action}"?`)) return
+
+                                          const { error } = await deleteRouteOperationalItem(item.dbId)
+                                          if (error) {
+                                            alert(`Error deleting operational item: ${error}`)
+                                            return
+                                          }
+
+                                          setSchedule((prev) => prev.filter((scheduleItem) => scheduleItem.id !== item.id))
+                                        }}
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-8 w-8 rounded-lg p-0 text-red-600 hover:bg-red-50 hover:text-red-700"
+                                        title="Delete operational item"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      )
-                    })}
+                        )
+                      })}
+                    </div>
                   </div>
                 </section>
 
-                <div className="space-y-5 lg:sticky lg:top-0 lg:pr-1">
-                  {/* Route Map */}
-                  <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                    <div className="border-b border-slate-200 bg-slate-50/80 px-4 py-3">
-                      <h3 className="font-semibold text-sm md:text-base text-slate-900 flex items-center gap-2">
-                        <MapPin className="h-4 w-4 flex-shrink-0" />
+                <div className="hidden min-h-[360px] lg:flex lg:w-[35%] lg:flex-col lg:gap-4">
+                  <section className="flex flex-1 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                    <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-5 py-4">
+                      <h2 className="flex items-center gap-2 font-bold text-slate-800">
+                        <MapIcon className="h-4.5 w-4.5 text-slate-400" />
                         Route Map
-                      </h3>
+                      </h2>
                     </div>
-                    <div className="h-[280px] sm:h-[320px] lg:h-[360px]">
-                      <RouteMapComponent stores={stores} managerHome={managerHome} />
+                    <div className="flex-1 overflow-hidden p-3">
+                      <div className="h-full min-h-[420px] overflow-hidden rounded-xl border border-slate-200">
+                        <RouteMapComponent stores={stores} managerHome={managerHome} />
+                      </div>
                     </div>
                   </section>
 
-                  {/* Route Segments */}
                   {routeSegments.length > 0 && (
                     <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                      <div className="border-b border-slate-200 bg-slate-50/80 px-4 py-3">
-                        <h3 className="font-semibold text-sm md:text-base text-slate-900">Route Details</h3>
+                      <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-5 py-3">
+                        <h3 className="text-sm font-bold text-slate-800">Route Legs</h3>
+                        <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600">
+                          {routeSegments.length}
+                        </span>
                       </div>
-                      <div className="space-y-2 p-3 sm:p-4">
+                      <div className="max-h-48 space-y-2 overflow-y-auto p-3">
                         {routeSegments.map((segment, index) => (
-                          <div key={index} className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
-                            <p className="text-sm font-medium text-slate-900 break-words">{segment.from} → {segment.to}</p>
-                            <p className="mt-1 text-xs text-slate-600">{segment.distance.toFixed(1)} miles • {segment.duration} minutes</p>
+                          <div key={`${segment.from}-${segment.to}-${index}`} className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
+                            <p className="break-words text-xs font-semibold text-slate-800">{segment.from} → {segment.to}</p>
+                            <p className="mt-0.5 text-[11px] text-slate-500">{segment.distance.toFixed(1)} miles • {segment.duration} minutes</p>
                           </div>
                         ))}
                       </div>
                     </section>
                   )}
-
-                  {missingCoordinatesCount > 0 && (
-                    <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5">
-                      <p className="text-sm text-amber-800">
-                        {missingCoordinatesCount} store(s) are missing coordinates and were excluded from route calculation.
-                      </p>
-                    </div>
-                  )}
                 </div>
+
+                <section className="flex min-h-[360px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:w-[30%]">
+                  <div className="border-b border-slate-100 bg-slate-50/80 px-5 py-4">
+                    <h2 className="flex items-center gap-2 font-bold text-slate-800">
+                      <FileText className="h-4.5 w-4.5 text-slate-400" />
+                      Pre-Visit Briefing
+                    </h2>
+                    {briefingGeneratedAt && (
+                      <p className="mt-1 text-[10px] font-mono text-slate-500">Generated {format(briefingGeneratedAt, 'dd MMM yyyy, HH:mm')}</p>
+                    )}
+                  </div>
+
+                  <div className="flex-1 space-y-3 overflow-y-auto bg-slate-50/30 p-4">
+                    <div className="rounded-xl border border-slate-200 bg-white p-3">
+                      <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Quick Actions</h3>
+                      <div className="mt-3 grid grid-cols-2 gap-2">
+                        <Button size="sm" className="h-9 bg-blue-600 text-xs font-bold hover:bg-blue-700" onClick={openMapsRoute}>
+                          <Navigation className="mr-1 h-3.5 w-3.5" />
+                          Start Route
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-9 text-xs font-bold"
+                          disabled={!nextPendingVisit?.storeId || quickActionLoading === `complete-${nextPendingVisit?.storeId}`}
+                          onClick={() => {
+                            if (nextPendingVisit?.storeId) {
+                              handleMarkVisitComplete(nextPendingVisit.storeId)
+                            }
+                          }}
+                        >
+                          {quickActionLoading === `complete-${nextPendingVisit?.storeId}` ? (
+                            <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
+                          )}
+                          Mark Next
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-9 text-xs font-bold"
+                          disabled={!quickActionStoreId}
+                          onClick={() => {
+                            if (quickActionStoreId) {
+                              window.location.href = `/audit-tracker?storeId=${quickActionStoreId}`
+                            }
+                          }}
+                        >
+                          <FileText className="mr-1 h-3.5 w-3.5" />
+                          Add Evidence
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-9 text-xs font-bold"
+                          disabled={!quickActionStoreId}
+                          onClick={() => {
+                            if (quickActionStoreId) {
+                              window.location.href = `/incidents/new?storeId=${quickActionStoreId}`
+                            }
+                          }}
+                        >
+                          <AlertTriangle className="mr-1 h-3.5 w-3.5" />
+                          Log Issue
+                        </Button>
+                      </div>
+                    </div>
+
+                    {isGeneratingBriefing && (
+                      <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        Generating briefing...
+                      </div>
+                    )}
+
+                    {briefingError && (
+                      <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+                        {briefingError}
+                      </div>
+                    )}
+
+                    {!hasBriefingData && !isGeneratingBriefing && (
+                      <p className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
+                        Briefing data is pulled automatically when route details load.
+                      </p>
+                    )}
+
+                    {visitStoreBriefings.map((storeBriefing) => {
+                      const briefing = storeBriefing.briefing
+                      if (!briefing) return null
+                      const isExpanded = expandedBriefingStores[storeBriefing.storeId] ?? false
+
+                      return (
+                        <div key={storeBriefing.storeId} className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                          <button
+                            type="button"
+                            onClick={() => toggleBriefingStore(storeBriefing.storeId)}
+                            className="w-full bg-slate-50/50 p-4 text-left"
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <h3 className="font-bold text-slate-900">{storeBriefing.storeName}</h3>
+                                <p className="mt-0.5 text-xs text-slate-500">
+                                  Previous score:{' '}
+                                  {typeof briefing.previous_score === 'number' ? (
+                                    <span className={getScoreTextColor(briefing.previous_score)}>{Math.round(briefing.previous_score)}%</span>
+                                  ) : (
+                                    <span className="text-slate-500">Not available</span>
+                                  )}
+                                  {briefing.previous_score_date && (
+                                    <span> • {format(new Date(briefing.previous_score_date), 'dd MMM yyyy')}</span>
+                                  )}
+                                </p>
+                              </div>
+                              <ChevronDown
+                                className={`mt-0.5 h-4 w-4 shrink-0 text-slate-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                              />
+                            </div>
+                          </button>
+
+                          {isExpanded && (
+                            <div className="space-y-3 border-t border-slate-100 p-4">
+                              <div>
+                                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                  Open Actions ({briefing.open_actions.length})
+                                </p>
+                                {briefing.open_actions.length === 0 ? (
+                                  <p className="mt-2 rounded-lg bg-emerald-50 p-2 text-xs font-medium text-emerald-600">No open actions.</p>
+                                ) : (
+                                  <div className="mt-2 space-y-2">
+                                    {briefing.open_actions.map((action) => {
+                                      const priorityLabel = toTitleCase(action.priority)
+                                      const statusLabel = toTitleCase(action.status)
+
+                                      return (
+                                        <div key={action.id} className="rounded-lg border border-slate-100 bg-slate-50/50 p-2.5 text-xs">
+                                          <p className="font-medium leading-tight text-slate-700">{action.title}</p>
+                                          <div className="mt-2 flex flex-wrap items-center gap-2 text-[9px] font-bold uppercase tracking-wider">
+                                            <span className={`rounded border px-1.5 py-0.5 ${getPriorityColor(priorityLabel)}`}>{priorityLabel}</span>
+                                            <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-500">
+                                              {statusLabel}
+                                              {action.due_date ? ` • Due ${format(new Date(action.due_date), 'dd MMM')}` : ''}
+                                            </span>
+                                          </div>
+                                        </div>
+                                      )
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+
+                              <div>
+                                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                  Recent Incidents ({briefing.recent_incidents.length})
+                                </p>
+                                {briefing.recent_incidents.length === 0 ? (
+                                  <p className="mt-2 rounded-lg bg-emerald-50 p-2 text-xs font-medium text-emerald-600">
+                                    No recent incidents in last 30 days.
+                                  </p>
+                                ) : (
+                                  <div className="mt-2 space-y-2">
+                                    {briefing.recent_incidents.map((incident) => (
+                                      <div key={incident.id} className="rounded-lg border border-slate-100 bg-slate-50/50 p-2.5 text-xs">
+                                        <p className="font-medium leading-tight text-slate-700">{incident.summary}</p>
+                                        <p className="mt-1 text-[11px] text-slate-500">
+                                          {incident.reference_no} • {toTitleCase(incident.severity)} • {format(new Date(incident.occurred_at), 'dd MMM')}
+                                        </p>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </section>
               </div>
+
+              {missingCoordinatesCount > 0 && (
+                <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5">
+                  <p className="text-sm text-amber-800">
+                    {missingCoordinatesCount} store(s) are missing coordinates and were excluded from route calculation.
+                  </p>
+                </div>
+              )}
             </div>
           )}
-
-          <DialogFooter className="border-t border-slate-200 bg-white px-4 py-3 sm:px-6">
-            <Button onClick={onClose} className="w-full sm:w-auto min-h-[44px]">Close</Button>
-          </DialogFooter>
         </div>
       </DialogContent>
     </Dialog>

@@ -1,12 +1,20 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { LogOut, Menu } from 'lucide-react'
+import { AlertTriangle, LogOut, Menu } from 'lucide-react'
 import { useSidebar } from './sidebar-provider'
 import { cn } from '@/lib/utils'
 import { StoreSearch } from '@/components/layout/store-search'
 import { createClient } from '@/lib/supabase/client'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 
 interface HeaderClientProps {
   signOut: () => void
@@ -31,6 +39,10 @@ export function HeaderClient({ signOut, currentUser }: HeaderClientProps) {
   const [onlineUsers, setOnlineUsers] = useState<Array<{ id: string; name: string }>>([
     { id: currentUser.id, name: currentUser.name },
   ])
+  const [showTimeoutWarning, setShowTimeoutWarning] = useState(false)
+  const [secondsRemaining, setSecondsRemaining] = useState(0)
+  const logoutFormRef = useRef<HTMLFormElement | null>(null)
+
   const presenceKey = useMemo(() => {
     if (currentUser.id && currentUser.id !== 'unknown-user') return currentUser.id
     return `fallback-${currentUser.name.trim().toLowerCase().replace(/\s+/g, '-') || 'user'}`
@@ -40,6 +52,54 @@ export function HeaderClient({ signOut, currentUser }: HeaderClientProps) {
     e.preventDefault()
     e.stopPropagation()
     setIsOpen(!isOpen)
+  }
+
+  // Absolute session timeout: warn at 9 hours, auto-logout at 10 hours.
+  useEffect(() => {
+    const WARNING_MS = 9 * 60 * 60 * 1000
+    const TOTAL_MS = 10 * 60 * 60 * 1000
+
+    const warningTimeout = window.setTimeout(() => {
+      setSecondsRemaining(60 * 60) // 1 hour countdown
+      setShowTimeoutWarning(true)
+    }, WARNING_MS)
+
+    const logoutTimeout = window.setTimeout(() => {
+      if (logoutFormRef.current) {
+        logoutFormRef.current.requestSubmit()
+      }
+    }, TOTAL_MS)
+
+    return () => {
+      window.clearTimeout(warningTimeout)
+      window.clearTimeout(logoutTimeout)
+    }
+  }, [])
+
+  // Countdown timer once the warning is visible.
+  useEffect(() => {
+    if (!showTimeoutWarning) return
+
+    const interval = window.setInterval(() => {
+      setSecondsRemaining((prev) => (prev > 0 ? prev - 1 : 0))
+    }, 1000)
+
+    return () => {
+      window.clearInterval(interval)
+    }
+  }, [showTimeoutWarning])
+
+  const formatRemaining = () => {
+    const minutes = Math.floor(secondsRemaining / 60)
+    const seconds = secondsRemaining % 60
+    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+  }
+
+  const handleStaySignedIn = () => {
+    setShowTimeoutWarning(false)
+    setSecondsRemaining(0)
+    // Reload to reset timers and refresh any session tokens.
+    window.location.reload()
   }
 
   useEffect(() => {
@@ -138,7 +198,7 @@ export function HeaderClient({ signOut, currentUser }: HeaderClientProps) {
             </div>
           ) : null}
         </div>
-        <form action={signOut}>
+        <form action={signOut} ref={logoutFormRef}>
           <Button 
             type="submit" 
             variant="ghost" 
@@ -149,6 +209,36 @@ export function HeaderClient({ signOut, currentUser }: HeaderClientProps) {
           </Button>
         </form>
       </div>
+
+      <Dialog open={showTimeoutWarning} onOpenChange={setShowTimeoutWarning}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-500" />
+              Session expiring soon
+            </DialogTitle>
+            <DialogDescription>
+              You&apos;ve been signed in for 9 hours. For security, you&apos;ll be logged out automatically in 1 hour
+              unless you choose to stay signed in.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-2 text-sm">
+            <p className="mb-1 font-medium">Time remaining before auto log out:</p>
+            <p className="text-2xl font-mono font-semibold text-amber-600">{formatRemaining()}</p>
+          </div>
+          <DialogFooter className="mt-4">
+            <Button
+              variant="outline"
+              onClick={() => logoutFormRef.current?.requestSubmit()}
+            >
+              Log out now
+            </Button>
+            <Button onClick={handleStaySignedIn}>
+              I&apos;m still here
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </header>
   )
 }

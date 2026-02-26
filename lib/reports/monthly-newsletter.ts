@@ -1,6 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { endOfMonth, format, isValid, parse, startOfMonth } from 'date-fns'
-import { getFRAStatusFromDate, type FRAStatus } from '@/lib/compliance-forecast'
+import {
+  computeRevisitRiskForecast,
+  getFRAStatusFromDate,
+  type FRAStatus,
+  type RevisitRiskStoreInput,
+} from '@/lib/compliance-forecast'
 import { resolveStoreActionPriorityTheme } from '@/lib/store-action-titles'
 import type {
   AreaNewsletterReport,
@@ -69,6 +74,12 @@ interface StoreActionRow {
   created_at: string | null
 }
 
+interface IncidentRow {
+  id: string
+  store_id: string | null
+  status: string | null
+}
+
 interface StoreActionThemeAggregate {
   key: string
   topic: string
@@ -98,6 +109,12 @@ const DEFAULT_LEGISLATION_UPDATES = [
 
 const STORE_ACTION_ACTIVE_STATUSES = new Set(['open', 'in_progress', 'blocked'])
 const STORE_ACTION_HIGH_PRIORITIES = new Set(['high', 'urgent'])
+const STORE_ACTION_P1_PRIORITIES = new Set(['urgent', 'critical', 'p1', 'priority 1', 'priority-1'])
+const STORE_ACTION_P2_PRIORITIES = new Set(['high', 'p2', 'priority 2', 'priority-2'])
+const INCIDENT_CLOSED_STATUSES = new Set(['closed', 'complete', 'completed', 'resolved', 'cancelled'])
+
+const FIRE_SAFETY_ACTION_PATTERN =
+  /(fire|alarm|extinguisher|escape|evac|smoke|detector|call point|emergency lighting|fire door|fra|risk assessment)/i
 
 function roundToOneDecimal(value: number): number {
   return Math.round(value * 10) / 10
@@ -244,6 +261,56 @@ function isStoreActionHighPriority(priority: string | null | undefined): boolean
   return STORE_ACTION_HIGH_PRIORITIES.has(normalizeStoreActionPriority(priority))
 }
 
+function normalizeIncidentStatus(value: string | null | undefined): string {
+  return (value || '').trim().toLowerCase()
+}
+
+function isIncidentActive(status: string | null | undefined): boolean {
+  return !INCIDENT_CLOSED_STATUSES.has(normalizeIncidentStatus(status))
+}
+
+function buildStoreActionPriorityText(action: StoreActionRow): string {
+  return [
+    normalizeStoreActionPriority(action.priority),
+    normalizeStoreActionPriority(action.priority_summary || null),
+  ]
+    .filter((value) => value.length > 0)
+    .join(' ')
+}
+
+function isStoreActionFireSafety(action: StoreActionRow): boolean {
+  const combined = [
+    action.title || '',
+    action.description || '',
+    action.source_flagged_item || '',
+    action.priority_summary || '',
+  ]
+    .join(' ')
+    .trim()
+
+  if (!combined) return false
+  return FIRE_SAFETY_ACTION_PATTERN.test(combined)
+}
+
+function resolveStoreActionPriorityTier(action: StoreActionRow): 'p1' | 'p2' | null {
+  const priorityText = buildStoreActionPriorityText(action)
+  if (!priorityText) return null
+
+  const hasP1 =
+    STORE_ACTION_P1_PRIORITIES.has(priorityText) ||
+    /\bp[\s-]?1\b/.test(priorityText) ||
+    /\bpriority[\s-]?1\b/.test(priorityText)
+  if (hasP1) return 'p1'
+
+  const hasP2 =
+    STORE_ACTION_P2_PRIORITIES.has(priorityText) ||
+    /\bp[\s-]?2\b/.test(priorityText) ||
+    /\bpriority[\s-]?2\b/.test(priorityText)
+  if (hasP2) return 'p2'
+
+  return null
+}
+
 function isDueDateOverdue(dueDate: string | null | undefined, referenceDate: Date): boolean {
   const parsed = parseDate(dueDate || null)
   if (!parsed) return false
@@ -342,6 +409,125 @@ function formatStoreScoreLine(store: NewsletterStoreScore): string {
   return `${store.storeName}${store.storeCode ? ` (${store.storeCode})` : ''} - ${store.score.toFixed(1)}%`
 }
 
+function formatStoreLabel(store: { storeName: string; storeCode: string | null }): string {
+  return store.storeCode ? `${store.storeName} (${store.storeCode})` : store.storeName
+}
+
+function buildRevisitRiskNarrative(report: {
+  borderlineStoreCount: number
+  predictedRevisitCount: number
+  alreadyBelowThresholdCount: number
+  closeActionsTarget: number
+  immediateActionTarget: number
+  storesWithOpenIncidentsAtRiskCount: number
+  predictedStores: Array<{
+    storeName: string
+    storeCode: string | null
+  }>
+  alreadyBelowStores: Array<{
+    storeName: string
+    storeCode: string | null
+  }>
+}): string {
+  const predictedStoreNames = report.predictedStores.slice(0, 2).map((store) => formatStoreLabel(store))
+  const alreadyBelowStoreNames = report.alreadyBelowStores
+    .slice(0, 2)
+    .map((store) => formatStoreLabel(store))
+
+  if (report.borderlineStoreCount === 0) {
+    if (report.alreadyBelowThresholdCount > 0) {
+      const highlightedText =
+        alreadyBelowStoreNames.length > 0 ? ` (including ${alreadyBelowStoreNames.join(' and ')})` : ''
+      const closureText =
+        report.immediateActionTarget > 0
+          ? `Close ${report.immediateActionTarget} open P1/P2 fire safety actions immediately to recover these stores above the revisit threshold.`
+          : 'Prioritize immediate close-out of any remaining fire safety actions to recover these stores above the revisit threshold.'
+      const incidentText =
+        report.storesWithOpenIncidentsAtRiskCount > 0
+          ? ` ${report.storesWithOpenIncidentsAtRiskCount} at-risk store${report.storesWithOpenIncidentsAtRiskCount !== 1 ? 's also have' : ' also has'} open incidents, which increases volatility heading into End-of-Year audits.`
+          : ''
+
+      return `Footasylum Management: ${report.alreadyBelowThresholdCount} store${report.alreadyBelowThresholdCount !== 1 ? 's are' : ' is'} already below 80% and in mandatory revisit status${highlightedText}. ${closureText}${incidentText}`
+    }
+
+    return 'Footasylum Management: No stores are currently in the 80-84% Start-of-Year watch band. Keep P1/P2 fire safety actions closed out to prevent revisit exposure.'
+  }
+
+  const predictedText =
+    predictedStoreNames.length > 0 ? ` (including ${predictedStoreNames.join(' and ')})` : ''
+  const alreadyBelowText =
+    alreadyBelowStoreNames.length > 0 ? ` (including ${alreadyBelowStoreNames.join(' and ')})` : ''
+
+  if (report.alreadyBelowThresholdCount > 0) {
+    const immediateText =
+      report.immediateActionTarget > 0
+        ? `Immediate priority: close ${report.immediateActionTarget} open P1/P2 fire safety actions at revisit stores.`
+        : 'Immediate priority: clear any remaining P1/P2 fire safety actions at revisit stores.'
+    const forecastText =
+      report.closeActionsTarget > 0
+        ? `Secondary prevention: close ${report.closeActionsTarget} open P1/P2 watch-band actions this week to prevent additional revisits.`
+        : 'Secondary prevention: keep all open P1/P2 watch-band actions closed this week to prevent additional revisits.'
+    const incidentText =
+      report.storesWithOpenIncidentsAtRiskCount > 0
+        ? ` ${report.storesWithOpenIncidentsAtRiskCount} at-risk store${report.storesWithOpenIncidentsAtRiskCount !== 1 ? 's also carry' : ' also carries'} open incidents.`
+        : ''
+
+    return `Footasylum Management: You currently have ${report.borderlineStoreCount} stores sitting between 80-84% from their Start-of-Year audits and ${report.alreadyBelowThresholdCount} stores already below 80% in mandatory revisit status${alreadyBelowText}. Due to unresolved fire safety actions, our AI predicts ${report.predictedRevisitCount} of the 80-84% stores${predictedText} will drop below 80% in the End-of-Year cycle. ${immediateText} ${forecastText}${incidentText}`
+  }
+
+  const closureText =
+    report.closeActionsTarget > 0
+      ? `Closing these ${report.closeActionsTarget} open P1/P2 fire safety action${report.closeActionsTarget !== 1 ? 's' : ''} this week will stabilize their scores and prevent revisit requirements.`
+      : 'Keep all open P1/P2 fire safety actions closed this week to stabilize scores and prevent revisit requirements.'
+
+  return `Footasylum Management: You currently have ${report.borderlineStoreCount} stores sitting between 80-84% from their Start-of-Year audits. Due to unresolved fire safety actions, our AI predicts ${report.predictedRevisitCount} of these stores${predictedText} will drop below 80% in the End-of-Year cycle, triggering mandatory revisits. ${closureText}`
+}
+
+function buildRevisitRiskInputs(
+  stores: StoreRow[],
+  storeActionsByStore: Map<string, StoreActionRow[]>,
+  openIncidentsByStore: Map<string, number>,
+  period: MonthPeriod
+): RevisitRiskStoreInput[] {
+  return stores.map((store) => {
+    const openActions = (storeActionsByStore.get(store.id) || []).filter((action) =>
+      isStoreActionActive(action.status)
+    )
+
+    let openP1Actions = 0
+    let openP2Actions = 0
+    let openFireSafetyActions = 0
+    let overdueP1Actions = 0
+
+    openActions.forEach((action) => {
+      if (!isStoreActionFireSafety(action)) return
+      openFireSafetyActions += 1
+
+      const tier = resolveStoreActionPriorityTier(action)
+      if (tier === 'p1') {
+        openP1Actions += 1
+        if (isDueDateOverdue(action.due_date, period.end)) {
+          overdueP1Actions += 1
+        }
+      }
+      if (tier === 'p2') openP2Actions += 1
+    })
+
+    return {
+      storeId: store.id,
+      storeName: store.store_name,
+      storeCode: store.store_code,
+      region: store.region,
+      startOfYearAuditScore: store.compliance_audit_1_overall_pct,
+      openP1Actions,
+      openP2Actions,
+      openFireSafetyActions,
+      overdueP1Actions,
+      openIncidents: openIncidentsByStore.get(store.id) || 0,
+    }
+  })
+}
+
 function buildNewsletterMarkdown(
   report: Omit<AreaNewsletterReport, 'newsletterMarkdown'>,
   periodLabel: string
@@ -377,6 +563,35 @@ function buildNewsletterMarkdown(
           ...report.auditMetrics.focusStores.map((store) => `  - ${formatStoreScoreLine(store)}`),
         ]
       : ['- Priority focus stores: None available']),
+    '',
+    '## Revisit Risk Forecast',
+    `- Total at-risk stores (<85% combined): ${report.revisitRiskMetrics.atRiskStoreCount}`,
+    `- Stores in 80-84% Start-of-Year band: ${report.revisitRiskMetrics.borderlineStoreCount}`,
+    `- Predicted to drop below 80%: ${report.revisitRiskMetrics.predictedRevisitCount}`,
+    `- Already below 80% (mandatory revisit): ${report.revisitRiskMetrics.alreadyBelowThresholdCount}`,
+    `- Open P1 fire safety actions (watch band stores): ${report.revisitRiskMetrics.openP1Count}`,
+    `- Open P2 fire safety actions (watch band stores): ${report.revisitRiskMetrics.openP2Count}`,
+    `- Overdue P1 actions (at-risk stores): ${report.revisitRiskMetrics.overdueP1AtRiskCount}`,
+    `- At-risk stores with open incidents: ${report.revisitRiskMetrics.storesWithOpenIncidentsAtRiskCount}`,
+    `- P1/P2 closures needed this week: ${report.revisitRiskMetrics.closeActionsTarget}`,
+    `- Immediate P1/P2 closures for already-below-80 stores: ${report.revisitRiskMetrics.immediateActionTarget}`,
+    ...(report.revisitRiskMetrics.highRiskStores.length > 0
+      ? [
+          '- Highest risk stores:',
+          ...report.revisitRiskMetrics.highRiskStores.map((store) => {
+            const startLabel =
+              typeof store.startOfYearAuditScore === 'number'
+                ? `${store.startOfYearAuditScore.toFixed(1)}%`
+                : 'N/A'
+            const projectedLabel =
+              typeof store.projectedEndOfYearScore === 'number'
+                ? `${store.projectedEndOfYearScore.toFixed(1)}%`
+                : 'N/A'
+            return `  - ${formatStoreLabel(store)} | Start: ${startLabel} | Projected: ${projectedLabel} | Risk: ${store.riskScore}%`
+          }),
+        ]
+      : ['- Highest risk stores: None identified']),
+    `- AI Forecast: ${report.revisitRiskMetrics.narrative}`,
     '',
     '## H&S Audit Notes',
     `- H&S audits completed this month: ${report.hsAuditMetrics.auditsCompletedThisMonth}`,
@@ -580,6 +795,32 @@ export async function buildMonthlyNewsletterData(
     storeActionsByStore.set(action.store_id, existing)
   })
 
+  const openIncidentsByStore = new Map<string, number>()
+
+  if (storeIds.length > 0) {
+    const { data: incidentsRaw, error: incidentsError } = await supabase
+      .from('fa_incidents')
+      .select('id,store_id,status')
+      .in('store_id', storeIds)
+      .limit(10000)
+
+    if (incidentsError) {
+      throw new Error(`Failed to load incidents: ${incidentsError.message}`)
+    }
+
+    const incidents = ((incidentsRaw || []) as IncidentRow[]).filter(
+      (incident) => !!incident.store_id && isIncidentActive(incident.status)
+    )
+
+    incidents.forEach((incident) => {
+      if (!incident.store_id) return
+      openIncidentsByStore.set(
+        incident.store_id,
+        (openIncidentsByStore.get(incident.store_id) || 0) + 1
+      )
+    })
+  }
+
   const monthStartIso = `${period.startIso}T00:00:00.000Z`
   const monthEndIso = `${period.endIso}T23:59:59.999Z`
 
@@ -645,6 +886,13 @@ export async function buildMonthlyNewsletterData(
 
   const storeNameById = new Map(
     stores.map((store) => [store.id, `${store.store_name}${store.store_code ? ` (${store.store_code})` : ''}`])
+  )
+
+  const networkRevisitRiskForecast = computeRevisitRiskForecast(
+    buildRevisitRiskInputs(stores, storeActionsByStore, openIncidentsByStore, period)
+  )
+  const networkRadarByAxis = new Map(
+    networkRevisitRiskForecast.radar.map((point) => [point.axis, point.risk] as const)
   )
 
   const areaReports: AreaNewsletterReport[] = areaGroups.map((group) => {
@@ -744,6 +992,47 @@ export async function buildMonthlyNewsletterData(
     const areaStoreActions = group.stores.flatMap((store) => storeActionsByStore.get(store.id) || [])
     const storeActionMetrics = buildStoreActionMetrics(areaStoreActions, period)
 
+    const revisitRiskInputs = buildRevisitRiskInputs(
+      group.stores,
+      storeActionsByStore,
+      openIncidentsByStore,
+      period
+    )
+
+    const revisitRiskForecast = computeRevisitRiskForecast(revisitRiskInputs)
+    const revisitRiskRadar = revisitRiskForecast.radar.map((point) => ({
+      ...point,
+      benchmark: networkRadarByAxis.get(point.axis) ?? point.benchmark,
+    }))
+    const revisitRiskHighStores = Array.from(
+      new Map(
+        [
+          ...revisitRiskForecast.alreadyBelowThresholdStores,
+          ...revisitRiskForecast.predictedStores,
+          ...revisitRiskForecast.stores.filter((store) => store.isBorderlineStartScore),
+          ...revisitRiskForecast.stores,
+        ].map((store) => [store.storeId, store] as const)
+      ).values()
+    ).slice(0, 5)
+
+    const revisitRiskNarrative = buildRevisitRiskNarrative({
+      borderlineStoreCount: revisitRiskForecast.borderlineStoreCount,
+      predictedRevisitCount: revisitRiskForecast.predictedRevisitCount,
+      alreadyBelowThresholdCount: revisitRiskForecast.alreadyBelowThresholdCount,
+      closeActionsTarget: revisitRiskForecast.closeActionsTarget,
+      immediateActionTarget: revisitRiskForecast.immediateActionTarget,
+      storesWithOpenIncidentsAtRiskCount:
+        revisitRiskForecast.storesWithOpenIncidentsAtRiskCount,
+      predictedStores: revisitRiskForecast.predictedStores.map((store) => ({
+        storeName: store.storeName,
+        storeCode: store.storeCode,
+      })),
+      alreadyBelowStores: revisitRiskForecast.alreadyBelowThresholdStores.map((store) => ({
+        storeName: store.storeName,
+        storeCode: store.storeCode,
+      })),
+    })
+
     const areaHSAudits = group.stores.flatMap((store) => hsAuditsByStore.get(store.id) || [])
 
     const hsScores = areaHSAudits
@@ -797,6 +1086,31 @@ export async function buildMonthlyNewsletterData(
         manualInputUsed: manualHighlights.length > 0,
       },
       storeActionMetrics,
+      revisitRiskMetrics: {
+        atRiskStoreCount: revisitRiskForecast.atRiskStoreCount,
+        borderlineStoreCount: revisitRiskForecast.borderlineStoreCount,
+        predictedRevisitCount: revisitRiskForecast.predictedRevisitCount,
+        alreadyBelowThresholdCount: revisitRiskForecast.alreadyBelowThresholdCount,
+        openP1Count: revisitRiskForecast.openP1Count,
+        openP2Count: revisitRiskForecast.openP2Count,
+        overdueP1AtRiskCount: revisitRiskForecast.overdueP1AtRiskCount,
+        storesWithOpenIncidentsAtRiskCount:
+          revisitRiskForecast.storesWithOpenIncidentsAtRiskCount,
+        closeActionsTarget: revisitRiskForecast.closeActionsTarget,
+        immediateActionTarget: revisitRiskForecast.immediateActionTarget,
+        radar: revisitRiskRadar,
+        highRiskStores: revisitRiskHighStores.map((store) => ({
+          storeName: store.storeName,
+          storeCode: store.storeCode,
+          startOfYearAuditScore: store.startOfYearAuditScore,
+          projectedEndOfYearScore: store.projectedEndOfYearScore,
+          riskScore: store.riskScore,
+          openP1Actions: store.openP1Actions,
+          openP2Actions: store.openP2Actions,
+          predictedRevisit: store.predictedRevisit,
+        })),
+        narrative: revisitRiskNarrative,
+      },
       reminders,
       legislationUpdates,
     }

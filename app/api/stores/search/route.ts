@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { buildStoreMergeContext, getStoreIdsIncludingAliases, shouldHideStore } from '@/lib/store-normalization'
 
 export const dynamic = 'force-dynamic'
 
@@ -66,19 +67,27 @@ export async function GET(request: Request) {
     )
     .or(`store_name.ilike.${searchPattern},store_code.ilike.${searchPattern},city.ilike.${searchPattern},postcode.ilike.${searchPattern}`)
     .order('store_name', { ascending: true })
-    .limit(10)
+    .limit(40)
 
   if (error) {
     console.error('Store search error:', error)
     return NextResponse.json({ error: 'Failed to search stores' }, { status: 500 })
   }
 
+  const { data: allStoresForMerge } = await supabase
+    .from('fa_stores')
+    .select('id, store_name, store_code, address_line_1, city, postcode, latitude, longitude')
+
+  const mergeContext = buildStoreMergeContext(allStoresForMerge || [])
+  const visibleStores = ((stores || []) as any[]).filter((store) => !shouldHideStore(store)).slice(0, 10)
+
   const results: StoreSearchResult[] = await Promise.all(
-    (stores || []).map(async (s: any) => {
+    visibleStores.map(async (s: any) => {
+      const storeIdsForCount = getStoreIdsIncludingAliases(s.id, mergeContext)
       const { count } = await supabase
         .from('fa_incidents')
         .select('id', { count: 'exact', head: true })
-        .eq('store_id', s.id)
+        .in('store_id', storeIdsForCount)
         .neq('status', 'closed')
 
       return {
@@ -93,4 +102,3 @@ export async function GET(request: Request) {
 
   return NextResponse.json({ results })
 }
-

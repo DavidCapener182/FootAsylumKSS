@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Plus, ArrowUpRight, ShieldCheck } from 'lucide-react'
 import Link from 'next/link'
 import { StoreDirectory } from '@/components/stores/store-directory'
+import { buildStoreMergeContext, getStoreIdsIncludingAliases, shouldHideStore } from '@/lib/store-normalization'
 
 async function getStores() {
   const supabase = createClient()
@@ -20,12 +21,14 @@ async function getStores() {
   return data || []
 }
 
-async function getStoreIncidents(storeId: string) {
+async function getStoreIncidents(storeIds: string[]) {
+  if (storeIds.length === 0) return []
+
   const supabase = createClient()
   const { data, error } = await supabase
     .from('fa_incidents')
     .select('id, reference_no, summary, status, closed_at, occurred_at')
-    .eq('store_id', storeId)
+    .in('store_id', storeIds)
     .order('occurred_at', { ascending: false })
 
   if (error) {
@@ -36,14 +39,16 @@ async function getStoreIncidents(storeId: string) {
   return data || []
 }
 
-async function getStoreActions(storeId: string) {
+async function getStoreActions(storeIds: string[]) {
+  if (storeIds.length === 0) return []
+
   const supabase = createClient()
 
-  // First get all incidents for this store (for incident-linked actions)
+  // First get all incidents for these stores (for incident-linked actions)
   const { data: incidents, error: incidentsError } = await supabase
     .from('fa_incidents')
     .select('id')
-    .eq('store_id', storeId)
+    .in('store_id', storeIds)
 
   if (incidentsError) {
     console.error('Error fetching store incidents for actions:', incidentsError)
@@ -55,7 +60,7 @@ async function getStoreActions(storeId: string) {
   const { data: storeActions, error: storeActionsError } = await supabase
     .from('fa_store_actions')
     .select('id, title, source_flagged_item, description, priority, status, due_date, created_at')
-    .eq('store_id', storeId)
+    .in('store_id', storeIds)
     .order('due_date', { ascending: false })
     .order('created_at', { ascending: false })
 
@@ -108,14 +113,17 @@ async function getStoreActions(storeId: string) {
 
 export default async function StoresPage() {
   const { profile } = await requireRole(['admin', 'ops', 'readonly'])
-  const stores = await getStores()
+  const allStores = await getStores()
+  const mergeContext = buildStoreMergeContext(allStores)
+  const stores = allStores.filter((store) => !shouldHideStore(store))
 
   // Fetch incidents and actions for all stores in parallel
   const storesWithData = await Promise.all(
     stores.map(async (store) => {
+      const mergedStoreIds = getStoreIdsIncludingAliases(store.id, mergeContext)
       const [incidents, actions] = await Promise.all([
-        getStoreIncidents(store.id),
-        getStoreActions(store.id),
+        getStoreIncidents(mergedStoreIds),
+        getStoreActions(mergedStoreIds),
       ])
       return { ...store, incidents, actions }
     })

@@ -19,7 +19,20 @@ interface ParsedFlaggedItem {
 }
 
 const REVIEW_MONTH_OFFSET = 6
-const NON_ACTIONABLE_STORE_QUESTIONS = new Set<string>(['Young persons?', 'Expectant mothers?'])
+const NON_ACTIONABLE_STORE_QUESTIONS = new Set<string>([
+  'Young persons?',
+  'Expectant mothers?',
+  'PAT?',
+  'Fixed Electrical Wiring?',
+  'Air Conditioning?',
+  'Lift?',
+  'Lifting equipment?',
+  'Fire Alarm Maintenance?',
+  'Emergency Lighting Maintenance?',
+  'Sprinkler System?',
+  'Escalators - Service and Maintenance?',
+  'Fire Extinguisher Service?',
+])
 
 function toDateOnlyFromNow(daysFromNow: number): string {
   const clampedDays = Number.isFinite(daysFromNow)

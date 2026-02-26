@@ -68,7 +68,20 @@ const ACTION_SUMMARY_CHUNK_SIZE = 15
 const ACTION_SUMMARY_REQUEST_TIMEOUT_MS = 9000
 const ACTION_SUMMARY_PARALLEL_CHUNKS = 2
 const ACTION_SUMMARY_CACHE = new Map<string, string>()
-const NON_ACTIONABLE_STORE_QUESTIONS = new Set<string>(['Young persons?', 'Expectant mothers?'])
+const NON_ACTIONABLE_STORE_QUESTIONS = new Set<string>([
+  'Young persons?',
+  'Expectant mothers?',
+  'PAT?',
+  'Fixed Electrical Wiring?',
+  'Air Conditioning?',
+  'Lift?',
+  'Lifting equipment?',
+  'Fire Alarm Maintenance?',
+  'Emergency Lighting Maintenance?',
+  'Sprinkler System?',
+  'Escalators - Service and Maintenance?',
+  'Fire Extinguisher Service?',
+])
 
 const STORE_SUMMARY_OVERRIDES: Record<string, string> = {
   'Are all ladders clearly numbered for identification purposes?': 'Ensure ladders are clearly numbered',

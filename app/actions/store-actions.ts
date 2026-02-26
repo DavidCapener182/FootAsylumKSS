@@ -10,7 +10,20 @@ import {
 } from '@/lib/store-action-titles'
 
 const WRITABLE_ROLES = new Set(['admin', 'ops'])
-const NON_ACTIONABLE_STORE_QUESTIONS = new Set<string>(['Young persons?', 'Expectant mothers?'])
+const NON_ACTIONABLE_STORE_QUESTIONS = new Set<string>([
+  'Young persons?',
+  'Expectant mothers?',
+  'PAT?',
+  'Fixed Electrical Wiring?',
+  'Air Conditioning?',
+  'Lift?',
+  'Lifting equipment?',
+  'Fire Alarm Maintenance?',
+  'Emergency Lighting Maintenance?',
+  'Sprinkler System?',
+  'Escalators - Service and Maintenance?',
+  'Fire Extinguisher Service?',
+])
 
 export interface CreateStoreActionInput {
   title: string

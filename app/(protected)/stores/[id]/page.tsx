@@ -2,6 +2,12 @@ import { notFound } from 'next/navigation'
 import { requireRole } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { StoreDetailWorkspace } from '@/components/stores/store-detail-workspace'
+import {
+  buildStoreMergeContext,
+  getStoreIdsIncludingAliases,
+  shouldHideStore,
+  StoreMergeContext,
+} from '@/lib/store-normalization'
 
 async function getStore(storeId: string) {
   const supabase = createClient()
@@ -19,18 +25,34 @@ async function getStore(storeId: string) {
   return data
 }
 
-async function getStoreIncidents(storeId: string) {
+async function getStoreMergeContext(): Promise<StoreMergeContext> {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from('fa_stores')
+    .select('id, store_name, store_code, address_line_1, city, postcode, latitude, longitude')
+
+  if (error) {
+    console.error('Error fetching stores for merge context:', error)
+    return buildStoreMergeContext([])
+  }
+
+  return buildStoreMergeContext(data || [])
+}
+
+async function getStoreIncidents(storeIds: string[]) {
+  if (storeIds.length === 0) return []
+
   const supabase = createClient()
 
   const [openResult, closedResult] = await Promise.all([
     supabase
       .from('fa_incidents')
       .select('id, reference_no, summary, status, closed_at, occurred_at, severity')
-      .eq('store_id', storeId),
+      .in('store_id', storeIds),
     supabase
       .from('fa_closed_incidents')
       .select('id, reference_no, summary, status, closed_at, occurred_at, severity')
-      .eq('store_id', storeId),
+      .in('store_id', storeIds),
   ])
 
   if (openResult.error) {
@@ -53,13 +75,15 @@ async function getStoreIncidents(storeId: string) {
   })
 }
 
-async function getStoreActions(storeId: string) {
+async function getStoreActions(storeIds: string[]) {
+  if (storeIds.length === 0) return []
+
   const supabase = createClient()
 
   const { data: incidents, error: incidentsError } = await supabase
     .from('fa_incidents')
     .select('id')
-    .eq('store_id', storeId)
+    .in('store_id', storeIds)
 
   if (incidentsError) {
     console.error('Error fetching store incidents for actions:', incidentsError)
@@ -70,7 +94,7 @@ async function getStoreActions(storeId: string) {
   const { data: storeActions, error: storeActionsError } = await supabase
     .from('fa_store_actions')
     .select('id, title, source_flagged_item, description, priority, status, due_date, completed_at, created_at')
-    .eq('store_id', storeId)
+    .in('store_id', storeIds)
     .order('due_date', { ascending: false })
     .order('created_at', { ascending: false })
 
@@ -195,14 +219,24 @@ export default async function StoreCrmPage({
 }) {
   const { profile } = await requireRole(['admin', 'ops', 'readonly'])
 
-  const store = await getStore(params.id)
+  const [store, mergeContext] = await Promise.all([
+    getStore(params.id),
+    getStoreMergeContext(),
+  ])
+
   if (!store) {
     notFound()
   }
 
+  if (shouldHideStore(store)) {
+    notFound()
+  }
+
+  const mergedStoreIds = getStoreIdsIncludingAliases(params.id, mergeContext)
+
   const [incidents, actions, crmData] = await Promise.all([
-    getStoreIncidents(params.id),
-    getStoreActions(params.id),
+    getStoreIncidents(mergedStoreIds),
+    getStoreActions(mergedStoreIds),
     getStoreCrmData(params.id),
   ])
 

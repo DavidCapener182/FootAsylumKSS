@@ -537,3 +537,211 @@ export async function markRouteVisitComplete(
 
   return { success: true }
 }
+
+export interface PreVisitBriefingAction {
+  id: string
+  title: string
+  status: string
+  priority: string
+  due_date: string | null
+  created_at: string | null
+}
+
+export interface PreVisitBriefingIncident {
+  id: string
+  reference_no: string
+  summary: string
+  severity: string
+  status: string
+  occurred_at: string
+}
+
+export interface PreVisitBriefingStoreSummary {
+  store_id: string
+  previous_score: number | null
+  previous_score_date: string | null
+  previous_score_source: 'safehub' | 'legacy' | 'none'
+  open_actions: PreVisitBriefingAction[]
+  recent_incidents: PreVisitBriefingIncident[]
+}
+
+function getLegacyPreviousScore(store: any): { score: number; date: string | null } | null {
+  const rows = [
+    {
+      auditNumber: 1,
+      score: typeof store?.compliance_audit_1_overall_pct === 'number' ? store.compliance_audit_1_overall_pct : null,
+      date: store?.compliance_audit_1_date ?? null,
+    },
+    {
+      auditNumber: 2,
+      score: typeof store?.compliance_audit_2_overall_pct === 'number' ? store.compliance_audit_2_overall_pct : null,
+      date: store?.compliance_audit_2_date ?? null,
+    },
+    {
+      auditNumber: 3,
+      score: typeof store?.compliance_audit_3_overall_pct === 'number' ? store.compliance_audit_3_overall_pct : null,
+      date: store?.compliance_audit_3_date ?? null,
+    },
+  ].filter((row): row is { auditNumber: number; score: number; date: string | null } => row.score !== null)
+
+  if (rows.length === 0) return null
+
+  rows.sort((a, b) => {
+    const aTime = a.date ? new Date(a.date).getTime() : 0
+    const bTime = b.date ? new Date(b.date).getTime() : 0
+    if (aTime !== bTime) return bTime - aTime
+    return b.auditNumber - a.auditNumber
+  })
+
+  return {
+    score: rows[0].score,
+    date: rows[0].date,
+  }
+}
+
+export async function getRoutePreVisitBriefing(
+  storeIds: string[],
+  incidentLookbackDays = 30
+): Promise<{ data: PreVisitBriefingStoreSummary[] | null; error: string | null }> {
+  const uniqueStoreIds = Array.from(
+    new Set(
+      (storeIds || [])
+        .map((id) => String(id || '').trim())
+        .filter((id) => id.length > 0)
+    )
+  )
+
+  if (uniqueStoreIds.length === 0) {
+    return { data: [], error: null }
+  }
+
+  const supabase = createClient()
+  const lookbackDate = new Date()
+  lookbackDate.setDate(lookbackDate.getDate() - Math.max(1, incidentLookbackDays))
+
+  const [
+    templatesResult,
+    auditsResult,
+    storesResult,
+    actionsResult,
+    incidentsResult,
+  ] = await Promise.all([
+    supabase
+      .from('fa_audit_templates')
+      .select('id')
+      .eq('category', 'footasylum_audit'),
+    supabase
+      .from('fa_audit_instances')
+      .select('store_id, template_id, overall_score, conducted_at, created_at, status')
+      .in('store_id', uniqueStoreIds)
+      .eq('status', 'completed')
+      .not('overall_score', 'is', null),
+    supabase
+      .from('fa_stores')
+      .select(`
+        id,
+        compliance_audit_1_date,
+        compliance_audit_1_overall_pct,
+        compliance_audit_2_date,
+        compliance_audit_2_overall_pct,
+        compliance_audit_3_date,
+        compliance_audit_3_overall_pct
+      `)
+      .in('id', uniqueStoreIds),
+    supabase
+      .from('fa_store_actions')
+      .select('id, store_id, title, status, priority, due_date, created_at')
+      .in('store_id', uniqueStoreIds)
+      .in('status', ['open', 'in_progress', 'blocked'])
+      .order('due_date', { ascending: true }),
+    supabase
+      .from('fa_incidents')
+      .select('id, store_id, reference_no, summary, severity, status, occurred_at')
+      .in('store_id', uniqueStoreIds)
+      .gte('occurred_at', lookbackDate.toISOString())
+      .neq('status', 'cancelled')
+      .order('occurred_at', { ascending: false }),
+  ])
+
+  const queryError =
+    templatesResult.error ||
+    auditsResult.error ||
+    storesResult.error ||
+    actionsResult.error ||
+    incidentsResult.error
+
+  if (queryError) {
+    console.error('Error fetching pre-visit briefing data:', queryError)
+    return { data: null, error: queryError.message }
+  }
+
+  const footasylumTemplateIds = new Set((templatesResult.data || []).map((row: any) => row.id))
+  const latestSafehubScoreByStore = new Map<string, { score: number; date: string | null }>()
+
+  const completedAudits = (auditsResult.data || [])
+    .filter((audit: any) => footasylumTemplateIds.has(audit.template_id))
+    .sort((a: any, b: any) => {
+      const aTime = new Date(a.conducted_at || a.created_at || 0).getTime()
+      const bTime = new Date(b.conducted_at || b.created_at || 0).getTime()
+      return bTime - aTime
+    })
+
+  for (const audit of completedAudits as any[]) {
+    if (latestSafehubScoreByStore.has(audit.store_id)) continue
+    latestSafehubScoreByStore.set(audit.store_id, {
+      score: Number(audit.overall_score),
+      date: audit.conducted_at || audit.created_at || null,
+    })
+  }
+
+  const storeRowsById = new Map<string, any>((storesResult.data || []).map((store: any) => [store.id, store]))
+  const openActionsByStore = new Map<string, PreVisitBriefingAction[]>()
+  const recentIncidentsByStore = new Map<string, PreVisitBriefingIncident[]>()
+
+  for (const action of (actionsResult.data || []) as any[]) {
+    const current = openActionsByStore.get(action.store_id) || []
+    current.push({
+      id: action.id,
+      title: action.title,
+      status: action.status,
+      priority: action.priority,
+      due_date: action.due_date || null,
+      created_at: action.created_at || null,
+    })
+    openActionsByStore.set(action.store_id, current)
+  }
+
+  for (const incident of (incidentsResult.data || []) as any[]) {
+    const current = recentIncidentsByStore.get(incident.store_id) || []
+    current.push({
+      id: incident.id,
+      reference_no: incident.reference_no,
+      summary: incident.summary,
+      severity: incident.severity,
+      status: incident.status,
+      occurred_at: incident.occurred_at,
+    })
+    recentIncidentsByStore.set(incident.store_id, current)
+  }
+
+  const summaries: PreVisitBriefingStoreSummary[] = uniqueStoreIds.map((storeId) => {
+    const safehubScore = latestSafehubScoreByStore.get(storeId) || null
+    const legacyScore = getLegacyPreviousScore(storeRowsById.get(storeId))
+
+    const previousScore = safehubScore?.score ?? legacyScore?.score ?? null
+    const previousScoreDate = safehubScore?.date ?? legacyScore?.date ?? null
+    const previousScoreSource: PreVisitBriefingStoreSummary['previous_score_source'] =
+      safehubScore ? 'safehub' : legacyScore ? 'legacy' : 'none'
+
+    return {
+      store_id: storeId,
+      previous_score: previousScore,
+      previous_score_date: previousScoreDate,
+      previous_score_source: previousScoreSource,
+      open_actions: (openActionsByStore.get(storeId) || []).slice(0, 5),
+      recent_incidents: (recentIncidentsByStore.get(storeId) || []).slice(0, 5),
+    }
+  })
+
+  return { data: summaries, error: null }
+}

@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { shouldHideStore } from '@/lib/store-normalization'
 
 export const dynamic = 'force-dynamic'
 
@@ -67,6 +68,8 @@ export async function GET(request: Request) {
     const completedStores: StoreLite[] = []
 
     for (const s of allStores || []) {
+      if (shouldHideStore(s)) continue
+
       const plannedDate = s.compliance_audit_2_planned_date
       const completionDate =
         s.compliance_audit_2_date || s.compliance_audit_3_date || s.compliance_audit_1_date
@@ -116,4 +119,3 @@ export async function GET(request: Request) {
 
   return NextResponse.json({ results })
 }
-

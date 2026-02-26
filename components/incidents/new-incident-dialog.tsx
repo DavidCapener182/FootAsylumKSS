@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { createIncident } from '@/app/actions/incidents'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { shouldHideStore } from '@/lib/store-normalization'
 
 const incidentSchema = z.object({
   store_id: z.string().min(1, 'Store is required'),
@@ -46,7 +47,7 @@ export function NewIncidentDialog({ open, onOpenChange }: NewIncidentDialogProps
         .order('store_name')
 
       if (data) {
-        setStores(data)
+        setStores(data.filter((store) => !shouldHideStore(store)))
       }
     }
     fetchStores()
@@ -233,4 +234,3 @@ export function NewIncidentDialog({ open, onOpenChange }: NewIncidentDialogProps
     </Dialog>
   )
 }
-

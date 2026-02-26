@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 export const dynamic = 'force-dynamic'
 
 const MAX_WAYPOINTS = 25
-const ROUTING_TIMEOUT_MS = 8000
+const ROUTING_TIMEOUT_MS = 15000
 
 type Waypoint = {
   latitude: number

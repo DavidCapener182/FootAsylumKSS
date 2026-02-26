@@ -96,6 +96,7 @@ export default function RouteMapComponent({ stores, managerHome }: RouteMapCompo
   const mapRef = useRef<L.Map | null>(null)
   const [roadRouteCoordinates, setRoadRouteCoordinates] = useState<[number, number][]>([])
   const [isFallbackRoute, setIsFallbackRoute] = useState(false)
+  const [isLoadingRoute, setIsLoadingRoute] = useState(false)
 
   // Filter stores with coordinates
   const storesWithCoords = useMemo(
@@ -150,6 +151,7 @@ export default function RouteMapComponent({ stores, managerHome }: RouteMapCompo
     if (routeCoordinates.length < 2) {
       setRoadRouteCoordinates([])
       setIsFallbackRoute(false)
+      setIsLoadingRoute(false)
       return
     }
 
@@ -157,36 +159,53 @@ export default function RouteMapComponent({ stores, managerHome }: RouteMapCompo
     let isCancelled = false
 
     const fetchRoadRoute = async () => {
+      setIsLoadingRoute(true)
       setIsFallbackRoute(false)
 
       try {
-        const response = await fetch('/api/route-planning/road-route', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            waypoints: routeCoordinates.map(([latitude, longitude]) => ({ latitude, longitude })),
-          }),
-          signal: controller.signal,
-        })
+        const waypoints = routeCoordinates.map(([latitude, longitude]) => ({ latitude, longitude }))
+        let coordinates: [number, number][] = []
+        let lastError: Error | null = null
 
-        if (!response.ok) {
-          throw new Error(`Routing API failed with status ${response.status}`)
+        for (let attempt = 0; attempt < 2; attempt += 1) {
+          try {
+            const response = await fetch('/api/route-planning/road-route', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ waypoints }),
+              signal: controller.signal,
+            })
+
+            if (!response.ok) {
+              throw new Error(`Routing API failed with status ${response.status}`)
+            }
+
+            const data = (await response.json()) as { coordinates?: unknown }
+            coordinates = Array.isArray(data.coordinates) ? data.coordinates.filter(isLatLngTuple) : []
+
+            if (coordinates.length < 2) {
+              throw new Error('Routing API returned no geometry')
+            }
+
+            break
+          } catch (error) {
+            lastError = error instanceof Error ? error : new Error('Unknown routing failure')
+            if (attempt === 0) {
+              await new Promise((resolve) => setTimeout(resolve, 300))
+            }
+          }
         }
 
-        const data = (await response.json()) as { coordinates?: unknown }
-        const coordinates = Array.isArray(data.coordinates)
-          ? data.coordinates.filter(isLatLngTuple)
-          : []
-
         if (coordinates.length < 2) {
-          throw new Error('Routing API returned no geometry')
+          throw lastError || new Error('Routing API returned no geometry')
         }
 
         if (!isCancelled) {
           setRoadRouteCoordinates(coordinates)
           setIsFallbackRoute(false)
+          setIsLoadingRoute(false)
         }
       } catch (error) {
         if (controller.signal.aborted || isCancelled) return
@@ -194,6 +213,7 @@ export default function RouteMapComponent({ stores, managerHome }: RouteMapCompo
         console.warn('Falling back to straight-line route geometry:', error)
         setRoadRouteCoordinates([])
         setIsFallbackRoute(true)
+        setIsLoadingRoute(false)
       }
     }
 
@@ -207,7 +227,7 @@ export default function RouteMapComponent({ stores, managerHome }: RouteMapCompo
 
   const displayedRouteCoordinates = roadRouteCoordinates.length > 1
     ? roadRouteCoordinates
-    : routeCoordinates
+    : (isFallbackRoute && !isLoadingRoute ? routeCoordinates : [])
 
   if (typeof window === 'undefined') {
     return (
@@ -251,6 +271,7 @@ export default function RouteMapComponent({ stores, managerHome }: RouteMapCompo
           weight={4}
           opacity={isFallbackRoute ? 0.55 : 0.75}
           dashArray={isFallbackRoute ? '8 8' : undefined}
+          smoothFactor={0}
         />
       )}
 
