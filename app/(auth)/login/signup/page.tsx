@@ -200,6 +200,7 @@ export default function SignUpPage() {
                   placeholder="John Doe"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
+                  autoComplete="name"
                   required
                   className="bg-white"
                 />
@@ -212,6 +213,7 @@ export default function SignUpPage() {
                   placeholder="you@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  autoComplete="email"
                   required
                   className="bg-white"
                 />
@@ -224,6 +226,7 @@ export default function SignUpPage() {
                   placeholder="At least 6 characters"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="new-password"
                   required
                   minLength={6}
                   className="bg-white"
@@ -237,6 +240,7 @@ export default function SignUpPage() {
                   placeholder="Confirm your password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
+                  autoComplete="new-password"
                   required
                   minLength={6}
                   className="bg-white"

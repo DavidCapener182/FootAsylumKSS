@@ -234,6 +234,22 @@ export default function FRAPrintReportPage({
   }, [instanceId])
 
   useEffect(() => {
+    const existing = document.head.querySelector('link[data-fra-print-css="true"]')
+    if (existing) return
+
+    const link = document.createElement('link')
+    link.rel = 'stylesheet'
+    link.href = '/print.css'
+    link.media = 'print'
+    link.setAttribute('data-fra-print-css', 'true')
+    document.head.appendChild(link)
+
+    return () => {
+      link.remove()
+    }
+  }, [])
+
+  useEffect(() => {
     document.body.classList.add('fra-print-document')
     return () => document.body.classList.remove('fra-print-document')
   }, [])

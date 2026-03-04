@@ -1,0 +1,6 @@
+### Page
+- Page URL: http://localhost:3000/login
+- Page Title: KSS x Footasylum Audit Platform
+- Console: 5 errors, 0 warnings
+### Snapshot
+- [Snapshot](.playwright-cli/page-2026-03-04T23-06-14-835Z.yml)

@@ -73,7 +73,6 @@ export function SidebarClient({ userRole, userProfile }: SidebarClientProps) {
               sizes="192px"
               className="object-contain"
               style={{ top: 4, left: 24 }}
-              priority
             />
           </div>
           <span className="sr-only">KSS Assurance</span>
@@ -110,6 +109,7 @@ export function SidebarClient({ userRole, userProfile }: SidebarClientProps) {
               <li key={item.href}>
                 <Link
                   href={item.href}
+                  prefetch={false}
                   onClick={() => setIsOpen(false)}
                   className={cn(
                     'flex items-center gap-3 px-4 py-3 text-sm font-medium transition-all min-h-[44px] rounded-lg',
@@ -177,4 +177,3 @@ export function SidebarClient({ userRole, userProfile }: SidebarClientProps) {
     </>
   )
 }
-

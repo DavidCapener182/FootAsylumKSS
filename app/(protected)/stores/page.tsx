@@ -4,7 +4,13 @@ import { Button } from '@/components/ui/button'
 import { Plus, ArrowUpRight, ShieldCheck } from 'lucide-react'
 import Link from 'next/link'
 import { StoreDirectory } from '@/components/stores/store-directory'
-import { buildStoreMergeContext, getStoreIdsIncludingAliases, shouldHideStore } from '@/lib/store-normalization'
+import {
+  buildStoreMergeContext,
+  getCanonicalStoreId,
+  getStoreIdsIncludingAliases,
+  shouldHideStore,
+  type StoreMergeContext,
+} from '@/lib/store-normalization'
 
 async function getStores() {
   const supabase = createClient()
@@ -21,54 +27,62 @@ async function getStores() {
   return data || []
 }
 
-async function getStoreIncidents(storeIds: string[]) {
-  if (storeIds.length === 0) return []
-
-  const supabase = createClient()
-  const { data, error } = await supabase
-    .from('fa_incidents')
-    .select('id, reference_no, summary, status, closed_at, occurred_at')
-    .in('store_id', storeIds)
-    .order('occurred_at', { ascending: false })
-
-  if (error) {
-    console.error('Error fetching store incidents:', error)
-    return []
-  }
-
-  return data || []
+type StoreRelations = {
+  incidents: any[]
+  actions: any[]
 }
 
-async function getStoreActions(storeIds: string[]) {
-  if (storeIds.length === 0) return []
+async function getStoreRelationsForStores(stores: any[], mergeContext: StoreMergeContext) {
+  if (stores.length === 0) return new Map<string, StoreRelations>()
+
+  const canonicalStoreIds = new Set(stores.map((store) => String(store.id)))
+  const relatedStoreIds = Array.from(
+    new Set(
+      stores.flatMap((store) => getStoreIdsIncludingAliases(String(store.id), mergeContext))
+    )
+  )
+
+  if (relatedStoreIds.length === 0) return new Map<string, StoreRelations>()
 
   const supabase = createClient()
 
-  // First get all incidents for these stores (for incident-linked actions)
-  const { data: incidents, error: incidentsError } = await supabase
-    .from('fa_incidents')
-    .select('id')
-    .in('store_id', storeIds)
+  const [incidentsResult, storeActionsResult] = await Promise.all([
+    supabase
+      .from('fa_incidents')
+      .select('id, reference_no, summary, status, closed_at, occurred_at, store_id')
+      .in('store_id', relatedStoreIds),
+    supabase
+      .from('fa_store_actions')
+      .select('id, title, source_flagged_item, description, priority, status, due_date, created_at, store_id')
+      .in('store_id', relatedStoreIds),
+  ])
 
-  if (incidentsError) {
-    console.error('Error fetching store incidents for actions:', incidentsError)
+  if (incidentsResult.error) {
+    console.error('Error fetching store incidents:', incidentsResult.error)
+  }
+  if (storeActionsResult.error) {
+    console.error('Error fetching store actions:', storeActionsResult.error)
   }
 
-  const incidentIds = (incidents || []).map((inc: any) => inc.id)
+  const incidentRows = incidentsResult.data || []
+  const storeActionRows = storeActionsResult.data || []
 
-  // Fetch store actions directly from H&S audits
-  const { data: storeActions, error: storeActionsError } = await supabase
-    .from('fa_store_actions')
-    .select('id, title, source_flagged_item, description, priority, status, due_date, created_at')
-    .in('store_id', storeIds)
-    .order('due_date', { ascending: false })
-    .order('created_at', { ascending: false })
+  const incidentsByStoreId = new Map<string, any[]>()
+  const incidentStoreIdByIncidentId = new Map<string, string>()
 
-  if (storeActionsError) {
-    console.error('Error fetching direct store actions:', storeActionsError)
+  for (const incident of incidentRows) {
+    const canonicalStoreId = getCanonicalStoreId(incident.store_id, mergeContext)
+    if (!canonicalStoreId || !canonicalStoreIds.has(canonicalStoreId)) continue
+
+    incidentStoreIdByIncidentId.set(String(incident.id), canonicalStoreId)
+    const bucket = incidentsByStoreId.get(canonicalStoreId) || []
+    bucket.push(incident)
+    incidentsByStoreId.set(canonicalStoreId, bucket)
   }
 
+  const incidentIds = Array.from(incidentStoreIdByIncidentId.keys())
   let incidentActions: any[] = []
+
   if (incidentIds.length > 0) {
     const { data, error } = await supabase
       .from('fa_actions')
@@ -82,7 +96,6 @@ async function getStoreActions(storeIds: string[]) {
         incident:fa_incidents!fa_actions_incident_id_fkey(reference_no)
       `)
       .in('incident_id', incidentIds)
-      .order('due_date', { ascending: false })
 
     if (error) {
       console.error('Error fetching incident-linked store actions:', error)
@@ -91,24 +104,63 @@ async function getStoreActions(storeIds: string[]) {
     }
   }
 
-  const mappedIncidentActions = incidentActions.map((action: any) => ({
-    ...action,
-    source_type: 'incident' as const,
-  }))
+  const actionsByStoreId = new Map<string, any[]>()
 
-  const mappedStoreActions = (storeActions || []).map((action: any) => ({
-    ...action,
-    incident_id: null,
-    incident: null,
-    completed_at: null,
-    source_type: 'store' as const,
-  }))
+  for (const action of storeActionRows) {
+    const canonicalStoreId = getCanonicalStoreId(action.store_id, mergeContext)
+    if (!canonicalStoreId || !canonicalStoreIds.has(canonicalStoreId)) continue
 
-  return [...mappedIncidentActions, ...mappedStoreActions].sort((a, b) => {
-    const aTime = a?.due_date ? new Date(a.due_date).getTime() : 0
-    const bTime = b?.due_date ? new Date(b.due_date).getTime() : 0
-    return bTime - aTime
-  })
+    const bucket = actionsByStoreId.get(canonicalStoreId) || []
+    bucket.push({
+      ...action,
+      incident_id: null,
+      incident: null,
+      completed_at: null,
+      source_type: 'store' as const,
+    })
+    actionsByStoreId.set(canonicalStoreId, bucket)
+  }
+
+  for (const action of incidentActions) {
+    const canonicalStoreId = incidentStoreIdByIncidentId.get(String(action.incident_id))
+    if (!canonicalStoreId || !canonicalStoreIds.has(canonicalStoreId)) continue
+
+    const bucket = actionsByStoreId.get(canonicalStoreId) || []
+    bucket.push({
+      ...action,
+      source_type: 'incident' as const,
+    })
+    actionsByStoreId.set(canonicalStoreId, bucket)
+  }
+
+  for (const [storeId, incidents] of incidentsByStoreId.entries()) {
+    incidents.sort((a, b) => {
+      const aTime = a?.occurred_at ? new Date(a.occurred_at).getTime() : 0
+      const bTime = b?.occurred_at ? new Date(b.occurred_at).getTime() : 0
+      return bTime - aTime
+    })
+    incidentsByStoreId.set(storeId, incidents)
+  }
+
+  for (const [storeId, actions] of actionsByStoreId.entries()) {
+    actions.sort((a, b) => {
+      const aTime = a?.due_date ? new Date(a.due_date).getTime() : 0
+      const bTime = b?.due_date ? new Date(b.due_date).getTime() : 0
+      return bTime - aTime
+    })
+    actionsByStoreId.set(storeId, actions)
+  }
+
+  const relationsByStoreId = new Map<string, StoreRelations>()
+  for (const store of stores) {
+    const storeId = String(store.id)
+    relationsByStoreId.set(storeId, {
+      incidents: incidentsByStoreId.get(storeId) || [],
+      actions: actionsByStoreId.get(storeId) || [],
+    })
+  }
+
+  return relationsByStoreId
 }
 
 export default async function StoresPage() {
@@ -117,17 +169,16 @@ export default async function StoresPage() {
   const mergeContext = buildStoreMergeContext(allStores)
   const stores = allStores.filter((store) => !shouldHideStore(store))
 
-  // Fetch incidents and actions for all stores in parallel
-  const storesWithData = await Promise.all(
-    stores.map(async (store) => {
-      const mergedStoreIds = getStoreIdsIncludingAliases(store.id, mergeContext)
-      const [incidents, actions] = await Promise.all([
-        getStoreIncidents(mergedStoreIds),
-        getStoreActions(mergedStoreIds),
-      ])
-      return { ...store, incidents, actions }
-    })
-  )
+  const relationsByStoreId = await getStoreRelationsForStores(stores, mergeContext)
+  const storesWithData = stores.map((store) => {
+    const storeId = String(store.id)
+    const relations = relationsByStoreId.get(storeId)
+    return {
+      ...store,
+      incidents: relations?.incidents || [],
+      actions: relations?.actions || [],
+    }
+  })
 
   // Calculate stats
   const totalStores = storesWithData.length
@@ -156,7 +207,7 @@ export default async function StoresPage() {
 
           {profile.role === 'admin' && (
             <div className="flex-shrink-0">
-              <Link href="/stores/new">
+              <Link href="/stores/new" prefetch={false}>
                 <Button className="flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-slate-900 shadow-sm font-medium transition-all hover:bg-slate-100 active:scale-[0.98] min-h-[44px]">
                   <Plus className="h-4 w-4 text-indigo-600" />
                   <span>Add New Store</span>

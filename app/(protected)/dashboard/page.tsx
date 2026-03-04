@@ -37,7 +37,7 @@ async function getDashboardData() {
     supabase.from('fa_actions').select('*', { count: 'exact', head: true }).lt('due_date', today).not('status', 'in', '(complete,cancelled)'),
     supabase.from('fa_incidents').select('*', { count: 'exact', head: true }).in('severity', ['high', 'critical']).gte('occurred_at', thirtyDaysAgo),
     supabase.from('fa_incidents').select('status'),
-    supabase.from('fa_incidents').select('severity'),
+    supabase.from('fa_incidents').select('severity, occurred_at'),
     supabase.from('fa_incidents').select(`store_id, fa_stores!inner(store_name, store_code)`).in('status', ['open', 'under_investigation', 'actions_in_progress']),
     supabase.from('fa_activity_log').select(`*, performed_by:fa_profiles!fa_activity_log_performed_by_user_id_fkey(full_name)`).order('created_at', { ascending: false }).limit(20),
     supabase.from('fa_stores').select(`id, store_name, store_code, compliance_audit_1_date, compliance_audit_2_date, compliance_audit_2_assigned_manager_user_id, compliance_audit_2_planned_date, assigned_manager:fa_profiles!fa_stores_compliance_audit_2_assigned_manager_user_id_fkey(id, full_name)`).is('compliance_audit_2_date', null).eq('is_active', true).order('store_name', { ascending: true }),
@@ -110,10 +110,71 @@ async function getDashboardData() {
     return acc
   }, {}) || {}
 
-  const severityCounts = incidentsBySeverity?.reduce((acc: Record<string, number>, incident) => {
-    acc[incident.severity] = (acc[incident.severity] || 0) + 1
+  type SeverityLevel = 'low' | 'medium' | 'high' | 'critical'
+  type SeverityBreakdown = Record<SeverityLevel, number> & { total: number }
+
+  const createEmptySeverityBreakdown = (): SeverityBreakdown => ({
+    low: 0,
+    medium: 0,
+    high: 0,
+    critical: 0,
+    total: 0,
+  })
+
+  const normalizeSeverity = (value: unknown): SeverityLevel | null => {
+    const severity = String(value || '').toLowerCase()
+    if (severity === 'low' || severity === 'medium' || severity === 'high' || severity === 'critical') {
+      return severity
+    }
+    return null
+  }
+
+  const incidentRows = (incidentsBySeverity || []) as Array<{ severity?: string | null; occurred_at?: string | null }>
+
+  const severityCounts = incidentRows.reduce((acc: Record<string, number>, incident) => {
+    const severity = normalizeSeverity(incident?.severity)
+    if (!severity) return acc
+    acc[severity] = (acc[severity] || 0) + 1
     return acc
-  }, {}) || {}
+  }, {})
+
+  const now = new Date()
+  const getFiscalYearStart = (date: Date): Date => {
+    const fiscalYear = date.getMonth() === 0 ? date.getFullYear() - 1 : date.getFullYear()
+    return new Date(fiscalYear, 1, 1, 0, 0, 0, 0)
+  }
+
+  const startOfCurrentFiscalYear = getFiscalYearStart(now)
+  const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+  const startOfCurrentWeek = (() => {
+    const weekStart = new Date(now)
+    const mondayOffset = (weekStart.getDay() + 6) % 7
+    weekStart.setDate(weekStart.getDate() - mondayOffset)
+    weekStart.setHours(0, 0, 0, 0)
+    return weekStart
+  })()
+
+  const buildSeverityBreakdownSince = (startDate: Date): SeverityBreakdown => {
+    const breakdown = createEmptySeverityBreakdown()
+    incidentRows.forEach((incident) => {
+      const severity = normalizeSeverity(incident?.severity)
+      if (!severity) return
+
+      const occurredAt = new Date(String(incident?.occurred_at || ''))
+      if (Number.isNaN(occurredAt.getTime())) return
+      if (occurredAt.getTime() < startDate.getTime() || occurredAt.getTime() > now.getTime()) return
+
+      breakdown[severity] += 1
+      breakdown.total += 1
+    })
+    return breakdown
+  }
+
+  const incidentBreakdownByPeriod = {
+    fiscalYear: buildSeverityBreakdownSince(startOfCurrentFiscalYear),
+    month: buildSeverityBreakdownSince(startOfCurrentMonth),
+    week: buildSeverityBreakdownSince(startOfCurrentWeek),
+  }
 
   const storeCounts = storeStats?.reduce((acc: Record<string, { name: string; code?: string; count: number }>, item: any) => {
     const storeId = toVisibleCanonicalStoreId(item?.store_id)
@@ -501,6 +562,7 @@ async function getDashboardData() {
     statusCounts,
     totalIncidents: incidentsByStatus?.length || 0,
     severityCounts,
+    incidentBreakdownByPeriod,
     topStores,
     maxStoreCount,
     recentActivity: recentActivity || [],

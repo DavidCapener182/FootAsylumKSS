@@ -43,9 +43,6 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <head>
-        <link rel="stylesheet" href="/print.css" media="print" />
-      </head>
       <body className={inter.className}>
         <ScreenZoomNormalizer />
         {children}

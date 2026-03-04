@@ -11,7 +11,7 @@ import { DeleteIncidentButton } from '@/components/shared/delete-incident-button
 import { NewIncidentButton } from '@/components/incidents/new-incident-button'
 import { IncidentMobileCard } from '@/components/incidents/incident-mobile-card'
 import { ClosedIncidentMobileCard } from '@/components/incidents/closed-incident-mobile-card'
-import { IncidentsAnalyticsCharts } from '@/components/incidents/incidents-analytics-charts'
+import { LazyIncidentsAnalyticsCharts } from '@/components/incidents/lazy-incidents-analytics-charts'
 import Link from 'next/link'
 import { Search, AlertTriangle, FileText, Eye, CheckCircle2, XCircle } from 'lucide-react'
 import { format } from 'date-fns'
@@ -951,7 +951,7 @@ export default async function IncidentsPage({
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
-          <IncidentsAnalyticsCharts
+          <LazyIncidentsAnalyticsCharts
             mode="overview"
             monthlyData={monthlyTrendData}
             personData={personData}
@@ -962,7 +962,7 @@ export default async function IncidentsPage({
         </TabsContent>
 
         <TabsContent value="trends" className="space-y-4">
-          <IncidentsAnalyticsCharts
+          <LazyIncidentsAnalyticsCharts
             mode="detailed"
             monthlyData={monthlyTrendData}
             personData={personData}

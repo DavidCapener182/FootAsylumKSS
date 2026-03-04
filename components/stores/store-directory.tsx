@@ -181,6 +181,7 @@ export function StoreDirectory({ stores }: StoreDirectoryProps) {
                             <div className="space-y-1">
                               <Link
                                 href={`/stores/${store.id}`}
+                                prefetch={false}
                                 className="font-semibold text-indigo-600 transition-colors hover:text-indigo-800 hover:underline"
                               >
                                 {store.store_name}

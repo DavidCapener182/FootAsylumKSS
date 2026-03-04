@@ -44,7 +44,7 @@ export function StoreMobileCard({ store }: StoreMobileCardProps) {
         {/* Header Row */}
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
-            <Link href={`/stores/${store.id}`}>
+            <Link href={`/stores/${store.id}`} prefetch={false}>
               <h3 className="cursor-pointer text-lg font-semibold leading-tight text-indigo-600 transition-colors hover:text-indigo-800 hover:underline">
                 {store.store_name}
               </h3>

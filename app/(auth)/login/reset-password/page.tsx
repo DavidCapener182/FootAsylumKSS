@@ -196,6 +196,7 @@ function ResetPasswordContent() {
                   placeholder="Enter new password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="new-password"
                   required
                   minLength={6}
                   className="bg-white"
@@ -209,6 +210,7 @@ function ResetPasswordContent() {
                   placeholder="Confirm new password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
+                  autoComplete="new-password"
                   required
                   minLength={6}
                   className="bg-white"

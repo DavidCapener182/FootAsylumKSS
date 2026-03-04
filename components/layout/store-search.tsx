@@ -776,6 +776,7 @@ function StoreSummary({ store }: { store: StoreSearchResult }) {
           <div className="mt-3">
             <Link
               href={`/incidents?store_id=${encodeURIComponent(store.id)}`}
+              prefetch={false}
               className="inline-flex items-center gap-2 rounded-full bg-slate-900 text-white px-4 py-2 text-sm hover:bg-slate-800"
             >
               View incidents
@@ -786,4 +787,3 @@ function StoreSummary({ store }: { store: StoreSearchResult }) {
     </div>
   )
 }
-
