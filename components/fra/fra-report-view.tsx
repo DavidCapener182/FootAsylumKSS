@@ -637,12 +637,60 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
     const isUploading = uploadingPhotos[placeholderId]
     const fileInputRef = useRef<HTMLInputElement>(null)
     const nextUploadModeRef = useRef<UploadMode>('append')
+    const dragDepthRef = useRef(0)
+    const [isDragActive, setIsDragActive] = useState(false)
     const isPortrait = aspect === 'portrait'
 
     const triggerFileInput = (mode: UploadMode = 'append') => {
       if (isUploading) return
       nextUploadModeRef.current = mode
       fileInputRef.current?.click()
+    }
+
+    const hasDraggedFiles = (event: React.DragEvent<HTMLDivElement>): boolean => {
+      if (!event.dataTransfer) return false
+      if (Array.from(event.dataTransfer.types || []).includes('Files')) return true
+      return Array.from(event.dataTransfer.items || []).some((item) => item.kind === 'file')
+    }
+
+    const handleDragEnter = (event: React.DragEvent<HTMLDivElement>) => {
+      if (!hasDraggedFiles(event)) return
+      event.preventDefault()
+      event.stopPropagation()
+      if (isUploading) return
+      dragDepthRef.current += 1
+      setIsDragActive(true)
+    }
+
+    const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+      if (!hasDraggedFiles(event)) return
+      event.preventDefault()
+      event.stopPropagation()
+      if (isUploading) return
+      event.dataTransfer.dropEffect = 'copy'
+      setIsDragActive(true)
+    }
+
+    const handleDragLeave = (event: React.DragEvent<HTMLDivElement>) => {
+      if (!hasDraggedFiles(event)) return
+      event.preventDefault()
+      event.stopPropagation()
+      dragDepthRef.current = Math.max(0, dragDepthRef.current - 1)
+      if (dragDepthRef.current === 0) {
+        setIsDragActive(false)
+      }
+    }
+
+    const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
+      if (!hasDraggedFiles(event)) return
+      event.preventDefault()
+      event.stopPropagation()
+      dragDepthRef.current = 0
+      setIsDragActive(false)
+      if (isUploading) return
+
+      const droppedFiles = event.dataTransfer?.files || null
+      handlePhotoUpload(placeholderId, droppedFiles, maxPhotos, 'append')
     }
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -671,7 +719,13 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
         : 'border-2 border-dashed border-slate-300 rounded p-4 h-48 flex flex-col items-center justify-center text-slate-400 text-sm fra-photo-block'
 
     return (
-      <div className={`mt-4 ${compact ? 'max-w-[220px]' : ''}`}>
+      <div
+        className={`mt-4 ${compact ? 'max-w-[220px]' : ''} ${isDragActive ? 'rounded-lg ring-2 ring-blue-300 ring-offset-2 ring-offset-white' : ''}`}
+        onDragEnter={handleDragEnter}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
         <input
           ref={fileInputRef}
           type="file"
@@ -708,6 +762,9 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
         ) : (
           <div className={`fra-photo-placeholder-empty ${emptyClass}`}>
             <p className="mb-2">{label}</p>
+            <p className="mb-3 text-xs text-slate-500">
+              {isDragActive ? 'Drop photos to upload' : 'Drag and drop photos here, or use the button below.'}
+            </p>
             <Button
               type="button"
               variant="outline"

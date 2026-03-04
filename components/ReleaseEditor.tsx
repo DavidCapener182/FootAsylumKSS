@@ -24,7 +24,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog'
-import { Plus, Pencil, Wand2, Trash2, Eye, EyeOff } from 'lucide-react'
+import { Plus, Pencil, Trash2, Eye, EyeOff } from 'lucide-react'
 import { format } from 'date-fns'
 
 interface ReleaseNote {
@@ -60,7 +60,6 @@ export function ReleaseEditor() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState<FormState>(emptyForm)
   const [saving, setSaving] = useState(false)
-  const [generating, setGenerating] = useState(false)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [errors, setErrors] = useState<Record<string, string>>({})
 
@@ -84,14 +83,103 @@ export function ReleaseEditor() {
     fetchReleases()
   }, [fetchReleases])
 
-  function openNewEditor() {
-    setEditingId(null)
-    setForm(emptyForm)
-    setErrors({})
-    setEditorOpen(true)
+  /** Suggest next version: bump minor of latest release (e.g. 1.4.0 → 1.5.0), or 1.0.0 if none. */
+  function getNextSuggestedVersion(releaseList: ReleaseNote[]): string {
+    const latest = releaseList[0]?.version
+    if (!latest) return '1.0.0'
+    const match = latest.match(/^v?(\d+)\.(\d+)(?:\.(\d+))?/)
+    if (!match) return '1.0.0'
+    const [, major, minor] = match
+    return `${major}.${Number(minor) + 1}.0`
   }
 
-  function openEditEditor(release: ReleaseNote) {
+  /** Derive title (with date) and short description from release notes content and version. */
+  function titleAndDescriptionFromContent(content: string, version: string): { title: string; description: string } {
+    const dateStr = format(new Date(), 'd MMM yyyy')
+    const title = `Release v${version} · ${dateStr}`
+    const lines = content.replace(/^#+\s*\n?/m, '').split('\n').map((l) => l.trim()).filter(Boolean)
+    const firstLine = lines.find((l) => /^\s*[-*]/.test(l)) || lines[0] || ''
+    const plain = firstLine.replace(/^\s*[-*]\s*\*\*?\w+\*?\*?:?\s*/, '').replace(/\*\*/g, '').trim()
+    const description = plain ? (plain.slice(0, 120) + (plain.length > 120 ? '…' : '')) : `Release v${version}`
+    return { title, description }
+  }
+
+  /** Keep only user-facing New/Fix bullets; drop chore, technical details, and extra headings. */
+  function condenseReleaseNotesMarkdown(content: string): string {
+    const lines = content.split('\n')
+    const heading = lines.find((l) => /^#+\s+/.test(l))?.trim() || "## What's new"
+    const bullets = lines.filter(
+      (l) => /^\s*[-*]\s+\*\*New:\*\*/.test(l) || /^\s*[-*]\s+\*\*Fix:\*\*/.test(l)
+    )
+    if (bullets.length === 0) return content
+    return `${heading}\n\n${bullets.join('\n')}`
+  }
+
+  /** Build changelog markdown from resolved feedback. Uses "since last release" first; if none, back-fills from last 90 days; if still none, fetches from GitHub. */
+  async function buildChangelogFromResolved(releaseList: ReleaseNote[]): Promise<string> {
+    const supabase = createClient()
+    const lastActiveRelease = releaseList.find((r) => r.is_active)
+    const sinceLastRelease = lastActiveRelease
+      ? lastActiveRelease.created_at
+      : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+
+    let resolved: { type: string; title: string }[] | null = null
+    const { data: sinceRelease } = await supabase
+      .from('user_feedback')
+      .select('type, title')
+      .eq('status', 'resolved')
+      .gte('resolved_at', sinceLastRelease)
+      .order('type')
+    resolved = sinceRelease
+
+    if (!resolved || resolved.length === 0) {
+      const backFillDate = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString()
+      const { data: backFilled } = await supabase
+        .from('user_feedback')
+        .select('type, title')
+        .eq('status', 'resolved')
+        .gte('resolved_at', backFillDate)
+        .order('type')
+      resolved = backFilled
+    }
+
+    if (resolved && resolved.length > 0) {
+      const features = resolved.filter((r) => r.type === 'feature')
+      const bugs = resolved.filter((r) => r.type === 'bug')
+      const bullets: string[] = []
+      features.forEach((f) => { bullets.push(`- **New:** ${f.title}`) })
+      bugs.forEach((f) => { bullets.push(`- **Fix:** ${f.title}`) })
+      return `## What's new\n\n${bullets.join('\n')}`
+    }
+
+    try {
+      const res = await fetch('/api/releases/github-changelog')
+      if (res.ok) {
+        const data = await res.json()
+        if (data.content && typeof data.content === 'string' && data.content.trim()) {
+          return condenseReleaseNotesMarkdown(data.content.trim())
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    return `## What's new\n\n_No resolved feedback yet. Resolve bugs or features from Report a Bug to include them here._`
+  }
+
+  async function openNewEditor() {
+    const suggestedVersion = getNextSuggestedVersion(releases)
+    setEditingId(null)
+    setForm({ ...emptyForm, version: suggestedVersion, content: '' })
+    setErrors({})
+    setEditorOpen(true)
+    let content = await buildChangelogFromResolved(releases)
+    content = condenseReleaseNotesMarkdown(content)
+    const { title, description } = titleAndDescriptionFromContent(content, suggestedVersion)
+    setForm((prev) => ({ ...prev, content, title, description }))
+  }
+
+  async function openEditEditor(release: ReleaseNote) {
     setEditingId(release.id)
     setForm({
       version: release.version,
@@ -102,6 +190,10 @@ export function ReleaseEditor() {
     })
     setErrors({})
     setEditorOpen(true)
+    let content = await buildChangelogFromResolved(releases)
+    content = condenseReleaseNotesMarkdown(content)
+    const { title, description } = titleAndDescriptionFromContent(content, release.version)
+    setForm((prev) => ({ ...prev, content, title, description }))
   }
 
   function validate(): boolean {
@@ -184,54 +276,6 @@ export function ReleaseEditor() {
     toast({ title: 'Deleted', variant: 'success' })
     setDeleteConfirmId(null)
     fetchReleases()
-  }
-
-  async function generateChangelog() {
-    setGenerating(true)
-    const supabase = createClient()
-
-    const lastActiveRelease = releases.find((r) => r.is_active)
-    const sinceDate = lastActiveRelease
-      ? lastActiveRelease.created_at
-      : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
-
-    const { data: resolved } = await supabase
-      .from('user_feedback')
-      .select('type, title')
-      .eq('status', 'resolved')
-      .gte('resolved_at', sinceDate)
-      .order('type')
-
-    if (!resolved || resolved.length === 0) {
-      toast({ title: 'No Data', description: 'No resolved items found since the last release.', variant: 'destructive' })
-      setGenerating(false)
-      return
-    }
-
-    const features = resolved.filter((r) => r.type === 'feature')
-    const bugs = resolved.filter((r) => r.type === 'bug')
-    const improvements = resolved.filter((r) => r.type === 'feedback')
-
-    let markdown = ''
-    if (features.length > 0) {
-      markdown += '## New Features\n'
-      features.forEach((f) => { markdown += `- ${f.title}\n` })
-      markdown += '\n'
-    }
-    if (improvements.length > 0) {
-      markdown += '## Improvements\n'
-      improvements.forEach((f) => { markdown += `- ${f.title}\n` })
-      markdown += '\n'
-    }
-    if (bugs.length > 0) {
-      markdown += '## Bug Fixes\n'
-      bugs.forEach((f) => { markdown += `- ${f.title}\n` })
-      markdown += '\n'
-    }
-
-    setForm((prev) => ({ ...prev, content: markdown.trim() }))
-    toast({ title: 'Generated', description: 'Changelog generated from resolved feedback.', variant: 'success' })
-    setGenerating(false)
   }
 
   return (
@@ -347,22 +391,13 @@ export function ReleaseEditor() {
             </div>
 
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="release-content">Release Notes (Markdown)</Label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={generateChangelog}
-                  disabled={generating}
-                >
-                  <Wand2 className="h-4 w-4 mr-1" />
-                  {generating ? 'Generating...' : 'Generate Changelog'}
-                </Button>
-              </div>
+              <Label htmlFor="release-content">Release Notes (Markdown)</Label>
+              <p className="text-xs text-muted-foreground">
+                Filled from resolved feedback when creating a new release. Edit as needed. Users see the active release once on login.
+              </p>
               <Textarea
                 id="release-content"
-                placeholder={"## New Features\n- Feature one\n\n## Bug Fixes\n- Fixed issue"}
+                placeholder={"## What's new\n\n- **New:** …\n- **Fix:** …"}
                 rows={12}
                 className="font-mono text-sm"
                 value={form.content}

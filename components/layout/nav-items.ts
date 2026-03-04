@@ -10,7 +10,6 @@ import {
   Flame,
   Calendar,
   Bug,
-  Megaphone,
 } from 'lucide-react'
 import type React from 'react'
 
@@ -36,6 +35,4 @@ export const navItems: NavItem[] = [
   { href: '/reports', label: 'Reports', icon: FileText },
   { href: '#feedback', label: 'Report a Bug', icon: Bug, action: 'feedback' },
   { href: '/admin', label: 'Admin', icon: Settings, adminOnly: true },
-  { href: '/admin/bugs', label: 'Bug Tracking', icon: Megaphone, adminOnly: true },
-  { href: '/admin/releases', label: 'Release Notes', icon: FileText, adminOnly: true },
 ]
