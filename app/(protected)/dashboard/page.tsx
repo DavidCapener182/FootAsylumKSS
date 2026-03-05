@@ -60,7 +60,14 @@ async function getDashboardData() {
     supabase
       .from('fa_stores')
       .select('id, store_name, store_code, address_line_1, city, postcode, latitude, longitude'),
-        supabase.from('fa_stores').select(`id, store_name, store_code, region, postcode, latitude, longitude, compliance_audit_2_planned_date, compliance_audit_2_assigned_manager_user_id, route_sequence, assigned_manager:fa_profiles!fa_stores_compliance_audit_2_assigned_manager_user_id_fkey(id, full_name, home_address, home_latitude, home_longitude)`).not('compliance_audit_2_planned_date', 'is', null).eq('is_active', true).order('compliance_audit_2_planned_date', { ascending: true }),
+    supabase
+      .from('fa_stores')
+      .select(
+        'id, store_name, store_code, region, postcode, latitude, longitude, compliance_audit_2_planned_date, compliance_audit_2_assigned_manager_user_id, route_sequence, assigned_manager:fa_profiles!fa_stores_compliance_audit_2_assigned_manager_user_id_fkey(id, full_name)'
+      )
+      .not('compliance_audit_2_planned_date', 'is', null)
+      .eq('is_active', true)
+      .order('compliance_audit_2_planned_date', { ascending: true }),
     supabase.from('fa_stores').select('id, compliance_audit_1_date, compliance_audit_2_date, fire_risk_assessment_date').eq('is_active', true),
     supabase
       .from('fa_incidents')
@@ -353,15 +360,7 @@ async function getDashboardData() {
         area: region || 'Unknown',
         plannedDate,
         storeCount: 1,
-        managerHome: manager?.home_latitude && manager?.home_longitude ? {
-          latitude: typeof manager.home_latitude === 'string' 
-            ? parseFloat(manager.home_latitude) 
-            : manager.home_latitude,
-          longitude: typeof manager.home_longitude === 'string' 
-            ? parseFloat(manager.home_longitude) 
-            : manager.home_longitude,
-          address: manager.home_address || 'Manager Home',
-        } : null,
+        managerHome: null,
         stores: [{
           id: store.id,
           name: store.store_name,

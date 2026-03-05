@@ -15,6 +15,7 @@ import {
   Clock,
   Download,
   Flame,
+  Info,
   Map as MapIcon,
   ShieldAlert,
   TrendingUp,
@@ -57,6 +58,8 @@ interface DashboardClientProps {
 export function DashboardClient({ initialData }: DashboardClientProps) {
   const [data] = useState(initialData)
   const [incidentPeriod, setIncidentPeriod] = useState<IncidentPeriod>('fiscalYear')
+  const [riskFilter, setRiskFilter] = useState<'high' | 'medium' | 'low'>('high')
+  const [showHealthTooltip, setShowHealthTooltip] = useState(false)
 
   const [isReportOpen, setIsReportOpen] = useState(false)
   const [reportLoading, setReportLoading] = useState(false)
@@ -180,9 +183,23 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
     })
     .slice(0, 3)
 
-  const topForecastStores = Array.isArray(data.complianceForecast?.stores)
-    ? data.complianceForecast.stores.slice(0, 4)
+  const getRiskBand = (store: any): 'high' | 'medium' | 'low' => {
+    const directBand = typeof store?.riskBand === 'string' ? store.riskBand.toLowerCase() : ''
+    if (directBand === 'high' || directBand === 'medium' || directBand === 'low') {
+      return directBand
+    }
+
+    const score = Number(store?.riskScore ?? store?.probability ?? 0)
+    if (score >= 70) return 'high'
+    if (score >= 45) return 'medium'
+    return 'low'
+  }
+
+  const forecastStores = Array.isArray(data.complianceForecast?.stores)
+    ? data.complianceForecast.stores
     : []
+  const filteredForecastStores = forecastStores.filter((store: any) => getRiskBand(store) === riskFilter)
+  const selectedRiskLabel = riskFilter.charAt(0).toUpperCase() + riskFilter.slice(1)
 
   return (
     <div className="space-y-6">
@@ -231,7 +248,37 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
           <div className="grid grid-cols-3 gap-2 md:grid-cols-6 md:gap-4">
             <div className="col-span-2 flex items-center justify-between rounded-lg border border-slate-700/50 bg-slate-800/50 p-3 backdrop-blur-sm md:rounded-2xl md:p-5">
               <div>
-                <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-slate-400 md:text-xs md:tracking-wider">Network Health</p>
+                <div className="mb-1 flex items-center gap-1.5">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400 md:text-xs md:tracking-wider">
+                    Network Health
+                  </p>
+                  <div
+                    className="relative"
+                    onMouseEnter={() => setShowHealthTooltip(true)}
+                    onMouseLeave={() => setShowHealthTooltip(false)}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setShowHealthTooltip((prev) => !prev)}
+                      onFocus={() => setShowHealthTooltip(true)}
+                      onBlur={() => setShowHealthTooltip(false)}
+                      className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-slate-600 bg-slate-900/80 text-slate-300 transition-colors hover:border-blue-400 hover:text-blue-300"
+                      aria-label="Explain network health score"
+                      aria-expanded={showHealthTooltip}
+                    >
+                      <Info size={11} />
+                    </button>
+                    {showHealthTooltip ? (
+                      <div
+                        role="tooltip"
+                        className="absolute left-0 top-full z-30 mt-2 w-64 rounded-lg border border-slate-600 bg-slate-950 p-3 text-[11px] leading-relaxed text-slate-200 shadow-lg"
+                      >
+                        Network Health Score combines 65% audit completion and 35% overdue-action performance.
+                        Higher scores mean stronger compliance and fewer overdue issues.
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
                 <p className="text-2xl font-black text-emerald-400 md:text-4xl">{healthScore}%</p>
               </div>
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 md:h-12 md:w-12">
@@ -460,49 +507,92 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
               </span>
             </div>
 
-            <div className="mb-6 flex gap-2">
-              <div className="flex-1 rounded-lg border border-red-100 bg-red-50 p-3">
+            <div className="mb-6 grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => setRiskFilter('high')}
+                className={`flex-1 rounded-lg border p-3 text-left transition-all ${
+                  riskFilter === 'high'
+                    ? 'border-red-300 bg-red-100 ring-2 ring-red-200'
+                    : 'border-red-100 bg-red-50 hover:border-red-200'
+                }`}
+                aria-pressed={riskFilter === 'high'}
+              >
                 <p className="text-[10px] font-bold uppercase text-red-500">High</p>
                 <p className="text-xl font-bold text-red-700">{highRiskStoresCount}</p>
-              </div>
-              <div className="flex-1 rounded-lg border border-amber-100 bg-amber-50 p-3">
+              </button>
+              <button
+                type="button"
+                onClick={() => setRiskFilter('medium')}
+                className={`flex-1 rounded-lg border p-3 text-left transition-all ${
+                  riskFilter === 'medium'
+                    ? 'border-amber-300 bg-amber-100 ring-2 ring-amber-200'
+                    : 'border-amber-100 bg-amber-50 hover:border-amber-200'
+                }`}
+                aria-pressed={riskFilter === 'medium'}
+              >
                 <p className="text-[10px] font-bold uppercase text-amber-600">Medium</p>
                 <p className="text-xl font-bold text-amber-700">{Number(data.complianceForecast?.mediumRiskCount || 0)}</p>
-              </div>
-              <div className="flex-1 rounded-lg border border-emerald-100 bg-emerald-50 p-3">
+              </button>
+              <button
+                type="button"
+                onClick={() => setRiskFilter('low')}
+                className={`flex-1 rounded-lg border p-3 text-left transition-all ${
+                  riskFilter === 'low'
+                    ? 'border-emerald-300 bg-emerald-100 ring-2 ring-emerald-200'
+                    : 'border-emerald-100 bg-emerald-50 hover:border-emerald-200'
+                }`}
+                aria-pressed={riskFilter === 'low'}
+              >
                 <p className="text-[10px] font-bold uppercase text-emerald-600">Low</p>
                 <p className="text-xl font-bold text-emerald-700">{Number(data.complianceForecast?.lowRiskCount || 0)}</p>
-              </div>
+              </button>
             </div>
 
-            <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-400">Attention Required</h3>
-            <div className="space-y-3">
-              {topForecastStores.length === 0 ? (
-                <p className="text-sm italic text-slate-500">No stores currently flagged for elevated risk.</p>
+            <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-400">
+              {selectedRiskLabel} Risk Stores
+            </h3>
+            <div className="max-h-[360px] space-y-3 overflow-y-auto pr-1">
+              {filteredForecastStores.length === 0 ? (
+                <p className="text-sm italic text-slate-500">No {riskFilter}-risk stores in this forecast.</p>
               ) : (
-                topForecastStores.map((store: any) => (
-                  <Link
-                    key={store.storeId}
-                    href={store.storeId ? `/stores/${store.storeId}` : '/stores'}
-                    prefetch={false}
-                    className="group block rounded-xl border border-slate-100 p-3 transition-all hover:border-amber-200 hover:bg-amber-50/30"
-                  >
-                    <div className="mb-1 flex items-start justify-between">
-                      <div>
-                        <span className="mr-2 font-bold text-slate-800">{store.storeName}</span>
-                        <span className="text-xs font-mono text-slate-400">{store.storeCode || '—'}</span>
+                filteredForecastStores.map((store: any) => {
+                  const band = getRiskBand(store)
+                  const scoreBadgeClass = band === 'high'
+                    ? 'bg-red-100 text-red-600'
+                    : band === 'medium'
+                      ? 'bg-amber-100 text-amber-600'
+                      : 'bg-emerald-100 text-emerald-700'
+                  const hoverClass = band === 'high'
+                    ? 'hover:border-red-200 hover:bg-red-50/30'
+                    : band === 'medium'
+                      ? 'hover:border-amber-200 hover:bg-amber-50/30'
+                      : 'hover:border-emerald-200 hover:bg-emerald-50/30'
+
+                  return (
+                    <Link
+                      key={store.storeId}
+                      href={store.storeId ? `/stores/${store.storeId}` : '/stores'}
+                      prefetch={false}
+                      className={`group block rounded-xl border border-slate-100 p-3 transition-all ${hoverClass}`}
+                    >
+                      <div className="mb-1 flex items-start justify-between">
+                        <div>
+                          <span className="mr-2 font-bold text-slate-800">{store.storeName}</span>
+                          <span className="text-xs font-mono text-slate-400">{store.storeCode || '—'}</span>
+                        </div>
+                        <span className={`rounded px-1.5 py-0.5 text-xs font-bold ${scoreBadgeClass}`}>
+                          {store.probability}%
+                        </span>
                       </div>
-                      <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-bold text-amber-600">
-                        {store.probability}%
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-500">
-                      {Array.isArray(store.drivers) && store.drivers.length > 0
-                        ? store.drivers.slice(0, 2).join(' • ')
-                        : 'No recent audit score • No in-date FRA'}
-                    </p>
-                  </Link>
-                ))
+                      <p className="text-xs text-slate-500">
+                        {Array.isArray(store.drivers) && store.drivers.length > 0
+                          ? store.drivers.slice(0, 2).join(' • ')
+                          : 'No recent audit score • No in-date FRA'}
+                      </p>
+                    </Link>
+                  )
+                })
               )}
             </div>
           </div>

@@ -19,6 +19,7 @@
 .DS_Store
 .venv-sora/
 *.pem
+/reports/backups/
 
 # debug
 npm-debug.log*
@@ -35,5 +36,4 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-
 
