@@ -1,0 +1,1221 @@
+[
+  {
+    "id": "d1d3ba48-e53e-4899-b121-8455afd81f62",
+    "event_id": "47370df8-15e7-477e-9394-29c92c2257ff",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 61,
+    "risk_factors": {
+      "factors": [
+        "Weekday event (Wednesday)",
+        "Predicted attrition rate of 0.0%",
+        "Well-known and established location (Malahide Castle)"
+      ],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.5,
+    "created_at": "2025-12-12T02:28:04.073462+00:00"
+  },
+  {
+    "id": "bef4fcf0-cb4c-4309-87ce-e0302b46351b",
+    "event_id": "47370df8-15e7-477e-9394-29c92c2257ff",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 61,
+    "risk_factors": {
+      "factors": [
+        "No predicted attrition",
+        "Concert is on a weekday (Wednesday), which may reduce personal commitments",
+        "Stable staffing requirement (61 staff) with no significant increase in size",
+        "Location is a known venue with experience hosting similar events"
+      ],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.5,
+    "created_at": "2025-12-12T02:28:04.744902+00:00"
+  },
+  {
+    "id": "667cc6a7-5e34-45ba-ba33-c69e4221ca7e",
+    "event_id": "47370df8-15e7-477e-9394-29c92c2257ff",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 61,
+    "risk_factors": {
+      "factors": [
+        "Date is a weekday (Wednesday) which typically sees lower staff availability concerns compared to weekends.",
+        "Predicted attrition is 0.0%, indicating confidence in staff commitment.",
+        "Controlled number of required staff (61) which is manageable.",
+        "Location is a popular venue with experience hosting large events, reducing logistical risks."
+      ],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.5,
+    "created_at": "2025-12-12T02:39:25.115004+00:00"
+  },
+  {
+    "id": "61e9365d-6c42-4c38-adef-78ce3327b450",
+    "event_id": "47370df8-15e7-477e-9394-29c92c2257ff",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 61,
+    "risk_factors": {
+      "factors": [
+        "Date on a weekday (Wednesday), reducing personal conflicts",
+        "No predicted attrition, ensuring sufficient staffing",
+        "Single-location event at Malahide Castle, limiting logistical complications",
+        "Nick Cave & the Bad Seeds typically attract a dedicated audience, minimizing last-minute cancellations"
+      ],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.5,
+    "created_at": "2025-12-12T02:39:25.720949+00:00"
+  },
+  {
+    "id": "be5e0577-c92e-41ed-a601-af9ebdadcc54",
+    "event_id": "47370df8-15e7-477e-9394-29c92c2257ff",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 61,
+    "risk_factors": {
+      "factors": [
+        "No predicted attrition",
+        "Event scheduled on a weekday (Wednesday)",
+        "Adequate lead time for staffing (3 years ahead)",
+        "Venue is a well-known location for events"
+      ],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.5,
+    "created_at": "2025-12-12T02:48:38.375514+00:00"
+  },
+  {
+    "id": "c55ffdb7-56fb-4a9f-9d37-ec925e31da53",
+    "event_id": "47370df8-15e7-477e-9394-29c92c2257ff",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 61,
+    "risk_factors": {
+      "factors": [
+        "No predicted attrition (0.0%)",
+        "Event is on a Wednesday, avoiding weekend staffing issues",
+        "Location at Malahide Castle is accessible",
+        "Size of required staff (61) is manageable"
+      ],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.5,
+    "created_at": "2025-12-12T02:48:38.815038+00:00"
+  },
+  {
+    "id": "c3b1ed2a-e47e-4775-836e-fedc0f14ecac",
+    "event_id": "47370df8-15e7-477e-9394-29c92c2257ff",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 61,
+    "risk_factors": {
+      "factors": [
+        "No predicted attrition",
+        "Event date is a weekday (Wednesday) which may have lower staffing challenges",
+        "Malahide Castle is a well-known venue which may attract experienced staff",
+        "No major competing events expected on the same date"
+      ],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.5,
+    "created_at": "2025-12-12T02:50:25.385967+00:00"
+  },
+  {
+    "id": "b6e95173-7352-45d0-9f0c-d59309353fc0",
+    "event_id": "47370df8-15e7-477e-9394-29c92c2257ff",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 61,
+    "risk_factors": {
+      "factors": [
+        "Date is a weekday, reducing staffing availability concerns",
+        "0.0% predicted attrition indicates no expected loss of staff",
+        "Malahide Castle is a well-established venue, likely to have local staffing resources",
+        "Staffing requirement of 61 is moderate and manageable"
+      ],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.5,
+    "created_at": "2025-12-12T02:57:59.533976+00:00"
+  },
+  {
+    "id": "b6b69c82-69da-4dc6-9eb4-6feabc396b6b",
+    "event_id": "47370df8-15e7-477e-9394-29c92c2257ff",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 61,
+    "risk_factors": {
+      "factors": [
+        "Event is on a weekday (Wednesday), reducing potential scheduling conflicts",
+        "No predicted attrition, ensuring full staffing",
+        "Location is a well-known venue, likely to attract experienced staff",
+        "Event has a specific fanbase, potentially leading to higher staff reliability"
+      ],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.5,
+    "created_at": "2025-12-12T02:57:59.987075+00:00"
+  },
+  {
+    "id": "b7d87839-d8cb-4c8c-bec2-a713b3f9db35",
+    "event_id": "47370df8-15e7-477e-9394-29c92c2257ff",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 61,
+    "risk_factors": {
+      "factors": [
+        "Weekday event (Wednesday) reduces likelihood of scheduling conflicts",
+        "Predicted attrition rate of 0.0% indicates strong commitment from staff",
+        "Location (Malahide Castle) is a well-known venue which may attract skilled staff",
+        "Event size (61 staff) is manageable and allows for thorough coordination"
+      ],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.5,
+    "created_at": "2025-12-12T03:00:43.298285+00:00"
+  },
+  {
+    "id": "6a7ac889-b827-4bb1-9285-f28deddcd75f",
+    "event_id": "47370df8-15e7-477e-9394-29c92c2257ff",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 61,
+    "risk_factors": {
+      "factors": [
+        "Low predicted attrition (0.0%)",
+        "Event is on a weekday (Wednesday), which may have a lower impact on staffing availability compared to weekends or holidays",
+        "Malahide Castle is a well-known venue, likely to attract local staff familiar with the location",
+        "A manageable number of required staff (61), reducing complexity in staffing management"
+      ],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.5,
+    "created_at": "2025-12-12T03:00:43.398189+00:00"
+  },
+  {
+    "id": "e4d0eff0-083b-4acb-9fc8-1c89fcb6e350",
+    "event_id": "47370df8-15e7-477e-9394-29c92c2257ff",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 61,
+    "risk_factors": {
+      "factors": [
+        "Date is a weekday (Wednesday) which may reduce staffing conflicts.",
+        "Location (Malahide Castle) is a popular venue, likely with adequate local staffing resources.",
+        "Predicted attrition rate is 0.0%, indicating stable staffing availability.",
+        "Event size (61 staff required) is manageable compared to larger concerts that might require more complex staffing solutions."
+      ],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.5,
+    "created_at": "2025-12-12T03:00:44.084292+00:00"
+  },
+  {
+    "id": "d5aae476-de41-4992-804c-f9a1e8fa0f3c",
+    "event_id": "47370df8-15e7-477e-9394-29c92c2257ff",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 61,
+    "risk_factors": {
+      "factors": [
+        "Event is on a weekday (Tuesday), reducing potential staffing conflicts related to weekends",
+        "No predicted attrition indicates a stable workforce expected",
+        "Malahide Castle is a well-known venue, likely having access to a reliable pool of staff",
+        "The required staffing size (61) is manageable and allows for efficient logistics"
+      ],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.5,
+    "created_at": "2025-12-12T03:00:46.059499+00:00"
+  },
+  {
+    "id": "59aa2855-a7fe-4349-90c8-f8c0e53d7c98",
+    "event_id": "a68b00cf-14a6-4562-ace7-7aaffe746f80",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 64,
+    "risk_factors": {
+      "factors": [
+        "Event takes place on a Saturday, which can attract a larger pool of available staff",
+        "Location is a popular venue, which may ease recruitment",
+        "Predicted attrition rate is 0.0%",
+        "No major holidays or conflicting events on the same date in the area"
+      ],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.4,
+    "created_at": "2025-12-12T13:03:53.311451+00:00"
+  },
+  {
+    "id": "0725cab2-d53f-48b7-9fc2-f9f773c0b2da",
+    "event_id": "a68b00cf-14a6-4562-ace7-7aaffe746f80",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 64,
+    "risk_factors": {
+      "factors": [
+        "Event is on a Saturday (weekend), which may attract more available staff",
+        "Predicted attrition is 0.0%, indicating high commitment from staff",
+        "Event location (Malahide Castle) is an attractive venue, likely to draw interest from potential staff",
+        "Event size (64 staff) is manageable and may be easier to staff compared to larger events"
+      ],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.4,
+    "created_at": "2025-12-12T13:03:53.824011+00:00"
+  },
+  {
+    "id": "cc14afaf-c814-414a-9482-1f25b239439a",
+    "event_id": "a68b00cf-14a6-4562-ace7-7aaffe746f80",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 64,
+    "risk_factors": {
+      "factors": [
+        "Event date is on a Saturday, which may help with staffing availability",
+        "Predicted attrition rate is 0.0%"
+      ],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.4,
+    "created_at": "2025-12-12T13:14:36.727081+00:00"
+  },
+  {
+    "id": "d2d80b50-41ed-4d88-83a7-91e5b643a255",
+    "event_id": "a68b00cf-14a6-4562-ace7-7aaffe746f80",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 64,
+    "risk_factors": {
+      "factors": [
+        "Non-holiday weekend event",
+        "Stable predicted attrition rate (0.0%)",
+        "Sufficient lead time for staffing",
+        "Popular location (Malahide Castle)",
+        "Engaging and unique event theme (Kingfishr)"
+      ],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.4,
+    "created_at": "2025-12-12T13:14:40.006674+00:00"
+  },
+  {
+    "id": "4afd9f77-6730-4b01-bf8c-c8f8f7040463",
+    "event_id": "a68b00cf-14a6-4562-ace7-7aaffe746f80",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 64,
+    "risk_factors": {
+      "factors": [
+        "Event is on a Saturday (weekend), which may attract more staffing availability.",
+        "Predicted attrition is 0.0%, indicating low risk of no-shows or last-minute cancellations.",
+        "The location, Malahide Castle, is a popular venue, which may facilitate easier recruitment.",
+        "The staffing requirement of 64 is manageable and not excessively large, reducing complexity."
+      ],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.4,
+    "created_at": "2025-12-12T13:15:01.626891+00:00"
+  },
+  {
+    "id": "9b168b87-e62b-4ea3-8b3f-6e96216edf2b",
+    "event_id": "a68b00cf-14a6-4562-ace7-7aaffe746f80",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 64,
+    "risk_factors": {
+      "factors": [
+        "Low predicted attrition (0.0%)",
+        "Event at a popular location (Malahide Castle)",
+        "Non-holiday weekend date",
+        "Sufficient advance planning time (3 years)",
+        "Large size of 64 staff allows for better division of responsibilities"
+      ],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.4,
+    "created_at": "2025-12-12T13:15:02.143759+00:00"
+  },
+  {
+    "id": "833bbd4f-d300-4372-aa22-52a1a85fccbd",
+    "event_id": "a68b00cf-14a6-4562-ace7-7aaffe746f80",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 64,
+    "risk_factors": {
+      "factors": [
+        "No predicted attrition (0.0%)",
+        "Event taking place on a Saturday, potentially increasing availability of staff",
+        "Malahide Castle is a popular and accessible location, likely attracting local talent",
+        "Relatively manageable staff size (64 staff)"
+      ],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.4,
+    "created_at": "2025-12-12T13:15:29.318096+00:00"
+  },
+  {
+    "id": "46692fef-42dd-4400-a301-dc3194422185",
+    "event_id": "a68b00cf-14a6-4562-ace7-7aaffe746f80",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 64,
+    "risk_factors": {
+      "factors": [
+        "0.0% predicted attrition",
+        "Staffing requirements are relatively moderate (64 staff)",
+        "Event takes place on a Saturday, which is generally favorable for staffing availability",
+        "Malahide Castle is a well-known venue, likely attracting local staff",
+        "No major public holidays or competing events on the same date in the vicinity"
+      ],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.4,
+    "created_at": "2025-12-12T13:15:29.876234+00:00"
+  },
+  {
+    "id": "6816ffd8-a8ee-42a5-8dd3-ed7960b2e86f",
+    "event_id": "a68b00cf-14a6-4562-ace7-7aaffe746f80",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 64,
+    "risk_factors": {
+      "factors": [
+        "Weekend event",
+        "Large number of required staff (64)",
+        "Location may have limited access to local staffing resources",
+        "Potential for high demand on staff due to event size"
+      ],
+      "riskLevel": "Medium"
+    },
+    "confidence_score": 0.4,
+    "created_at": "2025-12-12T13:16:08.977696+00:00"
+  },
+  {
+    "id": "77b1f1b0-0dd1-495d-9619-46dd45bc1675",
+    "event_id": "a68b00cf-14a6-4562-ace7-7aaffe746f80",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 64,
+    "risk_factors": {
+      "factors": [
+        "Date is a Saturday, which may mean higher availability of staff.",
+        "Predicted attrition is 0.0%, indicating no expected loss of staff.",
+        "Location in Malahide Castle may attract local talent who are familiar with the area.",
+        "Size of the event (64 staff required) is manageable compared to larger events."
+      ],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.4,
+    "created_at": "2025-12-12T13:16:09.529543+00:00"
+  },
+  {
+    "id": "2b8a4a18-a943-420c-9581-52bd56877819",
+    "event_id": "a68b00cf-14a6-4562-ace7-7aaffe746f80",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 64,
+    "risk_factors": {
+      "factors": [
+        "Weekend event",
+        "Stable predicted attrition rate (0.0%)",
+        "Large staff required but well in advance",
+        "Location is a popular venue with adequate access"
+      ],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.4,
+    "created_at": "2025-12-12T13:19:16.798732+00:00"
+  },
+  {
+    "id": "a0b17207-4ba6-4a94-8b93-8ec70088d401",
+    "event_id": "a68b00cf-14a6-4562-ace7-7aaffe746f80",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 64,
+    "risk_factors": {
+      "factors": [
+        "Date is not a holiday or major public event",
+        "Attrition rate is predicted to be 0.0%",
+        "Location (Malahide Castle) is a well-known venue",
+        "Powered by the popularity of the event, which may attract responsible attendees"
+      ],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.4,
+    "created_at": "2025-12-12T13:19:17.286271+00:00"
+  },
+  {
+    "id": "9c362e99-d5aa-4c7e-8b22-98e6cdb7dede",
+    "event_id": "a68b00cf-14a6-4562-ace7-7aaffe746f80",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 64,
+    "risk_factors": {
+      "factors": [
+        "Event scheduled on a weekend, which may improve staffing availability",
+        "Predicted attrition rate of 0.0%, indicating high commitment from staff",
+        "Malahide Castle is a popular venue, likely attracting local staff",
+        "Sufficient lead time of three years to recruit and plan for staffing needs"
+      ],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.4,
+    "created_at": "2025-12-12T13:20:52.941753+00:00"
+  },
+  {
+    "id": "d3c44239-f64f-4ab2-86f4-564f29f5c29f",
+    "event_id": "a68b00cf-14a6-4562-ace7-7aaffe746f80",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 64,
+    "risk_factors": {
+      "factors": [
+        "Date falls on a Saturday, which may increase availability of staff",
+        "Low predicted attrition rate of 0.0%",
+        "Malahide Castle is a well-known venue that may attract local talent",
+        "Large staff size of 64 is manageable for event operations"
+      ],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.4,
+    "created_at": "2025-12-12T13:20:53.138619+00:00"
+  },
+  {
+    "id": "ea42e17b-b0ac-4a1d-9a42-2fb866fb434d",
+    "event_id": "a68b00cf-14a6-4562-ace7-7aaffe746f80",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 64,
+    "risk_factors": {
+      "factors": [
+        "Weekend event",
+        "Outdoor location",
+        "Large staff requirement"
+      ],
+      "riskLevel": "Medium"
+    },
+    "confidence_score": 0.4,
+    "created_at": "2025-12-12T13:21:41.904421+00:00"
+  },
+  {
+    "id": "944c20c1-3f17-4bd3-bf55-32893745db93",
+    "event_id": "a68b00cf-14a6-4562-ace7-7aaffe746f80",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 64,
+    "risk_factors": {
+      "factors": [
+        "Date is not a public holiday or significant event weekend",
+        "Predicted attrition is 0.0%",
+        "Location is well-known and accessible for staff",
+        "Adequate lead time for staffing",
+        "Staff size is manageable for the event scope"
+      ],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.4,
+    "created_at": "2025-12-12T13:21:42.092353+00:00"
+  },
+  {
+    "id": "1bc4a089-252b-4e5d-b021-cf3e6eb179ba",
+    "event_id": "a68b00cf-14a6-4562-ace7-7aaffe746f80",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 64,
+    "risk_factors": {
+      "factors": [
+        "Event on a weekend (Saturday), which may lead to higher demand for staff",
+        "Large size of the event requiring a significant number of staff (64)",
+        "Location in a popular venue (Malahide Castle) which may attract a larger audience, increasing staffing needs",
+        "Potential for high competition for staff in the area due to other events or attractions"
+      ],
+      "riskLevel": "Medium"
+    },
+    "confidence_score": 0.4,
+    "created_at": "2025-12-12T13:21:54.803819+00:00"
+  },
+  {
+    "id": "7ad7f95e-970d-4673-b673-8ec6cad26acc",
+    "event_id": "a68b00cf-14a6-4562-ace7-7aaffe746f80",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 64,
+    "risk_factors": {
+      "factors": [
+        "Scheduled on a Saturday (weekend event)",
+        "Predicted attrition rate is 0.0%",
+        "Location is Malahide Castle, which is a popular venue and may attract staffing resources",
+        "Adequate lead time for staffing (event is in 2026)"
+      ],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.4,
+    "created_at": "2025-12-12T13:21:55.391634+00:00"
+  },
+  {
+    "id": "d94c819f-a473-40d0-bf60-26991f9d1ce0",
+    "event_id": "a68b00cf-14a6-4562-ace7-7aaffe746f80",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 64,
+    "risk_factors": {
+      "factors": [
+        "Event is not on a holiday",
+        "Predicted attrition is 0.0%",
+        "Location is within a popular area",
+        "Sufficient lead time for staffing"
+      ],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.4,
+    "created_at": "2025-12-12T13:24:10.402121+00:00"
+  },
+  {
+    "id": "891b14b5-bf87-4fbf-bb82-329f6b6eab05",
+    "event_id": "a68b00cf-14a6-4562-ace7-7aaffe746f80",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 64,
+    "risk_factors": {
+      "factors": [
+        "Large staffing requirement (64 staff)",
+        "Outdoor location (Malahide Castle may have weather-related concerns)",
+        "Event date is on a Saturday (potential for increased availability of staff but also weekend plans)",
+        "Potential competition from other events in June 2026"
+      ],
+      "riskLevel": "Medium"
+    },
+    "confidence_score": 0.4,
+    "created_at": "2025-12-12T13:24:10.751427+00:00"
+  },
+  {
+    "id": "856331a9-bbc6-40af-8edd-d16b5635ba40",
+    "event_id": "a68b00cf-14a6-4562-ace7-7aaffe746f80",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 64,
+    "risk_factors": {
+      "factors": [
+        "No predicted attrition",
+        "Event is not on a major holiday",
+        "Sufficient lead time for staffing",
+        "Location is accessible and popular"
+      ],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.4,
+    "created_at": "2025-12-12T13:24:28.042682+00:00"
+  },
+  {
+    "id": "9d5b5d87-2e9a-4a0c-96bd-4439554defa4",
+    "event_id": "a68b00cf-14a6-4562-ace7-7aaffe746f80",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 64,
+    "risk_factors": {
+      "factors": [
+        "Predicted attrition of 0.0%",
+        "Event date is not on a holiday",
+        "Location is accessible and well-known",
+        "Adequate advance planning period for recruitment"
+      ],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.4,
+    "created_at": "2025-12-12T13:24:28.233841+00:00"
+  },
+  {
+    "id": "fd5da409-a5b3-4035-aab1-17d672f8e76f",
+    "event_id": "a68b00cf-14a6-4562-ace7-7aaffe746f80",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 64,
+    "risk_factors": {
+      "factors": [
+        "Date is a Saturday, which may increase availability of staff",
+        "No predicted attrition, indicating stable staffing levels",
+        "Popular location (Malahide Castle) may attract local talent eager to work",
+        "Adequate time before the event (over three years) for planning and recruitment"
+      ],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.4,
+    "created_at": "2025-12-12T13:25:01.591614+00:00"
+  },
+  {
+    "id": "5cfcf2a2-5bc5-451b-94df-76a5eaf0608b",
+    "event_id": "a68b00cf-14a6-4562-ace7-7aaffe746f80",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 64,
+    "risk_factors": {
+      "factors": [
+        "Event scheduled during summer, which may lead to competing events and festivals attracting the same pool of staff.",
+        "Outdoor location (Malahide Castle) might face weather-related challenges, potentially impacting staff availability and safety.",
+        "Large size of required staff (64) increases dependency on recruiting enough qualified personnel willing to work.",
+        "Weekend event may hinder recruitment of volunteers or part-time staff who may have prior commitments."
+      ],
+      "riskLevel": "Medium"
+    },
+    "confidence_score": 0.4,
+    "created_at": "2025-12-12T13:25:02.134379+00:00"
+  },
+  {
+    "id": "fe1784e9-49db-4439-b291-5c116cf6c319",
+    "event_id": "a68b00cf-14a6-4562-ace7-7aaffe746f80",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 64,
+    "risk_factors": {
+      "factors": [
+        "Date falls on a Saturday, which may ease staffing availability.",
+        "Malahide Castle is a popular venue with access to local talent.",
+        "Predicted attrition is at 0.0%, indicating high reliability of staff commitments.",
+        "Size of event (64 staff required) is manageable and likely achievable."
+      ],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.4,
+    "created_at": "2025-12-12T13:28:31.274062+00:00"
+  },
+  {
+    "id": "0defd665-8b5d-4229-9b7e-725b93ccacba",
+    "event_id": "a68b00cf-14a6-4562-ace7-7aaffe746f80",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 64,
+    "risk_factors": {
+      "factors": [
+        "Outdoor location which may be affected by weather conditions",
+        "Potential for higher demand due to popularity of the venue (Malahide Castle)",
+        "Event scheduled on a Saturday, increasing potential for larger crowds and competition for staff",
+        "Event size requires significant manpower (64 staff) which may be challenging to source",
+        "Possibility of overlapping events or festivals in the area on the same date"
+      ],
+      "riskLevel": "Medium"
+    },
+    "confidence_score": 0.4,
+    "created_at": "2025-12-12T13:28:31.870256+00:00"
+  },
+  {
+    "id": "075fd949-76af-4eff-948a-f35061b0e912",
+    "event_id": "a68b00cf-14a6-4562-ace7-7aaffe746f80",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 64,
+    "risk_factors": {
+      "factors": [
+        "Event is on a Saturday, which may be favorable for staffing availability",
+        "Location at Malahide Castle is a popular venue, potentially attracting local talent",
+        "Predicted attrition is 0.0%, indicating strong commitment from staff",
+        "Sufficient lead time of nearly 3 years for planning and recruiting staff"
+      ],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.4,
+    "created_at": "2025-12-12T13:30:34.039992+00:00"
+  },
+  {
+    "id": "b6e3d569-108b-49b2-a066-5f6a756d55be",
+    "event_id": "47370df8-15e7-477e-9394-29c92c2257ff",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 61,
+    "risk_factors": {
+      "factors": [
+        "Event is on a weekday (Tuesday), potentially reducing conflicts with weekend plans.",
+        "Malahide Castle is a popular venue, likely to attract local staff.",
+        "Predicted attrition rate is 0.0%, indicating staffing stability.",
+        "The event is not on a holiday, reducing competition for staff availability."
+      ],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.5,
+    "created_at": "2026-02-09T17:03:37.978539+00:00"
+  },
+  {
+    "id": "42b7d3ad-ca4c-4454-9a85-c4de7bc50f7e",
+    "event_id": "a68b00cf-14a6-4562-ace7-7aaffe746f80",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 64,
+    "risk_factors": {
+      "factors": [
+        "Large size of required staff (64 people)",
+        "Potential for unexpected absences due to illness or personal reasons, despite predicted attrition being 0.0%",
+        "Location at Malahide Castle may limit easy access to local talent",
+        "Event scheduled for a Saturday, which may complicate staffing with other local events or personal commitments"
+      ],
+      "riskLevel": "Medium"
+    },
+    "confidence_score": 0.4,
+    "created_at": "2025-12-12T13:30:34.248839+00:00"
+  },
+  {
+    "id": "699c3109-8ee8-4ff8-810c-f7b2bf05c1de",
+    "event_id": "a68b00cf-14a6-4562-ace7-7aaffe746f80",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 64,
+    "risk_factors": {
+      "factors": [
+        "Event date is a Saturday, which is generally favorable for staffing",
+        "Malahide Castle is a popular location, likely to attract local talent",
+        "Predicted attrition rate is 0.0%, indicating strong commitment from staff"
+      ],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.4,
+    "created_at": "2025-12-12T13:31:44.541083+00:00"
+  },
+  {
+    "id": "82705aa3-538b-41e6-b93d-d7173c82a856",
+    "event_id": "a68b00cf-14a6-4562-ace7-7aaffe746f80",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 64,
+    "risk_factors": {
+      "factors": [
+        "Predicted attrition is 0.0%",
+        "Event is on a Saturday (weekend)",
+        "Well-established location (Malahide Castle)",
+        "Lack of major holidays or competing events on the same date",
+        "Adequate lead time for staffing (over 2 years)"
+      ],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.4,
+    "created_at": "2025-12-12T13:31:44.772898+00:00"
+  },
+  {
+    "id": "acb00eb5-9acd-4445-bec9-6e80556ae28d",
+    "event_id": "a68b00cf-14a6-4562-ace7-7aaffe746f80",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 64,
+    "risk_factors": {
+      "factors": [
+        "Event on a weekend (Saturday)",
+        "Stable predicted attrition (0.0%)"
+      ],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.4,
+    "created_at": "2025-12-12T13:34:11.877295+00:00"
+  },
+  {
+    "id": "fdb27c66-0808-4308-8c38-1329daef2985",
+    "event_id": "a68b00cf-14a6-4562-ace7-7aaffe746f80",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 64,
+    "risk_factors": {
+      "factors": [
+        "Outdoor location which may be affected by weather conditions",
+        "Event size requiring 64 staff, increasing complexity in coordination",
+        "Potential for high demand on staff due to popularity of the event",
+        "June may coincide with other local events, affecting staff availability"
+      ],
+      "riskLevel": "Medium"
+    },
+    "confidence_score": 0.4,
+    "created_at": "2025-12-12T13:34:13.013642+00:00"
+  },
+  {
+    "id": "f721a012-3104-4a9d-9de9-613ecd5626a4",
+    "event_id": "a68b00cf-14a6-4562-ace7-7aaffe746f80",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 64,
+    "risk_factors": {
+      "factors": [
+        "Weekend event",
+        "Predicted attrition of 0.0%",
+        "Location is easily accessible",
+        "Adequate lead time for staffing"
+      ],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.4,
+    "created_at": "2025-12-12T13:36:35.028205+00:00"
+  },
+  {
+    "id": "5033a424-f5ac-43f0-90ae-a55c23207614",
+    "event_id": "a68b00cf-14a6-4562-ace7-7aaffe746f80",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 64,
+    "risk_factors": {
+      "factors": [
+        "Event is scheduled on a weekend, which may attract more available staff",
+        "Location at Malahide Castle may offer appeal for staffing due to its popularity",
+        "Predicted attrition rate is 0.0%, reducing uncertainty around staffing levels",
+        "Event size is moderate, requiring a manageable number of staff (64)"
+      ],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.4,
+    "created_at": "2025-12-12T13:36:35.746551+00:00"
+  },
+  {
+    "id": "ddb1ea8e-6cdb-4013-9c46-bc970b9dff87",
+    "event_id": "a68b00cf-14a6-4562-ace7-7aaffe746f80",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 64,
+    "risk_factors": {
+      "factors": [
+        "Event is scheduled for a Saturday, but the predicted attrition is 0.0%",
+        "Location at a well-known venue (Malahide Castle) may attract local staffing availability",
+        "Sufficient staffing levels (64) reduces dependency on a smaller pool of workers"
+      ],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.4,
+    "created_at": "2025-12-12T13:37:19.071665+00:00"
+  },
+  {
+    "id": "84624ddd-9d65-42bc-a6fd-4855069135f6",
+    "event_id": "a68b00cf-14a6-4562-ace7-7aaffe746f80",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 64,
+    "risk_factors": {
+      "factors": [
+        "Event on a Saturday, which may lead to higher competition for staff",
+        "Large staffing requirement of 64 personnel",
+        "Location may require travel for many staff members, affecting availability",
+        "Potential for adverse weather conditions in June impacting attendance and staff willingness",
+        "Lack of predicted attrition may over-rely on staff commitment as a risk factor"
+      ],
+      "riskLevel": "Medium"
+    },
+    "confidence_score": 0.4,
+    "created_at": "2025-12-12T13:37:19.908752+00:00"
+  },
+  {
+    "id": "10bf38a6-fdd5-422d-8806-b24256bc03b7",
+    "event_id": "a68b00cf-14a6-4562-ace7-7aaffe746f80",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 64,
+    "risk_factors": {
+      "factors": [
+        "Event date is on a Saturday, generally favorable for staffing",
+        "No predicted attrition, indicating full commitment from staff",
+        "Location at Malahide Castle, a popular venue likely to attract local talent",
+        "Moderate size of 64 staff is manageable for recruitment efforts"
+      ],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.4,
+    "created_at": "2025-12-12T13:58:37.297522+00:00"
+  },
+  {
+    "id": "03e62f7d-89b7-4134-a285-47246fcedbfb",
+    "event_id": "a68b00cf-14a6-4562-ace7-7aaffe746f80",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 64,
+    "risk_factors": {
+      "factors": [
+        "Zero predicted attrition (0.0%)",
+        "Event is taking place on a Saturday (weekend)",
+        "Location is a popular venue (Malahide Castle, Co. Dublin)",
+        "Sufficient lead time for staffing (2026 date)"
+      ],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.4,
+    "created_at": "2025-12-12T13:58:37.582981+00:00"
+  },
+  {
+    "id": "c43db8b8-a065-41fc-bcd7-9c840bffd514",
+    "event_id": "a68b00cf-14a6-4562-ace7-7aaffe746f80",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 64,
+    "risk_factors": {
+      "factors": [
+        "Predicted attrition is 0.0%",
+        "Event is not on a holiday",
+        "Location is accessible and popular for events",
+        "Required staff size is manageable"
+      ],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.4,
+    "created_at": "2025-12-12T14:11:08.129173+00:00"
+  },
+  {
+    "id": "ef4ad7c1-1c02-4fdb-901b-a9d9ed5d2796",
+    "event_id": "a68b00cf-14a6-4562-ace7-7aaffe746f80",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 64,
+    "risk_factors": {
+      "factors": [
+        "Weekend event (Saturday)",
+        "Stable attrition predicted (0.0%)",
+        "Location is a popular venue for events (Malahide Castle)",
+        "Sufficient lead time for recruitment (event planned for 2026)"
+      ],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.4,
+    "created_at": "2025-12-12T14:11:08.839153+00:00"
+  },
+  {
+    "id": "1ea4897f-a151-4490-bad0-3ceb08a1d173",
+    "event_id": "a68b00cf-14a6-4562-ace7-7aaffe746f80",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 64,
+    "risk_factors": {
+      "factors": [
+        "Date is a Saturday, but no predicted attrition",
+        "Location is easily accessible in Dublin",
+        "Adequate staffing size for the event"
+      ],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.4,
+    "created_at": "2025-12-12T14:17:51.301265+00:00"
+  },
+  {
+    "id": "d6e74d50-8ef1-4ea1-b719-8ded666af901",
+    "event_id": "a68b00cf-14a6-4562-ace7-7aaffe746f80",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 64,
+    "risk_factors": {
+      "factors": [
+        "No predicted attrition (0.0%)",
+        "Event is scheduled on a Saturday, which may attract more staff availability",
+        "Malahide Castle is a popular location, potentially facilitating staff recruitment",
+        "Sufficient lead time for recruitment and planning (over two years ahead)"
+      ],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.4,
+    "created_at": "2025-12-12T14:17:52.061629+00:00"
+  },
+  {
+    "id": "71d48e9a-dc74-4f52-8252-f06a1332cebf",
+    "event_id": "a68b00cf-14a6-4562-ace7-7aaffe746f80",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 64,
+    "risk_factors": {
+      "factors": [
+        "Weekend event",
+        "Stable predicted attrition",
+        "Location is popular and accessible",
+        "Sufficient lead time for staffing"
+      ],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.4,
+    "created_at": "2025-12-12T14:18:09.252261+00:00"
+  },
+  {
+    "id": "c1e229fe-0349-40e2-9e37-2bba32ad7390",
+    "event_id": "a68b00cf-14a6-4562-ace7-7aaffe746f80",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 64,
+    "risk_factors": {
+      "factors": [
+        "Event scheduled on a Saturday, which may facilitate higher staff availability",
+        "No predicted attrition, indicating a stable workforce for the event",
+        "Malahide Castle is a popular location, potentially attracting local staff",
+        "Sufficient lead time for recruitment and planning (over 2.5 years)",
+        "Event is specific and targeted, likely to attract committed personnel"
+      ],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.4,
+    "created_at": "2025-12-12T14:18:10.071877+00:00"
+  },
+  {
+    "id": "b149e567-b4f2-41a6-8595-f6e4f61c7a84",
+    "event_id": "47370df8-15e7-477e-9394-29c92c2257ff",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 61,
+    "risk_factors": {
+      "factors": [
+        "Midweek event (Wednesday)",
+        "No predicted attrition",
+        "Sufficient staffing numbers (61 staff for the event)",
+        "Popular and established event/music act reducing volunteer dropout risks",
+        "Location is accessible and has hosting experience for large events"
+      ],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.5,
+    "created_at": "2025-12-12T14:18:30.163882+00:00"
+  },
+  {
+    "id": "a0468204-eeb7-49f1-b759-963a2970084b",
+    "event_id": "47370df8-15e7-477e-9394-29c92c2257ff",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 61,
+    "risk_factors": {
+      "factors": [
+        "Date is a weekday (Wednesday) which may lead to lower overall attendance compared to weekends.",
+        "Predicted attrition is 0.0%, indicating a strong commitment from staff.",
+        "Location is a popular venue but may require staffing considerations for access and logistics.",
+        "Staff size is manageable at 61, which can be effectively overseen.",
+        "No major holidays coincide with the event date, reducing the risk of competing commitments."
+      ],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.5,
+    "created_at": "2025-12-12T14:18:30.924393+00:00"
+  },
+  {
+    "id": "272866fb-f19a-4cf5-ad7e-b421fe067d9f",
+    "event_id": "47370df8-15e7-477e-9394-29c92c2257ff",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 61,
+    "risk_factors": {
+      "factors": [
+        "Event is on a weekday (Wednesday), reducing competition for staff availability compared to weekends",
+        "Location is a well-established venue, likely to have local staffing resources",
+        "Predicted attrition rate is 0.0%, indicating stable staff commitment",
+        "Size of staff required (61) is manageable for the event scale"
+      ],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.5,
+    "created_at": "2025-12-12T14:18:44.679019+00:00"
+  },
+  {
+    "id": "95bf1e69-93e4-43f5-9d87-f6c0b8d46c7c",
+    "event_id": "47370df8-15e7-477e-9394-29c92c2257ff",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 61,
+    "risk_factors": {
+      "factors": [
+        "Date is on a Wednesday, reducing weekend-related staffing issues",
+        "Predicted attrition is 0.0%, indicating strong commitment from the staff",
+        "Malahide Castle is a reputable venue likely to attract professional staff",
+        "Staff requirement is moderate (61), making it easier to fill positions"
+      ],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.5,
+    "created_at": "2025-12-12T14:18:45.054351+00:00"
+  },
+  {
+    "id": "7c813742-42ed-4270-b054-c7dac26d0a95",
+    "event_id": "47370df8-15e7-477e-9394-29c92c2257ff",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 61,
+    "risk_factors": {
+      "factors": [
+        "Event is on a weekday (Wednesday)",
+        "Zero predicted attrition",
+        "Pre-established popularity of Nick Cave & the Bad Seeds, likely attracting a dedicated audience",
+        "Location (Malahide Castle) is easily accessible with existing infrastructure"
+      ],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.5,
+    "created_at": "2026-02-09T17:03:38.779271+00:00"
+  },
+  {
+    "id": "ba454780-3c32-4ecc-bc1c-69d57fe3a4f5",
+    "event_id": "47370df8-15e7-477e-9394-29c92c2257ff",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 61,
+    "risk_factors": {
+      "factors": [
+        "Non-holiday weekday",
+        "Predicted attrition rate is 0.0%",
+        "Location at a well-known venue with established infrastructure",
+        "Size of the staff is manageable for event coordination"
+      ],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.5,
+    "created_at": "2026-02-09T17:07:38.493691+00:00"
+  },
+  {
+    "id": "4033fd81-d1ec-4dcc-bf75-b940cd0ca8b9",
+    "event_id": "47370df8-15e7-477e-9394-29c92c2257ff",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 61,
+    "risk_factors": {
+      "factors": [
+        "Weekday event",
+        "No predicted attrition",
+        "Single large event at a well-known venue"
+      ],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.5,
+    "created_at": "2026-02-09T17:07:39.228147+00:00"
+  },
+  {
+    "id": "21dc2cae-cac8-4d6f-aa2d-e701aa5f2bb5",
+    "event_id": "4938acc6-da96-4b24-ab46-89a83b3b2dae",
+    "predicted_attrition_rate": 5,
+    "recommended_overbooking": 0,
+    "risk_factors": {
+      "factors": [],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.3,
+    "created_at": "2026-02-19T15:05:02.374962+00:00"
+  },
+  {
+    "id": "74f59618-810f-42b3-9fc4-0ca5f2d6b7bd",
+    "event_id": "4938acc6-da96-4b24-ab46-89a83b3b2dae",
+    "predicted_attrition_rate": 5,
+    "recommended_overbooking": 0,
+    "risk_factors": {
+      "factors": [
+        "No required staff for the event",
+        "Predicted attrition is low at 5.0%",
+        "Filton Airport is a structured environment likely to facilitate event management"
+      ],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.3,
+    "created_at": "2026-02-19T15:05:02.748914+00:00"
+  },
+  {
+    "id": "813652c6-d1dd-4b3e-943f-0bc15b5e33e0",
+    "event_id": "f34b4f7d-a415-47db-80cc-760a560a5828",
+    "predicted_attrition_rate": 5,
+    "recommended_overbooking": 0,
+    "risk_factors": {
+      "factors": [
+        "Event weekend timing",
+        "Location accessibility",
+        "Predicted attrition rate is manageable (5.0%)",
+        "No required staff indicates low operational overhead"
+      ],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.3,
+    "created_at": "2026-02-19T15:10:47.810974+00:00"
+  },
+  {
+    "id": "d43b0d68-dabe-44dc-becf-700218f50fa9",
+    "event_id": "f34b4f7d-a415-47db-80cc-760a560a5828",
+    "predicted_attrition_rate": 5,
+    "recommended_overbooking": 0,
+    "risk_factors": {
+      "factors": [
+        "No required staff needed for the event",
+        "Predicted attrition is low (5.0%)",
+        "Location is accessible for local attendees",
+        "Event is scheduled on a weekend, which may promote higher attendance."
+      ],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.3,
+    "created_at": "2026-02-19T15:10:47.854947+00:00"
+  },
+  {
+    "id": "9e5c33b5-b4c9-4538-9e40-23f6470b1c01",
+    "event_id": "47370df8-15e7-477e-9394-29c92c2257ff",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 0,
+    "risk_factors": {
+      "factors": [],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.3,
+    "created_at": "2026-02-19T15:23:20.936991+00:00"
+  },
+  {
+    "id": "87f52685-7d6b-4d1b-a331-1af003cd3617",
+    "event_id": "47370df8-15e7-477e-9394-29c92c2257ff",
+    "predicted_attrition_rate": 0,
+    "recommended_overbooking": 0,
+    "risk_factors": {
+      "factors": [
+        "No required staff",
+        "Predicted attrition is 0.0%",
+        "Event is mid-week"
+      ],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.3,
+    "created_at": "2026-02-19T15:23:21.365566+00:00"
+  },
+  {
+    "id": "21185d2e-12a3-4ba3-a638-15df38dc9844",
+    "event_id": "4938acc6-da96-4b24-ab46-89a83b3b2dae",
+    "predicted_attrition_rate": 5,
+    "recommended_overbooking": 0,
+    "risk_factors": {
+      "factors": [],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.3,
+    "created_at": "2026-03-02T10:17:10.744457+00:00"
+  },
+  {
+    "id": "16896243-0a4c-4dee-8103-f9c8a30735e9",
+    "event_id": "4938acc6-da96-4b24-ab46-89a83b3b2dae",
+    "predicted_attrition_rate": 5,
+    "recommended_overbooking": 0,
+    "risk_factors": {
+      "factors": [],
+      "riskLevel": "Low"
+    },
+    "confidence_score": 0.3,
+    "created_at": "2026-03-02T10:17:10.744188+00:00"
+  }
+]

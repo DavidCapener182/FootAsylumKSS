@@ -1,0 +1,22 @@
+[
+  {
+    "id": "7c08fa84-b89a-496b-bb61-5acc3465a316",
+    "title": "FootAsylum SafeHub",
+    "description": "Comprehensive safety culture audit template for FootAsylum stores. Includes disclaimer and all standard sections.",
+    "category": "footasylum_audit",
+    "created_by_user_id": "091f7f25-9edb-4120-8d50-cfa4070f1352",
+    "is_active": true,
+    "created_at": "2026-01-18T19:12:59.118454+00:00",
+    "updated_at": "2026-01-18T19:22:36.884372+00:00"
+  },
+  {
+    "id": "45dc547f-021b-444f-9b3d-118174a0e938",
+    "title": "Fire Risk Assessment",
+    "description": "Fire Risk Assessment template for stores that have completed H&S audits.",
+    "category": "fire_risk_assessment",
+    "created_by_user_id": "091f7f25-9edb-4120-8d50-cfa4070f1352",
+    "is_active": true,
+    "created_at": "2026-01-21T17:07:51.643147+00:00",
+    "updated_at": "2026-01-21T17:07:51.643147+00:00"
+  }
+]

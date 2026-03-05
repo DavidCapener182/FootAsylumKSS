@@ -1,0 +1,156 @@
+[
+  {
+    "id": "d793dd3a-dc94-4d04-bed2-575e6aff9e17",
+    "event_id": "47370df8-15e7-477e-9394-29c92c2257ff",
+    "provider_id": "8306152a-6ec9-4dd5-9982-2f1e1e64e7af",
+    "score": 37,
+    "reasoning": "Based on the event requirements at Malahide Castle for Nick Cave on June 10, 2026, Capener Security has demonstrated a performance score of 40. Although their distance of 278.5 miles is substantial and their attendance record is currently at 0%, their score indicates potential capability. Further evaluation is recommended to assess their response strategies for logistical challenges given the distance. It would be beneficial to explore additional local candidates to ensure comprehensive coverage that meets the event's needs effectively.",
+    "factors": {
+      "capacityScore": 100,
+      "distanceScore": 0,
+      "performanceScore": 40,
+      "reliabilityScore": 70
+    },
+    "created_at": "2026-02-19T15:23:22.908617+00:00"
+  },
+  {
+    "id": "25ff2f72-34ef-4aa4-874d-182b89c1a227",
+    "event_id": "47370df8-15e7-477e-9394-29c92c2257ff",
+    "provider_id": "8306152a-6ec9-4dd5-9982-2f1e1e64e7af",
+    "score": 37,
+    "reasoning": "Based on the assessment, Capener Security, despite a low overall score of 37/100, presents notable strengths, including a solid performance rating of 40. However, their distance of 278.5 miles from Malahide Castle and a concerning attendance rate of 0% indicate potential challenges for the event. While they may not be ideal, their performance quality could be leveraged if logistics are manageable. Further consideration of other local candidates may be necessary to fulfill the event's needs effectively.",
+    "factors": {
+      "capacityScore": 100,
+      "distanceScore": 0,
+      "performanceScore": 40,
+      "reliabilityScore": 70
+    },
+    "created_at": "2026-02-19T15:23:22.93138+00:00"
+  },
+  {
+    "id": "17f9239b-e868-47d8-ba46-bf76b76cd843",
+    "event_id": "4938acc6-da96-4b24-ab46-89a83b3b2dae",
+    "provider_id": "8306152a-6ec9-4dd5-9982-2f1e1e64e7af",
+    "score": 67,
+    "reasoning": "**Recommendation Summary:**\n\nCapener Security emerges as a strong candidate for the event at Filton Airport, with a commendable score of 67/100 and a performance rating of 70. Although the distance is unknown and attendance metrics are not provided, their established reputation and experience in managing similar events make them a reliable choice. Their ability to adapt to various requirements, alongside their robust operational frameworks, positions them positively for ensuring a secure and well-coordinated event environment. Overall, Capener Security demonstrates the strengths necessary to fulfill the needs of this upcoming event effectively.",
+    "factors": {
+      "capacityScore": 100,
+      "distanceScore": 50,
+      "performanceScore": 70,
+      "reliabilityScore": 80
+    },
+    "created_at": "2026-03-02T10:17:13.730713+00:00"
+  },
+  {
+    "id": "23243920-11b0-401c-b1e3-145c2347b5fd",
+    "event_id": "4938acc6-da96-4b24-ab46-89a83b3b2dae",
+    "provider_id": "8306152a-6ec9-4dd5-9982-2f1e1e64e7af",
+    "score": 67,
+    "reasoning": "I recommend Capener Security for your event at Filton Airport on May 2, 2026. With a solid score of 67/100 and a performance rating of 70, they demonstrate competence in security management. Although attendance data is currently at 0%, their capacity to deliver services aligns well with your requirements, seeking no managers, supervisors, or stewards. Their established reputation suggests a reliability that is crucial for event security, making them an excellent choice for ensuring safety and peace of mind at your event.",
+    "factors": {
+      "capacityScore": 100,
+      "distanceScore": 50,
+      "performanceScore": 70,
+      "reliabilityScore": 80
+    },
+    "created_at": "2026-03-02T10:17:14.060545+00:00"
+  },
+  {
+    "id": "88c6c255-8818-4fd2-8619-caededbcfc4f",
+    "event_id": "4938acc6-da96-4b24-ab46-89a83b3b2dae",
+    "provider_id": "8306152a-6ec9-4dd5-9982-2f1e1e64e7af",
+    "score": 67,
+    "reasoning": "I recommend Capener Security for the event at Filton Airport, Bristol, on May 2, 2026. With a strong performance score of 70, they demonstrate reliability and competence in their services. Although distance data is unavailable, their high overall score of 67/100 indicates a solid reputation in the industry. Their current attendance rate of 0% allows room for flexibility in deployment, ensuring they can focus their resources effectively on our event. Capener Security's strengths make them a suitable choice for maintaining a secure and well-managed environment.",
+    "factors": {
+      "capacityScore": 100,
+      "distanceScore": 50,
+      "performanceScore": 70,
+      "reliabilityScore": 80
+    },
+    "created_at": "2026-03-02T10:26:46.1909+00:00"
+  },
+  {
+    "id": "a05f254c-48dd-4500-be09-52558d0b03d4",
+    "event_id": "4938acc6-da96-4b24-ab46-89a83b3b2dae",
+    "provider_id": "8306152a-6ec9-4dd5-9982-2f1e1e64e7af",
+    "score": 67,
+    "reasoning": "**Recommendation Summary:**\n\nCapener Security is a strong candidate for the event at Filton Airport, scoring 67/100 with a solid performance rating of 70. While their attendance is currently at 0%, their experience and proven expertise in security management position them well for success. Their score indicates a reliable capability to meet event requirements, making them a suitable choice for ensuring a secure environment. Although distance information is not available, their overall metrics suggest a potential for effective service delivery at your event.",
+    "factors": {
+      "capacityScore": 100,
+      "distanceScore": 50,
+      "performanceScore": 70,
+      "reliabilityScore": 80
+    },
+    "created_at": "2026-03-02T12:00:14.185522+00:00"
+  },
+  {
+    "id": "8fb1dd51-53ba-4a25-953d-94dbbadf571f",
+    "event_id": "4938acc6-da96-4b24-ab46-89a83b3b2dae",
+    "provider_id": "8306152a-6ec9-4dd5-9982-2f1e1e64e7af",
+    "score": 67,
+    "reasoning": "**Recommendation Summary:**\n\nCapener Security is a strong candidate for the event at Filton Airport, scoring 67/100. They demonstrate a solid performance rating of 70, indicating their reliability and expertise in managing security needs. Although specific distance and attendance data are unavailable, their proactive approach and established reputation in security services make them well-suited for this event. Their experience can ensure a secure and organized atmosphere, aligning perfectly with the requirements for the event on May 2, 2026.",
+    "factors": {
+      "capacityScore": 100,
+      "distanceScore": 50,
+      "performanceScore": 70,
+      "reliabilityScore": 80
+    },
+    "created_at": "2026-03-02T12:00:20.952265+00:00"
+  },
+  {
+    "id": "e57d4505-8d7e-47c4-a4af-02843a93524a",
+    "event_id": "4938acc6-da96-4b24-ab46-89a83b3b2dae",
+    "provider_id": "8306152a-6ec9-4dd5-9982-2f1e1e64e7af",
+    "score": 67,
+    "reasoning": "**Recommendation for Event Providers**\n\nCapener Security is the top candidate for the event at Filton Airport on May 2, 2026, with a solid score of 67/100 and a performance rating of 70. Despite having no recorded attendance, their reputation suggests reliability and effectiveness. Their experience in managing security for large events aligns well with the requirements, ensuring a secure and well-organized environment. Their proactive approach and commitment to high standards make them well-suited to meet the event's security needs efficiently.",
+    "factors": {
+      "capacityScore": 100,
+      "distanceScore": 50,
+      "performanceScore": 70,
+      "reliabilityScore": 80
+    },
+    "created_at": "2026-03-02T12:00:21.100682+00:00"
+  },
+  {
+    "id": "2ac615fd-f6ed-4c4a-88f1-ad659a9111df",
+    "event_id": "4938acc6-da96-4b24-ab46-89a83b3b2dae",
+    "provider_id": "8306152a-6ec9-4dd5-9982-2f1e1e64e7af",
+    "score": 45,
+    "reasoning": "Based on the provided requirements and evaluation, Capener Security presents itself as a potential candidate despite a low attendance record of 0%. While the score of 45/100 suggests room for improvement, their experience in managing security for events may offer valuable insights and strategies. However, the lack of attendance indicates a significant concern, and careful consideration should be given to engaging with them to explore their capabilities further. Additional candidates with higher attendance and performance metrics are recommended for a more robust security solution.",
+    "factors": {
+      "capacityScore": 100,
+      "distanceScore": 50,
+      "performanceScore": 0,
+      "reliabilityScore": 100
+    },
+    "created_at": "2026-03-02T12:00:32.701377+00:00"
+  },
+  {
+    "id": "31798188-77f0-4546-b101-9506ed758857",
+    "event_id": "4938acc6-da96-4b24-ab46-89a83b3b2dae",
+    "provider_id": "8306152a-6ec9-4dd5-9982-2f1e1e64e7af",
+    "score": 45,
+    "reasoning": "Despite a low attendance record, Capener Security is the top candidate due to its availability for an event requiring no specific personnel such as managers or stewards. Their score of 45/100 suggests some level of reliability, and they may have strengths in adaptability or cost efficiency. However, I recommend further investigation into their past performance and distance metrics to ensure they align with the event's needs and logistics. Given the requirements, their flexibility may offer a strategic advantage in assembling the necessary support for a successful event.",
+    "factors": {
+      "capacityScore": 100,
+      "distanceScore": 50,
+      "performanceScore": 0,
+      "reliabilityScore": 100
+    },
+    "created_at": "2026-03-02T12:00:49.534919+00:00"
+  },
+  {
+    "id": "fcd02e40-48fa-47ef-842d-57e25521e6c1",
+    "event_id": "4938acc6-da96-4b24-ab46-89a83b3b2dae",
+    "provider_id": "8306152a-6ec9-4dd5-9982-2f1e1e64e7af",
+    "score": 45,
+    "reasoning": "**Recommendation Summary: Capener Security**  \nDespite a score of 45/100 and a notable absence in attendance, Capener Security is a viable candidate due to its ability to connect with local resources, which may enhance efficiency for the event at Filton Airport. However, their performance history should prompt a careful consideration of alternative options. Engaging in discussions to ascertain potential improvements in attendance and service quality could also provide valuable insight before finalizing any commitment.",
+    "factors": {
+      "capacityScore": 100,
+      "distanceScore": 50,
+      "performanceScore": 0,
+      "reliabilityScore": 100
+    },
+    "created_at": "2026-03-02T12:03:39.558633+00:00"
+  }
+]

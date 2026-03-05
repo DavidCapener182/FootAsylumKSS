@@ -1,0 +1,32 @@
+[
+  {
+    "id": "b4b9684b-faea-484e-b48f-94ef9eaf0f03",
+    "event_id": "47370df8-15e7-477e-9394-29c92c2257ff",
+    "staff_detail_id": null,
+    "sia_number": "1014888874837254",
+    "staff_name": "Unknown Staff",
+    "provider_id": null,
+    "check_in_time": "2026-01-24T14:23:50.677577+00:00",
+    "check_in_method": "qr_scan",
+    "verified": false,
+    "is_duplicate": false,
+    "created_at": "2026-01-24T14:23:50.677577+00:00",
+    "sign_in_time": "2026-01-24T14:23:50.075+00:00",
+    "sign_out_time": null
+  },
+  {
+    "id": "c9cc8162-f9fb-4d3e-8ea4-6eb28039b994",
+    "event_id": "47370df8-15e7-477e-9394-29c92c2257ff",
+    "staff_detail_id": null,
+    "sia_number": "1017048777046490",
+    "staff_name": "David Capener",
+    "provider_id": "8306152a-6ec9-4dd5-9982-2f1e1e64e7af",
+    "check_in_time": "2025-12-12T13:50:32.784767+00:00",
+    "check_in_method": "qr_scan",
+    "verified": true,
+    "is_duplicate": false,
+    "created_at": "2025-12-12T13:50:32.784767+00:00",
+    "sign_in_time": "2025-12-12T13:50:31.656+00:00",
+    "sign_out_time": null
+  }
+]

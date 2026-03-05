@@ -7,16 +7,16 @@ Import incidents and claims from the FAHS (Footasylum Health & Safety) dashboard
 1. **Same Supabase project** – FAHS and KSS tables live in the same database.
 2. **Migration 019 applied** – `fa_claims` table must exist.
 3. **At least one user** – `fa_profiles` must have at least one row (used as `reported_by_user_id`).
-4. **FAHS tables** – `FAHS_incidents`, `FAHS_claims`, `FAHS_sites` (or equivalent names).
+4. **FAHS source tables** – `fa_hs_incidents`, `fa_hs_claims`, `fa_hs_sites` (or equivalent names).
 
 ## Table name mapping
 
 If your FAHS tables use different names, edit `scripts/import-fahs-incidents.ts`:
 
 ```ts
-const SOURCE_INCIDENTS = 'FAHS_incidents'  // or "FAHS-incidents", "fahs_incidents"
-const SOURCE_CLAIMS = 'FAHS_claims'
-const SOURCE_SITES = 'FAHS_sites'
+const SOURCE_INCIDENTS = 'fa_hs_incidents'
+const SOURCE_CLAIMS = 'fa_hs_claims'
+const SOURCE_SITES = 'fa_hs_sites'
 ```
 
 ## Run the import

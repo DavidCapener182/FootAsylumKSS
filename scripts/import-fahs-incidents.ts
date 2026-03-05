@@ -3,7 +3,7 @@
  *
  * Prerequisites:
  * - Same Supabase project
- * - FAHS tables exist: FAHS_incidents, FAHS_claims, FAHS_sites (or "FAHS-incidents" etc - update SOURCE_TABLES below)
+ * - FAHS source tables exist: fa_hs_incidents, fa_hs_claims, fa_hs_sites (update SOURCE_TABLES below if yours differ)
  * - fa_claims table created (migration 019)
  * - At least one fa_profiles user for reported_by_user_id
  *
@@ -14,10 +14,10 @@
 
 import { createClient } from '@supabase/supabase-js'
 
-// FAHS tables (hyphenated names as in Supabase)
-const SOURCE_INCIDENTS = 'FAHS-incidents'
-const SOURCE_CLAIMS = 'FAHS-claims'
-const SOURCE_SITES = 'FAHS-sites'
+// Legacy FAHS source tables (renamed to FA-prefixed names for shared DB hygiene)
+const SOURCE_INCIDENTS = 'fa_hs_incidents'
+const SOURCE_CLAIMS = 'fa_hs_claims'
+const SOURCE_SITES = 'fa_hs_sites'
 
 function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL

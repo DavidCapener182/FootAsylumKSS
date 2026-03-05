@@ -27,7 +27,7 @@ export function useFeedback() {
       }
 
       const { error } = await supabase
-        .from('user_feedback')
+        .from('fa_user_feedback')
         .insert({
           user_id: user.id,
           type: data.type,

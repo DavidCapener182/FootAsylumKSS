@@ -1,0 +1,284 @@
+{
+  "created_at": "2026-03-05T15:38:01.962Z",
+  "project_url": "https://fwnzpafwfaiynrclwtnh.supabase.co",
+  "output_dir": "/Users/davidcapener/Cursor Apps/FootAsylumKSS/reports/backups/supabase-backup-2026-03-05T15-38-01-962Z",
+  "exports": {
+    "tables": [
+      {
+        "table": "fa_actions",
+        "rows": 0,
+        "file": "tables/fa_actions.json"
+      },
+      {
+        "table": "fa_activity_log",
+        "rows": 849,
+        "file": "tables/fa_activity_log.json"
+      },
+      {
+        "table": "fa_attachments",
+        "rows": 0,
+        "file": "tables/fa_attachments.json"
+      },
+      {
+        "table": "fa_audit_instances",
+        "rows": 14,
+        "file": "tables/fa_audit_instances.json"
+      },
+      {
+        "table": "fa_audit_media",
+        "rows": 0,
+        "file": "tables/fa_audit_media.json"
+      },
+      {
+        "table": "fa_audit_responses",
+        "rows": 14,
+        "file": "tables/fa_audit_responses.json"
+      },
+      {
+        "table": "fa_audit_template_questions",
+        "rows": 96,
+        "file": "tables/fa_audit_template_questions.json"
+      },
+      {
+        "table": "fa_audit_template_sections",
+        "rows": 17,
+        "file": "tables/fa_audit_template_sections.json"
+      },
+      {
+        "table": "fa_audit_templates",
+        "rows": 2,
+        "file": "tables/fa_audit_templates.json"
+      },
+      {
+        "table": "fa_claims",
+        "rows": 4,
+        "file": "tables/fa_claims.json"
+      },
+      {
+        "table": "fa_closed_incidents",
+        "rows": 0,
+        "file": "tables/fa_closed_incidents.json"
+      },
+      {
+        "table": "fa_incidents",
+        "rows": 815,
+        "file": "tables/fa_incidents.json"
+      },
+      {
+        "table": "fa_investigations",
+        "rows": 815,
+        "file": "tables/fa_investigations.json"
+      },
+      {
+        "table": "fa_profiles",
+        "rows": 5,
+        "file": "tables/fa_profiles.json"
+      },
+      {
+        "table": "fa_route_operational_items",
+        "rows": 1,
+        "file": "tables/fa_route_operational_items.json"
+      },
+      {
+        "table": "fa_route_visit_times",
+        "rows": 1,
+        "file": "tables/fa_route_visit_times.json"
+      },
+      {
+        "table": "fa_store_actions",
+        "rows": 200,
+        "file": "tables/fa_store_actions.json"
+      },
+      {
+        "table": "fa_store_audits_archive",
+        "rows": 111,
+        "file": "tables/fa_store_audits_archive.json"
+      },
+      {
+        "table": "fa_stores",
+        "rows": 78,
+        "file": "tables/fa_stores.json"
+      },
+      {
+        "table": "mt_entries",
+        "rows": 6,
+        "file": "tables/mt_entries.json"
+      },
+      {
+        "table": "mt_locations",
+        "rows": 45,
+        "file": "tables/mt_locations.json"
+      },
+      {
+        "table": "mt_saved_routes",
+        "rows": 68,
+        "file": "tables/mt_saved_routes.json"
+      },
+      {
+        "table": "notification_deliveries",
+        "rows": 0,
+        "file": "tables/notification_deliveries.json"
+      },
+      {
+        "table": "profiles",
+        "rows": 5,
+        "file": "tables/profiles.json"
+      },
+      {
+        "table": "release_notes",
+        "rows": 1,
+        "file": "tables/release_notes.json"
+      },
+      {
+        "table": "sup_activity_logs",
+        "rows": 58,
+        "file": "tables/sup_activity_logs.json"
+      },
+      {
+        "table": "sup_ai_recommendations",
+        "rows": 11,
+        "file": "tables/sup_ai_recommendations.json"
+      },
+      {
+        "table": "sup_assignments",
+        "rows": 1,
+        "file": "tables/sup_assignments.json"
+      },
+      {
+        "table": "sup_attrition_predictions",
+        "rows": 73,
+        "file": "tables/sup_attrition_predictions.json"
+      },
+      {
+        "table": "sup_document_comments",
+        "rows": 0,
+        "file": "tables/sup_document_comments.json"
+      },
+      {
+        "table": "sup_document_extractions",
+        "rows": 0,
+        "file": "tables/sup_document_extractions.json"
+      },
+      {
+        "table": "sup_documents",
+        "rows": 0,
+        "file": "tables/sup_documents.json"
+      },
+      {
+        "table": "sup_event_checkins",
+        "rows": 2,
+        "file": "tables/sup_event_checkins.json"
+      },
+      {
+        "table": "sup_event_daily_requirements",
+        "rows": 1,
+        "file": "tables/sup_event_daily_requirements.json"
+      },
+      {
+        "table": "sup_event_templates",
+        "rows": 0,
+        "file": "tables/sup_event_templates.json"
+      },
+      {
+        "table": "sup_events",
+        "rows": 70,
+        "file": "tables/sup_events.json"
+      },
+      {
+        "table": "sup_invoices",
+        "rows": 2,
+        "file": "tables/sup_invoices.json"
+      },
+      {
+        "table": "sup_message_sentiment",
+        "rows": 0,
+        "file": "tables/sup_message_sentiment.json"
+      },
+      {
+        "table": "sup_message_summaries",
+        "rows": 0,
+        "file": "tables/sup_message_summaries.json"
+      },
+      {
+        "table": "sup_messages",
+        "rows": 1,
+        "file": "tables/sup_messages.json"
+      },
+      {
+        "table": "sup_notification_preferences",
+        "rows": 0,
+        "file": "tables/sup_notification_preferences.json"
+      },
+      {
+        "table": "sup_notifications",
+        "rows": 2,
+        "file": "tables/sup_notifications.json"
+      },
+      {
+        "table": "sup_onboarding_documents",
+        "rows": 2,
+        "file": "tables/sup_onboarding_documents.json"
+      },
+      {
+        "table": "sup_provider_availability",
+        "rows": 1,
+        "file": "tables/sup_provider_availability.json"
+      },
+      {
+        "table": "sup_provider_sentiment_trends",
+        "rows": 0,
+        "file": "tables/sup_provider_sentiment_trends.json"
+      },
+      {
+        "table": "sup_providers",
+        "rows": 1,
+        "file": "tables/sup_providers.json"
+      },
+      {
+        "table": "sup_search_queries",
+        "rows": 18,
+        "file": "tables/sup_search_queries.json"
+      },
+      {
+        "table": "sup_sia_license_verifications",
+        "rows": 0,
+        "file": "tables/sup_sia_license_verifications.json"
+      },
+      {
+        "table": "sup_staff_details",
+        "rows": 0,
+        "file": "tables/sup_staff_details.json"
+      },
+      {
+        "table": "sup_staff_times",
+        "rows": 0,
+        "file": "tables/sup_staff_times.json"
+      },
+      {
+        "table": "user_feedback",
+        "rows": 0,
+        "file": "tables/user_feedback.json"
+      },
+      {
+        "table": "user_release_views",
+        "rows": 2,
+        "file": "tables/user_release_views.json"
+      },
+      {
+        "table": "users",
+        "rows": 2,
+        "file": "tables/users.json"
+      }
+    ],
+    "auth_users": {
+      "count": 6,
+      "file": "auth-users.json"
+    },
+    "storage_manifest": {
+      "bucket": "fa-attachments",
+      "objects": 479,
+      "file": "fa-attachments-manifest.json"
+    }
+  },
+  "errors": []
+}

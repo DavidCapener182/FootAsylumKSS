@@ -1,0 +1,162 @@
+[
+  {
+    "id": "ca2d2eaa-6c34-49d2-a233-2114df9f4672",
+    "aud": "authenticated",
+    "role": "authenticated",
+    "email": "andy.mcintosh@kssnwltd.co.uk",
+    "email_confirmed_at": "2026-03-04T11:36:33.598703Z",
+    "phone": "",
+    "confirmation_sent_at": "2026-03-04T11:36:09.759707Z",
+    "confirmed_at": "2026-03-04T11:36:33.598703Z",
+    "last_sign_in_at": "2026-03-05T09:49:13.099173Z",
+    "app_metadata": {
+      "provider": "email",
+      "providers": [
+        "email"
+      ]
+    },
+    "user_metadata": {
+      "email": "andy.mcintosh@kssnwltd.co.uk",
+      "email_verified": true,
+      "full_name": "Andy McIntosh ",
+      "intended_role": "readonly",
+      "phone_verified": false,
+      "sub": "ca2d2eaa-6c34-49d2-a233-2114df9f4672"
+    },
+    "identities": null,
+    "created_at": "2026-03-04T11:36:09.719365Z",
+    "updated_at": "2026-03-05T09:49:13.149514Z",
+    "is_anonymous": false
+  },
+  {
+    "id": "4e277548-bc69-47b2-8679-351621650247",
+    "aud": "authenticated",
+    "role": "authenticated",
+    "email": "floyd@kssnwltd.co.uk",
+    "email_confirmed_at": "2026-03-03T21:31:40.005591Z",
+    "phone": "",
+    "confirmation_sent_at": "2026-03-03T21:31:21.603226Z",
+    "confirmed_at": "2026-03-03T21:31:40.005591Z",
+    "last_sign_in_at": "2026-03-04T11:35:02.516601Z",
+    "app_metadata": {
+      "provider": "email",
+      "providers": [
+        "email"
+      ]
+    },
+    "user_metadata": {
+      "email": "floyd@kssnwltd.co.uk",
+      "email_verified": true,
+      "full_name": "Floyd Allen",
+      "intended_role": "readonly",
+      "phone_verified": false,
+      "sub": "4e277548-bc69-47b2-8679-351621650247"
+    },
+    "identities": null,
+    "created_at": "2026-03-03T21:31:21.417858Z",
+    "updated_at": "2026-03-04T17:23:40.713916Z",
+    "is_anonymous": false
+  },
+  {
+    "id": "e0e4af2b-3443-4ec9-a18a-1e8a56c0ac48",
+    "aud": "authenticated",
+    "role": "authenticated",
+    "email": "ella@kssnwltd.co.uk",
+    "email_confirmed_at": "2026-02-25T13:33:11.722345Z",
+    "invited_at": "2026-02-25T13:32:14.48977Z",
+    "phone": "",
+    "confirmed_at": "2026-02-25T13:33:11.722345Z",
+    "last_sign_in_at": "2026-02-25T13:33:11.726995Z",
+    "app_metadata": {
+      "provider": "email",
+      "providers": [
+        "email"
+      ]
+    },
+    "user_metadata": {
+      "email_verified": true,
+      "full_name": "Ella Thornley",
+      "intended_role": "ops"
+    },
+    "identities": null,
+    "created_at": "2026-02-25T13:32:14.426665Z",
+    "updated_at": "2026-02-26T11:18:08.665987Z",
+    "is_anonymous": false
+  },
+  {
+    "id": "6beebe47-5d1c-47f6-a618-f84aa0f733bc",
+    "aud": "authenticated",
+    "role": "authenticated",
+    "email": "gary.longthorne@footasylum.local",
+    "email_confirmed_at": "2026-02-25T12:24:16.259157Z",
+    "phone": "",
+    "confirmed_at": "2026-02-25T12:24:16.259157Z",
+    "app_metadata": {
+      "provider": "email",
+      "providers": [
+        "email"
+      ]
+    },
+    "user_metadata": {
+      "email_verified": true,
+      "full_name": "Gary Longthorne"
+    },
+    "identities": null,
+    "created_at": "2026-02-25T12:24:16.193313Z",
+    "updated_at": "2026-02-25T12:24:16.261343Z",
+    "is_anonymous": false
+  },
+  {
+    "id": "ce7efbe0-2b76-4a5a-89eb-7e3b421de263",
+    "aud": "authenticated",
+    "role": "authenticated",
+    "email": "davylpool@gmail.com",
+    "email_confirmed_at": "2025-12-07T16:07:08.309777Z",
+    "phone": "",
+    "confirmed_at": "2025-12-07T16:07:08.309777Z",
+    "last_sign_in_at": "2025-12-17T11:11:50.779135Z",
+    "app_metadata": {
+      "provider": "email",
+      "providers": [
+        "email"
+      ]
+    },
+    "user_metadata": {
+      "company_name": "Capener Security",
+      "email_verified": true,
+      "full_name": "David Capener"
+    },
+    "identities": null,
+    "created_at": "2025-12-07T16:07:08.281675Z",
+    "updated_at": "2025-12-17T11:11:50.887099Z",
+    "is_anonymous": false
+  },
+  {
+    "id": "091f7f25-9edb-4120-8d50-cfa4070f1352",
+    "aud": "authenticated",
+    "role": "authenticated",
+    "email": "david.capener@kssnwltd.co.uk",
+    "email_confirmed_at": "2025-12-02T14:31:03.688912Z",
+    "phone": "",
+    "confirmation_sent_at": "2025-12-02T14:30:48.455637Z",
+    "confirmed_at": "2025-12-02T14:31:03.688912Z",
+    "recovery_sent_at": "2026-02-09T21:32:49.119412Z",
+    "last_sign_in_at": "2026-03-05T08:42:42.139959Z",
+    "app_metadata": {
+      "provider": "email",
+      "providers": [
+        "email"
+      ]
+    },
+    "user_metadata": {
+      "email": "david.capener@kssnwltd.co.uk",
+      "email_verified": true,
+      "phone_verified": false,
+      "sub": "091f7f25-9edb-4120-8d50-cfa4070f1352"
+    },
+    "identities": null,
+    "created_at": "2025-12-02T14:30:48.435217Z",
+    "updated_at": "2026-03-05T15:13:34.667358Z",
+    "is_anonymous": false
+  }
+]

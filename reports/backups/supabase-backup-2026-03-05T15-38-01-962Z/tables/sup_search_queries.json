@@ -1,0 +1,182 @@
+[
+  {
+    "id": "d3c42b24-8f3d-4111-b72b-d552bf755c4f",
+    "user_id": "091f7f25-9edb-4120-8d50-cfa4070f1352",
+    "query_text": "FAILED: SELECT p.company_name, p.address, p.contact_email \nFROM providers AS p \nJOIN assignments AS a ON p.id = a.provider_id \nJOIN events AS e ON a.event_id = e.id \nWHERE e.name ILIKE '%nick cave%' \nLIMIT 50;",
+    "generated_sql": null,
+    "result_count": null,
+    "execution_time_ms": 2300,
+    "error_message": "syntax error at or near \";\"",
+    "created_at": "2025-12-09T16:35:29.134888+00:00"
+  },
+  {
+    "id": "9ea5a72a-acfe-4e8e-8955-00c130e487c9",
+    "user_id": "091f7f25-9edb-4120-8d50-cfa4070f1352",
+    "query_text": "What suppliers are we using for nick cave event?",
+    "generated_sql": "SELECT p.company_name FROM assignments a JOIN providers p ON a.provider_id = p.id JOIN events e ON a.event_id = e.id WHERE e.name ILIKE '%nick cave%' LIMIT 50",
+    "result_count": 2,
+    "execution_time_ms": 1715,
+    "error_message": null,
+    "created_at": "2025-12-09T16:37:51.801039+00:00"
+  },
+  {
+    "id": "a3296ab3-bffa-45f6-82a0-a4b87c117eea",
+    "user_id": "091f7f25-9edb-4120-8d50-cfa4070f1352",
+    "query_text": "How many events do we have scheduled for July 2026?",
+    "generated_sql": "SELECT COUNT(*) FROM events e WHERE e.date >= '2026-07-01' AND e.date < '2026-08-01' LIMIT 50",
+    "result_count": 1,
+    "execution_time_ms": 1656,
+    "error_message": null,
+    "created_at": "2025-12-09T16:39:31.752181+00:00"
+  },
+  {
+    "id": "a66d63bb-5fc9-4a03-b244-530f889e8e3f",
+    "user_id": "091f7f25-9edb-4120-8d50-cfa4070f1352",
+    "query_text": "How many events do we have scheduled for July 2026? and what are they?",
+    "generated_sql": "SELECT e.name, e.date FROM events e WHERE e.date >= '2026-07-01' AND e.date < '2026-08-01' LIMIT 50",
+    "result_count": 8,
+    "execution_time_ms": 2086,
+    "error_message": null,
+    "created_at": "2025-12-09T16:39:42.69116+00:00"
+  },
+  {
+    "id": "7fc1cc8e-73a2-4111-948e-2afa9cd9f549",
+    "user_id": "091f7f25-9edb-4120-8d50-cfa4070f1352",
+    "query_text": "how many Sia do I need for lewis Capaldi?",
+    "generated_sql": "SELECT e.requirements_sia FROM events e WHERE e.name ILIKE '%lewis capaldi%' LIMIT 50",
+    "result_count": 2,
+    "execution_time_ms": 1549,
+    "error_message": null,
+    "created_at": "2025-12-09T18:21:18.257464+00:00"
+  },
+  {
+    "id": "6aa06e23-f39a-4aa8-8a53-9bce8affc13f",
+    "user_id": "091f7f25-9edb-4120-8d50-cfa4070f1352",
+    "query_text": "when is TRNSMT ?",
+    "generated_sql": "SELECT e.date FROM events e WHERE e.name ILIKE '%TRNSMT%' LIMIT 50",
+    "result_count": 1,
+    "execution_time_ms": 1433,
+    "error_message": null,
+    "created_at": "2025-12-09T18:36:31.273624+00:00"
+  },
+  {
+    "id": "36a5aee1-4b4a-4aaf-b159-3bd7514111a8",
+    "user_id": "091f7f25-9edb-4120-8d50-cfa4070f1352",
+    "query_text": "which invoices have we paid?",
+    "generated_sql": "SELECT * FROM invoices WHERE status = 'paid' LIMIT 50",
+    "result_count": 0,
+    "execution_time_ms": 1585,
+    "error_message": null,
+    "created_at": "2025-12-09T22:08:49.337642+00:00"
+  },
+  {
+    "id": "2acedd20-86a6-4559-b90d-0e4bdd391399",
+    "user_id": "091f7f25-9edb-4120-8d50-cfa4070f1352",
+    "query_text": "How many events do we have Capener Security booked for?",
+    "generated_sql": "SELECT COUNT(e.id) FROM assignments a JOIN providers p ON a.provider_id = p.id JOIN events e ON a.event_id = e.id WHERE p.company_name ILIKE '%Capener Security%' LIMIT 50",
+    "result_count": 1,
+    "execution_time_ms": 2041,
+    "error_message": null,
+    "created_at": "2025-12-09T22:10:09.492242+00:00"
+  },
+  {
+    "id": "4d7db0df-803e-47fd-82a9-0661f8e294c1",
+    "user_id": "091f7f25-9edb-4120-8d50-cfa4070f1352",
+    "query_text": "How many events do we have Capener Security booked for?",
+    "generated_sql": "SELECT COUNT(e.id) FROM assignments a JOIN providers p ON a.provider_id = p.id JOIN events e ON a.event_id = e.id WHERE p.company_name ILIKE '%Capener Security%' LIMIT 50",
+    "result_count": 1,
+    "execution_time_ms": 3253,
+    "error_message": null,
+    "created_at": "2025-12-09T22:13:15.360403+00:00"
+  },
+  {
+    "id": "54cfec13-c61d-40be-a193-2fa2c1fb7709",
+    "user_id": "091f7f25-9edb-4120-8d50-cfa4070f1352",
+    "query_text": "give me a list of events in august",
+    "generated_sql": "SELECT e.name, e.location, e.date FROM events e WHERE e.date >= '2023-08-01' AND e.date < '2023-09-01' LIMIT 50",
+    "result_count": 0,
+    "execution_time_ms": 3879,
+    "error_message": null,
+    "created_at": "2025-12-09T22:13:48.180731+00:00"
+  },
+  {
+    "id": "2580ace6-86eb-489f-84bc-9f8892ba19aa",
+    "user_id": "091f7f25-9edb-4120-8d50-cfa4070f1352",
+    "query_text": "give me a list of events in august 2025",
+    "generated_sql": "SELECT e.name, e.location, e.date FROM events e WHERE e.date >= '2025-08-01' AND e.date < '2025-09-01' LIMIT 50",
+    "result_count": 0,
+    "execution_time_ms": 3466,
+    "error_message": null,
+    "created_at": "2025-12-09T22:14:08.781554+00:00"
+  },
+  {
+    "id": "8b690653-6a64-440b-8920-3c89f317ee20",
+    "user_id": "091f7f25-9edb-4120-8d50-cfa4070f1352",
+    "query_text": "give me a list of events in july 2025",
+    "generated_sql": "SELECT e.name, e.location, e.date FROM events e WHERE e.date >= '2025-07-01' AND e.date < '2025-08-01' LIMIT 50",
+    "result_count": 0,
+    "execution_time_ms": 2621,
+    "error_message": null,
+    "created_at": "2025-12-09T22:14:19.9263+00:00"
+  },
+  {
+    "id": "38fb1e8c-4f4c-4aca-ad31-54734dfcc8a3",
+    "user_id": "091f7f25-9edb-4120-8d50-cfa4070f1352",
+    "query_text": "give me a list of events in july 2026",
+    "generated_sql": "SELECT e.name, e.location, e.date FROM events e WHERE e.date >= '2026-07-01' AND e.date < '2026-08-01' LIMIT 50",
+    "result_count": 8,
+    "execution_time_ms": 8593,
+    "error_message": null,
+    "created_at": "2025-12-09T22:14:32.973872+00:00"
+  },
+  {
+    "id": "9e5a1c2b-7024-48de-bdbd-863b050d9950",
+    "user_id": "091f7f25-9edb-4120-8d50-cfa4070f1352",
+    "query_text": "give me a list of events in july 2026",
+    "generated_sql": "SELECT e.name, e.location, e.date FROM events e WHERE e.date >= '2026-07-01' AND e.date < '2026-08-01' LIMIT 50",
+    "result_count": 8,
+    "execution_time_ms": 6835,
+    "error_message": null,
+    "created_at": "2025-12-09T22:16:51.587314+00:00"
+  },
+  {
+    "id": "5949235b-efb8-461d-b0c1-090ec3fb2d24",
+    "user_id": "091f7f25-9edb-4120-8d50-cfa4070f1352",
+    "query_text": "how man times do we have lewis capladi?",
+    "generated_sql": "SELECT COUNT(*) FROM staff_details sd JOIN assignments a ON sd.assignment_id = a.id JOIN providers p ON a.provider_id = p.id WHERE sd.staff_name ILIKE '%lewis capaldi%' LIMIT 50",
+    "result_count": 1,
+    "execution_time_ms": 3794,
+    "error_message": null,
+    "created_at": "2025-12-09T22:19:36.450666+00:00"
+  },
+  {
+    "id": "64d7a500-6fe7-4dad-9856-24f4cd379901",
+    "user_id": "091f7f25-9edb-4120-8d50-cfa4070f1352",
+    "query_text": "how man times do we have lewis Capaldi?",
+    "generated_sql": "SELECT e.name, COUNT(*) AS event_count FROM assignments a JOIN events e ON a.event_id = e.id JOIN staff_details sd ON sd.assignment_id = a.id WHERE sd.staff_name ILIKE '%lewis capaldi%' GROUP BY e.name LIMIT 50",
+    "result_count": 0,
+    "execution_time_ms": 3444,
+    "error_message": null,
+    "created_at": "2025-12-09T22:19:50.765758+00:00"
+  },
+  {
+    "id": "818f35a0-1a9d-41f0-a06b-0e45f41ac8ee",
+    "user_id": "091f7f25-9edb-4120-8d50-cfa4070f1352",
+    "query_text": "how many lewis Capaldi events?",
+    "generated_sql": "SELECT COUNT(*) FROM events e WHERE e.name ILIKE '%lewis capaldi%' LIMIT 50",
+    "result_count": 1,
+    "execution_time_ms": 2484,
+    "error_message": null,
+    "created_at": "2025-12-09T22:21:39.329212+00:00"
+  },
+  {
+    "id": "4d6a5810-75c6-4989-86c9-4107c3d1cbe7",
+    "user_id": "091f7f25-9edb-4120-8d50-cfa4070f1352",
+    "query_text": "whats the value of the outstanding payments?",
+    "generated_sql": "SELECT a.id, a.status, a.assigned_managers, a.assigned_supervisors, a.assigned_sia, a.assigned_stewards FROM assignments a WHERE a.status = 'outstanding' LIMIT 50",
+    "result_count": 0,
+    "execution_time_ms": 4562,
+    "error_message": null,
+    "created_at": "2025-12-10T19:54:51.543567+00:00"
+  }
+]

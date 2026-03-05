@@ -1,0 +1,22 @@
+[
+  {
+    "id": "5e21139c-108c-47f1-b991-84f820cfa128",
+    "user_id": "ce7efbe0-2b76-4a5a-89eb-7e3b421de263",
+    "title": "New message",
+    "message": "New message for Capener Security",
+    "type": "message",
+    "read": true,
+    "link": "/provider/messages",
+    "created_at": "2025-12-12T01:25:35.435588+00:00"
+  },
+  {
+    "id": "0771d1d5-1187-4064-94cf-ded43ffdb8da",
+    "user_id": "ce7efbe0-2b76-4a5a-89eb-7e3b421de263",
+    "title": "New message",
+    "message": "New message for Capener Security",
+    "type": "message",
+    "read": true,
+    "link": "/provider/messages",
+    "created_at": "2025-12-12T01:22:12.94145+00:00"
+  }
+]

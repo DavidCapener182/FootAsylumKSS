@@ -1,0 +1,14 @@
+[
+  {
+    "id": "354812e9-8d3f-47fc-8e71-92a73470d470",
+    "manager_user_id": "091f7f25-9edb-4120-8d50-cfa4070f1352",
+    "planned_date": "2026-01-15",
+    "region": "A4",
+    "title": "Chester TFS Investigation",
+    "location": "Chester TFS",
+    "start_time": "09:00:00",
+    "duration_minutes": 120,
+    "created_at": "2026-01-14T14:52:26.227095+00:00",
+    "updated_at": "2026-01-14T14:53:58.803+00:00"
+  }
+]
