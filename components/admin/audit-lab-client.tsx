@@ -28,7 +28,7 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { cn } from '@/lib/utils'
+import { cn, formatAppDate } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { getFRAStatusFromDate } from '@/lib/compliance-forecast'
 import { 
@@ -1129,7 +1129,7 @@ function TemplatesLibraryView({
                   <p className="text-sm text-slate-600 mb-4">{getTemplateDisplayDescription(template)}</p>
                 )}
                 <div className="flex items-center justify-between text-xs text-slate-500">
-                  <span>Created {new Date(template.created_at).toLocaleDateString()}</span>
+                  <span>Created {formatAppDate(template.created_at)}</span>
                   <Button variant="ghost" size="sm" className={theme.action}>
                     Start Audit <ChevronRight className="h-3 w-3 ml-1" />
                   </Button>
@@ -3692,7 +3692,7 @@ function ActiveAuditsView({
                       <Badge>{audit.status}</Badge>
                     </TableCell>
                     <TableCell className="text-sm text-slate-600">
-                      {new Date(audit.created_at).toLocaleDateString()}
+                      {formatAppDate(audit.created_at)}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
@@ -3916,7 +3916,7 @@ function AuditHistoryView({
                       )}
                     </TableCell>
                     <TableCell className="text-sm text-slate-600">
-                      {new Date(audit.conducted_at || audit.created_at).toLocaleDateString()}
+                      {formatAppDate(audit.conducted_at || audit.created_at)}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">

@@ -353,10 +353,10 @@ export function StoreSearch() {
         </div>
 
         {/* Mobile search button + inline search */}
-        <div className="md:hidden">
+        <div className="w-full md:hidden">
           {mobileSearchOpen ? (
-            <div ref={anchorRef} className="relative w-[min(70vw,320px)]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/60 pointer-events-none" />
+            <div ref={anchorRef} className="relative w-full">
+              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/55" />
               <Input
                 autoFocus
                 value={query}
@@ -375,11 +375,11 @@ export function StoreSearch() {
                   }
                 }}
                 placeholder="Search…"
-                className="h-10 bg-white/10 border-white/10 text-white placeholder:text-white/50 focus-visible:ring-2 focus-visible:ring-white/30 pl-9 pr-10"
+                className="h-11 rounded-[18px] border-white/10 bg-white/10 pl-10 pr-10 text-sm text-white placeholder:text-white/45 focus-visible:ring-2 focus-visible:ring-white/25"
               />
               <button
                 type="button"
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-white/70 hover:text-white min-w-[44px] min-h-[44px] flex items-center justify-center"
+                className="absolute right-2 top-1/2 flex min-h-[44px] min-w-[44px] -translate-y-1/2 items-center justify-center text-white/60 hover:text-white"
                 onClick={() => {
                   setMobileSearchOpen(false)
                   setIsDropdownOpen(false)
@@ -393,15 +393,15 @@ export function StoreSearch() {
             <Button
               type="button"
               variant="ghost"
-              size="icon"
-              className="rounded-full text-white hover:bg-white/10 hover:text-white"
+              className="h-11 w-full justify-start gap-2 rounded-[18px] border border-white/10 bg-white/8 px-3 text-sm font-medium text-white/68 shadow-[0_10px_24px_rgba(2,12,24,0.14)] hover:bg-white/12 hover:text-white"
               onClick={() => {
                 setMobileSearchOpen(true)
                 // open dropdown once user types
               }}
               aria-label="Search stores"
             >
-              <Search className="h-5 w-5" />
+              <Search className="h-4 w-4 text-white/55" />
+              <span>Search stores or managers</span>
             </Button>
           )}
         </div>

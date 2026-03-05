@@ -157,6 +157,7 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
     code: getDisplayStoreCode(store.store_code) || '—',
     status: store.compliance_audit_2_planned_date ? 'Planned' : 'Not Planned',
   }))
+  const mobileDueVisitsPreview = dueVisits.slice(0, 6)
 
   const parseDateOnly = (value: string | null | undefined): Date | null => {
     if (!value) return null
@@ -202,7 +203,7 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
   const selectedRiskLabel = riskFilter.charAt(0).toUpperCase() + riskFilter.slice(1)
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 md:space-y-6">
       {isReportOpen ? (
         <ReportModal
           isOpen={isReportOpen}
@@ -214,30 +215,30 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
         />
       ) : null}
 
-      <div className="relative overflow-hidden rounded-xl bg-[#0f172a] p-3 text-white shadow-xl shadow-slate-200/50 sm:p-4 md:rounded-3xl md:p-8">
-        <div className="absolute right-0 top-0 h-96 w-96 translate-x-1/3 -translate-y-1/2 rounded-full bg-blue-500/10 blur-3xl" />
-        <div className="absolute bottom-0 left-0 h-64 w-64 -translate-x-1/3 translate-y-1/3 rounded-full bg-emerald-500/10 blur-3xl" />
+      <div className="relative overflow-hidden rounded-[30px] bg-[linear-gradient(145deg,#112641_0%,#162c4d_52%,#1c3358_100%)] p-4 text-white shadow-[0_18px_38px_rgba(15,23,42,0.18)] sm:p-5 md:rounded-3xl md:bg-[#0f172a] md:p-8 md:shadow-xl md:shadow-slate-200/50">
+        <div className="absolute right-0 top-0 h-72 w-72 translate-x-1/3 -translate-y-1/2 rounded-full bg-blue-400/10 blur-3xl md:h-96 md:w-96 md:bg-blue-500/10" />
+        <div className="absolute bottom-0 left-0 h-56 w-56 -translate-x-1/3 translate-y-1/3 rounded-full bg-emerald-400/10 blur-3xl md:h-64 md:w-64 md:bg-emerald-500/10" />
 
         <div className="relative z-10">
-          <div className="mb-4 flex flex-col items-start justify-between gap-3 md:mb-8 md:flex-row md:items-center">
+          <div className="mb-5 flex flex-col items-start justify-between gap-3.5 md:mb-8 md:flex-row md:items-center">
             <div>
-              <div className="mb-1.5 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-blue-400 md:text-xs">
+              <div className="mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-blue-300 md:text-xs md:font-bold md:tracking-wider md:text-blue-400">
                 <Activity size={14} />
                 Compliance Overview
               </div>
-              <h1 className="mb-1 text-xl font-bold tracking-tight sm:text-2xl md:text-3xl">Dashboard</h1>
-              <p className="text-xs leading-snug text-slate-400 sm:text-sm">
+              <h1 className="mb-1.5 text-[1.95rem] font-semibold tracking-[-0.03em] text-white sm:text-2xl md:text-3xl md:font-bold md:tracking-tight">Dashboard</h1>
+              <p className="max-w-[28rem] text-sm leading-snug text-slate-300 sm:text-sm md:text-sm md:text-slate-400">
                 Real-time view of incidents, audits, and planned operations across your network.
               </p>
             </div>
 
-            <div className="flex items-center gap-2">
-              <span className="rounded-lg bg-slate-800 px-2 py-1 font-mono text-[10px] text-slate-400 md:px-3 md:py-1.5 md:text-xs">
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+              <span className="rounded-[18px] bg-white/8 px-3 py-2 text-center font-mono text-[10px] text-slate-300 md:rounded-lg md:bg-slate-800 md:px-3 md:py-1.5 md:text-xs md:text-slate-400">
                 Updated: {updatedTime}
               </span>
               <button
                 onClick={handleGenerateReport}
-                className="flex items-center gap-2 rounded-lg bg-white px-2.5 py-1.5 text-xs font-bold text-slate-900 transition-colors hover:bg-slate-100 sm:text-sm md:px-4 md:py-2"
+                className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-[20px] bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-[0_10px_22px_rgba(15,23,42,0.14)] transition-colors hover:bg-slate-100 sm:min-h-[44px] sm:w-auto md:rounded-lg md:px-4 md:py-2 md:text-sm md:font-bold md:shadow-none"
               >
                 <Download size={16} />
                 Generate Report
@@ -245,8 +246,8 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-2 md:grid-cols-6 md:gap-4">
-            <div className="col-span-2 flex items-center justify-between rounded-lg border border-slate-700/50 bg-slate-800/50 p-3 backdrop-blur-sm md:rounded-2xl md:p-5">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-6 md:gap-4">
+            <div className="col-span-2 flex items-center justify-between rounded-[24px] border border-white/10 bg-white/[0.06] p-4 backdrop-blur-sm md:rounded-2xl md:border-slate-700/50 md:bg-slate-800/50 md:p-5">
               <div>
                 <div className="mb-1 flex items-center gap-1.5">
                   <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400 md:text-xs md:tracking-wider">
@@ -286,7 +287,7 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
               </div>
             </div>
 
-            <div className="flex flex-col justify-between rounded-lg border border-slate-700/50 bg-slate-800/50 p-2.5 backdrop-blur-sm md:rounded-2xl md:p-4">
+            <div className="flex min-h-[104px] flex-col justify-between rounded-[22px] border border-white/10 bg-white/[0.06] p-3.5 backdrop-blur-sm md:min-h-0 md:rounded-2xl md:border-slate-700/50 md:bg-slate-800/50 md:p-4">
               <div className="mb-2 flex items-center gap-2 text-slate-400">
                 <AlertTriangle size={14} className="text-blue-400" />
                 <span className="text-[10px] font-bold uppercase md:text-xs">Open Incidents</span>
@@ -294,7 +295,7 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
               <p className="text-lg font-bold md:text-2xl">{Number(data.openIncidents || 0)}</p>
             </div>
 
-            <div className="flex flex-col justify-between rounded-lg border border-slate-700/50 bg-slate-800/50 p-2.5 backdrop-blur-sm md:rounded-2xl md:p-4">
+            <div className="flex min-h-[104px] flex-col justify-between rounded-[22px] border border-white/10 bg-white/[0.06] p-3.5 backdrop-blur-sm md:min-h-0 md:rounded-2xl md:border-slate-700/50 md:bg-slate-800/50 md:p-4">
               <div className="mb-2 flex items-center gap-2 text-slate-400">
                 <Clock size={14} className="text-amber-400" />
                 <span className="text-[10px] font-bold uppercase md:text-xs">Overdue Actions</span>
@@ -302,7 +303,7 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
               <p className="text-lg font-bold md:text-2xl">{totalOverdueActions}</p>
             </div>
 
-            <div className="flex flex-col justify-between rounded-lg border border-slate-700/50 bg-slate-800/50 p-2.5 backdrop-blur-sm md:rounded-2xl md:p-4">
+            <div className="flex min-h-[104px] flex-col justify-between rounded-[22px] border border-white/10 bg-white/[0.06] p-3.5 backdrop-blur-sm md:min-h-0 md:rounded-2xl md:border-slate-700/50 md:bg-slate-800/50 md:p-4">
               <div className="mb-2 flex items-center gap-2 text-slate-400">
                 <ShieldAlert size={14} className="text-red-400" />
                 <span className="text-[10px] font-bold uppercase md:text-xs">High Risk Stores</span>
@@ -310,7 +311,7 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
               <p className="text-lg font-bold text-red-400 md:text-2xl">{highRiskStoresCount}</p>
             </div>
 
-            <div className="flex flex-col justify-between rounded-lg border border-slate-700/50 bg-slate-800/50 p-2.5 backdrop-blur-sm md:rounded-2xl md:p-4">
+            <div className="flex min-h-[104px] flex-col justify-between rounded-[22px] border border-white/10 bg-white/[0.06] p-3.5 backdrop-blur-sm md:min-h-0 md:rounded-2xl md:border-slate-700/50 md:bg-slate-800/50 md:p-4">
               <div className="mb-2 flex items-center gap-2 text-slate-400">
                 <Flame size={14} className="text-orange-400" />
                 <span className="text-[10px] font-bold uppercase md:text-xs">FRA Required</span>
@@ -323,7 +324,7 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
         <div className="space-y-6 lg:col-span-8">
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="rounded-[28px] border border-slate-200/80 bg-white/92 p-5 shadow-[0_14px_30px_rgba(15,23,42,0.06)] md:rounded-2xl md:bg-white md:p-6 md:shadow-sm">
             <div className="mb-6 flex items-center justify-between">
               <h2 className="flex items-center gap-2 text-lg font-bold">
                 <CheckCircle2 size={18} className="text-emerald-500" /> Audit Completion Rates
@@ -363,7 +364,7 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="rounded-[28px] border border-slate-200/80 bg-white/92 p-5 shadow-[0_14px_30px_rgba(15,23,42,0.06)] md:rounded-2xl md:bg-white md:p-6 md:shadow-sm">
             <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
               <h2 className="flex items-center gap-2 text-lg font-bold">
                 <AlertCircle size={18} className="text-red-500" /> Incident Breakdown
@@ -431,8 +432,8 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
             </div>
           </div>
 
-          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="border-b border-slate-200 bg-amber-50/50 p-6">
+          <div className="overflow-hidden rounded-[28px] border border-slate-200/80 bg-white/92 shadow-[0_14px_30px_rgba(15,23,42,0.06)] md:rounded-2xl md:bg-white md:shadow-sm">
+            <div className="border-b border-slate-200 bg-amber-50/60 p-5 md:p-6">
               <h2 className="mb-1 flex items-center gap-2 text-lg font-bold text-amber-900">
                 <AlertTriangle size={18} className="text-amber-500" /> Compliance Visits Due
               </h2>
@@ -441,7 +442,56 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
               </p>
             </div>
 
-            <div className="max-h-[460px] overflow-auto">
+            <div className="md:hidden">
+              {dueVisits.length === 0 ? (
+                <div className="px-4 py-8 text-center text-sm italic text-slate-500">
+                  No due visits at the moment.
+                </div>
+              ) : (
+                <div className="space-y-3.5 p-4">
+                  {mobileDueVisitsPreview.map((visit: any) => (
+                    <div key={visit.id} className="rounded-[24px] border border-amber-100 bg-white/96 p-4 shadow-[0_10px_24px_rgba(15,23,42,0.05)]">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-slate-900">{visit.name}</p>
+                          <p className="mt-1 font-mono text-[11px] text-slate-400">{visit.code}</p>
+                        </div>
+                        <span
+                          className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-wide ${
+                            visit.status === 'Planned'
+                              ? 'border-emerald-100 bg-emerald-50 text-emerald-700'
+                              : 'border-rose-100 bg-rose-50 text-rose-700'
+                          }`}
+                        >
+                          <AlertCircle size={10} />
+                          {visit.status}
+                        </span>
+                      </div>
+                      <div className="mt-3 flex items-center justify-between rounded-[18px] border border-slate-200 bg-slate-50/90 px-3 py-2.5">
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Minimum deadline</p>
+                          <p className="mt-1 font-mono text-sm font-semibold text-amber-700">{daysUntilYearEnd} days</p>
+                        </div>
+                        <Link
+                          href="/route-planning"
+                          prefetch={false}
+                          className="inline-flex min-h-[44px] items-center justify-center rounded-[18px] bg-[#143457] px-4 text-xs font-semibold uppercase tracking-wide text-white shadow-[0_10px_20px_rgba(20,52,87,0.16)] transition-colors hover:bg-[#183c65]"
+                        >
+                          Plan Visit
+                        </Link>
+                      </div>
+                    </div>
+                  ))}
+                  {dueVisits.length > mobileDueVisitsPreview.length ? (
+                    <div className="rounded-[22px] border border-dashed border-amber-200 bg-amber-50/70 px-4 py-3 text-center text-sm text-amber-800">
+                      +{dueVisits.length - mobileDueVisitsPreview.length} more stores still need a second visit.
+                    </div>
+                  ) : null}
+                </div>
+              )}
+            </div>
+
+            <div className="hidden max-h-[460px] overflow-auto md:block">
               <table className="w-full text-left text-sm">
                 <thead className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50 text-xs uppercase text-slate-400">
                   <tr>
@@ -497,7 +547,7 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
         </div>
 
         <div className="space-y-6 lg:col-span-4">
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="rounded-[28px] border border-slate-200/80 bg-white/92 p-5 shadow-[0_14px_30px_rgba(15,23,42,0.06)] md:rounded-2xl md:bg-white md:p-6 md:shadow-sm">
             <div className="mb-6 flex items-center justify-between">
               <h2 className="flex items-center gap-2 text-lg font-bold">
                 <TrendingUp size={18} className="text-blue-500" /> Risk Forecast
@@ -574,7 +624,7 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
                       key={store.storeId}
                       href={store.storeId ? `/stores/${store.storeId}` : '/stores'}
                       prefetch={false}
-                      className={`group block rounded-xl border border-slate-100 p-3 transition-all ${hoverClass}`}
+                      className={`group block rounded-[22px] border border-slate-100 p-3.5 transition-all md:rounded-xl md:p-3 ${hoverClass}`}
                     >
                       <div className="mb-1 flex items-start justify-between">
                         <div>
@@ -597,21 +647,21 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="rounded-[28px] border border-slate-200/80 bg-white/92 p-5 shadow-[0_14px_30px_rgba(15,23,42,0.06)] md:rounded-2xl md:bg-white md:p-6 md:shadow-sm">
             <h2 className="mb-6 flex items-center gap-2 text-lg font-bold">
               <MapIcon size={18} className="text-blue-500" /> Planned Rounds
             </h2>
 
             <div className="mb-6 grid grid-cols-3 gap-3">
-              <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 text-center">
+              <div className="rounded-[22px] border border-slate-100 bg-slate-50 p-3.5 text-center md:rounded-xl md:p-3">
                 <p className="mb-1 text-[10px] font-bold uppercase text-slate-400">Due</p>
                 <p className="text-lg font-bold text-red-500">{dueRoutesCount}</p>
               </div>
-              <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 text-center">
+              <div className="rounded-[22px] border border-slate-100 bg-slate-50 p-3.5 text-center md:rounded-xl md:p-3">
                 <p className="mb-1 text-[10px] font-bold uppercase text-slate-400">Upcoming</p>
                 <p className="text-lg font-bold text-blue-600">{upcomingRoutesCount}</p>
               </div>
-              <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 text-center">
+              <div className="rounded-[22px] border border-slate-100 bg-slate-50 p-3.5 text-center md:rounded-xl md:p-3">
                 <p className="mb-1 text-[10px] font-bold uppercase text-slate-400">Stops</p>
                 <p className="text-lg font-bold text-slate-800">{plannedStoreCount}</p>
               </div>
@@ -633,7 +683,7 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
             ) : (
               <div className="space-y-3">
                 {nextRoutes.map((route: any) => (
-                  <div key={route.key} className="rounded-xl border border-slate-100 p-3">
+                  <div key={route.key} className="rounded-[22px] border border-slate-100 p-3.5 md:rounded-xl md:p-3">
                     <div className="mb-1 flex items-center justify-between gap-2">
                       <p className="text-sm font-bold text-slate-800">{route.managerName || 'Unassigned'}</p>
                       <span className="rounded bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
@@ -657,14 +707,14 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
             )}
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="rounded-[28px] border border-slate-200/80 bg-white/92 p-5 shadow-[0_14px_30px_rgba(15,23,42,0.06)] md:rounded-2xl md:bg-white md:p-6 md:shadow-sm">
             <h3 className="mb-4 text-sm font-bold uppercase tracking-wide text-slate-500">Additional Signals</h3>
             <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
+              <div className="rounded-[22px] border border-slate-100 bg-slate-50 p-3.5 md:rounded-lg md:p-3">
                 <p className="text-[10px] font-bold uppercase text-slate-400">Investigating</p>
                 <p className="text-xl font-bold text-slate-900">{Number(data.underInvestigation || 0)}</p>
               </div>
-              <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
+              <div className="rounded-[22px] border border-slate-100 bg-slate-50 p-3.5 md:rounded-lg md:p-3">
                 <p className="text-[10px] font-bold uppercase text-slate-400">FRA Overdue</p>
                 <p className="text-xl font-bold text-rose-700">{fraOverdueCount}</p>
               </div>

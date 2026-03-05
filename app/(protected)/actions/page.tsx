@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Input } from '@/components/ui/input'
 import { ActionsTableRow } from '@/components/shared/actions-table-row'
 import { ActionMobileCard } from '@/components/shared/action-mobile-card'
-import { Search, CheckSquare2, FileText, Clock, AlertCircle } from 'lucide-react'
+import { Search, CheckSquare2, FileText, Clock, AlertCircle, SlidersHorizontal } from 'lucide-react'
 import Link from 'next/link'
 import {
   formatStoreActionQuestionForDisplay,
@@ -684,6 +684,15 @@ export default async function ActionsPage({
       filters.date_from ||
       filters.date_to
   )
+  const activeFilterCount = [
+    filters.q,
+    filters.status,
+    filters.priority,
+    filters.store_question,
+    filters.overdue ? 'overdue' : null,
+    filters.date_from,
+    filters.date_to,
+  ].filter(Boolean).length
 
   const storeSummaryByActionId = await buildStoreActionSummaryMap(actions)
 
@@ -730,43 +739,43 @@ export default async function ActionsPage({
             </div>
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Actions</h1>
           </div>
-          <p className="text-sm sm:text-base text-slate-500 max-w-2xl ml-9 sm:ml-11">
+          <p className="max-w-2xl text-sm text-slate-500 sm:text-base md:ml-11">
             Track action items, monitor due dates, and manage completion status across all incidents.
           </p>
         </div>
       </div>
 
       {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
+      <div className="grid grid-cols-3 gap-2 md:grid-cols-3 md:gap-4">
         <Card className="bg-white shadow-sm border-slate-200">
-          <CardContent className="p-4 md:p-6 flex items-center justify-between">
+          <CardContent className="flex h-full flex-col justify-between gap-3 p-3 md:flex-row md:items-center md:p-6">
             <div className="space-y-1 flex-1 min-w-0">
-              <p className="text-[10px] md:text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Actions</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 md:text-xs">Total Actions</p>
               <p className="text-xl md:text-2xl font-bold text-slate-900">{totalActions}</p>
             </div>
-            <div className="h-8 w-8 md:h-10 md:w-10 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0 ml-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 md:ml-2 md:h-10 md:w-10">
               <FileText className="h-4 w-4 md:h-5 md:w-5 text-slate-600" />
             </div>
           </CardContent>
         </Card>
         <Card className="bg-white shadow-sm border-slate-200">
-          <CardContent className="p-4 md:p-6 flex items-center justify-between">
+          <CardContent className="flex h-full flex-col justify-between gap-3 p-3 md:flex-row md:items-center md:p-6">
             <div className="space-y-1 flex-1 min-w-0">
-              <p className="text-[10px] md:text-xs font-semibold text-slate-500 uppercase tracking-wider">Active</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 md:text-xs">Active</p>
               <p className="text-xl md:text-2xl font-bold text-blue-600">{activeActions}</p>
             </div>
-            <div className="h-8 w-8 md:h-10 md:w-10 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0 ml-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-50 md:ml-2 md:h-10 md:w-10">
               <Clock className="h-4 w-4 md:h-5 md:w-5 text-blue-600" />
             </div>
           </CardContent>
         </Card>
         <Card className="bg-white shadow-sm border-slate-200">
-          <CardContent className="p-4 md:p-6 flex items-center justify-between">
+          <CardContent className="flex h-full flex-col justify-between gap-3 p-3 md:flex-row md:items-center md:p-6">
             <div className="space-y-1 flex-1 min-w-0">
-              <p className="text-[10px] md:text-xs font-semibold text-slate-500 uppercase tracking-wider">Overdue</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 md:text-xs">Overdue</p>
               <p className="text-xl md:text-2xl font-bold text-rose-600">{overdueCount}</p>
             </div>
-            <div className="h-8 w-8 md:h-10 md:w-10 rounded-full bg-rose-50 flex items-center justify-center flex-shrink-0 ml-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-50 md:ml-2 md:h-10 md:w-10">
               <AlertCircle className="h-4 w-4 md:h-5 md:w-5 text-rose-600" />
             </div>
           </CardContent>
@@ -775,7 +784,7 @@ export default async function ActionsPage({
 
       {/* Main Table Card */}
       <Card className="shadow-sm border-slate-200 bg-white overflow-hidden">
-        <CardHeader className="border-b bg-slate-50/40 px-6 py-4">
+        <CardHeader className="border-b bg-slate-50/40 px-4 py-4 md:px-6">
           <div className="space-y-4">
             <div className="flex items-center justify-between gap-4">
               <CardTitle className="text-base font-semibold text-slate-800">
@@ -789,7 +798,104 @@ export default async function ActionsPage({
               Grouped by store/reference. Click a group to open tasks for that store.
             </p>
 
-            <form method="get" className="grid grid-cols-1 md:grid-cols-8 gap-2">
+            <form method="get" className="space-y-3 md:hidden">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Input
+                  name="q"
+                  defaultValue={searchParams.q || ''}
+                  placeholder="Search action groups"
+                  className="bg-white pl-10"
+                />
+              </div>
+
+              <details open={hasActiveFilters} className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50/80">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
+                  <span className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                    <SlidersHorizontal className="h-4 w-4 text-slate-500" />
+                    Filters
+                  </span>
+                  <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-500">
+                    {activeFilterCount > 0 ? `${activeFilterCount} active` : 'Optional'}
+                  </span>
+                </summary>
+
+                <div className="space-y-3 border-t border-slate-200 bg-white px-4 py-4">
+                  <select
+                    name="store_question"
+                    defaultValue={searchParams.store_question || 'all'}
+                    className="min-h-[48px] w-full rounded-[16px] border border-slate-200 bg-white px-4 text-base"
+                  >
+                    <option value="all">All store questions</option>
+                    {storeQuestionOptions.map((question) => (
+                      <option key={question} value={question}>
+                        {formatStoreActionQuestionForDisplay(question)}
+                      </option>
+                    ))}
+                  </select>
+
+                  <select
+                    name="status"
+                    defaultValue={searchParams.status || 'all'}
+                    className="min-h-[48px] w-full rounded-[16px] border border-slate-200 bg-white px-4 text-base"
+                  >
+                    <option value="all">All statuses</option>
+                    <option value="open">Open</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="complete">Complete</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+
+                  <select
+                    name="priority"
+                    defaultValue={searchParams.priority || 'all'}
+                    className="min-h-[48px] w-full rounded-[16px] border border-slate-200 bg-white px-4 text-base"
+                  >
+                    <option value="all">All priorities</option>
+                    <option value="urgent">Urgent</option>
+                    <option value="high">High</option>
+                    <option value="medium">Medium</option>
+                    <option value="low">Low</option>
+                  </select>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      type="date"
+                      name="date_from"
+                      defaultValue={searchParams.date_from || ''}
+                      className="bg-white"
+                    />
+                    <Input
+                      type="date"
+                      name="date_to"
+                      defaultValue={searchParams.date_to || ''}
+                      className="bg-white"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button type="submit" className="w-full">
+                      Apply
+                    </Button>
+                    <Button
+                      type="submit"
+                      name="overdue"
+                      value="true"
+                      variant={filters.overdue ? 'default' : 'outline'}
+                      className="w-full"
+                    >
+                      Overdue Only
+                    </Button>
+                  </div>
+
+                  <Button asChild variant="outline" className="w-full">
+                    <Link href="/actions">Reset</Link>
+                  </Button>
+                </div>
+              </details>
+            </form>
+
+            <form method="get" className="hidden grid-cols-1 gap-2 md:grid md:grid-cols-8">
               <div className="relative md:col-span-2">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
                 <Input

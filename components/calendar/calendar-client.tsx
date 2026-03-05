@@ -265,7 +265,7 @@ export function CalendarClient({ initialData }: CalendarClientProps) {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:p-6">
         <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <h2 className="flex items-center gap-2 text-lg font-bold text-slate-800">
             <Users size={18} className="text-blue-500" />
@@ -329,14 +329,14 @@ export function CalendarClient({ initialData }: CalendarClientProps) {
               <button
                 type="button"
                 onClick={() => handleMonthChange('prev')}
-                className="rounded-lg border border-slate-200 p-2 text-slate-500 transition-colors hover:bg-slate-50"
+                className="min-h-[44px] min-w-[44px] rounded-2xl border border-slate-200 p-2 text-slate-500 transition-colors hover:bg-slate-50 md:min-h-0 md:min-w-0 md:rounded-lg"
               >
                 <ChevronLeft size={18} />
               </button>
               <button
                 type="button"
                 onClick={() => handleMonthChange('next')}
-                className="rounded-lg border border-slate-200 p-2 text-slate-500 transition-colors hover:bg-slate-50"
+                className="min-h-[44px] min-w-[44px] rounded-2xl border border-slate-200 p-2 text-slate-500 transition-colors hover:bg-slate-50 md:min-h-0 md:min-w-0 md:rounded-lg"
               >
                 <ChevronRight size={18} />
               </button>
@@ -344,17 +344,17 @@ export function CalendarClient({ initialData }: CalendarClientProps) {
           </div>
 
           <div className="flex w-full flex-wrap items-center gap-3 lg:w-auto">
-            <div className="flex w-full rounded-xl bg-slate-100 p-1 sm:w-auto">
+            <div className="flex w-full rounded-2xl bg-slate-100 p-1 sm:w-auto sm:rounded-xl">
               <button
                 type="button"
-                className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-white px-3 py-1.5 text-xs font-bold text-blue-600 shadow-sm sm:flex-none"
+                className="flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-xl bg-white px-3 py-1.5 text-xs font-bold text-blue-600 shadow-sm sm:min-h-0 sm:flex-none"
               >
                 <Filter size={14} />
                 Planned Route
               </button>
               <button
                 type="button"
-                className="flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-1.5 text-xs font-bold text-emerald-600 transition-colors hover:bg-white/50 sm:flex-none"
+                className="flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-xl px-3 py-1.5 text-xs font-bold text-emerald-600 transition-colors hover:bg-white/50 sm:min-h-0 sm:flex-none"
               >
                 <CheckCircle2 size={14} />
                 Completed Store
@@ -363,7 +363,7 @@ export function CalendarClient({ initialData }: CalendarClientProps) {
             <button
               type="button"
               onClick={handleGoToToday}
-              className="hidden rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50 md:block"
+              className="inline-flex min-h-[44px] w-full items-center justify-center rounded-2xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50 sm:w-auto sm:rounded-xl"
             >
               Today
             </button>

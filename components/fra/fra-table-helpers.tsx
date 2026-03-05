@@ -1,5 +1,5 @@
 import { Badge } from '@/components/ui/badge'
-import { cn, formatPercent } from '@/lib/utils'
+import { cn, formatAppDate, formatPercent } from '@/lib/utils'
 
 /**
  * Render a percentage badge (similar to audit table)
@@ -99,7 +99,7 @@ export function getDaysUntilDue(fraDate: string | null): number | null {
  */
 export function formatDate(value: string | null): string {
   if (!value) return '—'
-  return new Date(value).toLocaleDateString('en-GB')
+  return formatAppDate(value)
 }
 
 /**

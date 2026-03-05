@@ -13,7 +13,7 @@ import { IncidentMobileCard } from '@/components/incidents/incident-mobile-card'
 import { ClosedIncidentMobileCard } from '@/components/incidents/closed-incident-mobile-card'
 import { LazyIncidentsAnalyticsCharts } from '@/components/incidents/lazy-incidents-analytics-charts'
 import Link from 'next/link'
-import { Search, AlertTriangle, FileText, Eye, CheckCircle2, XCircle } from 'lucide-react'
+import { Search, AlertTriangle, FileText, Eye, CheckCircle2, SlidersHorizontal, XCircle } from 'lucide-react'
 import { format } from 'date-fns'
 
 type IncidentFilters = {
@@ -555,6 +555,14 @@ export default async function IncidentsPage({
   const openIncidents = allIncidents.filter((i: any) => i.status === 'open' || i.status === 'under_investigation').length
   const criticalIncidents = allIncidents.filter((i: any) => i.severity === 'critical' || i.severity === 'high').length
   const hasActiveFilters = Boolean(filters.q || filters.status || filters.severity || filters.year || filters.date_from || filters.date_to)
+  const activeFilterCount = [
+    filters.q,
+    filters.status,
+    filters.severity,
+    filters.year,
+    filters.date_from,
+    filters.date_to,
+  ].filter(Boolean).length
 
   const getValidDate = (value: string | null | undefined) => {
     if (!value) return null
@@ -745,7 +753,7 @@ export default async function IncidentsPage({
             </div>
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Incidents</h1>
           </div>
-          <p className="text-sm sm:text-base text-slate-500 max-w-2xl ml-9 sm:ml-11">
+          <p className="max-w-2xl text-sm text-slate-500 sm:text-base md:ml-11">
             Track safety incidents, manage investigations, and monitor resolution progress.
           </p>
         </div>
@@ -755,8 +763,94 @@ export default async function IncidentsPage({
       </div>
 
       <Card className="shadow-sm border-slate-200 bg-white">
-        <CardContent className="p-4 md:p-5">
-          <form method="get" className="grid grid-cols-1 md:grid-cols-8 gap-2">
+        <CardContent className="p-3 md:p-5">
+          <form method="get" className="space-y-3 md:hidden">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Input
+                name="q"
+                defaultValue={searchParams.q || ''}
+                placeholder="Search incidents"
+                className="bg-white pl-10"
+              />
+            </div>
+
+            <details open={hasActiveFilters} className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50/80">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
+                <span className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                  <SlidersHorizontal className="h-4 w-4 text-slate-500" />
+                  Filters
+                </span>
+                <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-500">
+                  {activeFilterCount > 0 ? `${activeFilterCount} active` : 'Optional'}
+                </span>
+              </summary>
+
+              <div className="space-y-3 border-t border-slate-200 bg-white px-4 py-4">
+                <select
+                  name="status"
+                  defaultValue={searchParams.status || 'all'}
+                  className="min-h-[48px] w-full rounded-[16px] border border-slate-200 bg-white px-4 text-base"
+                >
+                  <option value="all">All statuses</option>
+                  <option value="open">Open</option>
+                  <option value="under_investigation">Under Investigation</option>
+                  <option value="actions_in_progress">Actions In Progress</option>
+                </select>
+
+                <select
+                  name="severity"
+                  defaultValue={searchParams.severity || 'all'}
+                  className="min-h-[48px] w-full rounded-[16px] border border-slate-200 bg-white px-4 text-base"
+                >
+                  <option value="all">All severities</option>
+                  <option value="critical">Critical</option>
+                  <option value="high">High</option>
+                  <option value="medium">Medium</option>
+                  <option value="low">Low</option>
+                </select>
+
+                <select
+                  name="year"
+                  defaultValue={searchParams.year || 'all'}
+                  className="min-h-[48px] w-full rounded-[16px] border border-slate-200 bg-white px-4 text-base"
+                >
+                  <option value="all">All years</option>
+                  {availableYears.map((year) => (
+                    <option key={year} value={year}>
+                      {getFiscalYearLabel(year)}
+                    </option>
+                  ))}
+                </select>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <Input
+                    type="date"
+                    name="date_from"
+                    defaultValue={searchParams.date_from || ''}
+                    className="bg-white"
+                  />
+                  <Input
+                    type="date"
+                    name="date_to"
+                    defaultValue={searchParams.date_to || ''}
+                    className="bg-white"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <Button type="submit" className="w-full">
+                    Apply
+                  </Button>
+                  <Button asChild variant="outline" className="w-full">
+                    <Link href="/incidents">Reset</Link>
+                  </Button>
+                </div>
+              </div>
+            </details>
+          </form>
+
+          <form method="get" className="hidden grid-cols-1 gap-2 md:grid md:grid-cols-8">
             <div className="relative md:col-span-2">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
               <Input
@@ -943,7 +1037,7 @@ export default async function IncidentsPage({
       </div>
 
       <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList className="bg-white border border-slate-200">
+        <TabsList className="grid w-full grid-cols-2 gap-1 rounded-2xl border border-slate-200 bg-white p-1 md:inline-flex md:w-auto md:rounded-md">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="trends">Trends & Analysis</TabsTrigger>
           <TabsTrigger value="incidents">Incidents</TabsTrigger>

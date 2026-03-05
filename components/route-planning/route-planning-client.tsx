@@ -839,6 +839,29 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
 
   const availableStoreCount = storesAvailableForPlanning.length
   const plannedRouteCount = plannedRoutes.length
+
+  const updateRouteDateForGroup = async (
+    group: (typeof plannedRoutes)[number],
+    newDate: string
+  ) => {
+    if (!newDate || newDate === group.plannedDate) return
+
+    setLoading((current) => ({ ...current, [group.stores[0].id]: true }))
+    try {
+      const { updateComplianceAudit2Tracking } = await import('@/app/actions/stores')
+      await Promise.all(
+        group.stores.map((store) =>
+          updateComplianceAudit2Tracking(store.id, group.managerId, newDate)
+        )
+      )
+      router.refresh()
+    } catch (error) {
+      console.error('Error updating route date:', error)
+      alert('Error updating route date. Please try again.')
+    } finally {
+      setLoading((current) => ({ ...current, [group.stores[0].id]: false }))
+    }
+  }
   const plannedStoreCount = plannedRoutes.reduce((total, route) => total + route.stores.length, 0)
   const managerCount = profiles.length
   const storesInRouteAreaMissingCoordsCount = storesInRouteArea.length - storesInRouteAreaWithLocations.length
@@ -860,7 +883,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
                 Build daily compliance routes, optimize store selection, and track planned rounds by area and manager.
               </p>
             </div>
-            <button className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-2.5 py-1.5 text-xs font-bold text-white transition-colors hover:bg-slate-700 sm:text-sm md:px-4 md:py-2">
+            <button className="flex min-h-[44px] items-center gap-2 rounded-2xl border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-slate-700 sm:text-sm md:rounded-lg md:px-4 md:py-2">
               Live Planner
               <Navigation size={14} className="ml-1" />
             </button>
@@ -905,13 +928,13 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
         <div className="space-y-6 lg:col-span-7">
           <Card className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <CardHeader className="border-b border-slate-100 p-6">
+            <CardHeader className="border-b border-slate-100 p-4 md:p-6">
           <CardTitle className="text-lg flex items-center gap-2 text-slate-800">
             <Plus className="h-5 w-5" />
             Create New Route
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-6 p-6">
+        <CardContent className="space-y-4 p-4 md:space-y-6 md:p-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-slate-500">
@@ -966,7 +989,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
             </div>
           </div>
 
-          <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-5">
+          <div className="hidden rounded-xl border border-blue-100 bg-blue-50/50 p-5 md:block">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-slate-700">
                 <Settings2 className="h-4 w-4 text-blue-500" />
@@ -1072,10 +1095,120 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
             )}
           </div>
 
+          <details className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50/80 md:hidden">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
+              <span className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                <Settings2 className="h-4 w-4 text-blue-500" />
+                Optimizer Constraints
+              </span>
+              <span className="text-[11px] font-semibold text-slate-500">
+                {optimizationSummary ? 'Configured' : 'Optional'}
+              </span>
+            </summary>
+
+            <div className="space-y-3 border-t border-slate-200 bg-white px-4 py-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-slate-600">Stop limit</label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={6}
+                    value={routeStopLimit}
+                    onChange={(e) => {
+                      const next = Number(e.target.value) || 1
+                      setRouteStopLimit(Math.max(1, Math.min(6, next)))
+                      setOptimizationSummary(null)
+                    }}
+                    className="rounded-[16px] border-slate-200 bg-white"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-slate-600">Priority</label>
+                  <Select
+                    value={optimizerPriority}
+                    onValueChange={(value) => {
+                      setOptimizerPriority(value as 'balanced' | 'min_drive' | 'tight_cluster')
+                      setOptimizationSummary(null)
+                    }}
+                  >
+                    <SelectTrigger className="rounded-[16px] border-slate-200 bg-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="z-[9999]">
+                      <SelectItem value="balanced">Balanced</SelectItem>
+                      <SelectItem value="min_drive">Min Drive Time</SelectItem>
+                      <SelectItem value="tight_cluster">Tight Clusters</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-slate-600">Max drive mins</label>
+                  <Input
+                    type="number"
+                    min={0}
+                    placeholder="Optional"
+                    value={maxDriveMinutes}
+                    onChange={(e) => {
+                      setMaxDriveMinutes(e.target.value)
+                      setOptimizationSummary(null)
+                    }}
+                    className="rounded-[16px] border-slate-200 bg-white"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-slate-600">Max route hours</label>
+                  <Input
+                    type="number"
+                    min={0}
+                    step={0.5}
+                    placeholder="Optional"
+                    value={maxRouteHours}
+                    onChange={(e) => {
+                      setMaxRouteHours(e.target.value)
+                      setOptimizationSummary(null)
+                    }}
+                    className="rounded-[16px] border-slate-200 bg-white"
+                  />
+                </div>
+              </div>
+
+              <label className="flex min-h-[48px] items-center gap-3 rounded-[16px] border border-slate-200 bg-slate-50 px-4 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                  checked={requireHomeStart}
+                  onChange={(e) => {
+                    setRequireHomeStart(e.target.checked)
+                    setOptimizationSummary(null)
+                  }}
+                />
+                Start from manager home
+              </label>
+
+              <label className="flex min-h-[48px] items-center gap-3 rounded-[16px] border border-slate-200 bg-slate-50 px-4 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                  checked={requireHomeEnd}
+                  onChange={(e) => {
+                    setRequireHomeEnd(e.target.checked)
+                    setOptimizationSummary(null)
+                  }}
+                />
+                Return to manager home
+              </label>
+
+              {optimizationSummary ? (
+                <p className="text-xs font-medium text-blue-700">{optimizationSummary}</p>
+              ) : null}
+            </div>
+          </details>
+
           {/* Store Selection for Route */}
           {storesInRouteArea.length > 0 && (
             <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-4">
-              <div className="mb-3 flex items-end justify-between border-b border-slate-100 pb-2">
+              <div className="mb-3 flex flex-col gap-3 border-b border-slate-100 pb-2 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                   <h3 className="text-sm font-bold text-slate-800">
                     Stores in {getAreaDisplayName(routeArea)} ({storesInRouteArea.length} stores)
@@ -1087,14 +1220,14 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
                     </p>
                   )}
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
                   {storesInRouteAreaWithLocations.length >= 2 && (
                     <Button
                       variant="default"
                       size="sm"
                       onClick={handleOptimizeRoute}
                       disabled={isOptimizing}
-                      className="bg-blue-600 text-white shadow-sm shadow-blue-200 hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="min-h-[44px] w-full rounded-2xl bg-blue-600 text-white shadow-sm shadow-blue-200 hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:rounded-md"
                       title={`Suggest an optimal ${Math.min(routeStopLimit, storesInRouteAreaWithLocations.length)}-stop route`}
                     >
                       {isOptimizing ? (
@@ -1125,7 +1258,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
                       }
                       setOptimizationSummary(null)
                     }}
-                    className="border-slate-200 bg-white hover:bg-slate-50"
+                    className="min-h-[44px] w-full rounded-2xl border-slate-200 bg-white hover:bg-slate-50 sm:w-auto sm:rounded-md"
                   >
                     {routeSelectedStores.size >= routeStopLimit || (routeSelectedStores.size > 0 && routeSelectedStores.size === Math.min(routeStopLimit, storesInRouteArea.length))
                       ? 'Deselect All'
@@ -1231,15 +1364,63 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
 
       <div className="space-y-6 lg:col-span-5">
       {/* Map */}
-      <Card className="flex h-[500px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <details
+        className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm md:hidden"
+        open={Boolean(routeArea || routeSelectedStores.size > 0)}
+      >
+        <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-4 text-left">
+          <MapPin className="h-5 w-5 text-emerald-500" />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-slate-800">Store Locations Map</p>
+            <p className="text-xs text-slate-500">
+              {routeArea
+                ? storesWithLocations.filter((store) => store.region === routeArea).length
+                : storesWithLocations.length}{' '}
+              stores with locations
+            </p>
+          </div>
+          <ChevronDown className="h-4 w-4 text-slate-400 transition-transform duration-200 group-open:rotate-180" />
+        </summary>
+        <div className="border-t border-slate-200 p-4 pt-4">
+          <div
+            className="relative h-[320px] w-full overflow-hidden rounded-[20px] border border-slate-200"
+            style={{ zIndex: 0 }}
+          >
+            <MapComponent
+              stores={storesWithLocations}
+              managerHome={routeManager ? (() => {
+                const manager = profiles.find(p => p.id === routeManager)
+                if (!manager || !manager.home_latitude || !manager.home_longitude) return null
+                const lat = typeof manager.home_latitude === 'string'
+                  ? parseFloat(manager.home_latitude)
+                  : manager.home_latitude
+                const lng = typeof manager.home_longitude === 'string'
+                  ? parseFloat(manager.home_longitude)
+                  : manager.home_longitude
+                if (isNaN(lat) || isNaN(lng)) return null
+                return {
+                  latitude: lat,
+                  longitude: lng,
+                  address: manager.home_address || 'Manager Home',
+                }
+              })() : managerHome}
+              selectedStores={routeSelectedStores}
+              onStoreSelect={handleRouteStoreToggle}
+              filteredArea={routeArea}
+            />
+          </div>
+        </div>
+      </details>
+      <Card className="hidden h-[500px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm md:flex">
         <CardHeader className="border-b border-slate-200 bg-white p-6">
           <CardTitle className="text-lg flex items-center gap-2 text-slate-800">
             <MapPin className="h-5 w-5 text-emerald-500" />
             Store Locations Map
             <span className="ml-auto rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">
-              ({routeArea 
-                ? storesWithLocations.filter(s => s.region === routeArea).length 
-                : storesWithLocations.length} stores with locations)
+              ({routeArea
+                ? storesWithLocations.filter((store) => store.region === routeArea).length
+                : storesWithLocations.length}{' '}
+              stores with locations)
             </span>
           </CardTitle>
         </CardHeader>
@@ -1250,11 +1431,11 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
               managerHome={routeManager ? (() => {
                 const manager = profiles.find(p => p.id === routeManager)
                 if (!manager || !manager.home_latitude || !manager.home_longitude) return null
-                const lat = typeof manager.home_latitude === 'string' 
-                  ? parseFloat(manager.home_latitude) 
+                const lat = typeof manager.home_latitude === 'string'
+                  ? parseFloat(manager.home_latitude)
                   : manager.home_latitude
-                const lng = typeof manager.home_longitude === 'string' 
-                  ? parseFloat(manager.home_longitude) 
+                const lng = typeof manager.home_longitude === 'string'
+                  ? parseFloat(manager.home_longitude)
                   : manager.home_longitude
                 if (isNaN(lat) || isNaN(lng)) return null
                 return {
@@ -1273,7 +1454,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
 
       {/* Planned Routes Table */}
       <Card className="bg-white shadow-sm border-slate-200 rounded-2xl overflow-hidden">
-        <CardHeader className="border-b border-slate-200 bg-white p-6">
+        <CardHeader className="border-b border-slate-200 bg-white p-4 md:p-6">
           <CardTitle className="text-lg flex items-center gap-2 text-slate-800">
             <Calendar className="h-5 w-5 text-blue-500" />
             Planned Routes
@@ -1282,7 +1463,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
             </span>
           </CardTitle>
         </CardHeader>
-        <CardContent className="p-6">
+        <CardContent className="p-4 md:p-6">
           {plannedRoutes.length === 0 ? (
             <div className="rounded-xl border-2 border-dashed border-slate-100 bg-slate-50/50 py-12 text-center">
               <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-400">
@@ -1294,7 +1475,204 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
               </p>
             </div>
           ) : (
-            <div className="rounded-md border border-slate-200 bg-white max-w-full">
+            <>
+              <div className="space-y-3 md:hidden">
+                {plannedRoutes.map((group) => {
+                  const groupKey =
+                    (group as any)._groupKey ||
+                    getPlannedRouteGroupKey(group.plannedDate, group.managerId)
+                  const isEditing = editingRouteGroup === groupKey
+
+                  return (
+                    <div
+                      key={groupKey}
+                      className="rounded-[24px] border border-slate-200 bg-slate-50/70 p-4 shadow-sm"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => openRouteDirectionsForGroup(group, groupKey)}
+                        className="w-full text-left"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+                              {group.region ? getAreaDisplayName(group.region) : 'Planned route'}
+                            </p>
+                            <h3 className="mt-1 text-base font-semibold text-slate-900">
+                              {group.assignedManager?.full_name || 'Unassigned manager'}
+                            </h3>
+                          </div>
+                          <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600 shadow-sm">
+                            {group.stores.length} store{group.stores.length === 1 ? '' : 's'}
+                          </span>
+                        </div>
+                      </button>
+
+                      <div className="mt-4 rounded-[18px] border border-slate-200 bg-white p-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            Planned Date
+                          </span>
+                          {isEditing ? (
+                            <Input
+                              type="date"
+                              defaultValue={group.plannedDate || ''}
+                              onBlur={(e) => void updateRouteDateForGroup(group, e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  void updateRouteDateForGroup(
+                                    group,
+                                    (e.target as HTMLInputElement).value
+                                  )
+                                }
+                              }}
+                              className="h-11 min-h-[44px] w-[170px] rounded-[14px] text-sm"
+                              min={new Date().toISOString().split('T')[0]}
+                            />
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => setEditingRouteGroup(groupKey)}
+                              className="rounded-full bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-700"
+                            >
+                              {group.plannedDate
+                                ? format(new Date(group.plannedDate), 'dd/MM/yyyy')
+                                : 'Set date'}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="mt-4 space-y-2">
+                        {group.stores.map((store) => {
+                          const isStoreLoading = loading[store.id]
+                          const currentOrder =
+                            routeStoreOrder[groupKey] || group.stores.map((routeStore) => routeStore.id)
+                          const orderedIndex = currentOrder.indexOf(store.id)
+                          const canMoveUp = orderedIndex > 0
+                          const canMoveDown = orderedIndex < group.stores.length - 1
+
+                          return (
+                            <div
+                              key={store.id}
+                              className="rounded-[18px] border border-slate-200 bg-white p-3"
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                  <p className="text-sm font-semibold text-slate-900">
+                                    {store.store_name}
+                                  </p>
+                                  {getDisplayStoreCode(store.store_code) && (
+                                    <p className="mt-1 text-xs text-slate-500">
+                                      {getDisplayStoreCode(store.store_code)}
+                                    </p>
+                                  )}
+                                </div>
+                                {isEditing && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleRemoveStoreFromRoute(store.id)}
+                                    disabled={isStoreLoading}
+                                    className="h-8 w-8 p-0 text-red-600 hover:bg-red-50 hover:text-red-700"
+                                    title="Remove from route"
+                                  >
+                                    {isStoreLoading ? (
+                                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                    ) : (
+                                      <X className="h-3.5 w-3.5" />
+                                    )}
+                                  </Button>
+                                )}
+                              </div>
+
+                              {isEditing && (
+                                <div className="mt-3 flex gap-2">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleReorderStore(groupKey, store.id, 'up')}
+                                    disabled={!canMoveUp}
+                                    className="min-h-[40px] flex-1 rounded-xl"
+                                  >
+                                    <ChevronUp className="mr-1.5 h-4 w-4" />
+                                    Earlier
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleReorderStore(groupKey, store.id, 'down')}
+                                    disabled={!canMoveDown}
+                                    className="min-h-[40px] flex-1 rounded-xl"
+                                  >
+                                    <ChevronDown className="mr-1.5 h-4 w-4" />
+                                    Later
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+
+                      {routeOperationalItems[groupKey] && routeOperationalItems[groupKey].length > 0 && (
+                        <div className="mt-4 rounded-[18px] border border-slate-200 bg-white p-3">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            Visit Times
+                          </p>
+                          <div className="mt-2 space-y-1.5">
+                            {routeOperationalItems[groupKey].map((item, idx) => (
+                              <div key={idx} className="flex items-start gap-2 text-sm text-slate-600">
+                                <span className="font-medium text-purple-600">{item.start_time}</span>
+                                <span>{item.title}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <Button
+                          variant="outline"
+                          onClick={() => openRouteDirectionsForGroup(group, groupKey)}
+                          className="min-h-[44px] flex-1 rounded-2xl border-slate-200 bg-white"
+                        >
+                          <Navigation className="mr-2 h-4 w-4" />
+                          Directions
+                        </Button>
+                        {isEditing ? (
+                          <Button
+                            variant="outline"
+                            onClick={() => setEditingRouteGroup(null)}
+                            className="min-h-[44px] rounded-2xl border-slate-200 bg-white"
+                          >
+                            Done
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            onClick={() => setEditingRouteGroup(groupKey)}
+                            className="min-h-[44px] rounded-2xl border-slate-200 bg-white"
+                          >
+                            <Edit2 className="mr-2 h-4 w-4" />
+                            Edit
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          onClick={() => handleDeleteRouteGroup(group)}
+                          className="min-h-[44px] rounded-2xl text-red-600 hover:bg-red-50 hover:text-red-700"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Delete
+                        </Button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              <div className="hidden max-w-full rounded-md border border-slate-200 bg-white md:block">
               <div className="max-h-[460px] overflow-auto">
                 <Table>
                   <TableHeader className="sticky top-0 bg-white z-10 border-b border-slate-200">
@@ -1303,11 +1681,12 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
                       <TableHead>Region</TableHead>
                       <TableHead>Assigned Manager</TableHead>
                       <TableHead>Planned Date</TableHead>
+                      <TableHead>Visit Times</TableHead>
                       <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {plannedRoutes.map((group, groupIndex) => {
+                    {plannedRoutes.map((group) => {
                       const groupKey = (group as any)._groupKey || getPlannedRouteGroupKey(group.plannedDate, group.managerId)
                       
                       return (
@@ -1405,46 +1784,10 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
                               <Input
                                 type="date"
                                 defaultValue={group.plannedDate || ''}
-                                onBlur={async (e) => {
-                                  const newDate = e.target.value
-                                  if (newDate && newDate !== group.plannedDate) {
-                                    setLoading({ ...loading, [group.stores[0].id]: true })
-                                    try {
-                                      const { updateComplianceAudit2Tracking } = await import('@/app/actions/stores')
-                                      await Promise.all(
-                                        group.stores.map(store => 
-                                          updateComplianceAudit2Tracking(store.id, group.managerId, newDate)
-                                        )
-                                      )
-                                      router.refresh()
-                                    } catch (error) {
-                                      console.error('Error updating route date:', error)
-                                      alert('Error updating route date. Please try again.')
-                                    } finally {
-                                      setLoading({ ...loading, [group.stores[0].id]: false })
-                                    }
-                                  }
-                                }}
-                                onKeyDown={async (e) => {
+                                onBlur={(e) => void updateRouteDateForGroup(group, e.target.value)}
+                                onKeyDown={(e) => {
                                   if (e.key === 'Enter') {
-                                    const newDate = (e.target as HTMLInputElement).value
-                                    if (newDate && newDate !== group.plannedDate) {
-                                      setLoading({ ...loading, [group.stores[0].id]: true })
-                                      try {
-                                        const { updateComplianceAudit2Tracking } = await import('@/app/actions/stores')
-                                        await Promise.all(
-                                          group.stores.map(store => 
-                                            updateComplianceAudit2Tracking(store.id, group.managerId, newDate)
-                                          )
-                                        )
-                                        router.refresh()
-                                      } catch (error) {
-                                        console.error('Error updating route date:', error)
-                                        alert('Error updating route date. Please try again.')
-                                      } finally {
-                                        setLoading({ ...loading, [group.stores[0].id]: false })
-                                      }
-                                    }
+                                    void updateRouteDateForGroup(group, (e.target as HTMLInputElement).value)
                                   }
                                 }}
                                 className="w-40 h-8 text-sm"
@@ -1511,7 +1854,8 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
                   </TableBody>
                 </Table>
               </div>
-            </div>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

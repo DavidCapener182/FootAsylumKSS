@@ -60,12 +60,9 @@ function LoginContent() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0e1925] via-[#1a2f3f] to-[#0e1925] relative overflow-hidden">
-      {/* Background gradient overlay */}
       <div className="absolute inset-0 bg-gradient-to-br from-[#0e1925]/90 via-[#1a2f3f]/80 to-[#0e1925]/90"></div>
 
-      {/* Main content */}
       <div className="relative z-10 flex min-h-screen flex-col items-center justify-center p-4">
-        {/* Logo above the card */}
         <div className="mb-8 flex justify-center">
           <Image
             src="/fa-logo.png"
@@ -98,7 +95,7 @@ function LoginContent() {
                   onChange={(e) => setEmail(e.target.value)}
                   autoComplete="email"
                   required
-                  className="bg-white"
+                  className="bg-white h-10 min-h-[44px] rounded-md px-3 py-2 text-sm"
                 />
               </div>
               <div className="space-y-2">
@@ -110,7 +107,7 @@ function LoginContent() {
                   onChange={(e) => setPassword(e.target.value)}
                   autoComplete="current-password"
                   required
-                  className="bg-white"
+                  className="bg-white h-10 min-h-[44px] rounded-md px-3 py-2 text-sm"
                 />
               </div>
               {error && (
@@ -123,7 +120,7 @@ function LoginContent() {
                   {success}
                 </div>
               )}
-              <Button type="submit" className="w-full bg-[#0e1925] hover:bg-[#1a2f3f] text-white" disabled={loading}>
+              <Button type="submit" className="w-full bg-[#0e1925] text-white hover:bg-[#1a2f3f]" disabled={loading}>
                 {loading ? 'Signing in...' : 'Sign in'}
               </Button>
               <div className="space-y-2 text-center">
@@ -168,4 +165,3 @@ export default function LoginPage() {
     </Suspense>
   )
 }
-

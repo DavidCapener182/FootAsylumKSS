@@ -93,7 +93,7 @@ export function StoreDirectory({ stores }: StoreDirectoryProps) {
               placeholder="Search by name, code, city, area, postcode"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-10 w-full rounded-xl border-slate-200 bg-white pl-9 pr-4 text-sm focus-visible:ring-2 focus-visible:ring-indigo-500"
+              className="h-11 w-full rounded-2xl border-slate-200 bg-white pl-10 pr-4 text-base focus-visible:ring-2 focus-visible:ring-indigo-500 sm:h-10 sm:rounded-xl sm:text-sm"
             />
           </div>
         </div>
@@ -115,7 +115,7 @@ export function StoreDirectory({ stores }: StoreDirectoryProps) {
           ) : (
             groupedStores.map((group) => (
               <section key={group.area} className="space-y-2.5">
-                <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5">
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-700">{group.area}</p>
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                     {group.stores.length} stores

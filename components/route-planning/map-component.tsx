@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useMemo } from 'react'
-import { getDisplayStoreCode } from '@/lib/utils'
+import { formatAppDate, getDisplayStoreCode } from '@/lib/utils'
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -264,7 +264,7 @@ export default function MapComponent({ stores, managerHome, selectedStores, onSt
               )}
               {hasPlannedDate && (
                 <div className="text-sm text-green-600 mt-1">
-                  ✓ Planned: {new Date(store.compliance_audit_2_planned_date!).toLocaleDateString()}
+                  ✓ Planned: {formatAppDate(store.compliance_audit_2_planned_date)}
                 </div>
               )}
               <div className="text-xs text-slate-500 mt-1">Click to {isSelected ? 'deselect' : 'select'}</div>

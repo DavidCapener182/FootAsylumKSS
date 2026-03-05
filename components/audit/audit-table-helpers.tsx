@@ -1,5 +1,5 @@
 import { Badge } from '@/components/ui/badge'
-import { cn, formatPercent } from '@/lib/utils'
+import { cn, formatAppDate, formatPercent } from '@/lib/utils'
 
 export interface AuditRow {
   id: string
@@ -67,7 +67,7 @@ export function boolBadge(value: boolean | null) {
 
 export function formatDate(value: string | null) {
   if (!value) return '—'
-  return new Date(value).toLocaleDateString('en-GB')
+  return formatAppDate(value)
 }
 
 // Helper: Get the most recent percentage. Returns null if no audits exist.

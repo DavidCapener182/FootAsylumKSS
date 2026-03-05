@@ -727,8 +727,8 @@ export default async function ActivityPage() {
           </CardContent>
         </Card>
 
-        <div className="space-y-4">
-          <Card className="rounded-2xl border-slate-200 bg-white shadow-sm">
+        <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1 xl:block xl:space-y-4 xl:overflow-visible xl:pb-0">
+          <Card className="min-w-[280px] shrink-0 snap-start rounded-2xl border-slate-200 bg-white shadow-sm xl:min-w-0">
             <CardHeader className="border-b border-slate-200 bg-slate-50/60 pb-3">
               <CardTitle className="flex items-center gap-2 text-sm font-bold text-slate-800">
                 <Sparkles className="h-4 w-4 text-amber-500" />
@@ -761,7 +761,7 @@ export default async function ActivityPage() {
             </CardContent>
           </Card>
 
-          <Card className="rounded-2xl border-slate-200 bg-white shadow-sm">
+          <Card className="min-w-[240px] shrink-0 snap-start rounded-2xl border-slate-200 bg-white shadow-sm xl:min-w-0">
             <CardHeader className="border-b border-slate-200 bg-slate-50/60 pb-3">
               <CardTitle className="flex items-center gap-2 text-sm font-bold text-slate-800">
                 <Layers3 className="h-4 w-4 text-indigo-500" />
@@ -784,7 +784,7 @@ export default async function ActivityPage() {
             </CardContent>
           </Card>
 
-          <Card className="rounded-2xl border-slate-200 bg-white shadow-sm">
+          <Card className="min-w-[240px] shrink-0 snap-start rounded-2xl border-slate-200 bg-white shadow-sm xl:min-w-0">
             <CardHeader className="border-b border-slate-200 bg-slate-50/60 pb-3">
               <CardTitle className="flex items-center gap-2 text-sm font-bold text-slate-800">
                 <UserRound className="h-4 w-4 text-slate-600" />

@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, useEffect, useCallback } from 'react'
+import { Fragment, useMemo, useState, useEffect, useCallback } from 'react'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -1229,9 +1229,9 @@ export function AuditTable({
                     : null;
                   
                   return (
-                    <>
+                    <Fragment key={groupKey}>
                       {/* Area Divider Row */}
-                      <TableRow key={`hdr-${groupKey}`} className="desktop-group-bar hover:bg-transparent">
+                      <TableRow className="desktop-group-bar hover:bg-transparent">
                         <TableCell 
                           colSpan={14} 
                           className="py-1.5 px-4 border-y border-slate-200/70"
@@ -1422,7 +1422,7 @@ export function AuditTable({
                         </TableRow>
                         )
                       })}
-                    </>
+                    </Fragment>
                   )
                 })
               )}

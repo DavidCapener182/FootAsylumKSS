@@ -63,42 +63,46 @@ export function SidebarClient({ userRole, userProfile }: SidebarClientProps) {
 
   const sidebarContent = (
     <>
-      <div className="flex h-20 items-center justify-between px-6">
-        <div className="flex items-center gap-2">
-          <div className="relative h-20 w-48">
+      <div className="flex items-center justify-between px-5 pb-4 pt-[max(0.75rem,env(safe-area-inset-top))] md:h-20 md:px-6 md:py-0">
+        <div className="flex items-center gap-3">
+          <div className="relative h-12 w-24 md:h-20 md:w-48">
             <Image
               src="/fa-logo.png"
-              alt="KSS Assurance"
+              alt="KSS x Footasylum"
               fill
               sizes="192px"
               className="object-contain"
-              style={{ top: 4, left: 24 }}
+              style={{ top: 4, left: 10 }}
             />
           </div>
-          <span className="sr-only">KSS Assurance</span>
+          <div className="min-w-0 md:hidden">
+            <p className="text-[11px] font-semibold tracking-[0.16em] text-slate-500">KSS x Footasylum</p>
+            <p className="text-sm font-semibold text-slate-900">Navigation</p>
+          </div>
+          <span className="sr-only">KSS x Footasylum</span>
         </div>
         <button
           onClick={() => setIsOpen(false)}
-          className="md:hidden p-2 rounded-lg hover:bg-white/10 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+          className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 shadow-sm transition-colors hover:bg-slate-50 md:hidden"
           aria-label="Close menu"
         >
-          <X className="h-5 w-5 text-white" />
+          <X className="h-5 w-5 text-slate-600" />
         </button>
       </div>
-      <nav className="flex-1 p-4 overflow-y-auto">
-        <ul className="space-y-2">
+      <nav className="flex-1 overflow-y-auto px-4 pb-4">
+        <ul className="overflow-hidden rounded-[28px] border border-slate-200 bg-white/85 shadow-[0_16px_30px_rgba(15,23,42,0.08)] md:space-y-1.5 md:rounded-none md:border-0 md:bg-transparent md:shadow-none">
           {filteredItems.map((item) => {
             const Icon = item.icon
             const isActive = !item.action && (pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href)))
 
             if (item.action === 'feedback') {
               return (
-                <li key={item.href}>
+                <li key={item.href} className="border-t border-slate-100 first:border-t-0 md:border-t-0">
                   <button
                     onClick={() => { setIsOpen(false); setFeedbackOpen(true) }}
-                    className="flex w-full items-center gap-3 px-4 py-3 text-sm font-medium transition-all min-h-[44px] rounded-lg text-white/80 hover:bg-white/10 hover:text-white"
+                    className="flex min-h-[52px] w-full items-center gap-3 px-4 py-3 text-[15px] font-medium text-slate-700 transition-all hover:bg-slate-50 hover:text-slate-900 md:min-h-[48px] md:rounded-2xl md:text-sm md:text-white/80 md:hover:bg-white/10 md:hover:text-white"
                   >
-                    <Icon className="h-5 w-5 flex-shrink-0 text-white/70" />
+                    <Icon className="h-5 w-5 flex-shrink-0 text-slate-400 md:text-white/70" />
                     {item.label}
                   </button>
                 </li>
@@ -106,19 +110,19 @@ export function SidebarClient({ userRole, userProfile }: SidebarClientProps) {
             }
 
             return (
-              <li key={item.href}>
+              <li key={item.href} className="border-t border-slate-100 first:border-t-0 md:border-t-0">
                 <Link
                   href={item.href}
                   prefetch={false}
                   onClick={() => setIsOpen(false)}
                   className={cn(
-                    'flex items-center gap-3 px-4 py-3 text-sm font-medium transition-all min-h-[44px] rounded-lg',
+                    'flex min-h-[52px] items-center gap-3 px-4 py-3 text-[15px] font-medium transition-all md:min-h-[48px] md:rounded-2xl md:text-sm',
                     isActive
-                      ? 'bg-white/20 text-white rounded-lg font-semibold'
-                      : 'text-white/80 hover:bg-white/10 hover:text-white rounded-lg'
+                      ? 'bg-white text-slate-950 font-semibold shadow-[inset_0_0_0_1px_rgba(15,23,42,0.05)] md:bg-white/18 md:text-white md:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]'
+                      : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900 md:text-white/80 md:hover:bg-white/10 md:hover:text-white'
                   )}
                 >
-                  <Icon className={cn('h-5 w-5 flex-shrink-0', isActive ? 'text-white' : 'text-white/70')} />
+                  <Icon className={cn('h-5 w-5 flex-shrink-0', isActive ? 'text-slate-900 md:text-white' : 'text-slate-400 md:text-white/70')} />
                   {item.label}
                 </Link>
               </li>
@@ -126,13 +130,13 @@ export function SidebarClient({ userRole, userProfile }: SidebarClientProps) {
           })}
         </ul>
       </nav>
-      <div className="p-4">
-        <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-white/10 backdrop-blur-sm">
-          <div className="h-10 w-10 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
+      <div className="p-4 pt-2">
+        <div className="flex items-center gap-3 rounded-[28px] border border-slate-200 bg-white/85 px-4 py-3 shadow-[0_14px_30px_rgba(15,23,42,0.08)] backdrop-blur-sm md:rounded-[24px] md:border-white/10 md:bg-white/10 md:shadow-none">
+          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-[#143457] md:bg-white/20">
             <User className="h-5 w-5 text-white" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-white truncate">
+            <p className="truncate text-sm font-semibold text-slate-900 md:text-white">
               {userProfile?.full_name || 'User'}
             </p>
           </div>
@@ -154,7 +158,7 @@ export function SidebarClient({ userRole, userProfile }: SidebarClientProps) {
         {/* Overlay */}
         {isOpen && (
           <div
-            className="fixed inset-0 bg-black/50 z-[60] md:hidden backdrop-blur-sm"
+            className="fixed inset-0 z-[60] bg-[#0b1320]/28 backdrop-blur-sm md:hidden"
             onClick={() => setIsOpen(false)}
             aria-hidden="true"
           />
@@ -163,7 +167,7 @@ export function SidebarClient({ userRole, userProfile }: SidebarClientProps) {
         {/* Mobile Sidebar - hidden when printing */}
         <aside
           className={cn(
-            'no-print fixed top-0 left-0 z-[70] w-64 h-screen-zoom bg-[#0e1925] flex flex-col transition-transform duration-300 ease-in-out md:hidden shadow-2xl safe-top safe-bottom touch-pan-y',
+            'no-print fixed left-0 top-0 z-[70] flex h-screen-zoom w-[86vw] max-w-[348px] flex-col rounded-r-[32px] border-r border-slate-200/70 bg-[linear-gradient(180deg,rgba(248,250,252,0.98)_0%,rgba(236,242,247,0.98)_100%)] shadow-[0_24px_60px_rgba(15,23,42,0.22)] transition-transform duration-300 ease-in-out safe-bottom touch-pan-y md:hidden',
             isOpen ? 'translate-x-0' : '-translate-x-full'
           )}
           aria-hidden={!isOpen}

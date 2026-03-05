@@ -2,6 +2,7 @@ import { requireAuth, getUserProfile } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { Sidebar } from '@/components/layout/sidebar'
 import { Header } from '@/components/layout/header'
+import { MobileTabBar } from '@/components/layout/mobile-tab-bar'
 import { SidebarProvider } from '@/components/layout/sidebar-provider'
 import { Toaster } from '@/components/ui/toaster'
 import { ReleaseNotesModal } from '@/components/ReleaseNotesModal'
@@ -75,20 +76,20 @@ export default async function ProtectedLayout({
 
   return (
     <SidebarProvider>
-        <div className="flex h-screen-zoom overflow-hidden bg-[#0e1925]">
+      <div className="flex h-screen-zoom overflow-hidden bg-[#071321]">
         <Sidebar />
         <div className="flex flex-1 flex-col overflow-hidden md:ml-64 bg-[#0e1925]">
           <Header />
-          <main className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 md:p-0 bg-[#0e1925]">
-            <div className="bg-white rounded-[20px] md:rounded-tl-[8px] md:rounded-tr-[0px] md:rounded-bl-[0px] md:rounded-br-[0px] shadow-soft p-3 sm:p-4 md:p-6 lg:p-8 min-h-full max-w-full overflow-x-hidden main-content-wrapper">
+          <main className="flex-1 overflow-y-auto overflow-x-hidden bg-[#edf2f7] px-3.5 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-4 sm:px-4 sm:pt-4 md:bg-[#0e1925] md:p-0">
+            <div className="min-h-full max-w-full overflow-x-hidden bg-transparent p-0 shadow-none md:rounded-tl-[8px] md:rounded-tr-[0px] md:rounded-bl-[0px] md:rounded-br-[0px] md:bg-white md:p-6 md:shadow-soft lg:p-8 main-content-wrapper">
               {children}
             </div>
           </main>
         </div>
       </div>
+      <MobileTabBar userRole={profile?.role || null} />
       <ReleaseNotesModal />
       <Toaster />
     </SidebarProvider>
   )
 }
-

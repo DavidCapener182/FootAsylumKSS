@@ -11,7 +11,7 @@ export function NewIncidentButton() {
   return (
     <>
       <Button 
-        className="bg-indigo-600 hover:bg-indigo-700 shadow-sm transition-all active:scale-95"
+        className="w-full bg-indigo-600 hover:bg-indigo-700 shadow-sm transition-all active:scale-95 sm:w-auto"
         onClick={() => setDialogOpen(true)}
       >
         <Plus className="h-4 w-4 mr-2" />
@@ -21,4 +21,3 @@ export function NewIncidentButton() {
     </>
   )
 }
-

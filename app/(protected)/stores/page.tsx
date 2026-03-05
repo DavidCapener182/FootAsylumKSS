@@ -206,9 +206,9 @@ export default async function StoresPage() {
           </div>
 
           {profile.role === 'admin' && (
-            <div className="flex-shrink-0">
+            <div className="w-full flex-shrink-0 md:w-auto">
               <Link href="/stores/new" prefetch={false}>
-                <Button className="flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-xs font-medium text-slate-900 shadow-sm transition-all hover:bg-slate-100 active:scale-[0.98] min-h-[40px] sm:rounded-xl sm:px-4 sm:py-2.5 sm:text-sm sm:min-h-[44px]">
+                <Button className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-medium text-slate-900 shadow-sm transition-all hover:bg-slate-100 active:scale-[0.98] sm:min-h-[44px] md:w-auto md:rounded-xl md:px-4 md:py-2.5">
                   <Plus className="h-4 w-4 text-indigo-600" />
                   <span>Add New Store</span>
                   <ArrowUpRight className="h-3.5 w-3.5 text-slate-500" />

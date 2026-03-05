@@ -76,33 +76,12 @@ async function getStoreFRAs() {
     }
   }
 
-  console.log('Fetched stores for FRA:', storesWithFRA?.length || 0, 'stores')
-  if (storesWithFRA && storesWithFRA.length > 0) {
-    const currentYear = new Date().getFullYear()
-    const storesWith2026Audits = storesWithFRA.filter(store => {
-      const audit1Year = store.compliance_audit_1_date ? new Date(store.compliance_audit_1_date).getFullYear() : null
-      const audit2Year = store.compliance_audit_2_date ? new Date(store.compliance_audit_2_date).getFullYear() : null
-      return audit1Year === currentYear || audit2Year === currentYear
-    })
-    console.log('Stores with 2026 audits:', storesWith2026Audits.length)
-    if (storesWith2026Audits.length > 0) {
-      console.log('Sample stores with 2026 audits:', storesWith2026Audits.slice(0, 3).map(s => ({
-        name: s.store_name,
-        code: s.store_code,
-        audit1: s.compliance_audit_1_date,
-        audit2: s.compliance_audit_2_date
-      })))
-    }
-  }
-
   return storesWithFRA || []
 }
 
 export default async function FireRiskAssessmentPage() {
   const { profile } = await requireRole(['admin', 'ops', 'readonly'])
   const stores = await getStoreFRAs()
-  
-  console.log('FireRiskAssessmentPage: Fetched', stores.length, 'stores')
 
   return <FRATrackerClient stores={stores as FRARow[]} userRole={profile.role} />
 }

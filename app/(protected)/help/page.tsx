@@ -1,4 +1,4 @@
-import { AlertTriangle, ShieldCheck } from 'lucide-react'
+import { AlertTriangle, ChevronDown, ShieldCheck } from 'lucide-react'
 import { requireAuth } from '@/lib/auth'
 
 type PolicyRow = {
@@ -243,7 +243,52 @@ export default async function GdprPage() {
         <p className="mt-3 text-xs text-slate-400">Last updated: 5 March 2026</p>
       </section>
 
-      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 md:hidden">
+        <div className="space-y-3">
+          {POLICY_ROWS.map((row) => (
+            <details key={row.dataPoint} className="group rounded-[22px] border border-slate-200 bg-slate-50/70">
+              <summary className="flex cursor-pointer list-none items-start gap-3 p-4 text-left">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+                    Data Point
+                  </p>
+                  <h2 className="mt-1 text-sm font-semibold text-slate-900">{row.dataPoint}</h2>
+                  <p className="mt-2 text-xs text-slate-500">{row.pages}</p>
+                </div>
+                <ChevronDown className="mt-0.5 h-4 w-4 flex-shrink-0 text-slate-400 transition-transform duration-200 group-open:rotate-180" />
+              </summary>
+              <div className="space-y-3 border-t border-slate-200 px-4 py-4 text-sm text-slate-700">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Fields</p>
+                  <p className="mt-1">{row.fields}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Purpose</p>
+                  <p className="mt-1">{row.purpose}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Lawful Basis</p>
+                  <p className="mt-1">{row.lawfulBasis}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Access Scope</p>
+                  <p className="mt-1">{row.access}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Retention</p>
+                  <p className="mt-1">{row.retention}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Controls</p>
+                  <p className="mt-1">{row.controls}</p>
+                </div>
+              </div>
+            </details>
+          ))}
+        </div>
+      </section>
+
+      <section className="hidden overflow-hidden rounded-2xl border border-slate-200 bg-white md:block">
         <div className="overflow-x-auto">
           <table className="min-w-[1380px] w-full text-left text-sm">
             <thead className="bg-slate-50">
@@ -289,7 +334,46 @@ export default async function GdprPage() {
         </div>
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-5">
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 md:hidden">
+        <h2 className="text-lg font-semibold text-slate-900">Full Written GDPR Policy</h2>
+        <p className="mt-2 text-sm text-slate-600">
+          The following clauses set out the full policy text to accompany the matrix and support client/legal review.
+        </p>
+        <div className="mt-4 space-y-3">
+          {FULL_POLICY.map((section, index) => (
+            <details
+              key={section.title}
+              className="group rounded-[22px] border border-slate-200 bg-slate-50/60"
+              open={index === 0}
+            >
+              <summary className="flex cursor-pointer list-none items-start gap-3 p-4 text-left">
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-sm font-semibold text-slate-900">{section.title}</h3>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {section.paragraphs.length} clause{section.paragraphs.length === 1 ? '' : 's'}
+                    {section.bullets ? ` plus ${section.bullets.length} controls` : ''}
+                  </p>
+                </div>
+                <ChevronDown className="mt-0.5 h-4 w-4 flex-shrink-0 text-slate-400 transition-transform duration-200 group-open:rotate-180" />
+              </summary>
+              <div className="space-y-2 border-t border-slate-200 px-4 py-4 text-sm text-slate-700">
+                {section.paragraphs.map((paragraph) => (
+                  <p key={paragraph}>{paragraph}</p>
+                ))}
+                {section.bullets ? (
+                  <ul className="list-disc space-y-1 pl-5 text-sm text-slate-700">
+                    {section.bullets.map((bullet) => (
+                      <li key={bullet}>{bullet}</li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
+            </details>
+          ))}
+        </div>
+      </section>
+
+      <section className="hidden rounded-2xl border border-slate-200 bg-white p-5 md:block">
         <h2 className="text-lg font-semibold text-slate-900">Full Written GDPR Policy</h2>
         <p className="mt-2 text-sm text-slate-600">
           The following clauses set out the full policy text to accompany the matrix and support client/legal review.

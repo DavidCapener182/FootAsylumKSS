@@ -5,7 +5,8 @@ import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { AlertTriangle, LogOut, Menu } from 'lucide-react'
 import { useSidebar } from './sidebar-provider'
-import { cn } from '@/lib/utils'
+import { getMobilePageTitle } from './mobile-nav-config'
+import { cn, formatAppDate, formatAppDateTime, formatAppTime } from '@/lib/utils'
 import { StoreSearch } from '@/components/layout/store-search'
 import { createClient } from '@/lib/supabase/client'
 import type { UserRole } from '@/lib/auth'
@@ -148,8 +149,12 @@ function formatValue(value: unknown, field?: string): string {
       if (Number.isNaN(parsed.getTime())) return trimmed
       const hasTime = /T\d{2}:\d{2}/.test(trimmed)
       return hasTime
-        ? parsed.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
-        : parsed.toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' })
+        ? formatAppDateTime(
+            parsed,
+            { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false },
+            trimmed
+          )
+        : formatAppDate(parsed, { year: 'numeric', month: 'short', day: 'numeric' }, trimmed)
     }
     return trimmed
   }
@@ -280,9 +285,7 @@ function formatLatestAction(activity: LatestActivity | null | undefined): string
 function formatTime(value: string | null | undefined, fallbackValue?: string | null | undefined): string {
   const candidate = value || fallbackValue
   if (!candidate) return 'No timestamp yet'
-  const date = new Date(candidate)
-  if (Number.isNaN(date.getTime())) return 'No timestamp yet'
-  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  return formatAppTime(candidate, {}, 'No timestamp yet')
 }
 
 function getMetaTimestamp(value: unknown): number {
@@ -319,7 +322,7 @@ export function HeaderClient({ signOut, currentUser }: HeaderClientProps) {
   const { isOpen, setIsOpen } = useSidebar()
   const pathname = usePathname()
   const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([
-    { id: currentUser.id, name: currentUser.name, page: pathname || '/', lastSeen: new Date().toISOString() },
+    { id: currentUser.id, name: currentUser.name, page: pathname || '/', lastSeen: null },
   ])
   const [latestActivityByUser, setLatestActivityByUser] = useState<Record<string, LatestActivity>>({})
   const [showTimeoutWarning, setShowTimeoutWarning] = useState(false)
@@ -517,38 +520,94 @@ export function HeaderClient({ signOut, currentUser }: HeaderClientProps) {
   }, [currentUser.role, onlineUsers])
 
   const visibleUsers = onlineUsers.slice(0, 5)
+  const mobileVisibleUsers = visibleUsers.slice(0, 2)
   const overflowCount = Math.max(onlineUsers.length - visibleUsers.length, 0)
+  const mobileOverflowCount = Math.max(onlineUsers.length - mobileVisibleUsers.length, 0)
   const isAdmin = currentUser.role === 'admin'
+  const mobilePageTitle = getMobilePageTitle(pathname || '/')
 
   return (
-    <header className="no-print relative z-30 flex h-[calc(4rem+env(safe-area-inset-top))] min-h-16 items-center justify-between bg-[#0e1925] px-4 pt-[env(safe-area-inset-top)] md:h-16 md:px-6 md:pt-0 lg:px-8">
-      <div className="flex items-center gap-3 md:gap-4 flex-1 min-w-0">
-        {/* Mobile Menu Button */}
-        <button
-          onClick={handleMenuClick}
-          className={cn(
-            "md:hidden p-2 rounded-lg hover:bg-white/10 active:bg-white/20 focus:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/50 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center touch-manipulation z-[100] relative cursor-pointer",
-            isOpen && "bg-white/10"
-          )}
-          aria-label="Toggle navigation menu"
-          aria-expanded={isOpen}
-          type="button"
-        >
-          <Menu className="h-6 w-6 text-white pointer-events-none" />
-        </button>
+    <header className="no-print sticky top-0 z-30 border-b border-white/8 bg-[linear-gradient(180deg,rgba(6,22,37,0.98)_0%,rgba(5,20,33,0.94)_100%)] px-3 pt-[env(safe-area-inset-top)] backdrop-blur-xl md:relative md:flex md:h-16 md:items-center md:justify-between md:border-b-0 md:bg-[#0e1925] md:px-6 md:pt-0 lg:px-8">
+      <div className="flex w-full flex-col gap-3.5 pb-4 pt-3 md:flex-row md:items-center md:justify-between md:gap-4 md:pb-0 md:pt-0">
+        <div className="flex items-center gap-3 md:hidden">
+          <button
+            onClick={handleMenuClick}
+            className={cn(
+              'relative z-[100] flex min-h-[44px] min-w-[44px] items-center justify-center rounded-[18px] border border-white/10 bg-white/8 p-2 text-white shadow-[0_8px_20px_rgba(2,12,24,0.18)] transition-colors hover:bg-white/12 active:bg-white/20 focus:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/40 touch-manipulation cursor-pointer',
+              isOpen && 'bg-white/14'
+            )}
+            aria-label="Toggle navigation menu"
+            aria-expanded={isOpen}
+            type="button"
+          >
+            <Menu className="h-6 w-6 text-white pointer-events-none" />
+          </button>
 
-        <StoreSearch />
-      </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-semibold tracking-[0.16em] text-white/45">
+              KSS x Footasylum
+            </p>
+            <h1 className="truncate text-[1.08rem] font-semibold tracking-[-0.01em] text-white">{mobilePageTitle}</h1>
+          </div>
 
-      <div className="flex items-center gap-2 md:gap-4">
-        <div className="flex items-center gap-2" aria-label="Currently online users">
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5" aria-label="Currently online users">
+              {mobileVisibleUsers.map((user) => (
+                <div key={user.id} title={user.name} className="relative">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-white/10 text-[10px] font-bold text-white shadow-[0_8px_18px_rgba(2,12,24,0.14)] backdrop-blur-sm">
+                    {getInitials(user.name)}
+                  </div>
+                  <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border border-[#0e1925] bg-emerald-400" />
+                </div>
+              ))}
+              {mobileOverflowCount > 0 ? (
+                <div className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-white/10 text-[10px] font-bold text-white shadow-[0_8px_18px_rgba(2,12,24,0.14)] backdrop-blur-sm">
+                  +{mobileOverflowCount}
+                </div>
+              ) : null}
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => logoutFormRef.current?.requestSubmit()}
+              className="h-10 w-10 rounded-full border border-white/10 bg-white/8 p-0 text-white shadow-[0_8px_18px_rgba(2,12,24,0.14)] hover:bg-white/12 hover:text-white"
+            >
+              <LogOut className="h-4 w-4" />
+              <span className="sr-only">Log Out</span>
+            </Button>
+          </div>
+        </div>
+
+        <div className="md:hidden">
+          <StoreSearch />
+        </div>
+
+        <div className="hidden min-w-0 flex-1 items-center gap-3 md:flex md:gap-4">
+          <button
+            onClick={handleMenuClick}
+            className={cn(
+              'relative z-[100] hidden min-h-[44px] min-w-[44px] items-center justify-center rounded-2xl bg-white/5 p-2 text-white transition-colors hover:bg-white/10 active:bg-white/20 focus:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/50 touch-manipulation cursor-pointer md:hidden',
+              isOpen && 'bg-white/10'
+            )}
+            aria-label="Toggle navigation menu"
+            aria-expanded={isOpen}
+            type="button"
+          >
+            <Menu className="h-6 w-6 text-white pointer-events-none" />
+          </button>
+
+          <StoreSearch />
+        </div>
+
+        <div className="hidden items-center gap-2 md:flex md:gap-4">
+          <div className="flex items-center gap-2" aria-label="Currently online users">
           {visibleUsers.map((user) => (
             <div
               key={user.id}
               title={user.name}
               className="group relative"
             >
-              <div className="flex h-8 w-8 items-center justify-center rounded-full border border-white/30 bg-white/15 text-[11px] font-bold text-white backdrop-blur-sm md:h-9 md:w-9 md:text-xs">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-white/10 text-[11px] font-bold text-white backdrop-blur-sm md:h-9 md:w-9 md:text-xs">
                 {getInitials(user.name)}
               </div>
               <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border border-[#0e1925] bg-emerald-400" />
@@ -578,23 +637,24 @@ export function HeaderClient({ signOut, currentUser }: HeaderClientProps) {
           {overflowCount > 0 ? (
             <div
               title={`${overflowCount} more online`}
-              className="flex h-8 w-8 items-center justify-center rounded-full border border-white/30 bg-white/15 text-[11px] font-bold text-white backdrop-blur-sm md:h-9 md:w-9 md:text-xs"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-white/10 text-[11px] font-bold text-white backdrop-blur-sm md:h-9 md:w-9 md:text-xs"
             >
               +{overflowCount}
             </div>
           ) : null}
-        </div>
-        <form action={signOut} ref={logoutFormRef}>
-          <Button 
-            type="submit" 
-            variant="ghost" 
-            className="rounded-full min-h-[44px] px-3 md:px-4 text-white hover:bg-white/10 hover:text-white"
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => logoutFormRef.current?.requestSubmit()}
+            className="min-h-[44px] rounded-2xl px-3 text-white hover:bg-white/10 hover:text-white md:rounded-full md:px-4"
           >
-            <LogOut className="h-4 w-4 md:h-5 md:w-5 mr-2" />
+            <LogOut className="mr-2 h-4 w-4 md:h-5 md:w-5" />
             <span className="hidden sm:inline">Log Out</span>
           </Button>
-        </form>
+        </div>
       </div>
+      <form action={signOut} ref={logoutFormRef} className="hidden" />
 
       <Dialog open={showTimeoutWarning} onOpenChange={setShowTimeoutWarning}>
         <DialogContent className="max-w-md">

@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label'
 import { Loader2, Save, RefreshCw, UserPlus, Mail, Trash2 } from 'lucide-react'
 import { getAllUsers, updateUserRole, inviteUserByEmail, deleteUser, UserWithProfile } from '@/app/actions/users'
 import { UserRole } from '@/lib/auth'
+import { formatAppDateTime } from '@/lib/utils'
 
 export function AdminClient() {
   const [users, setUsers] = useState<UserWithProfile[]>([])
@@ -178,15 +179,14 @@ export function AdminClient() {
 
   const formatLastLoggedIn = (value: string | null) => {
     if (!value) return 'Never'
-    const date = new Date(value)
-    if (Number.isNaN(date.getTime())) return 'Unknown'
-    return date.toLocaleString(undefined, {
+    return formatAppDateTime(value, {
       year: 'numeric',
       month: 'short',
       day: '2-digit',
       hour: '2-digit',
       minute: '2-digit',
-    })
+      hour12: false,
+    }, 'Unknown')
   }
 
   if (loading) {

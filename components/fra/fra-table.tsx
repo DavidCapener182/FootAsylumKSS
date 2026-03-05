@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, useEffect } from 'react'
+import { Fragment, useMemo, useState, useEffect } from 'react'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -103,41 +103,6 @@ export function FRATable({
     })
   }, [localRows, area, search])
   
-  // Debug: Log stores that need FRA
-  useMemo(() => {
-    const currentYear = new Date().getFullYear()
-    const storesNeedingFRA = localRows.filter(row => storeNeedsFRA(row))
-    const storesUpToDate = localRows.filter(row => {
-      const needsFRA = storeNeedsFRA(row)
-      const status = getFRAStatus(row.fire_risk_assessment_date, needsFRA)
-      return status === 'up_to_date'
-    })
-    const storesInRequiredTab = localRows.filter(row => {
-      const needsFRA = storeNeedsFRA(row)
-      const status = getFRAStatus(row.fire_risk_assessment_date, needsFRA)
-      return needsFRA && status !== 'up_to_date'
-    })
-    console.log('FRA Debug - Required Tab:', {
-      currentYear,
-      totalStores: localRows.length,
-      storesNeedingFRA: storesNeedingFRA.length,
-      storesUpToDate: storesUpToDate.length,
-      storesInRequiredTab: storesInRequiredTab.length,
-      sampleRequired: storesInRequiredTab.slice(0, 3).map(s => {
-        const needsFRA = storeNeedsFRA(s)
-        const status = getFRAStatus(s.fire_risk_assessment_date, needsFRA)
-        return {
-          name: s.store_name,
-          code: s.store_code,
-          hasDate: s.fire_risk_assessment_date !== null,
-          hasPct: s.fire_risk_assessment_pct !== null,
-          needsFRA,
-          status
-        }
-      })
-    })
-  }, [localRows])
-
   const grouped = useMemo(() => {
     const map = new Map<string, FRARow[]>()
     
@@ -751,9 +716,9 @@ export function FRATable({
                   ) : (
                     grouped.map(([groupKey, areaRows]) => {
                       return (
-                        <>
+                        <Fragment key={groupKey}>
                           {/* Area Divider Row */}
-                          <TableRow key={`hdr-${groupKey}`} className="desktop-group-bar hover:bg-transparent">
+                          <TableRow className="desktop-group-bar hover:bg-transparent">
                             <TableCell 
                               colSpan={10} 
                               className="py-1.5 px-4 border-y border-slate-200/70"
@@ -929,11 +894,11 @@ export function FRATable({
                             </TableCell>
                           </TableRow>
                         )
-                      })}
-                    </>
-                  )
-                })
-              )}
+                          })}
+                        </Fragment>
+                      )
+                    })
+                  )}
             </TableBody>
           </Table>
         </div>

@@ -1,8 +1,61 @@
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
 
+type DateInput = Date | string | number | null | undefined
+
+export const APP_LOCALE = 'en-GB'
+export const APP_TIME_ZONE = 'Europe/London'
+
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
+}
+
+function parseDateInput(value: DateInput): Date | null {
+  if (value === null || value === undefined || value === '') return null
+  const date = value instanceof Date ? new Date(value.getTime()) : new Date(value)
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
+export function formatAppDate(
+  value: DateInput,
+  options: Intl.DateTimeFormatOptions = {},
+  fallback = '—'
+) {
+  const date = parseDateInput(value)
+  if (!date) return fallback
+  return date.toLocaleDateString(APP_LOCALE, {
+    timeZone: APP_TIME_ZONE,
+    ...options,
+  })
+}
+
+export function formatAppTime(
+  value: DateInput,
+  options: Intl.DateTimeFormatOptions = {},
+  fallback = '—'
+) {
+  const date = parseDateInput(value)
+  if (!date) return fallback
+  return date.toLocaleTimeString(APP_LOCALE, {
+    timeZone: APP_TIME_ZONE,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    ...options,
+  })
+}
+
+export function formatAppDateTime(
+  value: DateInput,
+  options: Intl.DateTimeFormatOptions = {},
+  fallback = '—'
+) {
+  const date = parseDateInput(value)
+  if (!date) return fallback
+  return date.toLocaleString(APP_LOCALE, {
+    timeZone: APP_TIME_ZONE,
+    ...options,
+  })
 }
 
 /** Returns null for FAHS-imported store codes so they are not displayed in store lists. */
@@ -113,5 +166,3 @@ export function getFraAssessmentReference(
       : '—'
   return `FRA - Footasylum - ${storeName} - ${dateFormatted}`
 }
-
-

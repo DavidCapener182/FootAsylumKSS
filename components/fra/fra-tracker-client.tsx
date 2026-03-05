@@ -37,7 +37,7 @@ export function FRATrackerClient({ stores, userRole }: FRATrackerClientProps) {
             </div>
             <button
               type="button"
-              className="inline-flex items-center gap-2 rounded-lg bg-white px-2.5 py-1.5 text-xs font-bold text-slate-900 transition-colors hover:bg-slate-100 sm:text-sm md:px-4 md:py-2"
+              className="inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-bold text-slate-900 transition-colors hover:bg-slate-100 sm:min-h-[44px] sm:w-auto md:rounded-lg md:px-4 md:py-2"
             >
               <Download size={16} />
               Export Data
@@ -52,20 +52,23 @@ export function FRATrackerClient({ stores, userRole }: FRATrackerClientProps) {
 
       <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
         <Tabs value={activeView} onValueChange={(value) => setActiveView(value as 'required' | 'completed')} className="w-full">
-          <div className="border-b border-slate-100 p-6">
+          <div className="border-b border-slate-100 p-4 md:p-6">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <h2 className="text-xl font-bold text-slate-800">Fire Risk Assessment Tracker</h2>
-              <TabsList className="grid w-full grid-cols-2 rounded-xl bg-slate-100 p-1 lg:w-auto lg:min-w-[320px]">
+              <div className="space-y-1">
+                <h2 className="text-lg font-bold text-slate-800 md:text-xl">Fire Risk Assessment Tracker</h2>
+                <p className="text-sm text-slate-500">Move between outstanding FRA work and completed assessments without leaving mobile view.</p>
+              </div>
+              <TabsList className="grid w-full grid-cols-2 rounded-2xl bg-slate-100 p-1 lg:w-auto lg:min-w-[320px] lg:rounded-xl">
                 <TabsTrigger
                   value="required"
-                  className="flex items-center justify-center gap-2 rounded-lg text-sm font-bold text-slate-500 transition-all data-[state=active]:bg-white data-[state=active]:text-orange-600 data-[state=active]:shadow-sm"
+                  className="flex min-h-[44px] items-center justify-center gap-2 rounded-xl text-sm font-bold text-slate-500 transition-all data-[state=active]:bg-white data-[state=active]:text-orange-600 data-[state=active]:shadow-sm"
                 >
                   <Flame className="h-4 w-4" />
                   Required
                 </TabsTrigger>
                 <TabsTrigger
                   value="completed"
-                  className="flex items-center justify-center gap-2 rounded-lg text-sm font-bold text-slate-500 transition-all data-[state=active]:bg-white data-[state=active]:text-orange-600 data-[state=active]:shadow-sm"
+                  className="flex min-h-[44px] items-center justify-center gap-2 rounded-xl text-sm font-bold text-slate-500 transition-all data-[state=active]:bg-white data-[state=active]:text-orange-600 data-[state=active]:shadow-sm"
                 >
                   <CheckCircle2 className="h-4 w-4" />
                   Completed

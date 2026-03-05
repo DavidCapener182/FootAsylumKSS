@@ -1061,18 +1061,18 @@ export default function ReportsPage() {
             </div>
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Reports & Exports</h1>
           </div>
-          <p className="text-sm sm:text-base text-slate-500 max-w-2xl ml-9 sm:ml-11">
+          <p className="text-sm sm:text-base text-slate-500 max-w-2xl md:ml-11">
             Download detailed compliance data or generate AI-powered insights for your team.
           </p>
         </div>
       </div>
 
       <Tabs defaultValue="monthly" className="w-full">
-        <TabsList className="inline-flex h-auto items-center justify-start rounded-md bg-slate-100 p-1 text-slate-600">
-          <TabsTrigger value="monthly" className="min-h-[40px]">
+        <TabsList className="grid h-auto w-full grid-cols-2 items-center rounded-[20px] bg-slate-100 p-1 text-slate-600 md:inline-flex md:w-auto md:justify-start md:rounded-md">
+          <TabsTrigger value="monthly" className="min-h-[46px] rounded-[16px] md:min-h-[40px]">
             Monthly Dashboard
           </TabsTrigger>
-          <TabsTrigger value="export" className="min-h-[40px]">
+          <TabsTrigger value="export" className="min-h-[46px] rounded-[16px] md:min-h-[40px]">
             Export
           </TabsTrigger>
         </TabsList>
@@ -1095,7 +1095,7 @@ export default function ReportsPage() {
               <Button
                 onClick={handleGenerateMonthlyNewsletter}
                 disabled={newsletterLoading}
-                className="min-h-[44px] bg-amber-600 hover:bg-amber-700"
+                className="min-h-[44px] w-full rounded-2xl bg-amber-600 hover:bg-amber-700 md:w-auto md:rounded-md"
               >
                 {newsletterLoading ? (
                   <>
@@ -1132,7 +1132,7 @@ export default function ReportsPage() {
                 <select
                   value={newsletterAreaCode}
                   onChange={(event) => setNewsletterAreaCode(event.target.value)}
-                  className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                  className="h-11 min-h-[48px] w-full rounded-[16px] border border-input bg-background px-4 py-3 text-base ring-offset-background md:h-10 md:min-h-10 md:rounded-md md:px-3 md:py-2 md:text-sm"
                 >
                   <option value="all">All Areas</option>
                   {newsletterData?.availableAreas.map((area) => (
@@ -1209,7 +1209,7 @@ export default function ReportsPage() {
                   <Button
                     onClick={handleGenerateAllAiPromptPacks}
                     disabled={newsletterAiBulkLoading || newsletterLoading}
-                    className="min-h-[40px] bg-indigo-600 hover:bg-indigo-700"
+                    className="min-h-[44px] w-full rounded-2xl bg-indigo-600 hover:bg-indigo-700 md:w-auto md:rounded-md"
                   >
                     {newsletterAiBulkLoading ? (
                       <>
