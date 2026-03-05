@@ -25,12 +25,12 @@ import {
 // Re-export for backward compatibility
 export type { AuditRow }
 
-interface EditState {
+interface AddAuditState {
   storeId: string
+  storeName: string
   auditNumber: 1 | 2
   date: string
   percentage: string
-  actionPlan: 'Yes' | 'No' | undefined
   pdfFile: File | null
 }
 
@@ -108,7 +108,8 @@ export function AuditTable({
   const area = externalAreaFilter !== undefined ? externalAreaFilter : internalArea
   const setArea = onAreaFilterChange || setInternalArea
   const [hideCompleted, setHideCompleted] = useState(false)
-  const [editing, setEditing] = useState<EditState | null>(null)
+  const [addAuditState, setAddAuditState] = useState<AddAuditState | null>(null)
+  const [addAuditDialogOpen, setAddAuditDialogOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [localRows, setLocalRows] = useState<AuditRow[]>(rows)
   
@@ -332,33 +333,31 @@ export function AuditTable({
 
   const handleAddAudit = (row: AuditRow) => {
     const auditNum = getNextAuditNumber(row)
-    if (!auditNum) return // Both audits complete
-    
-    const currentDate = auditNum === 1 ? row.compliance_audit_1_date : row.compliance_audit_2_date
-    const currentPct = auditNum === 1 ? row.compliance_audit_1_overall_pct : row.compliance_audit_2_overall_pct
-    const currentActionPlan = auditNum === 1 ? row.action_plan_1_sent : row.action_plan_2_sent
-    const isCurrentAuditComplete = !!(currentDate && currentPct !== null)
+    if (!auditNum) {
+      setTableMessage({ type: 'error', text: `${row.store_name} already has Audit 1 and Audit 2 completed.` })
+      return
+    }
 
-    setEditing({
+    setAddAuditState({
       storeId: row.id,
+      storeName: row.store_name,
       auditNumber: auditNum,
-      date: currentDate || new Date().toISOString().split('T')[0],
-      percentage: currentPct?.toString() || '',
-      actionPlan: isCurrentAuditComplete
-        ? (currentActionPlan === true ? 'Yes' : currentActionPlan === false ? 'No' : undefined)
-        : undefined,
+      date: new Date().toISOString().split('T')[0],
+      percentage: '',
       pdfFile: null
     })
+    setAddAuditDialogOpen(true)
   }
 
-  const handleCancelEdit = () => {
-    setEditing(null)
+  const handleCloseAddAuditDialog = () => {
+    setAddAuditDialogOpen(false)
+    setAddAuditState(null)
   }
 
   const handleSaveAudit = async () => {
-    if (!editing) return
+    if (!addAuditState) return
 
-    const { storeId, auditNumber, date, percentage, actionPlan, pdfFile } = editing
+    const { storeId, storeName, auditNumber, date, percentage, pdfFile } = addAuditState
 
     // Validate
     if (!date) {
@@ -374,14 +373,10 @@ export function AuditTable({
       setTableMessage({ type: 'error', text: 'Percentage must be between 0 and 100.' })
       return
     }
-    if (!actionPlan || actionPlan === undefined) {
-      setTableMessage({ type: 'error', text: 'Please select whether action plan was sent.' })
-      return
-    }
+    const autoActionPlanSent = pctNum < 80
 
     setSaving(true)
     setTableMessage(null)
-    const storeName = localRows.find((row) => row.id === storeId)?.store_name ?? 'store'
 
     try {
       const supabase = createClient()
@@ -422,14 +417,14 @@ export function AuditTable({
       if (auditNumber === 1) {
         updateData.compliance_audit_1_date = date
         updateData.compliance_audit_1_overall_pct = pctNum
-        updateData.action_plan_1_sent = actionPlan === 'Yes'
+        updateData.action_plan_1_sent = autoActionPlanSent
         if (pdfPath) {
           updateData.compliance_audit_1_pdf_path = pdfPath
         }
       } else {
         updateData.compliance_audit_2_date = date
         updateData.compliance_audit_2_overall_pct = pctNum
-        updateData.action_plan_2_sent = actionPlan === 'Yes'
+        updateData.action_plan_2_sent = autoActionPlanSent
         if (pdfPath) {
           updateData.compliance_audit_2_pdf_path = pdfPath
         }
@@ -485,10 +480,10 @@ export function AuditTable({
         })
       )
 
-      setEditing(null)
+      handleCloseAddAuditDialog()
       setTableMessage({
         type: 'success',
-        text: `Audit ${auditNumber} saved for ${storeName}.`,
+        text: `Audit ${auditNumber} saved for ${storeName}. Action Plan set to ${autoActionPlanSent ? 'Yes' : 'No'}.`,
       })
     } catch (error) {
       console.error('Error saving audit:', error)
@@ -697,12 +692,15 @@ export function AuditTable({
 
     try {
       const supabase = createClient()
-      const updateData: Record<string, number> = {}
+      const updateData: Record<string, number | boolean> = {}
+      const autoActionPlanSent = pctNum < 80
 
       if (updateScoreState.auditNumber === 1) {
         updateData.compliance_audit_1_overall_pct = pctNum
+        updateData.action_plan_1_sent = autoActionPlanSent
       } else {
         updateData.compliance_audit_2_overall_pct = pctNum
+        updateData.action_plan_2_sent = autoActionPlanSent
       }
 
       const { data, error } = await supabase
@@ -728,6 +726,8 @@ export function AuditTable({
               ...row,
               compliance_audit_1_overall_pct: data.compliance_audit_1_overall_pct,
               compliance_audit_2_overall_pct: data.compliance_audit_2_overall_pct,
+              action_plan_1_sent: data.action_plan_1_sent,
+              action_plan_2_sent: data.action_plan_2_sent,
             }
           }
           return row
@@ -738,7 +738,7 @@ export function AuditTable({
       setUpdateScoreState(null)
       setTableMessage({
         type: 'success',
-        text: `Audit ${updateScoreState.auditNumber} score updated for ${updateScoreState.storeName}.`,
+        text: `Audit ${updateScoreState.auditNumber} score updated for ${updateScoreState.storeName}. Action Plan set to ${autoActionPlanSent ? 'Yes' : 'No'}.`,
       })
     } catch (error) {
       console.error('Error updating audit score:', error)
@@ -763,20 +763,7 @@ export function AuditTable({
     void loadStoreActionCounts()
   }
 
-  const renderDateCell = (date: string | null, pct: number | null, storeId: string, auditNum: 1 | 2, row: AuditRow) => {
-    const isEditing = editing?.storeId === storeId && editing?.auditNumber === auditNum
-    
-    if (isEditing) {
-      return (
-        <Input
-          type="date"
-          value={editing.date}
-          onChange={(e) => setEditing({ ...editing, date: e.target.value })}
-          className="h-8 text-xs"
-        />
-      )
-    }
-    
+  const renderDateCell = (date: string | null, pct: number | null, auditNum: 1 | 2) => {
     // Only show date if percentage is also present (audit is complete)
     // For audit 2, don't show date unless the audit is actually complete
     if (auditNum === 2 && pct === null) {
@@ -786,30 +773,10 @@ export function AuditTable({
     return <span className="text-sm text-muted-foreground">{formatDate(date)}</span>
   }
 
-  const renderActionPlanCell = (value: boolean | null, storeId: string, auditNum: 1 | 2) => {
-    const isEditing = editing?.storeId === storeId && editing?.auditNumber === auditNum
-    
-    if (isEditing) {
-      return (
-        <Select
-          value={editing.actionPlan || undefined}
-          onValueChange={(val) => setEditing({ ...editing, actionPlan: val as 'Yes' | 'No' })}
-        >
-          <SelectTrigger className="h-8 text-xs w-20">
-            <SelectValue placeholder="Select" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="Yes">Yes</SelectItem>
-            <SelectItem value="No">No</SelectItem>
-          </SelectContent>
-        </Select>
-      )
-    }
-
-    const row = localRows.find((r) => r.id === storeId)
+  const renderActionPlanCell = (value: boolean | null, row: AuditRow, auditNum: 1 | 2) => {
     const isAuditComplete = auditNum === 1
-      ? !!(row?.compliance_audit_1_date && row?.compliance_audit_1_overall_pct !== null)
-      : !!(row?.compliance_audit_2_date && row?.compliance_audit_2_overall_pct !== null)
+      ? !!(row.compliance_audit_1_date && row.compliance_audit_1_overall_pct !== null)
+      : !!(row.compliance_audit_2_date && row.compliance_audit_2_overall_pct !== null)
 
     if (!isAuditComplete) {
       return <span className="text-sm text-muted-foreground">—</span>
@@ -819,23 +786,6 @@ export function AuditTable({
   }
 
   const renderPercentageCell = (value: number | null, storeId: string, auditNum: 1 | 2) => {
-    const isEditing = editing?.storeId === storeId && editing?.auditNumber === auditNum
-    
-    if (isEditing) {
-      return (
-        <Input
-          type="number"
-          min="0"
-          max="100"
-          step="0.01"
-          value={editing.percentage}
-          onChange={(e) => setEditing({ ...editing, percentage: e.target.value })}
-          className="h-8 text-xs w-20"
-          placeholder="0-100"
-        />
-      )
-    }
-    
     if (value === null || value === undefined) {
       return pctBadge(value)
     }
@@ -1042,7 +992,6 @@ export function AuditTable({
 
                 <div className="space-y-2.5">
                   {areaRows.map((row) => {
-                    const isEditingRow = editing?.storeId === row.id
                     const nextAudit = getNextAuditNumber(row)
                     const completedCount = getCompletedAuditCount(row)
                     const upcomingActionFlag = getUpcomingActionFlag(row)
@@ -1088,180 +1037,107 @@ export function AuditTable({
                           </div>
                         </div>
 
-                        {isEditingRow ? (
-                          <div className="mt-3 space-y-2.5 border-t border-slate-200/80 pt-3">
-                            <div className="text-xs font-semibold text-slate-700">
-                              Adding Audit {editing?.auditNumber}
-                            </div>
-                            <Input
-                              type="date"
-                              value={editing?.date || ''}
-                              onChange={(e) => setEditing((prev) => prev ? { ...prev, date: e.target.value } : prev)}
-                              className="bg-white"
-                            />
-                            <Select
-                              value={editing?.actionPlan || undefined}
-                              onValueChange={(val) => setEditing((prev) => prev ? { ...prev, actionPlan: val as 'Yes' | 'No' } : prev)}
+                        <div className="mt-3 space-y-2.5 border-t border-slate-200/80 pt-3">
+                          {upcomingActionFlag ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleOpenStoreActionsModal(row)}
+                              title={upcomingActionFlag.title}
+                              className={cn(
+                                'w-full text-xs',
+                                upcomingActionFlag.isDebugPreview
+                                  ? 'border-violet-300 bg-violet-50 text-violet-700 hover:bg-violet-100'
+                                  : 'border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100'
+                              )}
                             >
-                              <SelectTrigger className="bg-white">
-                                <SelectValue placeholder="Action plan sent?" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="Yes">Action plan sent: Yes</SelectItem>
-                                <SelectItem value="No">Action plan sent: No</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <Input
-                              type="number"
-                              min="0"
-                              max="100"
-                              step="0.01"
-                              value={editing?.percentage || ''}
-                              onChange={(e) => setEditing((prev) => prev ? { ...prev, percentage: e.target.value } : prev)}
-                              placeholder="Score (0-100)"
-                              className="bg-white"
-                            />
+                              <BellRing className="h-3.5 w-3.5 mr-1.5" />
+                              {upcomingActionFlag.isDebugPreview
+                                ? `Debug Preview (${upcomingActionFlag.actionCount})`
+                                : `Previous Actions (${upcomingActionFlag.actionCount})`}
+                            </Button>
+                          ) : null}
 
-                            <div className="flex items-center gap-2">
-                              <input
-                                type="file"
-                                id={`pdf-upload-mobile-${row.id}`}
-                                accept=".pdf,application/pdf"
-                                onChange={(e) => {
-                                  const file = e.target.files?.[0] || null
-                                  setEditing((prev) => prev ? { ...prev, pdfFile: file } : prev)
-                                }}
-                                className="hidden"
-                                disabled={saving}
-                              />
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                type="button"
-                                onClick={() => document.getElementById(`pdf-upload-mobile-${row.id}`)?.click()}
-                                disabled={saving}
-                                className="border-slate-300 bg-white"
-                              >
-                                <Upload className="h-3 w-3 mr-1" />
-                                Upload PDF
-                              </Button>
-                              {editing?.pdfFile ? (
-                                <span className="text-xs text-slate-500 truncate">{editing.pdfFile.name}</span>
-                              ) : null}
-                            </div>
+                          {nextAudit !== null ? (
+                            <Button
+                              size="sm"
+                              onClick={() => handleAddAudit(row)}
+                              className="w-full bg-slate-900 text-white hover:bg-slate-800"
+                            >
+                              Add Audit
+                            </Button>
+                          ) : null}
 
-                            <div className="flex gap-2">
-                              <Button size="sm" onClick={handleSaveAudit} disabled={saving} className="flex-1 bg-slate-900 text-white hover:bg-slate-800">
-                                {saving ? 'Saving...' : 'Save'}
-                              </Button>
-                              <Button size="sm" variant="outline" onClick={handleCancelEdit} disabled={saving} className="flex-1 border-slate-300 bg-white">
-                                Cancel
-                              </Button>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="mt-3 space-y-2.5 border-t border-slate-200/80 pt-3">
-                            {upcomingActionFlag ? (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleOpenStoreActionsModal(row)}
-                                title={upcomingActionFlag.title}
-                                className={cn(
-                                  'w-full text-xs',
-                                  upcomingActionFlag.isDebugPreview
-                                    ? 'border-violet-300 bg-violet-50 text-violet-700 hover:bg-violet-100'
-                                    : 'border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100'
-                                )}
-                              >
-                                <BellRing className="h-3.5 w-3.5 mr-1.5" />
-                                {upcomingActionFlag.isDebugPreview
-                                  ? `Debug Preview (${upcomingActionFlag.actionCount})`
-                                  : `Previous Actions (${upcomingActionFlag.actionCount})`}
-                              </Button>
-                            ) : null}
-
-                            {nextAudit !== null ? (
-                              <Button
-                                size="sm"
-                                onClick={() => handleAddAudit(row)}
-                                className="w-full bg-slate-900 text-white hover:bg-slate-800"
-                              >
-                                Add Audit
-                              </Button>
-                            ) : null}
-
-                            {(row.compliance_audit_1_date && row.compliance_audit_1_overall_pct !== null) ||
-                            (row.compliance_audit_2_date && row.compliance_audit_2_overall_pct !== null) ? (
-                              <div className="space-y-1">
-                                <div className="text-[10px] uppercase tracking-wide text-slate-500">Audit PDFs</div>
-                                <div className="flex flex-wrap items-center gap-2">
-                                  {row.compliance_audit_1_date && row.compliance_audit_1_overall_pct !== null ? (
-                                    row.compliance_audit_1_pdf_path ? (
-                                      <>
-                                        <Button
-                                          size="sm"
-                                          variant="ghost"
-                                          onClick={() => handleViewPDF(row, 1)}
-                                          className="h-8 border border-slate-200 bg-white px-2.5 text-xs text-slate-700 hover:bg-slate-50"
-                                        >
-                                          <File className="h-3.5 w-3.5 mr-1" />
-                                          Audit 1
-                                        </Button>
-                                        <Button
-                                          size="sm"
-                                          variant="ghost"
-                                          onClick={() => handleDeletePDF(row, 1)}
-                                          disabled={deletingPdf === `${row.id}-1`}
-                                          className="h-8 border border-rose-200 bg-rose-50 px-2 text-rose-700 hover:bg-rose-100"
-                                          title="Delete Audit 1 PDF"
-                                        >
-                                          <Trash2 className="h-3.5 w-3.5" />
-                                        </Button>
-                                      </>
-                                    ) : (
-                                      <Button size="sm" variant="outline" onClick={() => handleOpenPDFUpload(row, 1)} className="h-8 border-slate-300 bg-white">
-                                        <Upload className="h-3 w-3 mr-1" />
-                                        Upload A1 PDF
+                          {(row.compliance_audit_1_date && row.compliance_audit_1_overall_pct !== null) ||
+                          (row.compliance_audit_2_date && row.compliance_audit_2_overall_pct !== null) ? (
+                            <div className="space-y-1">
+                              <div className="text-[10px] uppercase tracking-wide text-slate-500">Audit PDFs</div>
+                              <div className="flex flex-wrap items-center gap-2">
+                                {row.compliance_audit_1_date && row.compliance_audit_1_overall_pct !== null ? (
+                                  row.compliance_audit_1_pdf_path ? (
+                                    <>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => handleViewPDF(row, 1)}
+                                        className="h-8 border border-slate-200 bg-white px-2.5 text-xs text-slate-700 hover:bg-slate-50"
+                                      >
+                                        <File className="h-3.5 w-3.5 mr-1" />
+                                        Audit 1
                                       </Button>
-                                    )
-                                  ) : null}
-
-                                  {row.compliance_audit_2_date && row.compliance_audit_2_overall_pct !== null ? (
-                                    row.compliance_audit_2_pdf_path ? (
-                                      <>
-                                        <Button
-                                          size="sm"
-                                          variant="ghost"
-                                          onClick={() => handleViewPDF(row, 2)}
-                                          className="h-8 border border-slate-200 bg-white px-2.5 text-xs text-slate-700 hover:bg-slate-50"
-                                        >
-                                          <File className="h-3.5 w-3.5 mr-1" />
-                                          Audit 2
-                                        </Button>
-                                        <Button
-                                          size="sm"
-                                          variant="ghost"
-                                          onClick={() => handleDeletePDF(row, 2)}
-                                          disabled={deletingPdf === `${row.id}-2`}
-                                          className="h-8 border border-rose-200 bg-rose-50 px-2 text-rose-700 hover:bg-rose-100"
-                                          title="Delete Audit 2 PDF"
-                                        >
-                                          <Trash2 className="h-3.5 w-3.5" />
-                                        </Button>
-                                      </>
-                                    ) : (
-                                      <Button size="sm" variant="outline" onClick={() => handleOpenPDFUpload(row, 2)} className="h-8 border-slate-300 bg-white">
-                                        <Upload className="h-3 w-3 mr-1" />
-                                        Upload A2 PDF
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => handleDeletePDF(row, 1)}
+                                        disabled={deletingPdf === `${row.id}-1`}
+                                        className="h-8 border border-rose-200 bg-rose-50 px-2 text-rose-700 hover:bg-rose-100"
+                                        title="Delete Audit 1 PDF"
+                                      >
+                                        <Trash2 className="h-3.5 w-3.5" />
                                       </Button>
-                                    )
-                                  ) : null}
-                                </div>
+                                    </>
+                                  ) : (
+                                    <Button size="sm" variant="outline" onClick={() => handleOpenPDFUpload(row, 1)} className="h-8 border-slate-300 bg-white">
+                                      <Upload className="h-3 w-3 mr-1" />
+                                      Upload A1 PDF
+                                    </Button>
+                                  )
+                                ) : null}
+
+                                {row.compliance_audit_2_date && row.compliance_audit_2_overall_pct !== null ? (
+                                  row.compliance_audit_2_pdf_path ? (
+                                    <>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => handleViewPDF(row, 2)}
+                                        className="h-8 border border-slate-200 bg-white px-2.5 text-xs text-slate-700 hover:bg-slate-50"
+                                      >
+                                        <File className="h-3.5 w-3.5 mr-1" />
+                                        Audit 2
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => handleDeletePDF(row, 2)}
+                                        disabled={deletingPdf === `${row.id}-2`}
+                                        className="h-8 border border-rose-200 bg-rose-50 px-2 text-rose-700 hover:bg-rose-100"
+                                        title="Delete Audit 2 PDF"
+                                      >
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                      </Button>
+                                    </>
+                                  ) : (
+                                    <Button size="sm" variant="outline" onClick={() => handleOpenPDFUpload(row, 2)} className="h-8 border-slate-300 bg-white">
+                                      <Upload className="h-3 w-3 mr-1" />
+                                      Upload A2 PDF
+                                    </Button>
+                                  )
+                                ) : null}
                               </div>
-                            ) : null}
-                          </div>
-                        )}
+                            </div>
+                          ) : null}
+                        </div>
                       </div>
                     )
                   })}
@@ -1419,8 +1295,8 @@ export function AuditTable({
                             </div>
                           </TableCell>
                           
-                          <TableCell className="border-b bg-white group-hover:bg-slate-50">{renderDateCell(row.compliance_audit_1_date, row.compliance_audit_1_overall_pct, row.id, 1, row)}</TableCell>
-                          <TableCell className="border-b bg-white group-hover:bg-slate-50">{renderActionPlanCell(row.action_plan_1_sent, row.id, 1)}</TableCell>
+                          <TableCell className="border-b bg-white group-hover:bg-slate-50">{renderDateCell(row.compliance_audit_1_date, row.compliance_audit_1_overall_pct, 1)}</TableCell>
+                          <TableCell className="border-b bg-white group-hover:bg-slate-50">{renderActionPlanCell(row.action_plan_1_sent, row, 1)}</TableCell>
                           <TableCell className="border-b bg-white group-hover:bg-slate-50">{renderPercentageCell(row.compliance_audit_1_overall_pct, row.id, 1)}</TableCell>
                           <TableCell className="border-b bg-white group-hover:bg-slate-50 text-center">
                             <div className="flex items-center justify-center gap-1">
@@ -1462,8 +1338,8 @@ export function AuditTable({
                             </div>
                           </TableCell>
                           
-                          <TableCell className="border-b bg-white group-hover:bg-slate-50">{renderDateCell(row.compliance_audit_2_date, row.compliance_audit_2_overall_pct, row.id, 2, row)}</TableCell>
-                          <TableCell className="border-b bg-white group-hover:bg-slate-50">{renderActionPlanCell(row.action_plan_2_sent, row.id, 2)}</TableCell>
+                          <TableCell className="border-b bg-white group-hover:bg-slate-50">{renderDateCell(row.compliance_audit_2_date, row.compliance_audit_2_overall_pct, 2)}</TableCell>
+                          <TableCell className="border-b bg-white group-hover:bg-slate-50">{renderActionPlanCell(row.action_plan_2_sent, row, 2)}</TableCell>
                           <TableCell className="border-b bg-white group-hover:bg-slate-50">{renderPercentageCell(row.compliance_audit_2_overall_pct, row.id, 2)}</TableCell>
                           <TableCell className="border-b bg-white group-hover:bg-slate-50 text-center">
                             <div className="flex items-center justify-center gap-1">
@@ -1510,89 +1386,38 @@ export function AuditTable({
                           </TableCell>
                           
                           <TableCell className="border-b bg-white group-hover:bg-slate-50">
-                            {editing?.storeId === row.id ? (
-                              <div className="flex flex-col gap-1.5 min-w-[180px]">
-                                <div className="flex gap-1 flex-wrap">
-                                  <Button
-                                    size="sm"
-                                    variant="default"
-                                    onClick={handleSaveAudit}
-                                    disabled={saving}
-                                    className="h-7 bg-slate-900 px-2 text-xs text-white whitespace-nowrap hover:bg-slate-800"
-                                  >
-                                    {saving ? 'Saving...' : 'Save'}
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={handleCancelEdit}
-                                    disabled={saving}
-                                    className="h-7 border-slate-300 bg-white px-2 text-xs whitespace-nowrap hover:bg-slate-50"
-                                  >
-                                    Cancel
-                                  </Button>
-                                </div>
-                                <div className="relative">
-                                  <input
-                                    type="file"
-                                    id={`pdf-upload-${row.id}`}
-                                    accept=".pdf,application/pdf"
-                                    onChange={(e) => {
-                                      const file = e.target.files?.[0] || null
-                                      if (editing) {
-                                        setEditing({ ...editing, pdfFile: file })
-                                      }
-                                    }}
-                                    className="hidden"
-                                    disabled={saving}
-                                  />
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    type="button"
-                                    onClick={() => document.getElementById(`pdf-upload-${row.id}`)?.click()}
-                                    disabled={saving}
-                                    className="h-6 w-fit border-slate-300 bg-white px-1.5 text-[11px] hover:bg-slate-50"
-                                  >
-                                    <Upload className="h-2.5 w-2.5 mr-1" />
-                                    {editing?.pdfFile ? editing.pdfFile.name.substring(0, 12) + '...' : 'Upload PDF'}
-                                  </Button>
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="flex flex-col gap-1.5 min-w-[180px]">
-                                {upcomingActionFlag ? (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => handleOpenStoreActionsModal(row)}
-                                    title={upcomingActionFlag.title}
-                                    className={cn(
-                                      'h-7 px-2 text-xs whitespace-nowrap',
-                                      upcomingActionFlag.isDebugPreview
-                                        ? 'border-violet-300 bg-violet-50 text-violet-700 hover:bg-violet-100'
-                                        : 'border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100'
-                                    )}
-                                  >
-                                    <BellRing className="h-3.5 w-3.5 mr-1.5" />
-                                    {upcomingActionFlag.isDebugPreview
-                                      ? `Debug Preview (${upcomingActionFlag.actionCount})`
-                                      : `Previous Actions (${upcomingActionFlag.actionCount})`}
-                                  </Button>
-                                ) : null}
+                            <div className="flex flex-col gap-1.5 min-w-[180px]">
+                              {upcomingActionFlag ? (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleOpenStoreActionsModal(row)}
+                                  title={upcomingActionFlag.title}
+                                  className={cn(
+                                    'h-7 px-2 text-xs whitespace-nowrap',
+                                    upcomingActionFlag.isDebugPreview
+                                      ? 'border-violet-300 bg-violet-50 text-violet-700 hover:bg-violet-100'
+                                      : 'border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100'
+                                  )}
+                                >
+                                  <BellRing className="h-3.5 w-3.5 mr-1.5" />
+                                  {upcomingActionFlag.isDebugPreview
+                                    ? `Debug Preview (${upcomingActionFlag.actionCount})`
+                                    : `Previous Actions (${upcomingActionFlag.actionCount})`}
+                                </Button>
+                              ) : null}
 
-                                {getNextAuditNumber(row) !== null ? (
-                                  <Button
-                                    size="sm"
-                                    variant="default"
-                                    onClick={() => handleAddAudit(row)}
-                                    className="h-7 bg-slate-900 px-2 text-xs text-white whitespace-nowrap hover:bg-slate-800"
-                                  >
-                                    Add Audit
-                                  </Button>
-                                ) : null}
-                              </div>
-                            )}
+                              {getNextAuditNumber(row) !== null ? (
+                                <Button
+                                  size="sm"
+                                  variant="default"
+                                  onClick={() => handleAddAudit(row)}
+                                  className="h-7 bg-slate-900 px-2 text-xs text-white whitespace-nowrap hover:bg-slate-800"
+                                >
+                                  Add Audit
+                                </Button>
+                              ) : null}
+                            </div>
                           </TableCell>
                         </TableRow>
                         )
@@ -1616,6 +1441,98 @@ export function AuditTable({
         title={selectedPdfRow ? `Audit ${selectedPdfRow.auditNumber} - ${selectedPdfRow.row.store_name}` : 'Audit PDF'}
         getDownloadUrl={handleGetPDFUrl}
       />
+
+      {/* Add Audit Dialog */}
+      <Dialog
+        open={addAuditDialogOpen}
+        onOpenChange={(open) => {
+          setAddAuditDialogOpen(open)
+          if (!open) {
+            setAddAuditState(null)
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add Audit</DialogTitle>
+            <DialogDescription>
+              {addAuditState ? `Audit ${addAuditState.auditNumber} - ${addAuditState.storeName}` : ''}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Store</label>
+              <div className="rounded-md border bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                {addAuditState?.storeName || '—'}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Audit date</label>
+              <Input
+                type="date"
+                value={addAuditState?.date || ''}
+                onChange={(e) => {
+                  if (!addAuditState) return
+                  setAddAuditState({ ...addAuditState, date: e.target.value })
+                }}
+                disabled={saving}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Audit %</label>
+              <Input
+                type="number"
+                min="0"
+                max="100"
+                step="0.01"
+                value={addAuditState?.percentage || ''}
+                onChange={(e) => {
+                  if (!addAuditState) return
+                  setAddAuditState({ ...addAuditState, percentage: e.target.value })
+                }}
+                placeholder="0-100"
+                disabled={saving}
+              />
+            </div>
+            <div className="rounded-md border bg-slate-50 px-3 py-2 text-sm text-slate-700">
+              Action Plan will be set to{' '}
+              <span className="font-semibold">
+                {addAuditState && addAuditState.percentage !== '' && !Number.isNaN(Number(addAuditState.percentage))
+                  ? Number(addAuditState.percentage) < 80
+                    ? 'Yes'
+                    : 'No'
+                  : 'No'}
+              </span>{' '}
+              based on the score.
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">PDF file (optional)</label>
+              <input
+                type="file"
+                accept=".pdf,application/pdf"
+                onChange={(e) => {
+                  const file = e.target.files?.[0] || null
+                  if (!addAuditState) return
+                  setAddAuditState({ ...addAuditState, pdfFile: file })
+                }}
+                className="w-full text-sm"
+                disabled={saving}
+              />
+              {addAuditState?.pdfFile ? (
+                <p className="text-xs text-muted-foreground">{addAuditState.pdfFile.name}</p>
+              ) : null}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={handleCloseAddAuditDialog} disabled={saving}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveAudit} disabled={saving || !addAuditState}>
+              {saving ? 'Saving...' : 'Save Audit'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* PDF Upload Dialog */}
       <Dialog open={pdfUploadDialogOpen} onOpenChange={setPdfUploadDialogOpen}>

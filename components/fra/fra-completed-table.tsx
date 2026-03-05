@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/client'
 import { getFRAPDFDownloadUrl, deleteFRAPDF } from '@/app/actions/fra-pdfs'
-import { File, Search, Trash2 } from 'lucide-react'
+import { File, Search, Trash2, Upload } from 'lucide-react'
 import { PDFViewerModal } from '@/components/shared/pdf-viewer-modal'
 import { getDisplayStoreCode } from '@/lib/utils'
 import { 
@@ -36,6 +36,8 @@ export function FRACompletedTable({
   const [pdfViewerOpen, setPdfViewerOpen] = useState(false)
   const [selectedPdfRow, setSelectedPdfRow] = useState<FRARow | null>(null)
   const [deletingPdf, setDeletingPdf] = useState<string | null>(null)
+  const [uploadingPdf, setUploadingPdf] = useState<string | null>(null)
+  const [tableMessage, setTableMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const hasActiveFilters = search.trim().length > 0 || area !== 'all'
 
   const resetFilters = () => {
@@ -137,6 +139,42 @@ export function FRACompletedTable({
     }
   }
 
+  const handleUploadPDFStandalone = async (row: FRARow, file: File) => {
+    setUploadingPdf(row.id)
+    setTableMessage(null)
+
+    try {
+      const formData = new FormData()
+      formData.append('storeId', row.id)
+      formData.append('file', file)
+
+      const response = await fetch('/api/fra-pdfs/upload', {
+        method: 'POST',
+        body: formData,
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to upload PDF')
+      }
+
+      setTableMessage({
+        type: 'success',
+        text: `FRA PDF uploaded for ${row.store_name}.`,
+      })
+
+      // Refresh to load latest server-side table data.
+      window.location.reload()
+    } catch (error) {
+      console.error('Error uploading PDF:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      setTableMessage({ type: 'error', text: `Failed to upload PDF: ${errorMessage}` })
+    } finally {
+      setUploadingPdf(null)
+    }
+  }
+
   return (
     <div className="space-y-4">
       {/* Controls */}
@@ -178,6 +216,18 @@ export function FRACompletedTable({
 
       {/* Table Container */}
       <div className="rounded-2xl border desktop-table-shell shadow-sm overflow-hidden flex flex-col">
+        {tableMessage ? (
+          <div
+            className={`mx-4 mt-4 rounded-lg border px-3 py-2 text-sm ${
+              tableMessage.type === 'success'
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                : 'border-rose-200 bg-rose-50 text-rose-800'
+            }`}
+          >
+            {tableMessage.text}
+          </div>
+        ) : null}
+
         {/* Fixed Header */}
         <div className="hidden md:block border-b desktop-table-head overflow-x-auto">
           <Table className="w-full border-separate border-spacing-0" style={{ tableLayout: 'fixed' }}>
@@ -372,7 +422,35 @@ export function FRACompletedTable({
                                     </Button>
                                   </div>
                                 ) : (
-                                  <span className="text-sm text-muted-foreground">—</span>
+                                  <div className="relative">
+                                    <input
+                                      type="file"
+                                      id={`pdf-upload-completed-fra-${row.id}`}
+                                      accept=".pdf,application/pdf"
+                                      onChange={(e) => {
+                                        const file = e.target.files?.[0] || null
+                                        if (file) {
+                                          handleUploadPDFStandalone(row, file)
+                                        }
+                                      }}
+                                      className="hidden"
+                                      disabled={uploadingPdf === row.id}
+                                    />
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => document.getElementById(`pdf-upload-completed-fra-${row.id}`)?.click()}
+                                      disabled={uploadingPdf === row.id}
+                                      className="h-7 border border-slate-300 bg-white px-2 text-xs hover:bg-slate-50"
+                                      title="Upload PDF"
+                                    >
+                                      {uploadingPdf === row.id ? (
+                                        <span className="text-xs">Uploading...</span>
+                                      ) : (
+                                        <Upload className="h-3 w-3 text-slate-500" />
+                                      )}
+                                    </Button>
+                                  </div>
                                 )}
                               </TableCell>
                             </TableRow>
