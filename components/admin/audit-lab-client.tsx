@@ -97,6 +97,89 @@ const getTemplateTheme = (category?: string) => {
   }
 }
 
+const FRA_OVERALL_RISK_ORDER = ['Tolerable', 'Moderate', 'Substantial', 'Intolerable'] as const
+
+const toTitleCase = (value: string): string =>
+  value
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
+
+const normalizeFraRiskRating = (value: unknown): string | null => {
+  if (typeof value !== 'string') return null
+  const normalized = value.trim().toLowerCase()
+  if (!normalized) return null
+
+  const match = FRA_OVERALL_RISK_ORDER.find((risk) => risk.toLowerCase() === normalized)
+  if (match) return match
+
+  if (normalized === 'moderate harm') return 'Moderate'
+  return null
+}
+
+const extractFraRiskRating = (audit: any): string | null => {
+  const responses = Array.isArray(audit?.fa_audit_responses) ? audit.fa_audit_responses : []
+
+  for (const response of responses) {
+    const responseJson = response?.response_json && typeof response.response_json === 'object' ? response.response_json : null
+
+    const directCandidates = [
+      responseJson?.riskRatingOverall,
+      responseJson?.actionPlanLevel,
+      responseJson?.overallRiskRating,
+      responseJson?.overall_risk_rating,
+      responseJson?.overallRisk,
+      responseJson?.overall_risk,
+      responseJson?.value,
+      response?.response_value,
+    ]
+
+    for (const candidate of directCandidates) {
+      const normalized = normalizeFraRiskRating(candidate)
+      if (normalized) return normalized
+    }
+
+    const questionText = String(response?.fa_audit_template_questions?.question_text || '').toLowerCase()
+    const isOverallRiskQuestion =
+      questionText.includes('overall risk') ||
+      questionText.includes('overall fire risk') ||
+      questionText.includes('risk rating')
+
+    if (!isOverallRiskQuestion) continue
+
+    const questionCandidates = [response?.response_value, responseJson?.value, responseJson]
+    for (const candidate of questionCandidates) {
+      const normalized = normalizeFraRiskRating(candidate)
+      if (normalized) return normalized
+      if (typeof candidate === 'string') {
+        for (const risk of FRA_OVERALL_RISK_ORDER) {
+          if (candidate.toLowerCase().includes(risk.toLowerCase())) return risk
+        }
+      }
+    }
+  }
+
+  return null
+}
+
+const getFraRiskBadgeClass = (risk: string | null): string => {
+  switch ((risk || '').toLowerCase()) {
+    case 'tolerable':
+      return 'text-emerald-700 bg-emerald-50 border-emerald-200'
+    case 'moderate':
+      return 'text-amber-700 bg-amber-50 border-amber-200'
+    case 'substantial':
+      return 'text-orange-700 bg-orange-50 border-orange-200'
+    case 'intolerable':
+      return 'text-rose-700 bg-rose-50 border-rose-200'
+    default:
+      return 'text-slate-600 bg-slate-50 border-slate-200'
+  }
+}
+
+
 type PreviousFailure = {
   questionId: string
   questionText: string
@@ -3878,7 +3961,7 @@ function AuditHistoryView({
                   </TableHead>
                   <TableHead>Template</TableHead>
                   <TableHead>Store</TableHead>
-                  <TableHead>Score</TableHead>
+                  <TableHead>Score / Risk Rating</TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -3907,7 +3990,20 @@ function AuditHistoryView({
                       )}
                     </TableCell>
                     <TableCell>
-                      {audit.overall_score !== null && audit.overall_score !== undefined ? (
+                      {(audit.fa_audit_templates as any)?.category === 'fire_risk_assessment' ? (
+                        (() => {
+                          const riskRating = extractFraRiskRating(audit)
+                          if (!riskRating) {
+                            return <span className="text-xs text-slate-400">— (edit to add)</span>
+                          }
+
+                          return (
+                            <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold ${getFraRiskBadgeClass(riskRating)}`}>
+                              {toTitleCase(riskRating)}
+                            </span>
+                          )
+                        })()
+                      ) : audit.overall_score !== null && audit.overall_score !== undefined ? (
                         <span className="font-semibold text-indigo-600">
                           {Math.round(audit.overall_score)}%
                         </span>
