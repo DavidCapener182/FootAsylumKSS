@@ -92,7 +92,7 @@ function getDaysUntil(date: Date): number {
   return Math.floor((date.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
 }
 
-function hasAssignedArea(row: AuditRow): boolean {
+function hasAssignedArea(row: AuditRow): row is AuditRow & { region: string } {
   return typeof row.region === 'string' && row.region.trim().length > 0
 }
 
@@ -151,7 +151,8 @@ export function AuditTable({
     const set = new Set<string>()
     rows.forEach((r) => {
       if (hasAssignedArea(r)) {
-        set.add(r.region.trim())
+        const region = r.region
+        set.add(region.trim())
       }
     })
     return Array.from(set).sort()
