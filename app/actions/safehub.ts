@@ -605,6 +605,16 @@ export async function getAuditHistory(filters?: {
         store_name,
         store_code,
         city
+      ),
+      fa_audit_responses (
+        id,
+        response_value,
+        response_json,
+        question_id,
+        fa_audit_template_questions (
+          id,
+          question_text
+        )
       )
     `)
     .order('created_at', { ascending: false })
