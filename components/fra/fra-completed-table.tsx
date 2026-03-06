@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/client'
 import { getFRAPDFDownloadUrl, deleteFRAPDF } from '@/app/actions/fra-pdfs'
-import { File, Search, Trash2, Upload } from 'lucide-react'
+import { File, Search, Upload } from 'lucide-react'
 import { PDFViewerModal } from '@/components/shared/pdf-viewer-modal'
 import { getDisplayStoreCode } from '@/lib/utils'
 import { 
@@ -20,6 +20,23 @@ import {
   statusBadge,
   storeNeedsFRA
 } from './fra-table-helpers'
+
+async function parsePdfUploadResponse(response: Response): Promise<{ filePath?: string; error?: string }> {
+  const raw = await response.text()
+
+  try {
+    return JSON.parse(raw) as { filePath?: string; error?: string }
+  } catch {
+    const normalized = raw.trim()
+    if (/request entity too large/i.test(normalized) || /payload too large/i.test(normalized)) {
+      return { error: 'File size is too large to upload. Please use a smaller PDF.' }
+    }
+
+    return {
+      error: normalized || `Upload failed with status ${response.status}`,
+    }
+  }
+}
 
 export function FRACompletedTable({ 
   rows, 
@@ -154,7 +171,7 @@ export function FRACompletedTable({
         body: formData,
       })
 
-      const result = await response.json()
+      const result = await parsePdfUploadResponse(response)
 
       if (!response.ok) {
         throw new Error(result.error || 'Failed to upload PDF')
@@ -422,16 +439,6 @@ export function FRACompletedTable({
                                     >
                                       <File className="h-4 w-4 text-blue-600" />
                                     </Button>
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      onClick={() => handleDeletePDF(row)}
-                                      disabled={deletingPdf === row.id}
-                                      className="h-7 px-1 text-red-600 hover:text-red-700"
-                                      title="Delete PDF"
-                                    >
-                                      <Trash2 className="h-3 w-3" />
-                                    </Button>
                                   </div>
                                 ) : (
                                   <div className="relative">
@@ -490,6 +497,16 @@ export function FRACompletedTable({
         pdfUrl={null}
         title={selectedPdfRow ? `Fire Risk Assessment - ${selectedPdfRow.store_name}` : 'Fire Risk Assessment PDF'}
         getDownloadUrl={handleGetPDFUrl}
+        headerActions={selectedPdfRow ? (
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => handleDeletePDF(selectedPdfRow)}
+            disabled={deletingPdf === selectedPdfRow.id}
+          >
+            {deletingPdf === selectedPdfRow.id ? 'Deleting...' : 'Delete PDF'}
+          </Button>
+        ) : undefined}
       />
     </div>
   )

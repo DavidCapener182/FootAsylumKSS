@@ -10,7 +10,7 @@ import { cn, getDisplayStoreCode } from '@/lib/utils'
 import { UserRole } from '@/lib/auth'
 import { getFRAPDFDownloadUrl, deleteFRAPDF } from '@/app/actions/fra-pdfs'
 import { updateFRA } from '@/app/actions/stores'
-import { Upload, File, Trash2, SlidersHorizontal, ChevronDown, ChevronUp, Search } from 'lucide-react'
+import { Upload, File, SlidersHorizontal, ChevronDown, ChevronUp, Search } from 'lucide-react'
 import { PDFViewerModal } from '@/components/shared/pdf-viewer-modal'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { 
@@ -36,6 +36,23 @@ interface EditState {
 
 interface DeleteFRAPdfState {
   row: FRARow
+}
+
+async function parsePdfUploadResponse(response: Response): Promise<{ filePath?: string; error?: string }> {
+  const raw = await response.text()
+
+  try {
+    return JSON.parse(raw) as { filePath?: string; error?: string }
+  } catch {
+    const normalized = raw.trim()
+    if (/request entity too large/i.test(normalized) || /payload too large/i.test(normalized)) {
+      return { error: 'File size is too large to upload. Please use a smaller PDF.' }
+    }
+
+    return {
+      error: normalized || `Upload failed with status ${response.status}`,
+    }
+  }
 }
 
 export function FRATable({ 
@@ -180,9 +197,9 @@ export function FRATable({
             body: formData,
           })
 
-          const result = await response.json()
+          const result = await parsePdfUploadResponse(response)
 
-          if (!response.ok) {
+          if (!response.ok || !result.filePath) {
             throw new Error(result.error || 'Failed to upload PDF')
           }
 
@@ -258,16 +275,18 @@ export function FRATable({
         body: formData,
       })
 
-      const result = await response.json()
+      const result = await parsePdfUploadResponse(response)
 
-      if (!response.ok) {
+      if (!response.ok || !result.filePath) {
         throw new Error(result.error || 'Failed to upload PDF')
       }
+
+      const uploadedFilePath = result.filePath
 
       // Update local state
       setLocalRows(prevRows => prevRows.map(r => {
         if (r.id === row.id) {
-          return { ...r, fire_risk_assessment_pdf_path: result.filePath }
+          return { ...r, fire_risk_assessment_pdf_path: uploadedFilePath }
         }
         return r
       }))
@@ -618,15 +637,6 @@ export function FRATable({
                                 <File className="h-3.5 w-3.5 mr-1" />
                                 View PDF
                               </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => handleDeletePDF(row)}
-                                disabled={deletingPdf === row.id}
-                                className="h-8 border border-rose-200 bg-rose-50 px-2 text-rose-700 hover:bg-rose-100"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </Button>
                             </>
                           ) : row.fire_risk_assessment_date ? (
                             <>
@@ -792,16 +802,6 @@ export function FRATable({
                                     >
                                       <File className="h-4 w-4 text-slate-700" />
                                     </Button>
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      onClick={() => handleDeletePDF(row)}
-                                      disabled={deletingPdf === row.id}
-                                      className="h-7 border border-rose-200 bg-rose-50 px-1 text-rose-700 hover:bg-rose-100"
-                                      title="Delete PDF"
-                                    >
-                                      <Trash2 className="h-3 w-3" />
-                                    </Button>
                                   </>
                                 ) : row.fire_risk_assessment_date ? (
                                   <div className="relative">
@@ -926,6 +926,16 @@ export function FRATable({
         pdfUrl={null}
         title={selectedPdfRow ? `Fire Risk Assessment - ${selectedPdfRow.store_name}` : 'Fire Risk Assessment PDF'}
         getDownloadUrl={handleGetPDFUrl}
+        headerActions={selectedPdfRow ? (
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => handleDeletePDF(selectedPdfRow)}
+            disabled={deletingPdf === selectedPdfRow.id}
+          >
+            {deletingPdf === selectedPdfRow.id ? 'Deleting...' : 'Delete PDF'}
+          </Button>
+        ) : undefined}
       />
 
       {/* Delete PDF Dialog */}

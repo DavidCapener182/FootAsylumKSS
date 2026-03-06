@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { ReactNode, useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { FileText, Download, X, Loader2 } from 'lucide-react'
@@ -11,6 +11,7 @@ interface PDFViewerModalProps {
   pdfUrl: string | null
   title?: string
   getDownloadUrl: () => Promise<string | null>
+  headerActions?: ReactNode
 }
 
 export function PDFViewerModal({ 
@@ -18,7 +19,8 @@ export function PDFViewerModal({
   onOpenChange, 
   pdfUrl, 
   title = 'PDF Viewer',
-  getDownloadUrl 
+  getDownloadUrl,
+  headerActions
 }: PDFViewerModalProps) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -61,6 +63,7 @@ export function PDFViewerModal({
               <DialogTitle className="text-lg font-semibold">{title}</DialogTitle>
             </div>
             <div className="flex items-center gap-2">
+              {headerActions}
               {downloadUrl && (
                 <Button
                   variant="outline"

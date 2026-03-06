@@ -9,7 +9,7 @@ import { cn, getDisplayStoreCode } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { UserRole } from '@/lib/auth'
 import { getAuditPDFDownloadUrl, deleteAuditPDF } from '@/app/actions/audit-pdfs'
-import { Upload, Eye, EyeOff, File, Trash2, SlidersHorizontal, ChevronDown, ChevronUp, BellRing, Search } from 'lucide-react'
+import { Upload, Eye, EyeOff, File, SlidersHorizontal, ChevronDown, ChevronUp, BellRing, Search } from 'lucide-react'
 import { PDFViewerModal } from '@/components/shared/pdf-viewer-modal'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { StoreActionsModal } from './store-actions-modal'
@@ -1085,16 +1085,6 @@ export function AuditTable({
                                         <File className="h-3.5 w-3.5 mr-1" />
                                         Audit 1
                                       </Button>
-                                      <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        onClick={() => handleDeletePDF(row, 1)}
-                                        disabled={deletingPdf === `${row.id}-1`}
-                                        className="h-8 border border-rose-200 bg-rose-50 px-2 text-rose-700 hover:bg-rose-100"
-                                        title="Delete Audit 1 PDF"
-                                      >
-                                        <Trash2 className="h-3.5 w-3.5" />
-                                      </Button>
                                     </>
                                   ) : (
                                     <Button size="sm" variant="outline" onClick={() => handleOpenPDFUpload(row, 1)} className="h-8 border-slate-300 bg-white">
@@ -1115,16 +1105,6 @@ export function AuditTable({
                                       >
                                         <File className="h-3.5 w-3.5 mr-1" />
                                         Audit 2
-                                      </Button>
-                                      <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        onClick={() => handleDeletePDF(row, 2)}
-                                        disabled={deletingPdf === `${row.id}-2`}
-                                        className="h-8 border border-rose-200 bg-rose-50 px-2 text-rose-700 hover:bg-rose-100"
-                                        title="Delete Audit 2 PDF"
-                                      >
-                                        <Trash2 className="h-3.5 w-3.5" />
                                       </Button>
                                     </>
                                   ) : (
@@ -1311,16 +1291,6 @@ export function AuditTable({
                                   >
                                     <File className="h-4 w-4 text-slate-700" />
                                   </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => handleDeletePDF(row, 1)}
-                                    disabled={deletingPdf === `${row.id}-1`}
-                                    className="h-7 border border-rose-200 bg-rose-50 px-1 text-rose-700 hover:bg-rose-100"
-                                    title="Delete Audit 1 PDF"
-                                  >
-                                    <Trash2 className="h-3 w-3" />
-                                  </Button>
                                 </>
                               ) : (row.compliance_audit_1_date && row.compliance_audit_1_overall_pct !== null) ? (
                                 <Button
@@ -1353,16 +1323,6 @@ export function AuditTable({
                                     title="View Audit 2 PDF"
                                   >
                                     <File className="h-4 w-4 text-slate-700" />
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => handleDeletePDF(row, 2)}
-                                    disabled={deletingPdf === `${row.id}-2`}
-                                    className="h-7 border border-rose-200 bg-rose-50 px-1 text-rose-700 hover:bg-rose-100"
-                                    title="Delete Audit 2 PDF"
-                                  >
-                                    <Trash2 className="h-3 w-3" />
                                   </Button>
                                 </>
                               ) : (row.compliance_audit_2_date && row.compliance_audit_2_overall_pct !== null) ? (
@@ -1440,6 +1400,16 @@ export function AuditTable({
         pdfUrl={null}
         title={selectedPdfRow ? `Audit ${selectedPdfRow.auditNumber} - ${selectedPdfRow.row.store_name}` : 'Audit PDF'}
         getDownloadUrl={handleGetPDFUrl}
+        headerActions={selectedPdfRow ? (
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => handleDeletePDF(selectedPdfRow.row, selectedPdfRow.auditNumber)}
+            disabled={deletingPdf === `${selectedPdfRow.row.id}-${selectedPdfRow.auditNumber}`}
+          >
+            {deletingPdf === `${selectedPdfRow.row.id}-${selectedPdfRow.auditNumber}` ? 'Deleting...' : 'Delete PDF'}
+          </Button>
+        ) : undefined}
       />
 
       {/* Add Audit Dialog */}
