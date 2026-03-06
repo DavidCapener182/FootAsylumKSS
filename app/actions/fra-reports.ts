@@ -2065,14 +2065,18 @@ export async function mapHSAuditToFRAData(fraInstanceId: string) {
 
   const hasPositiveDoorSignal = (value: string, pattern: RegExp): boolean => {
     const sentenceMatches = value.match(new RegExp(`[^.!?\\n]*${pattern.source}[^.!?\\n]*`, 'gi')) || []
-    return sentenceMatches.some((sentence) => !/\b(?:not|unobstructed|clear|free from obstruction)\b/i.test(sentence))
+    return sentenceMatches.some((sentence) => !/\b(?:no|not|unobstructed|clear|free from obstruction)\b/i.test(sentence))
   }
+
+  const hasNegativeDoorOpenSignal = (value: string): boolean =>
+    /\b(closed and not held open|not held open|not wedged(?:\s+or\s+held\s+open)?|not propped open|in the close position)\b/.test(value)
+    || /\bno\b[\s\S]{0,12}\b(held open|wedged open|propped open)\b/.test(value)
+    || /\b(held open|wedged open|propped open)\b[\s\S]{0,12}\b(?:was|were)?\s*(?:not|no)\b/.test(value)
 
   const fireDoorsHeldOpen = (() => {
     const answer = normalizeYesNo(fireDoorsClosed?.value)
     const primaryPositiveSignal = hasPositiveDoorSignal(fireDoorPrimaryEvidenceText, /\b(held open|wedged open|propped open)\b/)
-    const primaryNegativeSignal =
-      /\b(closed and not held open|not held open|not wedged(?:\s+or\s+held\s+open)?|not propped open|in the close position)\b/.test(fireDoorPrimaryEvidenceText)
+    const primaryNegativeSignal = hasNegativeDoorOpenSignal(fireDoorPrimaryEvidenceText)
 
     if (answer === 'yes' && !primaryPositiveSignal) return false
     if (answer === 'no') return true
@@ -2080,8 +2084,7 @@ export async function mapHSAuditToFRAData(fraInstanceId: string) {
     const evidence = fireDoorEvidenceText
     if (!evidence) return false
 
-    const explicitNegativeSignal =
-      /\b(closed and not held open|not held open|not wedged(?:\s+or\s+held\s+open)?|not propped open|in the close position)\b/.test(evidence)
+    const explicitNegativeSignal = hasNegativeDoorOpenSignal(evidence)
     const explicitPositiveSignal = hasPositiveDoorSignal(evidence, /\b(held open|wedged open|propped open)\b/)
 
     if ((primaryNegativeSignal || explicitNegativeSignal) && !explicitPositiveSignal) return false
