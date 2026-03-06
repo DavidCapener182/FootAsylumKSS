@@ -123,16 +123,14 @@ const extractFraRiskRating = (audit: any): string | null => {
   const responses = Array.isArray(audit?.fa_audit_responses) ? audit.fa_audit_responses : []
 
   for (const response of responses) {
-    const responseJson = response?.response_json && typeof response.response_json === 'object' ? response.response_json : null
-
     const directCandidates = [
-      responseJson?.riskRatingOverall,
-      responseJson?.actionPlanLevel,
-      responseJson?.overallRiskRating,
-      responseJson?.overall_risk_rating,
-      responseJson?.overallRisk,
-      responseJson?.overall_risk,
-      responseJson?.value,
+      response?.risk_rating_overall,
+      response?.action_plan_level,
+      response?.overall_risk_rating,
+      response?.overall_risk_rating_legacy,
+      response?.overall_risk,
+      response?.overall_risk_legacy,
+      response?.response_json_value,
       response?.response_value,
     ]
 
@@ -149,7 +147,14 @@ const extractFraRiskRating = (audit: any): string | null => {
 
     if (!isOverallRiskQuestion) continue
 
-    const questionCandidates = [response?.response_value, responseJson?.value, responseJson]
+    const questionCandidates = [
+      response?.response_value,
+      response?.response_json_value,
+      response?.risk_rating_overall,
+      response?.overall_risk_rating,
+      response?.overall_risk,
+    ]
+
     for (const candidate of questionCandidates) {
       const normalized = normalizeFraRiskRating(candidate)
       if (normalized) return normalized

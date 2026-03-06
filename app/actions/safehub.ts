@@ -609,7 +609,13 @@ export async function getAuditHistory(filters?: {
       fa_audit_responses (
         id,
         response_value,
-        response_json,
+        risk_rating_overall:response_json->>riskRatingOverall,
+        action_plan_level:response_json->>actionPlanLevel,
+        overall_risk_rating:response_json->>overallRiskRating,
+        overall_risk_rating_legacy:response_json->>overall_risk_rating,
+        overall_risk:response_json->>overallRisk,
+        overall_risk_legacy:response_json->>overall_risk,
+        response_json_value:response_json->>value,
         question_id,
         fa_audit_template_questions (
           id,
