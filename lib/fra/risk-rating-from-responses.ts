@@ -70,6 +70,14 @@ function textIncludesAny(value: unknown, patterns: RegExp[]): boolean {
   return patterns.some((pattern) => pattern.test(value))
 }
 
+function hasNegatedObstructionSignal(value: unknown): boolean {
+  if (typeof value !== 'string') return false
+  return (
+    /\b(no|not|without)\b[\s\S]{0,12}\b(obstructed|blocked|restricted|compromised|impeded)\b/i.test(value)
+    || /\b(obstructed|blocked|restricted|compromised|impeded)\b[\s\S]{0,12}\b(?:was|were)?\s*(?:not|no longer)\b/i.test(value)
+  )
+}
+
 function getResponseAnswer(response: FRAResponseLike): boolean | null {
   const responseJson = getResponseJson(response)
   return normalizeYesNoAnswer(
@@ -151,11 +159,21 @@ export function buildFraRiskFindingsFromResponses(responses: FRAResponseLike[]):
   const significantRisks = findBooleanAnswer(responses, ['site clear of any other significant risks'])
 
   const extractedEscapeRoutesObstructed =
-    textIncludesAny(extractedData.escapeRoutesEvidence, [/\bblocked\b/i, /\bobstructed\b/i, /\bhinder\b/i])
-    || textIncludesAny(extractedData.combustibleStorageEscapeCompromise, [/\bescape routes?\b/i, /\bfire doors?\b/i, /\bobstructed\b/i])
+    (
+      textIncludesAny(extractedData.escapeRoutesEvidence, [/\bblocked\b/i, /\bobstructed\b/i, /\bhinder\b/i])
+      && !hasNegatedObstructionSignal(extractedData.escapeRoutesEvidence)
+      && !textIncludesAny(extractedData.escapeRoutesEvidence, [/\bremained clear\b/i, /\bwithout obstruction\b/i, /\bunobstructed\b/i, /\bfully accessible\b/i])
+    )
+    || (
+      textIncludesAny(extractedData.combustibleStorageEscapeCompromise, [/\bescape routes?\b/i, /\bfire doors?\b/i, /\bobstructed\b/i])
+      && !hasNegatedObstructionSignal(extractedData.combustibleStorageEscapeCompromise)
+      && !textIncludesAny(extractedData.combustibleStorageEscapeCompromise, [/\bremained clear\b/i, /\bwithout obstruction\b/i, /\bunobstructed\b/i])
+    )
 
   const extractedCombustiblesInEscapeRoutes =
     textIncludesAny(extractedData.combustibleStorageEscapeCompromise, [/\bescape routes?\b/i, /\bfire doors?\b/i, /\bobstructed\b/i])
+    && !hasNegatedObstructionSignal(extractedData.combustibleStorageEscapeCompromise)
+    && !textIncludesAny(extractedData.combustibleStorageEscapeCompromise, [/\bremained clear\b/i, /\bwithout obstruction\b/i, /\bunobstructed\b/i])
 
   const extractedDoorIssues =
     textIncludesAny(extractedData.fireDoorsCondition, [/\bheld open\b/i, /\bblocked\b/i, /\bobstructed\b/i])

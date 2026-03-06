@@ -1763,9 +1763,13 @@ export async function mapHSAuditToFRAData(fraInstanceId: string) {
   const hasEscapeRouteObstructionSignal = (value: string | null): boolean => {
     if (!value) return false
     const lower = value.toLowerCase()
+    const hasNegatedNegativeSignal =
+      /\b(no|not|without)\b[\s\S]{0,12}\b(obstructed|blocked|restricted|compromised|impeded)\b/.test(lower)
+      || /\b(obstructed|blocked|restricted|compromised|impeded)\b[\s\S]{0,12}\b(?:was|were)?\s*(?:not|no longer)\b/.test(lower)
     const hasNegativeSignal = /\b(obstructed|blocked|partially blocked|restricted|compromised?|impeded|not clear)\b/.test(lower)
-    const hasExplicitPositiveSignal = /\b(unobstructed|clear and unobstructed|clear and fully accessible|fully accessible|remain clear|kept clear|clear paths?)\b/.test(lower)
-    return hasNegativeSignal && !hasExplicitPositiveSignal
+    const hasExplicitPositiveSignal =
+      /\b(unobstructed|clear and unobstructed|clear and fully accessible|fully accessible|remain clear|remained clear|kept clear|routes remained clear|exit routes remained clear|clear paths?|without obstruction)\b/.test(lower)
+    return hasNegativeSignal && !hasExplicitPositiveSignal && !hasNegatedNegativeSignal
   }
 
   const escapeRoutesNarrativeFromAudit =
@@ -2136,7 +2140,9 @@ export async function mapHSAuditToFRAData(fraInstanceId: string) {
     if (!narrative) return hasEscapeRouteConcern
     const obstructionSignal = /\b(escape routes?|evacuation routes?|egress routes?)\b[\s\S]{0,45}\b(obstructed|blocked|restricted|compromised|impeded)\b/.test(narrative)
       || /\b(obstructed|blocked|restricted|compromised|impeded)\b[\s\S]{0,45}\b(escape routes?|evacuation routes?|egress routes?)\b/.test(narrative)
-    const explicitClearSignal = /\b(escape routes?|evacuation routes?)\b[\s\S]{0,45}\b(clear|unobstructed|fully accessible)\b/.test(narrative)
+    const explicitClearSignal =
+      /\b(escape routes?|evacuation routes?)\b[\s\S]{0,45}\b(clear|unobstructed|fully accessible|remained clear|without obstruction)\b/.test(narrative)
+      || /\b(no|not|without)\b[\s\S]{0,12}\b(obstructed|blocked|restricted|compromised|impeded)\b/.test(narrative)
     if (obstructionSignal && !explicitClearSignal) return true
     if (explicitClearSignal && !obstructionSignal) return false
     return hasEscapeRouteConcern
@@ -2149,7 +2155,9 @@ export async function mapHSAuditToFRAData(fraInstanceId: string) {
     if (!combined) return hasEscapeRouteConcern
     const obstructionSignal = /\b(final exits?|fire exits?|exit doors?)\b[\s\S]{0,45}\b(obstructed|blocked|restricted|compromised|impeded)\b/.test(combined)
       || /\b(obstructed|blocked|restricted|compromised|impeded)\b[\s\S]{0,45}\b(final exits?|fire exits?|exit doors?)\b/.test(combined)
-    const explicitClearSignal = /\b(final exits?|fire exits?|exit doors?)\b[\s\S]{0,45}\b(clear|unobstructed|fully accessible)\b/.test(combined)
+    const explicitClearSignal =
+      /\b(final exits?|fire exits?|exit doors?)\b[\s\S]{0,45}\b(clear|unobstructed|fully accessible|remained clear|without obstruction)\b/.test(combined)
+      || /\b(no|not|without)\b[\s\S]{0,12}\b(obstructed|blocked|restricted|compromised|impeded)\b/.test(combined)
     if (obstructionSignal && !explicitClearSignal) return true
     if (explicitClearSignal && !obstructionSignal) return false
     return hasEscapeRouteConcern
