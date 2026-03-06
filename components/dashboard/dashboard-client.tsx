@@ -215,41 +215,43 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
         />
       ) : null}
 
-      <div className="relative overflow-hidden rounded-[30px] bg-[linear-gradient(145deg,#112641_0%,#162c4d_52%,#1c3358_100%)] p-4 text-white shadow-[0_18px_38px_rgba(15,23,42,0.18)] sm:p-5 md:rounded-3xl md:bg-[#0f172a] md:p-8 md:shadow-xl md:shadow-slate-200/50">
+      <div className="relative overflow-hidden rounded-[28px] bg-[linear-gradient(145deg,#112641_0%,#162c4d_52%,#1c3358_100%)] p-3 text-white shadow-[0_18px_38px_rgba(15,23,42,0.18)] sm:p-5 md:rounded-3xl md:bg-[#0f172a] md:p-8 md:shadow-xl md:shadow-slate-200/50">
         <div className="absolute right-0 top-0 h-72 w-72 translate-x-1/3 -translate-y-1/2 rounded-full bg-blue-400/10 blur-3xl md:h-96 md:w-96 md:bg-blue-500/10" />
         <div className="absolute bottom-0 left-0 h-56 w-56 -translate-x-1/3 translate-y-1/3 rounded-full bg-emerald-400/10 blur-3xl md:h-64 md:w-64 md:bg-emerald-500/10" />
 
         <div className="relative z-10">
-          <div className="mb-5 flex flex-col items-start justify-between gap-3.5 md:mb-8 md:flex-row md:items-center">
+          <div className="mb-3 flex flex-col items-start justify-between gap-2 md:mb-8 md:flex-row md:items-center">
             <div>
-              <div className="mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-blue-300 md:text-xs md:font-bold md:tracking-wider md:text-blue-400">
+              <div className="mb-1 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-blue-300 md:text-xs md:font-bold md:tracking-wider md:text-blue-400">
                 <Activity size={14} />
                 Compliance Overview
               </div>
-              <h1 className="mb-1.5 text-[1.95rem] font-semibold tracking-[-0.03em] text-white sm:text-2xl md:text-3xl md:font-bold md:tracking-tight">Dashboard</h1>
-              <p className="max-w-[28rem] text-sm leading-snug text-slate-300 sm:text-sm md:text-sm md:text-slate-400">
+              <h1 className="mb-1 text-[1.7rem] font-semibold tracking-[-0.04em] text-white sm:text-2xl md:text-3xl md:font-bold md:tracking-tight">Dashboard</h1>
+              <p className="max-w-[28rem] text-[12.5px] leading-[1.3] text-slate-300 sm:text-sm md:text-sm md:text-slate-400">
                 Real-time view of incidents, audits, and planned operations across your network.
               </p>
             </div>
 
-            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-              <span className="rounded-[18px] bg-white/8 px-3 py-2 text-center font-mono text-[10px] text-slate-300 md:rounded-lg md:bg-slate-800 md:px-3 md:py-1.5 md:text-xs md:text-slate-400">
-                Updated: {updatedTime}
+            <div className="flex w-full items-center gap-2 sm:w-auto sm:flex-row sm:items-center">
+              <span className="inline-flex shrink-0 items-center gap-1 rounded-[16px] bg-white/8 px-2.5 py-1 text-center font-mono text-[9px] text-slate-300 md:rounded-lg md:bg-slate-800 md:px-3 md:py-1.5 md:text-xs md:text-slate-400">
+                <Clock size={10} className="md:hidden" />
+                <span className="md:hidden">{updatedTime}</span>
+                <span className="hidden md:inline">Updated: {updatedTime}</span>
               </span>
               <button
                 onClick={handleGenerateReport}
-                className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-[20px] bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-[0_10px_22px_rgba(15,23,42,0.14)] transition-colors hover:bg-slate-100 sm:min-h-[44px] sm:w-auto md:rounded-lg md:px-4 md:py-2 md:text-sm md:font-bold md:shadow-none"
+                className="flex min-h-[40px] flex-1 items-center justify-center gap-2 rounded-[18px] bg-white px-3.5 py-2 text-[13px] font-semibold text-slate-900 shadow-[0_10px_22px_rgba(15,23,42,0.14)] transition-colors hover:bg-slate-100 sm:min-h-[44px] sm:w-auto sm:flex-none md:rounded-lg md:px-4 md:py-2 md:text-sm md:font-bold md:shadow-none"
               >
-                <Download size={16} />
+                <Download size={15} />
                 Generate Report
               </button>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-6 md:gap-4">
-            <div className="col-span-2 flex items-center justify-between rounded-[24px] border border-white/10 bg-white/[0.06] p-4 backdrop-blur-sm md:rounded-2xl md:border-slate-700/50 md:bg-slate-800/50 md:p-5">
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-6 md:gap-4">
+            <div className="col-span-2 flex items-center justify-between rounded-[22px] border border-white/10 bg-white/[0.06] p-3 backdrop-blur-sm md:rounded-2xl md:border-slate-700/50 md:bg-slate-800/50 md:p-5">
               <div>
-                <div className="mb-1 flex items-center gap-1.5">
+                <div className="mb-0.5 flex items-center gap-1.5">
                   <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400 md:text-xs md:tracking-wider">
                     Network Health
                   </p>
@@ -280,43 +282,44 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
                     ) : null}
                   </div>
                 </div>
-                <p className="text-2xl font-black text-emerald-400 md:text-4xl">{healthScore}%</p>
+                <p className="text-[1.85rem] font-black leading-none text-emerald-400 md:text-4xl">{healthScore}%</p>
               </div>
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 md:h-12 md:w-12">
-                <BarChart3 size={24} />
+              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 md:h-12 md:w-12">
+                <BarChart3 size={18} className="md:hidden" />
+                <BarChart3 size={24} className="hidden md:block" />
               </div>
             </div>
 
-            <div className="flex min-h-[104px] flex-col justify-between rounded-[22px] border border-white/10 bg-white/[0.06] p-3.5 backdrop-blur-sm md:min-h-0 md:rounded-2xl md:border-slate-700/50 md:bg-slate-800/50 md:p-4">
-              <div className="mb-2 flex items-center gap-2 text-slate-400">
+            <div className="flex min-h-[60px] items-center justify-between rounded-[20px] border border-white/10 bg-white/[0.06] p-2.5 backdrop-blur-sm md:min-h-0 md:flex-col md:items-start md:justify-between md:rounded-2xl md:border-slate-700/50 md:bg-slate-800/50 md:p-4">
+              <div className="flex min-w-0 items-center gap-1.5 text-slate-400">
                 <AlertTriangle size={14} className="text-blue-400" />
-                <span className="text-[10px] font-bold uppercase md:text-xs">Open Incidents</span>
+                <span className="text-[9px] font-bold uppercase tracking-[0.12em] md:text-xs md:tracking-normal">Open Incidents</span>
               </div>
-              <p className="text-lg font-bold md:text-2xl">{Number(data.openIncidents || 0)}</p>
+              <p className="text-lg font-bold leading-none md:text-2xl">{Number(data.openIncidents || 0)}</p>
             </div>
 
-            <div className="flex min-h-[104px] flex-col justify-between rounded-[22px] border border-white/10 bg-white/[0.06] p-3.5 backdrop-blur-sm md:min-h-0 md:rounded-2xl md:border-slate-700/50 md:bg-slate-800/50 md:p-4">
-              <div className="mb-2 flex items-center gap-2 text-slate-400">
+            <div className="flex min-h-[60px] items-center justify-between rounded-[20px] border border-white/10 bg-white/[0.06] p-2.5 backdrop-blur-sm md:min-h-0 md:flex-col md:items-start md:justify-between md:rounded-2xl md:border-slate-700/50 md:bg-slate-800/50 md:p-4">
+              <div className="flex min-w-0 items-center gap-1.5 text-slate-400">
                 <Clock size={14} className="text-amber-400" />
-                <span className="text-[10px] font-bold uppercase md:text-xs">Overdue Actions</span>
+                <span className="text-[9px] font-bold uppercase tracking-[0.12em] md:text-xs md:tracking-normal">Overdue Actions</span>
               </div>
-              <p className="text-lg font-bold md:text-2xl">{totalOverdueActions}</p>
+              <p className="text-lg font-bold leading-none md:text-2xl">{totalOverdueActions}</p>
             </div>
 
-            <div className="flex min-h-[104px] flex-col justify-between rounded-[22px] border border-white/10 bg-white/[0.06] p-3.5 backdrop-blur-sm md:min-h-0 md:rounded-2xl md:border-slate-700/50 md:bg-slate-800/50 md:p-4">
-              <div className="mb-2 flex items-center gap-2 text-slate-400">
+            <div className="flex min-h-[60px] items-center justify-between rounded-[20px] border border-white/10 bg-white/[0.06] p-2.5 backdrop-blur-sm md:min-h-0 md:flex-col md:items-start md:justify-between md:rounded-2xl md:border-slate-700/50 md:bg-slate-800/50 md:p-4">
+              <div className="flex min-w-0 items-center gap-1.5 text-slate-400">
                 <ShieldAlert size={14} className="text-red-400" />
-                <span className="text-[10px] font-bold uppercase md:text-xs">High Risk Stores</span>
+                <span className="text-[9px] font-bold uppercase tracking-[0.12em] md:text-xs md:tracking-normal">High Risk Stores</span>
               </div>
-              <p className="text-lg font-bold text-red-400 md:text-2xl">{highRiskStoresCount}</p>
+              <p className="text-lg font-bold leading-none text-red-400 md:text-2xl">{highRiskStoresCount}</p>
             </div>
 
-            <div className="flex min-h-[104px] flex-col justify-between rounded-[22px] border border-white/10 bg-white/[0.06] p-3.5 backdrop-blur-sm md:min-h-0 md:rounded-2xl md:border-slate-700/50 md:bg-slate-800/50 md:p-4">
-              <div className="mb-2 flex items-center gap-2 text-slate-400">
+            <div className="flex min-h-[60px] items-center justify-between rounded-[20px] border border-white/10 bg-white/[0.06] p-2.5 backdrop-blur-sm md:min-h-0 md:flex-col md:items-start md:justify-between md:rounded-2xl md:border-slate-700/50 md:bg-slate-800/50 md:p-4">
+              <div className="flex min-w-0 items-center gap-1.5 text-slate-400">
                 <Flame size={14} className="text-orange-400" />
-                <span className="text-[10px] font-bold uppercase md:text-xs">FRA Required</span>
+                <span className="text-[9px] font-bold uppercase tracking-[0.12em] md:text-xs md:tracking-normal">FRA Required</span>
               </div>
-              <p className="text-lg font-bold text-orange-400 md:text-2xl">{fraRequiredCount}</p>
+              <p className="text-lg font-bold leading-none text-orange-400 md:text-2xl">{fraRequiredCount}</p>
             </div>
           </div>
         </div>
@@ -467,18 +470,11 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
                           {visit.status}
                         </span>
                       </div>
-                      <div className="mt-3 flex items-center justify-between rounded-[18px] border border-slate-200 bg-slate-50/90 px-3 py-2.5">
+                      <div className="mt-3 rounded-[18px] border border-slate-200 bg-slate-50/90 px-3 py-2.5">
                         <div>
                           <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Minimum deadline</p>
                           <p className="mt-1 font-mono text-sm font-semibold text-amber-700">{daysUntilYearEnd} days</p>
                         </div>
-                        <Link
-                          href="/route-planning"
-                          prefetch={false}
-                          className="inline-flex min-h-[44px] items-center justify-center rounded-[18px] bg-[#143457] px-4 text-xs font-semibold uppercase tracking-wide text-white shadow-[0_10px_20px_rgba(20,52,87,0.16)] transition-colors hover:bg-[#183c65]"
-                        >
-                          Plan Visit
-                        </Link>
                       </div>
                     </div>
                   ))}
@@ -487,6 +483,13 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
                       +{dueVisits.length - mobileDueVisitsPreview.length} more stores still need a second visit.
                     </div>
                   ) : null}
+                  <Link
+                    href="/route-planning"
+                    prefetch={false}
+                    className="inline-flex min-h-[46px] w-full items-center justify-center rounded-[18px] bg-[#143457] px-4 text-sm font-semibold text-white shadow-[0_12px_24px_rgba(20,52,87,0.16)] transition-colors hover:bg-[#183c65]"
+                  >
+                    Plan Visits
+                  </Link>
                 </div>
               )}
             </div>
