@@ -186,29 +186,66 @@ function isLegacyGlasgowAliasStore(store: StoreNormalizationInput): boolean {
   return normalizeStoreName(store.store_name) === 'glasgow'
 }
 
+function isPhotoStudioStore(store: StoreNormalizationInput): boolean {
+  return (
+    normalizeStoreName(store.store_name) === 'photo studio' ||
+    normalizeStoreCode(store.store_code) === 'S0900'
+  )
+}
+
+function isSharpProjectAliasStore(store: StoreNormalizationInput): boolean {
+  if (isPhotoStudioStore(store)) return false
+
+  const normalizedName = normalizeStoreName(store.store_name)
+  const normalizedCode = normalizeStoreCode(store.store_code)
+  return normalizedName === 'sharp project' || normalizedCode === 'EXT-SHARPPROJECT'
+}
+
 export type StoreMergeContext = {
   canonicalStoreIdByStoreId: Map<string, string>
   aliasStoreIdsByCanonicalId: Map<string, string[]>
+}
+
+function registerStoreAliasMerge(
+  stores: StoreNormalizationInput[],
+  canonicalPredicate: (store: StoreNormalizationInput) => boolean,
+  aliasPredicate: (store: StoreNormalizationInput) => boolean,
+  canonicalStoreIdByStoreId: Map<string, string>,
+  aliasStoreIdsByCanonicalId: Map<string, string[]>
+) {
+  const canonicalStore = stores.find((store) => Boolean(store.id) && canonicalPredicate(store))
+  if (!canonicalStore?.id) return
+
+  for (const store of stores) {
+    if (!store.id || store.id === canonicalStore.id) continue
+    if (!aliasPredicate(store)) continue
+
+    canonicalStoreIdByStoreId.set(store.id, canonicalStore.id)
+    const existing = aliasStoreIdsByCanonicalId.get(canonicalStore.id) || []
+    existing.push(store.id)
+    aliasStoreIdsByCanonicalId.set(canonicalStore.id, existing)
+  }
 }
 
 export function buildStoreMergeContext(stores: StoreNormalizationInput[]): StoreMergeContext {
   const canonicalStoreIdByStoreId = new Map<string, string>()
   const aliasStoreIdsByCanonicalId = new Map<string, string[]>()
 
-  const argyleStore = stores.find((store) => Boolean(store.id) && isGlasgowArgyleStore(store))
-  if (!argyleStore?.id) {
-    return { canonicalStoreIdByStoreId, aliasStoreIdsByCanonicalId }
-  }
+  registerStoreAliasMerge(
+    stores,
+    isGlasgowArgyleStore,
+    isLegacyGlasgowAliasStore,
+    canonicalStoreIdByStoreId,
+    aliasStoreIdsByCanonicalId
+  )
 
-  for (const store of stores) {
-    if (!store.id || store.id === argyleStore.id) continue
-    if (!isLegacyGlasgowAliasStore(store)) continue
-
-    canonicalStoreIdByStoreId.set(store.id, argyleStore.id)
-    const existing = aliasStoreIdsByCanonicalId.get(argyleStore.id) || []
-    existing.push(store.id)
-    aliasStoreIdsByCanonicalId.set(argyleStore.id, existing)
-  }
+  registerStoreAliasMerge(
+    stores,
+    isPhotoStudioStore,
+    isSharpProjectAliasStore,
+    canonicalStoreIdByStoreId,
+    aliasStoreIdsByCanonicalId
+  )
 
   return { canonicalStoreIdByStoreId, aliasStoreIdsByCanonicalId }
 }

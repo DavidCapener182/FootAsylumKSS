@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useMemo } from 'react'
+import { getInternalAreaDisplayName } from '@/lib/areas'
 import { formatAppDate, getDisplayStoreCode } from '@/lib/utils'
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
 import L from 'leaflet'
@@ -28,25 +29,6 @@ interface ManagerHome {
   latitude: number
   longitude: number
   address: string
-}
-
-// Area name mapping
-const areaNames: Record<string, string> = {
-  'A1': 'Scotland & North East',
-  'A2': 'Yorkshire & Midlands',
-  'A3': 'Manchester',
-  'A4': 'Lancashire & Merseyside',
-  'A5': 'Birmingham',
-  'A6': 'Wales',
-  'A7': 'South',
-  'A8': 'London',
-}
-
-// Helper function to get area display name
-function getAreaDisplayName(areaCode: string | null): string {
-  if (!areaCode) return 'All Areas'
-  const name = areaNames[areaCode]
-  return name ? `${areaCode} - ${name}` : areaCode
 }
 
 interface MapComponentProps {
@@ -255,7 +237,7 @@ export default function MapComponent({ stores, managerHome, selectedStores, onSt
                 <div className="text-sm text-slate-600">Code: {getDisplayStoreCode(store.store_code)}</div>
               )}
               {store.region && (
-                <div className="text-sm text-slate-500">Area: {getAreaDisplayName(store.region)}</div>
+                <div className="text-sm text-slate-500">Area: {getInternalAreaDisplayName(store.region, { fallback: 'All Areas' })}</div>
               )}
               {isSelected && (
                 <div className="text-sm text-blue-600 font-medium mt-1">

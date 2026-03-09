@@ -5,6 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
+import { getInternalAreaDisplayName } from '@/lib/areas'
 import { cn, getDisplayStoreCode } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { UserRole } from '@/lib/auth'
@@ -863,7 +864,9 @@ export function AuditTable({
                 <SelectContent>
                   <SelectItem value="all">All areas</SelectItem>
                   {areaOptions.map((opt) => (
-                    <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                    <SelectItem key={opt} value={opt}>
+                      {getInternalAreaDisplayName(opt, { fallback: opt })}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -919,10 +922,12 @@ export function AuditTable({
               <SelectValue placeholder="Area" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All areas</SelectItem>
-              {areaOptions.map((opt) => (
-                <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-              ))}
+                <SelectItem value="all">All areas</SelectItem>
+                  {areaOptions.map((opt) => (
+                    <SelectItem key={opt} value={opt}>
+                      {getInternalAreaDisplayName(opt, { fallback: opt })}
+                    </SelectItem>
+                  ))}
             </SelectContent>
           </Select>
           <Button
@@ -994,7 +999,9 @@ export function AuditTable({
             return (
               <div key={`mob-${groupKey}`} className="space-y-2.5">
                 <div className="mobile-group-bar flex items-center justify-between rounded-xl border px-3 py-2">
-                  <span className="text-sm font-semibold text-slate-800">{groupKey}</span>
+                  <span className="text-sm font-semibold text-slate-800">
+                    {getInternalAreaDisplayName(groupKey, { fallback: groupKey })}
+                  </span>
                   <div className="flex items-center gap-2">
                     <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                       Avg
@@ -1025,7 +1032,7 @@ export function AuditTable({
                               <span className="rounded-md bg-slate-100 px-1.5 py-0.5 font-mono">
                                 {getDisplayStoreCode(row.store_code) || '—'}
                               </span>
-                              <span>{row.region || 'Unassigned'}</span>
+                              <span>{getInternalAreaDisplayName(row.region, { fallback: 'Unassigned' })}</span>
                             </div>
                           </div>
                           <div className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-500">
@@ -1230,7 +1237,9 @@ export function AuditTable({
                           className="py-1.5 px-4 border-y border-slate-200/70"
                         >
                           <div className="flex items-center justify-between w-full">
-                            <span className="font-bold text-slate-700">{groupKey}</span>
+                            <span className="font-bold text-slate-700">
+                              {getInternalAreaDisplayName(groupKey, { fallback: groupKey })}
+                            </span>
                             <div className="flex items-center gap-3">
                               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                                 Area Average ({validScores.length} stores)
@@ -1254,7 +1263,7 @@ export function AuditTable({
                             {idx + 1}
                           </TableCell>
                           <TableCell className="text-xs text-muted-foreground border-b bg-white group-hover:bg-slate-50">
-                            {row.region || '—'}
+                            {getInternalAreaDisplayName(row.region, { fallback: '—' })}
                           </TableCell>
                           <TableCell className="font-mono text-xs font-medium border-b bg-white group-hover:bg-slate-50">
                             {getDisplayStoreCode(row.store_code) || '—'}

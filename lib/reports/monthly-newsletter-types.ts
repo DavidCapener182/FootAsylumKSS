@@ -116,6 +116,8 @@ export interface NewsletterAIPromptPack {
 export interface AreaNewsletterReport {
   areaCode: string
   areaLabel: string
+  areaManagerName: string | null
+  areaManagerEmail: string | null
   storeCount: number
   stores: NewsletterAreaStoreRow[]
   auditMetrics: NewsletterAuditMetrics
@@ -146,6 +148,8 @@ export interface MonthlyNewsletterResponse {
   availableAreas: Array<{
     code: string
     label: string
+    managerName: string | null
+    managerEmail: string | null
     storeCount: number
   }>
   areaReports: AreaNewsletterReport[]

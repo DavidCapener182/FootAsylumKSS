@@ -4,26 +4,9 @@ import { format, parseISO } from 'date-fns'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { User, MapPin, Store, CheckCircle2, FileText } from 'lucide-react'
+import { getInternalAreaDisplayName } from '@/lib/areas'
 import { cn, formatPercent } from '@/lib/utils'
 import type { PlannedRoute, CompletedStore } from '@/app/actions/calendar'
-
-// Area name mapping
-const areaNames: Record<string, string> = {
-  'A1': 'Scotland & North East',
-  'A2': 'Yorkshire & Midlands',
-  'A3': 'Manchester',
-  'A4': 'Lancashire & Merseyside',
-  'A5': 'Birmingham',
-  'A6': 'Wales',
-  'A7': 'South',
-  'A8': 'London',
-}
-
-function getAreaDisplayName(areaCode: string | null): string {
-  if (!areaCode) return 'Unknown Area'
-  const name = areaNames[areaCode]
-  return name ? `${areaCode} - ${name}` : areaCode
-}
 
 interface CalendarEventModalProps {
   event: {
@@ -67,7 +50,7 @@ export function CalendarEventModal({ event, onClose }: CalendarEventModalProps) 
               <MapPin className="h-4 w-4 text-slate-600" />
               <div>
                 <div className="text-sm font-semibold text-slate-900">Area</div>
-                <div className="text-sm text-slate-700">{getAreaDisplayName(route.area)}</div>
+                <div className="text-sm text-slate-700">{getInternalAreaDisplayName(route.area, { fallback: 'Unknown Area' })}</div>
               </div>
             </div>
 

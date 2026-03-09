@@ -939,6 +939,11 @@ export function MonthlyNewsletterPDF({
               <Text style={styles.subtitle}>
                 {report.areaLabel} | {periodLabel}
               </Text>
+              {(report.areaManagerName || report.areaManagerEmail) ? (
+                <Text style={styles.subtitle}>
+                  {[report.areaManagerName, report.areaManagerEmail].filter(Boolean).join(' | ')}
+                </Text>
+              ) : null}
               <Text style={styles.subtitle}>
                 {report.storeCount} stores | Newsletter period data with audit + H&S insights
               </Text>

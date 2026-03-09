@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
         .lte('completed_at', weekEndIso),
       supabase
         .from('fa_stores')
-        .select('id, store_name, store_code, region, compliance_audit_2_planned_date, compliance_audit_2_assigned_manager_user_id')
+        .select('id, store_name, store_code, region, reporting_area, compliance_audit_2_planned_date, compliance_audit_2_assigned_manager_user_id')
         .not('compliance_audit_2_planned_date', 'is', null)
         .gte('compliance_audit_2_planned_date', startDate)
         .lte('compliance_audit_2_planned_date', endDate)
@@ -132,7 +132,7 @@ export async function GET(request: NextRequest) {
       (plannedStoresWeekRaw || []).map((store: any) => {
         const manager = store.compliance_audit_2_assigned_manager_user_id || 'unassigned'
         const date = store.compliance_audit_2_planned_date || 'unknown-date'
-        const area = store.region || 'unknown-area'
+        const area = store.reporting_area || store.region || 'unknown-area'
         return `${manager}-${date}-${area}`
       })
     )

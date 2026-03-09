@@ -10,6 +10,7 @@ import { getFRAPDFDownloadUrl, deleteFRAPDF } from '@/app/actions/fra-pdfs'
 import { uploadFraPdfFromClient } from '@/lib/fra/upload-pdf-client'
 import { File, Search, Upload } from 'lucide-react'
 import { PDFViewerModal } from '@/components/shared/pdf-viewer-modal'
+import { getInternalAreaDisplayName } from '@/lib/areas'
 import { getDisplayStoreCode } from '@/lib/utils'
 import { 
   FRARow, 
@@ -185,7 +186,9 @@ export function FRACompletedTable({
             <SelectContent>
               <SelectItem value="all">All areas</SelectItem>
               {areaOptions.map((opt) => (
-                <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                <SelectItem key={opt} value={opt}>
+                  {getInternalAreaDisplayName(opt, { fallback: opt })}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -278,7 +281,9 @@ export function FRACompletedTable({
                       <>
                         <TableRow key={`mob-hdr-${groupKey}`} className="bg-slate-100/80 hover:bg-slate-100/80">
                           <TableCell colSpan={5} className="py-2 px-4 bg-slate-50 border-b border-t">
-                            <span className="font-bold text-slate-700">{groupKey}</span>
+                            <span className="font-bold text-slate-700">
+                              {getInternalAreaDisplayName(groupKey, { fallback: groupKey })}
+                            </span>
                           </TableCell>
                         </TableRow>
 
@@ -292,7 +297,7 @@ export function FRACompletedTable({
                               className="group hover:bg-slate-50 transition-colors"
                             >
                               <TableCell className="text-xs text-muted-foreground border-b bg-white group-hover:bg-slate-50">
-                                {row.region || '—'}
+                                {getInternalAreaDisplayName(row.region, { fallback: '—' })}
                               </TableCell>
                               <TableCell className="font-semibold text-sm border-b bg-white group-hover:bg-slate-50">
                                 {row.store_name}
@@ -350,7 +355,9 @@ export function FRACompletedTable({
                             colSpan={9} 
                             className="py-2 px-4 border-b border-t"
                           >
-                            <span className="font-bold text-slate-700">{groupKey}</span>
+                            <span className="font-bold text-slate-700">
+                              {getInternalAreaDisplayName(groupKey, { fallback: groupKey })}
+                            </span>
                           </TableCell>
                         </TableRow>
 
@@ -369,7 +376,7 @@ export function FRACompletedTable({
                                 {idx + 1}
                               </TableCell>
                               <TableCell className="text-xs text-muted-foreground border-b bg-white group-hover:bg-slate-50">
-                                {row.region || '—'}
+                                {getInternalAreaDisplayName(row.region, { fallback: '—' })}
                               </TableCell>
                               <TableCell className="font-mono text-xs font-medium border-b bg-white group-hover:bg-slate-50">
                                 {getDisplayStoreCode(row.store_code) || '—'}

@@ -2,26 +2,9 @@
 
 import { useMemo } from 'react'
 import { ClipboardCheck, Store, TrendingUp } from 'lucide-react'
+import { getInternalAreaDisplayName } from '@/lib/areas'
 import { formatPercent } from '@/lib/utils'
 import { AuditRow, getLatestPct } from './audit-table-helpers'
-
-// Area name mapping
-const areaNames: Record<string, string> = {
-  'A1': 'Scotland & North East',
-  'A2': 'Yorkshire & Midlands',
-  'A3': 'Manchester',
-  'A4': 'Lancashire & Merseyside',
-  'A5': 'Birmingham',
-  'A6': 'Wales',
-  'A7': 'South',
-  'A8': 'London',
-}
-
-function getAreaDisplayName(areaCode: string | null): string {
-  if (!areaCode) return 'All Stores'
-  const name = areaNames[areaCode]
-  return name ? `${areaCode} - ${name}` : areaCode
-}
 
 interface AuditStatsCardsProps {
   stores: AuditRow[]
@@ -65,7 +48,7 @@ export function AuditStatsCards({ stores, selectedArea }: AuditStatsCardsProps) 
   // Get label based on selected area
   const areaLabel = selectedArea === 'all' 
     ? 'All Stores' 
-    : getAreaDisplayName(selectedArea)
+    : getInternalAreaDisplayName(selectedArea, { fallback: 'All Stores' })
 
   return (
     <>

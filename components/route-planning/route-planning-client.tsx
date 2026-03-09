@@ -34,32 +34,11 @@ import { updateRoutePlannedDate, updateManagerHomeAddress, getRouteOperationalIt
 import { format } from 'date-fns'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { RouteDirectionsModal } from './route-directions-modal'
+import { getInternalAreaDisplayName, MULTI_AREA_REGION } from '@/lib/areas'
 import { getDisplayStoreCode } from '@/lib/utils'
 
 // Dynamically import the map component to avoid SSR issues
 const MapComponent = dynamic(() => import('./map-component'), { ssr: false })
-const MULTI_AREA_REGION = 'MULTI'
-
-// Area name mapping
-const areaNames: Record<string, string> = {
-  [MULTI_AREA_REGION]: 'Multi-Area Route',
-  'A1': 'Scotland & North East',
-  'A2': 'Yorkshire & Midlands',
-  'A3': 'Manchester',
-  'A4': 'Lancashire & Merseyside',
-  'A5': 'Birmingham',
-  'A6': 'Wales',
-  'A7': 'South',
-  'A8': 'London',
-}
-
-// Helper function to get area display name
-function getAreaDisplayName(areaCode: string | null): string {
-  if (!areaCode) return 'All Areas'
-  if (areaCode === MULTI_AREA_REGION) return areaNames[MULTI_AREA_REGION]
-  const name = areaNames[areaCode]
-  return name ? `${areaCode} - ${name}` : areaCode
-}
 
 interface Store {
   id: string
@@ -981,7 +960,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
                   <SelectItem value="all">All Areas</SelectItem>
                   {uniqueAreas.map((area) => (
                     <SelectItem key={area} value={area}>
-                      {getAreaDisplayName(area)}
+                      {getInternalAreaDisplayName(area, { fallback: 'All Areas' })}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1211,7 +1190,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
               <div className="mb-3 flex flex-col gap-3 border-b border-slate-100 pb-2 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                   <h3 className="text-sm font-bold text-slate-800">
-                    Stores in {getAreaDisplayName(routeArea)} ({storesInRouteArea.length} stores)
+                    Stores in {getInternalAreaDisplayName(routeArea, { fallback: 'All Areas' })} ({storesInRouteArea.length} stores)
                   </h3>
                   {storesInRouteAreaMissingCoordsCount > 0 && (
                     <p className="mt-1 flex items-center gap-1 text-xs font-medium text-red-500">
@@ -1311,7 +1290,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
                         {(getDisplayStoreCode(store.store_code) || store.region) && (
                           <div className="mt-0.5 text-xs font-medium text-slate-500">
                             {getDisplayStoreCode(store.store_code) || ''}
-                            {store.region ? `${getDisplayStoreCode(store.store_code) ? ' • ' : ''}${getAreaDisplayName(store.region)}` : ''}
+                            {store.region ? `${getDisplayStoreCode(store.store_code) ? ' • ' : ''}${getInternalAreaDisplayName(store.region, { fallback: 'All Areas' })}` : ''}
                           </div>
                         )}
                         {!hasCoords && (
@@ -1496,7 +1475,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
                             <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-                              {group.region ? getAreaDisplayName(group.region) : 'Planned route'}
+                              {group.region ? getInternalAreaDisplayName(group.region, { fallback: 'Planned route' }) : 'Planned route'}
                             </p>
                             <h3 className="mt-1 text-base font-semibold text-slate-900">
                               {group.assignedManager?.full_name || 'Unassigned manager'}
@@ -1775,7 +1754,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
                               })}
                             </div>
                           </TableCell>
-                          <TableCell>{group.region ? getAreaDisplayName(group.region) : '-'}</TableCell>
+                          <TableCell>{group.region ? getInternalAreaDisplayName(group.region, { fallback: '-' }) : '-'}</TableCell>
                           <TableCell>
                             {group.assignedManager?.full_name || '-'}
                           </TableCell>

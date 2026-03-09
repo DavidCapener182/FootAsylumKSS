@@ -4,7 +4,6 @@ import Link from 'next/link'
 import { FormEvent, useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -51,6 +50,11 @@ export interface StoreCrmContact {
   created_at: string
 }
 
+export interface StoreCrmDisplayContact extends StoreCrmContact {
+  badgeLabel?: string
+  isReadOnly?: boolean
+}
+
 export interface StoreCrmNote {
   id: string
   note_type: NoteType
@@ -77,6 +81,7 @@ interface StoreCrmPanelProps {
   storeId: string
   canEdit: boolean
   contacts: StoreCrmContact[]
+  supplementalContacts?: StoreCrmDisplayContact[]
   notes: StoreCrmNote[]
   trackerEntries: StoreCrmTrackerEntry[]
   userMap: Record<string, string | null>
@@ -149,6 +154,7 @@ export function StoreCrmPanel({
   storeId,
   canEdit,
   contacts,
+  supplementalContacts = [],
   notes,
   trackerEntries,
   userMap,
@@ -166,6 +172,11 @@ export function StoreCrmPanel({
     contacts.forEach((contact) => map.set(contact.id, contact))
     return map
   }, [contacts])
+
+  const displayContacts = useMemo<StoreCrmDisplayContact[]>(
+    () => [...supplementalContacts, ...contacts],
+    [supplementalContacts, contacts]
+  )
 
   const [contactForm, setContactForm] = useState({
     contactName: '',
@@ -373,7 +384,9 @@ export function StoreCrmPanel({
               }`}
             >
               Contacts{' '}
-              <span className="ml-1 rounded-full bg-slate-200 px-2 text-[10px] text-slate-600">{contacts.length}</span>
+              <span className="ml-1 rounded-full bg-slate-200 px-2 text-[10px] text-slate-600">
+                {displayContacts.length}
+              </span>
             </button>
             <button
               onClick={() => setActiveSubTab('notes')}
@@ -490,20 +503,29 @@ export function StoreCrmPanel({
                 )}
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  {contacts.length === 0 ? (
+                  {displayContacts.length === 0 ? (
                     <div className="rounded-xl border border-slate-100 p-4 text-sm text-slate-500 sm:col-span-2">
                       No contacts recorded for this store yet.
                     </div>
                   ) : (
-                    contacts.map((contact) => (
+                    displayContacts.map((contact) => (
                       <div
                         key={contact.id}
-                        className="group relative rounded-xl border border-slate-100 p-4 transition-all hover:border-blue-200 hover:bg-blue-50/30"
+                        className={`group relative rounded-xl border p-4 transition-all ${
+                          contact.isReadOnly
+                            ? 'border-emerald-100 bg-emerald-50/40 hover:border-emerald-200'
+                            : 'border-slate-100 hover:border-blue-200 hover:bg-blue-50/30'
+                        }`}
                       >
                         <div className="mb-3 flex justify-between gap-3">
                           <div>
                             <p className="flex items-center gap-2 font-bold text-slate-900">
                               {contact.contact_name}
+                              {contact.badgeLabel ? (
+                                <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-tight text-emerald-700">
+                                  {contact.badgeLabel}
+                                </span>
+                              ) : null}
                               {contact.is_primary ? (
                                 <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-tight text-amber-700">
                                   Primary
@@ -512,7 +534,7 @@ export function StoreCrmPanel({
                             </p>
                             <p className="text-xs font-medium text-slate-500">{contact.job_title || 'No title set'}</p>
                           </div>
-                          {canEdit ? (
+                          {canEdit && !contact.isReadOnly ? (
                             <button
                               className="text-slate-300 transition-colors hover:text-red-600"
                               onClick={() => handleDeleteContact(contact)}

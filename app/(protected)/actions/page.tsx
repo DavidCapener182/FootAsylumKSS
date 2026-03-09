@@ -8,23 +8,13 @@ import { ActionsTableRow } from '@/components/shared/actions-table-row'
 import { ActionMobileCard } from '@/components/shared/action-mobile-card'
 import { Search, CheckSquare2, FileText, Clock, AlertCircle, SlidersHorizontal } from 'lucide-react'
 import Link from 'next/link'
+import { getInternalAreaDisplayName } from '@/lib/areas'
 import {
   formatStoreActionQuestionForDisplay,
   getStoreActionListTitle,
   getStoreActionQuestion,
   normalizeStoreActionQuestion,
 } from '@/lib/store-action-titles'
-
-const AREA_LABELS: Record<string, string> = {
-  A1: 'Scotland & North East',
-  A2: 'Yorkshire & Midlands',
-  A3: 'Manchester',
-  A4: 'Lancashire & Merseyside',
-  A5: 'Birmingham',
-  A6: 'Wales',
-  A7: 'South',
-  A8: 'London',
-}
 
 type ActionFilters = {
   assigned_to?: string
@@ -562,8 +552,7 @@ async function getActions(filters?: ActionFilters): Promise<{ actions: UnifiedAc
     assigned_to: (() => {
       const areaCode = typeof action?.store?.region === 'string' ? action.store.region.trim().toUpperCase() : ''
       if (!areaCode) return null
-      const areaName = AREA_LABELS[areaCode]
-      const label = areaName || `Area ${areaCode}`
+      const label = getInternalAreaDisplayName(areaCode, { includeCode: false, fallback: `Area ${areaCode}` })
       return { id: `area:${areaCode}`, full_name: label }
     })(),
   }))

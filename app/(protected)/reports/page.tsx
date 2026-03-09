@@ -522,6 +522,18 @@ function AreaNewsletterDashboardCard({
                   <MapPin className="h-3.5 w-3.5 text-slate-400" />
                   {report.areaLabel}
                 </span>
+                {report.areaManagerName ? (
+                  <>
+                    <span className="h-1 w-1 rounded-full bg-slate-300" />
+                    <span>{report.areaManagerName}</span>
+                  </>
+                ) : null}
+                {report.areaManagerEmail ? (
+                  <>
+                    <span className="h-1 w-1 rounded-full bg-slate-300" />
+                    <span>{report.areaManagerEmail}</span>
+                  </>
+                ) : null}
                 <span className="h-1 w-1 rounded-full bg-slate-300" />
                 <span className="inline-flex items-center gap-1.5">
                   <Calendar className="h-3.5 w-3.5 text-slate-400" />
@@ -546,7 +558,7 @@ function AreaNewsletterDashboardCard({
               ) : (
                 <>
                   <FileDown className="h-4 w-4 mr-2" />
-                  Download {report.areaCode} PDF
+                  Download {report.areaLabel} PDF
                 </>
               )}
             </Button>

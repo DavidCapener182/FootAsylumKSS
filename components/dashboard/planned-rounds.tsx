@@ -10,25 +10,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { completeRoute, rescheduleRoute } from '@/app/actions/route-planning'
 import { useRouter } from 'next/navigation'
+import { getInternalAreaDisplayName } from '@/lib/areas'
 import { cn } from '@/lib/utils'
-
-// Area name mapping
-const areaNames: Record<string, string> = {
-  'A1': 'Scotland & North East',
-  'A2': 'Yorkshire & Midlands',
-  'A3': 'Manchester',
-  'A4': 'Lancashire & Merseyside',
-  'A5': 'Birmingham',
-  'A6': 'Wales',
-  'A7': 'South',
-  'A8': 'London',
-}
-
-function getAreaDisplayName(areaCode: string | null): string {
-  if (!areaCode) return 'Unknown Area'
-  const name = areaNames[areaCode]
-  return name ? `${areaCode} - ${name}` : areaCode
-}
 
 function formatRouteDate(date: string | null): string {
   if (!date) return 'No date'
@@ -214,7 +197,7 @@ export function PlannedRounds({ plannedRoutes }: PlannedRoundsProps) {
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="font-semibold text-slate-900 text-sm truncate">{route.managerName}</p>
-                      <p className="text-xs text-slate-600 truncate">{getAreaDisplayName(route.area)}</p>
+                      <p className="text-xs text-slate-600 truncate">{getInternalAreaDisplayName(route.area, { fallback: 'Unknown Area' })}</p>
                     </div>
                     <span
                       className={cn(
@@ -312,7 +295,7 @@ export function PlannedRounds({ plannedRoutes }: PlannedRoundsProps) {
           <DialogHeader>
             <DialogTitle>Reschedule Route</DialogTitle>
             <DialogDescription>
-              Change the planned date for {rescheduleRouteData?.managerName}&apos;s route in {rescheduleRouteData?.area && getAreaDisplayName(rescheduleRouteData.area)}
+              Change the planned date for {rescheduleRouteData?.managerName}&apos;s route in {rescheduleRouteData?.area && getInternalAreaDisplayName(rescheduleRouteData.area, { fallback: 'Unknown Area' })}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">

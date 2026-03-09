@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Input } from '@/components/ui/input'
 import { StoreMobileCard } from '@/components/stores/store-mobile-card'
 import { Search, Store, MapPin, CheckCircle2, XCircle, Layers3 } from 'lucide-react'
+import { getInternalAreaDisplayName } from '@/lib/areas'
 import { getDisplayStoreCode } from '@/lib/utils'
 import Link from 'next/link'
 
@@ -26,6 +27,7 @@ export function StoreDirectory({ stores }: StoreDirectoryProps) {
       const storeCode = String(store.store_code || '').toLowerCase()
       const city = String(store.city || '').toLowerCase()
       const region = String(store.region || '').toLowerCase()
+      const regionDisplay = getInternalAreaDisplayName(store.region, { fallback: '' }).toLowerCase()
       const address = String(store.address_line_1 || '').toLowerCase()
       const postcode = String(store.postcode || '').toLowerCase()
 
@@ -34,6 +36,7 @@ export function StoreDirectory({ stores }: StoreDirectoryProps) {
         storeCode.includes(query) ||
         city.includes(query) ||
         region.includes(query) ||
+        regionDisplay.includes(query) ||
         address.includes(query) ||
         postcode.includes(query)
       )
@@ -116,7 +119,11 @@ export function StoreDirectory({ stores }: StoreDirectoryProps) {
             groupedStores.map((group) => (
               <section key={group.area} className="space-y-2.5">
                 <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-700">{group.area}</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-700">
+                    {group.area === 'Unassigned'
+                      ? group.area
+                      : getInternalAreaDisplayName(group.area, { fallback: group.area })}
+                  </p>
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                     {group.stores.length} stores
                   </p>
@@ -166,7 +173,9 @@ export function StoreDirectory({ stores }: StoreDirectoryProps) {
                           <div className="flex items-center justify-between">
                             <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
                               <Layers3 className="h-3 w-3" />
-                              {group.area}
+                              {group.area === 'Unassigned'
+                                ? group.area
+                                : getInternalAreaDisplayName(group.area, { fallback: group.area })}
                             </span>
                             <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                               {group.stores.length} stores

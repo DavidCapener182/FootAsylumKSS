@@ -5,6 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
+import { getInternalAreaDisplayName } from '@/lib/areas'
 import { cn, getDisplayStoreCode } from '@/lib/utils'
 import { AuditRow, pctBadge, formatDate, getLatestPct } from './audit-table-helpers'
 import { StoreActionsModal } from './store-actions-modal'
@@ -135,7 +136,9 @@ export function AuditLeagueTable({
             <SelectContent>
               <SelectItem value="all">All areas</SelectItem>
               {areaOptions.map((opt) => (
-                <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                <SelectItem key={opt} value={opt}>
+                  {getInternalAreaDisplayName(opt, { fallback: opt })}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -304,7 +307,7 @@ export function AuditLeagueTable({
                         </button>
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground border-b bg-white group-hover:bg-slate-50 hidden md:table-cell">
-                        {row.region || '—'}
+                        {getInternalAreaDisplayName(row.region, { fallback: '—' })}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground border-b bg-white group-hover:bg-slate-50 hidden md:table-cell">
                         {formatDate(row.latestDate)}

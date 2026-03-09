@@ -61,6 +61,9 @@ export interface Database {
           city: string | null
           postcode: string | null
           region: string | null
+          reporting_area: string | null
+          reporting_area_manager_name: string | null
+          reporting_area_manager_email: string | null
           is_active: boolean
           compliance_audit_1_date: string | null
           compliance_audit_1_overall_pct: number | null
@@ -90,6 +93,9 @@ export interface Database {
           city?: string | null
           postcode?: string | null
           region?: string | null
+          reporting_area?: string | null
+          reporting_area_manager_name?: string | null
+          reporting_area_manager_email?: string | null
           is_active?: boolean
           compliance_audit_1_date?: string | null
           compliance_audit_1_overall_pct?: number | null
@@ -119,6 +125,9 @@ export interface Database {
           city?: string | null
           postcode?: string | null
           region?: string | null
+          reporting_area?: string | null
+          reporting_area_manager_name?: string | null
+          reporting_area_manager_email?: string | null
           is_active?: boolean
           compliance_audit_1_date?: string | null
           compliance_audit_1_overall_pct?: number | null

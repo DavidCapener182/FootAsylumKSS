@@ -6,6 +6,11 @@ import {
   type FRAStatus,
   type RevisitRiskStoreInput,
 } from '@/lib/compliance-forecast'
+import {
+  getReportingAreaContact,
+  getReportingAreaDisplayName,
+  normalizeReportingAreaCode,
+} from '@/lib/areas'
 import { resolveStoreActionPriorityTheme } from '@/lib/store-action-titles'
 import type {
   AreaNewsletterReport,
@@ -32,6 +37,9 @@ interface StoreRow {
   store_name: string
   store_code: string | null
   region: string | null
+  reporting_area: string | null
+  reporting_area_manager_name: string | null
+  reporting_area_manager_email: string | null
   compliance_audit_1_date: string | null
   compliance_audit_1_overall_pct: number | null
   compliance_audit_2_date: string | null
@@ -93,6 +101,8 @@ interface StoreActionThemeAggregate {
 interface AreaGroup {
   code: string
   label: string
+  managerName: string | null
+  managerEmail: string | null
   stores: StoreRow[]
 }
 
@@ -158,11 +168,6 @@ function normalizeListInput(values: string[] | undefined, fallback: string[]): s
   const sanitized = values.map((value) => value.trim()).filter((value) => value.length > 0)
 
   return sanitized.length > 0 ? sanitized : fallback
-}
-
-function normalizeAreaCode(raw: string | null | undefined): string {
-  const value = raw?.trim().toUpperCase()
-  return value && value.length > 0 ? value : 'UNASSIGNED'
 }
 
 function getLatestAudit(store: StoreRow): { score: number | null; date: string | null } {
@@ -654,8 +659,8 @@ function isHealthSafetyAudit(template: { title: string | null; category: string 
 }
 
 function areaSortValue(areaCode: string): { bucket: number; numeric: number; text: string } {
-  const normalized = normalizeAreaCode(areaCode)
-  const match = normalized.match(/^A(\d+)$/)
+  const normalized = normalizeReportingAreaCode(areaCode) || areaCode.trim().toUpperCase()
+  const match = normalized.match(/^AREA(\d+)$/)
   if (match) {
     return { bucket: 0, numeric: Number(match[1]), text: normalized }
   }
@@ -695,7 +700,7 @@ export async function buildMonthlyNewsletterData(
   const selectedAreaCodeRaw = rawBody.areaCode || rawBody.managerId || null
   const selectedAreaCode =
     selectedAreaCodeRaw && selectedAreaCodeRaw !== 'all'
-      ? normalizeAreaCode(selectedAreaCodeRaw)
+      ? normalizeReportingAreaCode(selectedAreaCodeRaw)
       : null
 
   const { data: storesRaw, error: storesError } = await supabase
@@ -705,6 +710,9 @@ export async function buildMonthlyNewsletterData(
       store_name,
       store_code,
       region,
+      reporting_area,
+      reporting_area_manager_name,
+      reporting_area_manager_email,
       compliance_audit_1_date,
       compliance_audit_1_overall_pct,
       compliance_audit_2_date,
@@ -864,7 +872,13 @@ export async function buildMonthlyNewsletterData(
   const areaGroupsByCode = new Map<string, AreaGroup>()
 
   stores.forEach((store) => {
-    const areaCode = normalizeAreaCode(store.region)
+    const normalizedReportingArea = normalizeReportingAreaCode(store.reporting_area)
+    const areaCode = normalizedReportingArea || 'UNASSIGNED'
+    const reportingContact = getReportingAreaContact(normalizedReportingArea)
+    const managerName =
+      store.reporting_area_manager_name || reportingContact?.managerName || null
+    const managerEmail =
+      store.reporting_area_manager_email || reportingContact?.managerEmail || null
     const existing = areaGroupsByCode.get(areaCode)
     if (existing) {
       existing.stores.push(store)
@@ -873,7 +887,9 @@ export async function buildMonthlyNewsletterData(
 
     areaGroupsByCode.set(areaCode, {
       code: areaCode,
-      label: areaCode,
+      label: getReportingAreaDisplayName(areaCode),
+      managerName,
+      managerEmail,
       stores: [store],
     })
   })
@@ -1063,6 +1079,8 @@ export async function buildMonthlyNewsletterData(
     const reportWithoutMarkdown: Omit<AreaNewsletterReport, 'newsletterMarkdown'> = {
       areaCode: group.code,
       areaLabel: group.label,
+      areaManagerName: group.managerName,
+      areaManagerEmail: group.managerEmail,
       storeCount: group.stores.length,
       stores: storeRows,
       auditMetrics: {
@@ -1144,6 +1162,8 @@ export async function buildMonthlyNewsletterData(
     .map((group) => ({
       code: group.code,
       label: group.label,
+      managerName: group.managerName,
+      managerEmail: group.managerEmail,
       storeCount: group.stores.length,
     }))
 

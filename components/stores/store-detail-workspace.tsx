@@ -4,11 +4,18 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useMemo, useState } from 'react'
 import { format } from 'date-fns'
-import { StoreCrmPanel, StoreCrmContact, StoreCrmNote, StoreCrmTrackerEntry } from '@/components/stores/store-crm-panel'
+import {
+  StoreCrmDisplayContact,
+  StoreCrmPanel,
+  StoreCrmContact,
+  StoreCrmNote,
+  StoreCrmTrackerEntry,
+} from '@/components/stores/store-crm-panel'
 import { StoreActionsModal } from '@/components/audit/store-actions-modal'
 import { AuditRow } from '@/components/audit/audit-table-helpers'
 import { UserRole } from '@/lib/auth'
 import { getStoreActionListTitle } from '@/lib/store-action-titles'
+import { getInternalAreaDisplayName, getReportingAreaDisplayName } from '@/lib/areas'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -161,6 +168,35 @@ export function StoreDetailWorkspace({ store, incidents, actions, userRole, crmD
   const actionResolutionPct = actions.length > 0 ? Math.round((completedActions.length / actions.length) * 100) : 0
   const severityIndex = getSeverityIndexLabel(ongoingIncidents)
   const canCreateStoreActions = userRole === 'admin' || userRole === 'ops'
+  const supplementalContacts = useMemo<StoreCrmDisplayContact[]>(() => {
+    if (!store.reporting_area_manager_name && !store.reporting_area_manager_email) {
+      return []
+    }
+
+    return [
+      {
+        id: `reporting-area-manager-${store.id}`,
+        contact_name: store.reporting_area_manager_name || 'Area Manager',
+        job_title: store.reporting_area
+          ? `Area Manager • ${getReportingAreaDisplayName(store.reporting_area)}`
+          : 'Area Manager',
+        email: store.reporting_area_manager_email || null,
+        phone: null,
+        preferred_method: store.reporting_area_manager_email ? 'email' : null,
+        is_primary: false,
+        notes: null,
+        created_by_user_id: '',
+        created_at: '',
+        badgeLabel: 'Area Manager',
+        isReadOnly: true,
+      },
+    ]
+  }, [
+    store.id,
+    store.reporting_area,
+    store.reporting_area_manager_email,
+    store.reporting_area_manager_name,
+  ])
 
   const storeActionsModalRow = useMemo<AuditRow>(
     () => ({
@@ -229,8 +265,17 @@ export function StoreDetailWorkspace({ store, incidents, actions, userRole, crmD
               <span className="rounded bg-slate-100 px-2 py-0.5 font-mono text-slate-700">
                 {store.store_code || 'No code'}
               </span>
-              <span className="font-medium">Region: {store.region || 'Unassigned'}</span>
+              <span className="font-medium">
+                Region: {getInternalAreaDisplayName(store.region, { fallback: 'Unassigned', includeCode: false })}
+              </span>
             </div>
+            {store.reporting_area && (
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 font-medium text-slate-600">
+                  Reporting Area: {getReportingAreaDisplayName(store.reporting_area)}
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -277,6 +322,7 @@ export function StoreDetailWorkspace({ store, incidents, actions, userRole, crmD
           storeId={store.id}
           canEdit={canEdit}
           contacts={crmData.contacts}
+          supplementalContacts={supplementalContacts}
           notes={crmData.notes}
           trackerEntries={crmData.trackerEntries}
           userMap={crmData.userMap}

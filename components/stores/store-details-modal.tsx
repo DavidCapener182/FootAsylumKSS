@@ -9,6 +9,7 @@ import { MapPin, Building2, Award, AlertTriangle, CheckCircle2, Clock, CalendarD
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { getStoreActionListTitle } from '@/components/shared/store-action-title'
+import { getInternalAreaDisplayName, getReportingAreaDisplayName } from '@/lib/areas'
 import { formatPercent, getDisplayStoreCode } from '@/lib/utils'
 
 interface StoreDetailsModalProps {
@@ -98,7 +99,7 @@ export function StoreDetailsModal({ store, incidents, actions, open, onOpenChang
                 </Badge>
                 {store.region && (
                   <span className="text-xs md:text-sm text-slate-500 flex items-center gap-1">
-                    • <MapPin className="h-3 w-3" /> {store.region}
+                    • <MapPin className="h-3 w-3" /> {getInternalAreaDisplayName(store.region, { fallback: store.region, includeCode: false })}
                   </span>
                 )}
               </DialogDescription>
@@ -140,7 +141,17 @@ export function StoreDetailsModal({ store, incidents, actions, open, onOpenChang
                 {store.region && (
                   <div>
                     <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Region</p>
-                    <p className="text-sm text-slate-700">{store.region}</p>
+                    <p className="text-sm text-slate-700">
+                      {getInternalAreaDisplayName(store.region, { fallback: store.region, includeCode: false })}
+                    </p>
+                  </div>
+                )}
+                {store.reporting_area && (
+                  <div>
+                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Reporting Area</p>
+                    <p className="text-sm text-slate-700">
+                      {getReportingAreaDisplayName(store.reporting_area, 'Unassigned')}
+                    </p>
                   </div>
                 )}
                 {store.city && (

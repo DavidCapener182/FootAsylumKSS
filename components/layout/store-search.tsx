@@ -10,6 +10,7 @@ import { ExternalLink, MapPin, Search, ShieldAlert, ShieldCheck } from 'lucide-r
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
+import { getInternalAreaDisplayName } from '@/lib/areas'
 import { cn, formatPercent, getDisplayStoreCode } from '@/lib/utils'
 
 type StoreSearchResult = {
@@ -437,7 +438,7 @@ function StoreDropdownItem({ store, onSelect }: { store: StoreSearchResult; onSe
           <div className="min-w-0 flex-1">
             <div className="text-base font-semibold text-white truncate">{store.store_name}</div>
             <div className="text-xs text-white/60 mt-0.5">
-              {getDisplayStoreCode(store.store_code) || '—'}{store.region ? ` • ${store.region}` : ''}
+              {getDisplayStoreCode(store.store_code) || '—'}{store.region ? ` • ${getInternalAreaDisplayName(store.region, { fallback: store.region })}` : ''}
             </div>
           </div>
           <div
@@ -663,7 +664,7 @@ function StoreSummary({ store }: { store: StoreSearchResult }) {
               {store.store_name}
             </div>
             <div className="text-sm text-slate-500">
-              {getDisplayStoreCode(store.store_code) || '—'}{store.region ? ` • ${store.region}` : ''}
+              {getDisplayStoreCode(store.store_code) || '—'}{store.region ? ` • ${getInternalAreaDisplayName(store.region, { fallback: store.region })}` : ''}
             </div>
           </div>
           <div

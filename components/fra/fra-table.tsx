@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
+import { getInternalAreaDisplayName } from '@/lib/areas'
 import { cn, getDisplayStoreCode } from '@/lib/utils'
 import { UserRole } from '@/lib/auth'
 import { getFRAPDFDownloadUrl, deleteFRAPDF } from '@/app/actions/fra-pdfs'
@@ -394,7 +395,9 @@ export function FRATable({
                 <SelectContent>
                   <SelectItem value="all">All areas</SelectItem>
                   {areaOptions.map((opt) => (
-                    <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                    <SelectItem key={opt} value={opt}>
+                      {getInternalAreaDisplayName(opt, { fallback: opt })}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -430,9 +433,11 @@ export function FRATable({
               <SelectValue placeholder="Area" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All areas</SelectItem>
+                <SelectItem value="all">All areas</SelectItem>
               {areaOptions.map((opt) => (
-                <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                <SelectItem key={opt} value={opt}>
+                  {getInternalAreaDisplayName(opt, { fallback: opt })}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -475,7 +480,7 @@ export function FRATable({
           grouped.map(([groupKey, areaRows]) => (
             <div key={`mob-${groupKey}`} className="space-y-2.5">
               <div className="mobile-group-bar rounded-xl border px-3 py-2 text-sm font-semibold text-slate-800">
-                {groupKey}
+                {getInternalAreaDisplayName(groupKey, { fallback: groupKey })}
               </div>
               <div className="space-y-2.5">
                 {areaRows.map((row) => {
@@ -494,7 +499,7 @@ export function FRATable({
                             <span className="rounded-md bg-slate-100 px-1.5 py-0.5 font-mono">
                               {getDisplayStoreCode(row.store_code) || '—'}
                             </span>
-                            <span>{row.region || 'Unassigned'}</span>
+                            <span>{getInternalAreaDisplayName(row.region, { fallback: 'Unassigned' })}</span>
                           </div>
                         </div>
                         <div>{statusBadge(status, days)}</div>
@@ -694,7 +699,9 @@ export function FRATable({
                               colSpan={11} 
                               className="py-1.5 px-4 border-y border-slate-200/70"
                             >
-                              <span className="font-bold text-slate-700">{groupKey}</span>
+                              <span className="font-bold text-slate-700">
+                                {getInternalAreaDisplayName(groupKey, { fallback: groupKey })}
+                              </span>
                             </TableCell>
                           </TableRow>
 
@@ -714,7 +721,7 @@ export function FRATable({
                               {idx + 1}
                             </TableCell>
                             <TableCell className="text-xs text-muted-foreground border-b bg-white group-hover:bg-slate-50">
-                              {row.region || '—'}
+                              {getInternalAreaDisplayName(row.region, { fallback: '—' })}
                             </TableCell>
                             <TableCell className="font-mono text-xs font-medium border-b bg-white group-hover:bg-slate-50">
                               {getDisplayStoreCode(row.store_code) || '—'}
