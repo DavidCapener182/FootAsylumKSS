@@ -1154,9 +1154,8 @@ export function AuditTable({
           <div className="min-w-[1000px]">
             <Table className={cn('w-full border-separate border-spacing-0', desktopTableDensityClass)} style={{ tableLayout: 'fixed' }}>
               <colgroup>
-                <col style={{ width: '32px' }} />
-                <col style={{ width: '54px' }} />
-                <col style={{ width: '68px' }} />
+                <col style={{ width: '74px' }} />
+                <col style={{ width: '88px' }} />
                 <col style={{ width: '132px' }} />
                 <col style={{ width: '92px' }} />
                 <col style={{ width: '72px' }} />
@@ -1171,9 +1170,8 @@ export function AuditTable({
               </colgroup>
               <TableHeader className="desktop-table-head border-b border-slate-200">
                 <TableRow className="hover:bg-transparent">
-                  <TableHead className="text-center bg-transparent text-[11px] font-semibold uppercase tracking-wide text-slate-500">#</TableHead>
-                  <TableHead className="bg-transparent text-[11px] font-semibold uppercase tracking-wide text-slate-500">Area</TableHead>
                   <TableHead className="bg-transparent text-[11px] font-semibold uppercase tracking-wide text-slate-500">Store Code</TableHead>
+                  <TableHead className="bg-transparent text-[11px] font-semibold uppercase tracking-wide text-slate-500">Area</TableHead>
                   <TableHead className="bg-transparent text-[11px] font-semibold uppercase tracking-wide text-slate-500">Store Name</TableHead>
                   <TableHead className="bg-transparent text-[11px] font-semibold uppercase tracking-wide text-slate-500">Audit 1 Date</TableHead>
                   <TableHead className="bg-transparent text-[11px] font-semibold uppercase tracking-wide text-slate-500">Action Plan 1</TableHead>
@@ -1191,9 +1189,8 @@ export function AuditTable({
             <div className="h-[70vh] overflow-y-auto">
               <Table className={cn('w-full border-separate border-spacing-0', desktopTableDensityClass)} style={{ tableLayout: 'fixed' }}>
                 <colgroup>
-                  <col style={{ width: '32px' }} />
-                  <col style={{ width: '54px' }} />
-                  <col style={{ width: '68px' }} />
+                  <col style={{ width: '74px' }} />
+                  <col style={{ width: '88px' }} />
                   <col style={{ width: '132px' }} />
                   <col style={{ width: '92px' }} />
                   <col style={{ width: '72px' }} />
@@ -1209,7 +1206,7 @@ export function AuditTable({
                 <TableBody>
               {grouped.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={14} className="text-center text-muted-foreground py-10">
+                  <TableCell colSpan={13} className="text-center text-muted-foreground py-10">
                     No audit data found matching your filters.
                   </TableCell>
                 </TableRow>
@@ -1233,7 +1230,7 @@ export function AuditTable({
                       {/* Area Divider Row */}
                       <TableRow className="desktop-group-bar hover:bg-transparent">
                         <TableCell 
-                          colSpan={14} 
+                          colSpan={13} 
                           className="py-1.5 px-4 border-y border-slate-200/70"
                         >
                           <div className="flex items-center justify-between w-full">
@@ -1251,7 +1248,7 @@ export function AuditTable({
                       </TableRow>
 
                       {/* Store Rows */}
-                      {areaRows.map((row, idx) => {
+                      {areaRows.map((row) => {
                         const upcomingActionFlag = getUpcomingActionFlag(row)
 
                         return (
@@ -1259,14 +1256,11 @@ export function AuditTable({
                           key={row.id}
                           className="group transition-colors hover:bg-slate-50/70"
                         >
-                          <TableCell className="font-mono text-xs text-center text-muted-foreground border-b bg-white group-hover:bg-slate-50">
-                            {idx + 1}
+                          <TableCell className="font-mono text-xs font-medium border-b bg-white group-hover:bg-slate-50">
+                            {getDisplayStoreCode(row.store_code) || '—'}
                           </TableCell>
                           <TableCell className="text-xs text-muted-foreground border-b bg-white group-hover:bg-slate-50">
                             {getInternalAreaDisplayName(row.region, { fallback: '—' })}
-                          </TableCell>
-                          <TableCell className="font-mono text-xs font-medium border-b bg-white group-hover:bg-slate-50">
-                            {getDisplayStoreCode(row.store_code) || '—'}
                           </TableCell>
                           <TableCell className="font-semibold text-sm border-b bg-white group-hover:bg-slate-50">
                             <div className="flex flex-col items-start gap-1">

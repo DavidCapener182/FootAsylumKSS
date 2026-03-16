@@ -115,6 +115,18 @@ export function AuditLeagueTable({
     setHideCompleted(false)
   }
 
+  const renderColGroup = () => (
+    <colgroup>
+      <col className="w-[84px] md:w-[96px]" />
+      <col className="w-[96px] md:w-[108px]" />
+      <col className="w-[220px] md:w-[340px]" />
+      <col className="hidden md:table-column md:w-[220px]" />
+      <col className="hidden md:table-column md:w-[168px]" />
+      <col className="w-[152px] md:w-[168px]" />
+      <col className="hidden md:table-column md:w-[104px]" />
+    </colgroup>
+  )
+
   return (
     <div className="space-y-4">
       {/* Controls */}
@@ -196,24 +208,16 @@ export function AuditLeagueTable({
         {/* Fixed Header - OUTSIDE scroll container on desktop, INSIDE on mobile */}
         <div className="hidden md:block border-b bg-white overflow-x-auto">
           <Table className="w-full border-separate border-spacing-0" style={{ tableLayout: 'fixed' }}>
-            <colgroup>
-              <col className="w-16 md:w-20" />
-              <col className="w-20 md:w-24" />
-              <col />
-              <col className="w-24 md:table-column hidden" />
-              <col className="hidden md:table-column" />
-              <col className="w-32 md:w-32" />
-              <col className="w-24 md:table-column hidden" />
-            </colgroup>
+            {renderColGroup()}
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead className="text-center bg-white">Rank</TableHead>
                 <TableHead className="bg-white">Store Code</TableHead>
                 <TableHead className="bg-white">Store Name</TableHead>
                 <TableHead className="bg-white hidden md:table-cell">Area</TableHead>
-                <TableHead className="bg-white hidden md:table-cell">Latest Audit Date</TableHead>
-                <TableHead className="bg-white text-right md:text-left">Latest Compliance %</TableHead>
-                <TableHead className="bg-white hidden md:table-cell">Total Audits</TableHead>
+                <TableHead className="bg-white hidden md:table-cell whitespace-nowrap">Latest Audit Date</TableHead>
+                <TableHead className="bg-white text-right whitespace-nowrap">Latest Compliance %</TableHead>
+                <TableHead className="bg-white hidden md:table-cell text-center whitespace-nowrap">Total Audits</TableHead>
               </TableRow>
             </TableHeader>
           </Table>
@@ -224,38 +228,22 @@ export function AuditLeagueTable({
           {/* Mobile Header - Inside scroll container, sticky */}
           <div className="md:hidden sticky top-0 z-10 bg-white border-b">
             <Table className="w-full border-separate border-spacing-0" style={{ tableLayout: 'fixed' }}>
-              <colgroup>
-                <col className="w-16 md:w-20" />
-                <col className="w-20 md:w-24" />
-                <col />
-                <col className="w-24 md:table-column hidden" />
-                <col className="hidden md:table-column" />
-                <col className="w-32 md:w-32" />
-                <col className="w-24 md:table-column hidden" />
-              </colgroup>
+              {renderColGroup()}
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
                   <TableHead className="text-center bg-white">Rank</TableHead>
                   <TableHead className="bg-white">Store Code</TableHead>
                   <TableHead className="bg-white">Store Name</TableHead>
                   <TableHead className="bg-white hidden md:table-cell">Area</TableHead>
-                  <TableHead className="bg-white hidden md:table-cell">Latest Audit Date</TableHead>
-                  <TableHead className="bg-white text-right md:text-left">Latest Compliance %</TableHead>
-                  <TableHead className="bg-white hidden md:table-cell">Total Audits</TableHead>
+                  <TableHead className="bg-white hidden md:table-cell whitespace-nowrap">Latest Audit Date</TableHead>
+                  <TableHead className="bg-white text-right whitespace-nowrap">Latest Compliance %</TableHead>
+                  <TableHead className="bg-white hidden md:table-cell text-center whitespace-nowrap">Total Audits</TableHead>
                 </TableRow>
               </TableHeader>
             </Table>
           </div>
           <Table className="w-full border-separate border-spacing-0" style={{ tableLayout: 'fixed' }}>
-            <colgroup>
-              <col className="w-16 md:w-20" />
-              <col className="w-20 md:w-24" />
-              <col />
-              <col className="w-24 md:table-column hidden" />
-              <col className="hidden md:table-column" />
-              <col className="w-32 md:w-32" />
-              <col className="w-24 md:table-column hidden" />
-            </colgroup>
+            {renderColGroup()}
             <TableBody>
               {rankedStores.length === 0 ? (
                 <TableRow>
@@ -306,16 +294,16 @@ export function AuditLeagueTable({
                           {row.store_name}
                         </button>
                       </TableCell>
-                      <TableCell className="text-xs text-muted-foreground border-b bg-white group-hover:bg-slate-50 hidden md:table-cell">
+                      <TableCell className="hidden border-b bg-white text-xs leading-snug text-muted-foreground group-hover:bg-slate-50 md:table-cell">
                         {getInternalAreaDisplayName(row.region, { fallback: '—' })}
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground border-b bg-white group-hover:bg-slate-50 hidden md:table-cell">
+                      <TableCell className="hidden whitespace-nowrap border-b bg-white text-sm text-muted-foreground group-hover:bg-slate-50 md:table-cell">
                         {formatDate(row.latestDate)}
                       </TableCell>
-                      <TableCell className="border-b bg-white group-hover:bg-slate-50 text-right md:text-left">
+                      <TableCell className="border-b bg-white text-right group-hover:bg-slate-50">
                         {pctBadge(row.latestPct)}
                       </TableCell>
-                      <TableCell className="text-center font-mono text-xs text-muted-foreground border-b bg-white group-hover:bg-slate-50 hidden md:table-cell">
+                      <TableCell className="hidden border-b bg-white text-center font-mono text-xs text-muted-foreground group-hover:bg-slate-50 md:table-cell">
                         {(() => {
                           let count = 0
                           if (row.compliance_audit_1_date && row.compliance_audit_1_overall_pct !== null) count++

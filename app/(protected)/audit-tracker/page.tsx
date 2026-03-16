@@ -2,6 +2,7 @@ import { requireRole } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { AuditRow } from '@/components/audit/audit-table'
 import { AuditTrackerClient } from '@/components/audit/audit-tracker-client'
+import { shouldHideStore } from '@/lib/store-normalization'
 
 async function getStoreAudits() {
   const supabase = createClient()
@@ -18,7 +19,7 @@ async function getStoreAudits() {
     return []
   }
 
-  return data || []
+  return ((data || []) as AuditRow[]).filter((store) => !shouldHideStore(store))
 }
 
 export default async function AuditTrackerPage() {
