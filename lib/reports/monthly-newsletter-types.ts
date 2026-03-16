@@ -21,6 +21,7 @@ export interface NewsletterAreaStoreRow {
   storeCode: string | null
   latestAuditScore: number | null
   latestAuditDate: string | null
+  plannedVisitDate: string | null
   fraStatus: FRAStatus
   requiresAction: boolean
 }

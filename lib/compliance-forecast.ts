@@ -326,7 +326,7 @@ export function computeRevisitRiskForecast(
 
     if (openP1Actions > 0) {
       riskScore += Math.min(30, openP1Actions * 15)
-      drivers.push(`${openP1Actions} open P1 fire safety action${openP1Actions !== 1 ? 's' : ''}`)
+      drivers.push(`${openP1Actions} open priority 1 action${openP1Actions !== 1 ? 's' : ''}`)
     }
 
     if (overdueP1Actions > 0) {
@@ -336,13 +336,13 @@ export function computeRevisitRiskForecast(
 
     if (openP2Actions > 0) {
       riskScore += Math.min(20, openP2Actions * 8)
-      drivers.push(`${openP2Actions} open P2 fire safety action${openP2Actions !== 1 ? 's' : ''}`)
+      drivers.push(`${openP2Actions} open priority 2 action${openP2Actions !== 1 ? 's' : ''}`)
     }
 
     if (openFireSafetyActions > 0) {
       riskScore += Math.min(12, openFireSafetyActions * 3)
       drivers.push(
-        `${openFireSafetyActions} unresolved fire safety action${openFireSafetyActions !== 1 ? 's' : ''}`
+        `${openFireSafetyActions} unresolved compliance action${openFireSafetyActions !== 1 ? 's' : ''}`
       )
     }
 

@@ -40,9 +40,9 @@ const requireAuth = async () => {}
 // -----------------------------------------------------------
 
 const DEFAULT_REMINDERS_TEXT = [
-  'Confirm weekly fire exit checks and document findings in the store logbook.',
-  'Run a short team refresher on slips, trips, and housekeeping controls before weekend peaks.',
-  'Ensure every open action has an owner, target date, and evidence upload attached.',
+  'Confirm weekly fire checks including exit routes, emergency lighting and call point checks are carried out, documented on the weekly checks, and uploaded to Zipline.',
+  'Ensure tool box training on slips, trips, and housekeeping controls is monitored and achieves the 100% completion rate set out.',
+  'Actions are uploaded by KSS to Zipline, ensure these are actioned upon.',
 ].join('\n')
 
 const DEFAULT_LEGISLATION_TEXT = [
@@ -372,6 +372,12 @@ async function buildExactPdfHtmlFromCardElement(cardElement: HTMLElement): Promi
   const baseHref = escapeHtmlAttribute(
     window.location.origin.endsWith('/') ? window.location.origin : `${window.location.origin}/`
   )
+  const pdfFooterMarkup = `
+    <section class="pdf-brand-footer">
+      <img src="/kss-logo.png" alt="KSS NW Ltd" class="pdf-brand-footer__logo pdf-brand-footer__logo--kss" />
+      <img src="/fa-logo.png" alt="Footasylum" class="pdf-brand-footer__logo pdf-brand-footer__logo--fa" />
+    </section>
+  `
 
   return `<!doctype html>
 <html lang="en" class="${htmlClass}" style="${escapeHtmlAttribute(rootCssVariables)}">
@@ -388,10 +394,30 @@ async function buildExactPdfHtmlFromCardElement(cardElement: HTMLElement): Promi
       html, body, #pdf-root { font-family: ${resolvedBodyFontFamily}; }
       body, #pdf-root { -webkit-font-smoothing: antialiased; text-rendering: geometricPrecision; }
       * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .pdf-brand-footer {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 72px;
+        margin-top: 12px;
+        padding: 8px 24px 0;
+      }
+      .pdf-brand-footer__logo {
+        display: block;
+        object-fit: contain;
+      }
+      .pdf-brand-footer__logo--kss {
+        max-height: 120px;
+        width: auto;
+      }
+      .pdf-brand-footer__logo--fa {
+        max-height: 92px;
+        width: auto;
+      }
     </style>
   </head>
   <body class="${bodyClass}">
-    <main id="pdf-root">${clone.outerHTML}</main>
+    <main id="pdf-root">${clone.outerHTML}${pdfFooterMarkup}</main>
   </body>
 </html>`
 }
@@ -469,6 +495,13 @@ function AreaNewsletterDashboardCard({
       : complianceStatus === 'AMBER'
         ? 'bg-amber-50 text-amber-700 ring-amber-600/20'
         : 'bg-rose-50 text-rose-700 ring-rose-600/20'
+  const formatPlannedVisitLabel = (plannedVisitDate: string | null) => {
+    if (!plannedVisitDate) return 'Not yet visited'
+    const parsedDate = new Date(plannedVisitDate)
+    return Number.isNaN(parsedDate.getTime())
+      ? 'Not yet visited'
+      : `Planned visit on ${format(parsedDate, 'dd/MM/yyyy')}`
+  }
 
   const renderLeaderboardColumn = (
     stores: Array<typeof storesWithRank[number]>
@@ -491,15 +524,19 @@ function AreaNewsletterDashboardCard({
             ) : null}
           </div>
           <div className="text-right">
-            <span
-              className={`inline-flex rounded px-2 py-0.5 text-[11px] font-bold ring-1 ring-inset ${getScoreBadgeClass(
-                store.latestAuditScore
-              )}`}
-            >
-              {typeof store.latestAuditScore === 'number'
-                ? `${store.latestAuditScore.toFixed(1)}%`
-                : 'N/A'}
-            </span>
+            {typeof store.latestAuditScore === 'number' ? (
+              <span
+                className={`inline-flex rounded px-2 py-0.5 text-[11px] font-bold ring-1 ring-inset ${getScoreBadgeClass(
+                  store.latestAuditScore
+                )}`}
+              >
+                {`${store.latestAuditScore.toFixed(1)}%`}
+              </span>
+            ) : (
+              <span className="text-[10px] font-medium text-slate-500">
+                {formatPlannedVisitLabel(store.plannedVisitDate)}
+              </span>
+            )}
           </div>
         </div>
       ))}
@@ -521,7 +558,7 @@ function AreaNewsletterDashboardCard({
               </span>
             </div>
             <div>
-              <h4 className="text-3xl font-black tracking-tight text-slate-900">Monthly Update</h4>
+              <h4 className="text-3xl font-black tracking-tight text-slate-900">Quarterly Update</h4>
               <div className="mt-2 flex flex-wrap items-center gap-3 text-xs font-medium text-slate-500">
                 <span className="inline-flex items-center gap-1.5">
                   <MapPin className="h-3.5 w-3.5 text-slate-400" />
@@ -636,13 +673,16 @@ function AreaNewsletterDashboardCard({
               <TrendingUp className="h-3.5 w-3.5" />
               Revisit Risk Profile
             </h5>
+            <p className="mb-3 text-[11px] leading-relaxed text-slate-500">
+              Shows stores most at risk of falling into revisit status, based on start-of-year audit position,
+              unresolved fire safety actions and open incident pressure.
+            </p>
             {visibleRiskProfileItems.length > 0 ? (
               <div>
-                <div className="mb-3 flex items-center justify-between gap-2">
-                  <p className="text-[11px] text-slate-500">Revisit risk profile across key drivers</p>
-                  <span className="text-[10px] font-semibold uppercase tracking-wide text-blue-600">
-                    How is this calculated?
-                  </span>
+                <div className="mb-3">
+                  <p className="text-[11px] text-slate-500">
+                    Use this card to spot where revisit exposure is above target and which stores need early action.
+                  </p>
                 </div>
                 <div className="space-y-4">
                   {visibleRiskProfileItems.map((point) => {
@@ -720,9 +760,12 @@ function AreaNewsletterDashboardCard({
                           : 'Watch list'}{' '}
                         -{' '}
                         {store.storeName}
-                        {store.storeCode ? ` (${store.storeCode})` : ''} | Risk {store.riskScore}%
+                        {store.storeCode ? ` (${store.storeCode})` : ''} | Revisit risk {store.riskScore}%
+                        {typeof store.startOfYearAuditScore === 'number'
+                          ? ` | Start-of-year audit ${store.startOfYearAuditScore.toFixed(0)}%`
+                          : ''}
                         {store.openP1Actions + store.openP2Actions > 0
-                          ? ` | P1/P2 ${store.openP1Actions}/${store.openP2Actions}`
+                          ? ` | High-priority actions ${store.openP1Actions + store.openP2Actions}`
                           : ''}
                       </li>
                     ))}
@@ -749,6 +792,10 @@ function AreaNewsletterDashboardCard({
               <AlertCircle className="h-3.5 w-3.5" />
               H&S Priorities
             </h5>
+          <p className="relative mb-3 text-[11px] leading-relaxed text-amber-800/80">
+            Summarises the most common open H&amp;S action themes in this area, so managers can focus on the issues
+            affecting the most stores.
+          </p>
             {report.storeActionMetrics.focusItems.length > 0 ? (
               <ul className="relative space-y-3">
                 {report.storeActionMetrics.focusItems.map((item, idx) => (
@@ -781,6 +828,12 @@ function AreaNewsletterDashboardCard({
                 By audit score
               </span>
             </div>
+            <div className="border-b border-slate-100 px-4 py-2.5">
+              <p className="text-[11px] leading-relaxed text-slate-500">
+                Ranks stores by their latest completed audit score only. This is separate from revisit risk and
+                reflects current audit performance.
+              </p>
+            </div>
             <div>{renderLeaderboardColumn(storesWithRank)}</div>
           </div>
         </div>
@@ -792,6 +845,10 @@ function AreaNewsletterDashboardCard({
             <h5 className="mb-2 inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-blue-700">
               <BarChart3 className="h-3.5 w-3.5" /> H&S Highlights
             </h5>
+            <p className="mb-3 text-[11px] leading-relaxed text-blue-900/70">
+              Highlights recent H&amp;S audit outcomes for this area, including completions, average score and notable
+              low-scoring results.
+            </p>
             <div className="mb-2 text-xs text-slate-600">
               Completed: <span className="font-semibold">{report.hsAuditMetrics.auditsCompletedThisMonth}</span>
               {' | '}
@@ -809,6 +866,10 @@ function AreaNewsletterDashboardCard({
           <h5 className="mb-3 inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-emerald-700">
             <CheckCircle2 className="h-3.5 w-3.5" /> Reminders &amp; Updates
           </h5>
+          <p className="mb-3 text-[11px] leading-relaxed text-emerald-900/70">
+            Pulls together the key operational reminders and policy updates that should be reinforced across stores in
+            this area.
+          </p>
           <div className="grid gap-4 md:grid-cols-2">
             <div className="rounded-xl border border-emerald-100 bg-white/70 p-3">
               <p className="mb-2 text-[11px] uppercase tracking-wide text-slate-500">Reminders</p>

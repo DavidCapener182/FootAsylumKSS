@@ -953,7 +953,7 @@ export function MonthlyNewsletterPDF({
         <View style={styles.areaCard}>
           <View style={styles.headerRow}>
             <View style={styles.headerLeft}>
-              <Text style={styles.title}>Monthly Update</Text>
+              <Text style={styles.title}>Quarterly Update</Text>
               <Text style={styles.subtitle}>
                 {report.areaLabel} | {periodLabel}
               </Text>

@@ -226,14 +226,14 @@ export interface StoreActionPriorityTheme {
 
 const DEFAULT_STORE_ACTION_PRIORITY_SUMMARY = 'General H&S control gaps'
 const DEFAULT_STORE_ACTION_MANAGER_PROMPT =
-  'Ask area managers to verify this failed check is corrected consistently and evidenced in local follow-up.'
+  'Verify this failed check is corrected consistently and evidenced in local follow-up.'
 
 const STORE_ACTION_PRIORITY_THEME_RULES: StoreActionPriorityThemeRule[] = [
   {
     key: 'contractor-management',
     summary: 'Contractor and visitor controls',
     managerPrompt:
-      'Ask store teams to enforce sign-in/out, permits-to-work, and active supervision for every contractor visit.',
+      'Ask store teams to enforce sign-in/out and active supervision for every contractor visit.',
     matcher: /(contractor|visitor|permit[\s-]*to[\s-]*work|sign[\s-]*in|sign[\s-]*out)/i,
   },
   {
