@@ -1,0 +1,190 @@
+%PDF-1.4
+%
+1 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+2 0 obj
+<< /Length 2887 >>
+stream
+BT
+/F1 11 Tf
+1 0 0 1 50 792 Tm (KSS ADMIN GUIDE: HOW TO USE THE INCIDENTS PAGE) Tj
+1 0 0 1 50 778 Tm () Tj
+1 0 0 1 50 764 Tm (PURPOSE) Tj
+1 0 0 1 50 750 Tm (This guide is for **KSS Admin users** \(not platform admins\) and explains:) Tj
+1 0 0 1 50 736 Tm (1. How to add a new incident.) Tj
+1 0 0 1 50 722 Tm (2. How to update an existing incident.) Tj
+1 0 0 1 50 708 Tm (3. What each field means and what to check before saving.) Tj
+1 0 0 1 50 694 Tm () Tj
+1 0 0 1 50 680 Tm (---) Tj
+1 0 0 1 50 666 Tm () Tj
+1 0 0 1 50 652 Tm (1\) BEFORE YOU START) Tj
+1 0 0 1 50 638 Tm (? Make sure you are logged in to KSS.) Tj
+1 0 0 1 50 624 Tm (? Open **Incidents** from the main navigation.) Tj
+1 0 0 1 50 610 Tm (? You should be able to see:) Tj
+1 0 0 1 50 596 Tm (  - The incidents list/table.) Tj
+1 0 0 1 50 582 Tm (  - Search and filter options.) Tj
+1 0 0 1 50 568 Tm (  - A **New Incident** button.) Tj
+1 0 0 1 50 554 Tm () Tj
+1 0 0 1 50 540 Tm (If you cannot see the Incidents page or button, contact your system owner to confirm your) Tj
+1 0 0 1 50 526 Tm (access level.) Tj
+1 0 0 1 50 512 Tm () Tj
+1 0 0 1 50 498 Tm (---) Tj
+1 0 0 1 50 484 Tm () Tj
+1 0 0 1 50 470 Tm (2\) ADD A NEW INCIDENT \(STEP-BY-STEP\)) Tj
+1 0 0 1 50 456 Tm () Tj
+1 0 0 1 50 442 Tm (1. Go to **Incidents**.) Tj
+1 0 0 1 50 428 Tm (2. Click **New Incident**.) Tj
+1 0 0 1 50 414 Tm (3. Complete the form:) Tj
+1 0 0 1 50 400 Tm (   - **Store***: Select the affected store.) Tj
+1 0 0 1 50 386 Tm (   - **Category***: Choose the incident type \(e.g. Accident, Near Miss, Security, Fire,) Tj
+1 0 0 1 50 372 Tm (Health & Safety, Other\).) Tj
+1 0 0 1 50 358 Tm (   - **Severity***: Low / Medium / High / Critical.) Tj
+1 0 0 1 50 344 Tm (   - **Summary***: Short, clear incident headline.) Tj
+1 0 0 1 50 330 Tm (   - **Description**: Full narrative of what happened.) Tj
+1 0 0 1 50 316 Tm (   - **Occurred At***: Date and time of the event.) Tj
+1 0 0 1 50 302 Tm (4. Click **Create Incident**.) Tj
+1 0 0 1 50 288 Tm (5. The system opens the incident detail page automatically.) Tj
+1 0 0 1 50 274 Tm () Tj
+1 0 0 1 50 260 Tm (TIPS FOR BETTER INCIDENT QUALITY) Tj
+1 0 0 1 50 246 Tm (? Keep the summary factual and short.) Tj
+1 0 0 1 50 232 Tm (? Put detail in the description \(who, what, where, when, immediate actions\).) Tj
+1 0 0 1 50 218 Tm (? Check date/time carefully before submitting.) Tj
+1 0 0 1 50 204 Tm () Tj
+1 0 0 1 50 190 Tm (---) Tj
+1 0 0 1 50 176 Tm () Tj
+1 0 0 1 50 162 Tm (3\) UPDATE AN EXISTING INCIDENT \(STEP-BY-STEP\)) Tj
+1 0 0 1 50 148 Tm () Tj
+1 0 0 1 50 134 Tm (1. Open **Incidents**.) Tj
+1 0 0 1 50 120 Tm (2. Locate the incident \(use search/filters if needed\).) Tj
+1 0 0 1 50 106 Tm (3. Click the incident row/card to open it.) Tj
+1 0 0 1 50 92 Tm (4. On the incident detail page, click **Edit Incident**.) Tj
+1 0 0 1 50 78 Tm (5. Update fields as needed:) Tj
+1 0 0 1 50 64 Tm (   - **Category**) Tj
+ET
+endstream
+endobj
+3 0 obj
+<< /Length 2634 >>
+stream
+BT
+/F1 11 Tf
+1 0 0 1 50 792 Tm (   - **Severity**) Tj
+1 0 0 1 50 778 Tm (   - **Status** \(Open / Under Investigation / Actions In Progress\)) Tj
+1 0 0 1 50 764 Tm (   - **Summary**) Tj
+1 0 0 1 50 750 Tm (   - **Description**) Tj
+1 0 0 1 50 736 Tm (   - **Occurred At**) Tj
+1 0 0 1 50 722 Tm (   - **Target Close Date**) Tj
+1 0 0 1 50 708 Tm (   - **RIDDOR Reportable** \(Yes/No\)) Tj
+1 0 0 1 50 694 Tm (   - Optional JSON sections \(only for advanced users\):) Tj
+1 0 0 1 50 680 Tm (     - Persons Involved) Tj
+1 0 0 1 50 666 Tm (     - Injury Details) Tj
+1 0 0 1 50 652 Tm (     - Witness Statements) Tj
+1 0 0 1 50 638 Tm (6. Click **Save Changes**.) Tj
+1 0 0 1 50 624 Tm () Tj
+1 0 0 1 50 610 Tm (IMPORTANT NOTES) Tj
+1 0 0 1 50 596 Tm (? Keep status aligned with the real case stage.) Tj
+1 0 0 1 50 582 Tm (? Use **Under Investigation** when review is active.) Tj
+1 0 0 1 50 568 Tm (? Use **Actions In Progress** when corrective actions are underway.) Tj
+1 0 0 1 50 554 Tm (? Avoid editing JSON fields unless you are comfortable with valid JSON format.) Tj
+1 0 0 1 50 540 Tm () Tj
+1 0 0 1 50 526 Tm (---) Tj
+1 0 0 1 50 512 Tm () Tj
+1 0 0 1 50 498 Tm (4\) ASSIGN AN INVESTIGATOR \(RECOMMENDED WORKFLOW\)) Tj
+1 0 0 1 50 484 Tm () Tj
+1 0 0 1 50 470 Tm (1. Open the incident detail page.) Tj
+1 0 0 1 50 456 Tm (2. In the investigation area, assign an investigator.) Tj
+1 0 0 1 50 442 Tm (3. Save/confirm assignment.) Tj
+1 0 0 1 50 428 Tm () Tj
+1 0 0 1 50 414 Tm (Tip: assigning an investigator helps ownership and follow-up.) Tj
+1 0 0 1 50 400 Tm () Tj
+1 0 0 1 50 386 Tm (---) Tj
+1 0 0 1 50 372 Tm () Tj
+1 0 0 1 50 358 Tm (5\) CLOSE AN INCIDENT) Tj
+1 0 0 1 50 344 Tm () Tj
+1 0 0 1 50 330 Tm (1. Open the incident detail page.) Tj
+1 0 0 1 50 316 Tm (2. Confirm all required actions/investigation outcomes are completed.) Tj
+1 0 0 1 50 302 Tm (3. Click **Close Incident** and confirm.) Tj
+1 0 0 1 50 288 Tm () Tj
+1 0 0 1 50 274 Tm (Once closed, the incident is moved to the closed incidents area and is treated as) Tj
+1 0 0 1 50 260 Tm (historical.) Tj
+1 0 0 1 50 246 Tm () Tj
+1 0 0 1 50 232 Tm (---) Tj
+1 0 0 1 50 218 Tm () Tj
+1 0 0 1 50 204 Tm (6\) COMMON MISTAKES TO AVOID) Tj
+1 0 0 1 50 190 Tm (? Missing or vague summary text.) Tj
+1 0 0 1 50 176 Tm (? Wrong incident date/time.) Tj
+1 0 0 1 50 162 Tm (? Incorrect severity level.) Tj
+1 0 0 1 50 148 Tm (? Leaving status as Open when investigation has started.) Tj
+1 0 0 1 50 134 Tm (? Invalid JSON in advanced fields.) Tj
+1 0 0 1 50 120 Tm () Tj
+1 0 0 1 50 106 Tm (---) Tj
+1 0 0 1 50 92 Tm () Tj
+1 0 0 1 50 78 Tm (7\) SUGGESTED EMAIL TEXT \(COPY/PASTE\)) Tj
+1 0 0 1 50 64 Tm () Tj
+ET
+endstream
+endobj
+4 0 obj
+<< /Length 1212 >>
+stream
+BT
+/F1 11 Tf
+1 0 0 1 50 792 Tm (**Subject:** KSS Admin ? How to Add and Update Incidents) Tj
+1 0 0 1 50 778 Tm () Tj
+1 0 0 1 50 764 Tm (Hi team,) Tj
+1 0 0 1 50 750 Tm () Tj
+1 0 0 1 50 736 Tm (Please find attached a short step-by-step guide for KSS Admin users on:) Tj
+1 0 0 1 50 722 Tm (? adding a new incident,) Tj
+1 0 0 1 50 708 Tm (? updating an existing incident,) Tj
+1 0 0 1 50 694 Tm (? and following the recommended workflow \(investigator assignment and closure\).) Tj
+1 0 0 1 50 680 Tm () Tj
+1 0 0 1 50 666 Tm (Please use this as your quick reference when working on the Incidents page.) Tj
+1 0 0 1 50 652 Tm () Tj
+1 0 0 1 50 638 Tm (Thanks.) Tj
+1 0 0 1 50 624 Tm () Tj
+1 0 0 1 50 610 Tm (---) Tj
+1 0 0 1 50 596 Tm () Tj
+1 0 0 1 50 582 Tm (8\) QUICK CHECKLIST FOR KSS ADMINS) Tj
+1 0 0 1 50 568 Tm ([ ] Correct store selected) Tj
+1 0 0 1 50 554 Tm ([ ] Category and severity set correctly) Tj
+1 0 0 1 50 540 Tm ([ ] Summary and description are clear) Tj
+1 0 0 1 50 526 Tm ([ ] Occurred date/time checked) Tj
+1 0 0 1 50 512 Tm ([ ] Investigator assigned \(where appropriate\)) Tj
+1 0 0 1 50 498 Tm ([ ] Status updated to match progress) Tj
+1 0 0 1 50 484 Tm ([ ] Incident closed only when complete) Tj
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Page /Parent 5 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R >> >> /Contents 2 0 R >>
+endobj
+6 0 obj
+<< /Type /Page /Parent 5 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R >> >> /Contents 3 0 R >>
+endobj
+7 0 obj
+<< /Type /Page /Parent 5 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R >> >> /Contents 4 0 R >>
+endobj
+8 0 obj
+<< /Type /Pages /Kids [5 0 R 6 0 R 7 0 R] /Count 3 >>
+endobj
+9 0 obj
+<< /Type /Catalog /Pages 5 0 R >>
+endobj
+xref
+0 10
+0000000000 65535 f 
+0000000015 00000 n 
+0000000085 00000 n 
+0000003023 00000 n 
+0000005708 00000 n 
+0000006971 00000 n 
+0000007097 00000 n 
+0000007223 00000 n 
+0000007349 00000 n 
+0000007418 00000 n 
+trailer
+<< /Size 10 /Root 9 0 R >>
+startxref
+7467
+%%EOF
