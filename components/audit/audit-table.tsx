@@ -33,6 +33,7 @@ interface AddAuditState {
   date: string
   percentage: string
   pdfFile: File | null
+  isRevisit: boolean
 }
 
 interface UpdateScoreState {
@@ -95,6 +96,15 @@ function getDaysUntil(date: Date): number {
 
 function hasAssignedArea(row: AuditRow): row is AuditRow & { region: string } {
   return typeof row.region === 'string' && row.region.trim().length > 0
+}
+
+function isWithinMonths(dateValue: string | null, months: number): boolean {
+  if (!dateValue) return false
+  const start = new Date(dateValue)
+  if (Number.isNaN(start.getTime())) return false
+  const deadline = new Date(start)
+  deadline.setMonth(deadline.getMonth() + months)
+  return Date.now() <= deadline.getTime()
 }
 
 export function AuditTable({ 
@@ -352,13 +362,31 @@ export function AuditTable({
       return
     }
 
+    let isRevisit = false
+    if (auditNum === 2) {
+      const audit1Score = row.compliance_audit_1_overall_pct
+      const audit1Date = row.compliance_audit_1_date
+
+      if (typeof audit1Score === 'number') {
+        if (audit1Score > 80 && isWithinMonths(audit1Date, 5)) {
+          const confirmed = window.confirm(
+            `${row.store_name} scored ${audit1Score.toFixed(1)}% on Audit 1 within the last 5 months.\n\nConfirm this is an actual second audit.`
+          )
+          if (!confirmed) return
+        } else if (audit1Score < 80 && isWithinMonths(audit1Date, 2)) {
+          isRevisit = true
+        }
+      }
+    }
+
     setAddAuditState({
       storeId: row.id,
       storeName: row.store_name,
       auditNumber: auditNum,
       date: new Date().toISOString().split('T')[0],
       percentage: '',
-      pdfFile: null
+      pdfFile: null,
+      isRevisit,
     })
     setAddAuditDialogOpen(true)
   }
@@ -495,9 +523,10 @@ export function AuditTable({
       )
 
       handleCloseAddAuditDialog()
+      const auditLabel = auditNumber === 2 && addAuditState.isRevisit ? 'Revisit (Audit 2)' : `Audit ${auditNumber}`
       setTableMessage({
         type: 'success',
-        text: `Audit ${auditNumber} saved for ${storeName}. Action Plan set to ${autoActionPlanSent ? 'Yes' : 'No'}.`,
+        text: `${auditLabel} saved for ${storeName}. Action Plan set to ${autoActionPlanSent ? 'Yes' : 'No'}.`,
       })
     } catch (error) {
       console.error('Error saving audit:', error)
@@ -1446,6 +1475,11 @@ export function AuditTable({
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
+            {addAuditState?.auditNumber === 2 && addAuditState.isRevisit ? (
+              <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                This will be saved as a revisit second audit (Audit 1 was below 80% within the last 2 months).
+              </div>
+            ) : null}
             <div className="space-y-1">
               <label className="text-sm font-medium">Store</label>
               <div className="rounded-md border bg-slate-50 px-3 py-2 text-sm text-slate-700">

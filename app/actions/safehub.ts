@@ -16,11 +16,26 @@ export async function getTemplates() {
     throw new Error('Unauthorized')
   }
 
-  const { data, error } = await supabase
+  const { data: profile } = await supabase
+    .from('fa_profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  const isAdmin = profile?.role === 'admin'
+
+  let query = supabase
     .from('fa_audit_templates')
     .select('*')
     .eq('is_active', true)
     .order('created_at', { ascending: false })
+
+  // Ops/readonly should not see the Footasylum H&S template.
+  if (!isAdmin) {
+    query = query.neq('category', 'footasylum_audit')
+  }
+
+  const { data, error } = await query
 
   if (error) {
     console.error('Error fetching templates:', error)
@@ -47,6 +62,17 @@ export async function getTemplate(id: string) {
 
   if (templateError || !template) {
     throw new Error('Template not found')
+  }
+
+  const { data: profile } = await supabase
+    .from('fa_profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  const isAdmin = profile?.role === 'admin'
+  if (template.category === 'footasylum_audit' && !isAdmin) {
+    throw new Error('Unauthorized - Admin access required for this template')
   }
 
   // Get sections
@@ -113,12 +139,16 @@ export async function createTemplate(data: {
   // Get profile to get user ID
   const { data: profile } = await supabase
     .from('fa_profiles')
-    .select('id')
+    .select('id, role')
     .eq('id', user.id)
     .single()
 
   if (!profile) {
     throw new Error('Profile not found')
+  }
+
+  if (data.category === 'footasylum_audit' && profile.role !== 'admin') {
+    throw new Error('Unauthorized - Admin access required for Footasylum H&S template')
   }
 
   // Create template

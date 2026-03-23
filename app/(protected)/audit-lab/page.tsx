@@ -1,17 +1,11 @@
-import { requireAuth } from '@/lib/auth'
+import { requireRole } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { AuditLabClient } from '@/components/admin/audit-lab-client'
 import { Sparkles } from 'lucide-react'
 
-const ADMIN_EMAIL = 'david.capener@kssnwltd.co.uk'
-
 export default async function AuditLabPage() {
-  const session = await requireAuth()
-
-  // Check if user is the admin email
-  if (session.user.email !== ADMIN_EMAIL) {
-    redirect('/')
-  }
+  const { profile } = await requireRole(['admin', 'ops'])
+  if (!profile) redirect('/')
 
   return (
     <div className="flex flex-col gap-6">

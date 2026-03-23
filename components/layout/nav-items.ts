@@ -11,6 +11,7 @@ import {
   Calendar,
   Bug,
   ShieldCheck,
+  Sparkles,
 } from 'lucide-react'
 import type React from 'react'
 
@@ -30,6 +31,7 @@ export const navItems: NavItem[] = [
   { href: '/actions', label: 'Actions', icon: CheckSquare },
   { href: '/stores', label: 'Stores / CRM', icon: Store },
   { href: '/audit-tracker', label: 'Audit Tracker', icon: ClipboardList },
+  { href: '/audit-lab', label: 'SafeHub', icon: Sparkles, allowedRoles: ['admin', 'ops'] },
   { href: '/fire-risk-assessment', label: 'Fire Risk Assessment', icon: Flame },
   { href: '/route-planning', label: 'Route Planning', icon: Route, clientHidden: true, allowedRoles: ['admin', 'ops'] },
   { href: '/calendar', label: 'Calendar', icon: Calendar },

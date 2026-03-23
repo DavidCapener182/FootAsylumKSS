@@ -84,9 +84,9 @@ export default async function AdminPage() {
         </div>
 
         <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm sm:rounded-lg sm:border-blue-200 sm:bg-blue-50 sm:p-4 sm:shadow-none">
-          <h2 className="mb-2 text-base font-semibold text-slate-900 sm:text-lg sm:text-blue-900">SafeHub (Experimental)</h2>
+          <h2 className="mb-2 text-base font-semibold text-slate-900 sm:text-lg sm:text-blue-900">SafeHub</h2>
           <p className="mb-4 text-sm text-slate-600 sm:mb-3 sm:text-blue-700">
-            Preview the new Safety Culture-style audit pages. Internal development feature.
+            Safety Culture-style audit pages for templates, execution, and compliance tracking.
           </p>
           <a
             href="/audit-lab"

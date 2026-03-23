@@ -322,7 +322,7 @@ export function StoreSearch() {
         {/* Desktop search */}
         <div className="hidden md:block w-full max-w-[420px]">
           <div ref={anchorRef} className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/60 pointer-events-none z-10" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-white/60 pointer-events-none z-10" />
             <Input
               ref={inputRef}
               value={query}
@@ -348,7 +348,7 @@ export function StoreSearch() {
                 }
               }}
               placeholder="Search stores…"
-              className="h-10 md:h-9 bg-white/10 border-white/10 text-white placeholder:text-white/50 focus-visible:ring-2 focus-visible:ring-white/30 pl-9"
+              className="h-10 md:h-9 bg-white/10 border-white/10 text-white placeholder:text-white/50 focus-visible:ring-2 focus-visible:ring-white/30 pl-12"
             />
           </div>
         </div>
@@ -357,7 +357,7 @@ export function StoreSearch() {
         <div className="w-full md:hidden">
           {mobileSearchOpen ? (
             <div ref={anchorRef} className="relative w-full">
-              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/55" />
+              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/55" />
               <Input
                 autoFocus
                 value={query}
@@ -376,7 +376,7 @@ export function StoreSearch() {
                   }
                 }}
                 placeholder="Search…"
-                className="h-11 rounded-[18px] border-white/10 bg-white/10 pl-10 pr-10 text-sm text-white placeholder:text-white/45 focus-visible:ring-2 focus-visible:ring-white/25"
+                className="h-11 rounded-[18px] border-white/10 bg-white/10 pl-12 pr-10 text-sm text-white placeholder:text-white/45 focus-visible:ring-2 focus-visible:ring-white/25"
               />
               <button
                 type="button"

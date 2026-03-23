@@ -29,6 +29,7 @@ const mobilePageTitles: Array<{ href: string; title: string }> = [
   { href: '/actions', title: 'Actions' },
   { href: '/stores', title: 'Stores' },
   { href: '/audit-tracker', title: 'Audit Tracker' },
+  { href: '/audit-lab', title: 'SafeHub' },
   { href: '/fire-risk-assessment', title: 'Fire Risk' },
   { href: '/route-planning', title: 'Route Planning' },
   { href: '/calendar', title: 'Calendar' },

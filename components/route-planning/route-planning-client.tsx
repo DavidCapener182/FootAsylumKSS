@@ -1660,7 +1660,6 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
                       <TableHead>Region</TableHead>
                       <TableHead>Assigned Manager</TableHead>
                       <TableHead>Planned Date</TableHead>
-                      <TableHead>Visit Times</TableHead>
                       <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -1776,20 +1775,6 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
                               <span className="cursor-pointer hover:text-blue-600" onClick={() => setEditingRouteGroup(groupKey)} title="Click to edit date">
                                 {group.plannedDate ? format(new Date(group.plannedDate), 'dd/MM/yyyy') : '-'}
                               </span>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            {routeOperationalItems[groupKey] && routeOperationalItems[groupKey].length > 0 ? (
-                              <div className="flex flex-col gap-1">
-                                {routeOperationalItems[groupKey].map((item, idx) => (
-                                  <div key={idx} className="text-xs text-slate-600 flex items-center gap-2">
-                                    <span className="text-purple-600 font-medium">{item.start_time}</span>
-                                    <span>{item.title}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <span className="text-slate-400 text-sm">-</span>
                             )}
                           </TableCell>
                           <TableCell>
