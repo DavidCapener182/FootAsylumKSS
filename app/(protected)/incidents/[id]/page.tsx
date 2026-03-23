@@ -11,13 +11,13 @@ import { IncidentAttachments } from '@/components/incidents/incident-attachments
 import { IncidentActivity } from '@/components/incidents/incident-activity'
 import { EditIncidentDialog } from '@/components/incidents/edit-incident-dialog'
 import { AssignInvestigator } from '@/components/incidents/assign-investigator'
+import { IncidentBreadcrumb } from '@/components/incidents/incident-breadcrumb'
 import { CloseIncidentButton } from '@/components/shared/close-incident-button'
 import {
   Activity,
   AlertTriangle,
   Calendar,
   CheckCircle2,
-  ChevronRight,
   Clock,
   FileText,
   MapPin,
@@ -420,13 +420,7 @@ export default async function IncidentDetailPage({
 
   return (
     <div className="space-y-6 p-0">
-      <nav className="flex items-center gap-2 overflow-x-auto text-sm text-slate-400">
-        <Link href="/incidents" className="whitespace-nowrap transition-colors hover:text-blue-600">
-          Incidents
-        </Link>
-        <ChevronRight size={14} />
-        <span className="font-medium text-slate-900">{incident.reference_no}</span>
-      </nav>
+      <IncidentBreadcrumb referenceNo={incident.reference_no} />
 
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-start">
         <div>

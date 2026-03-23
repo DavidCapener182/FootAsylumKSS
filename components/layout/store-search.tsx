@@ -348,7 +348,7 @@ export function StoreSearch() {
                 }
               }}
               placeholder="Search stores…"
-              className="h-10 md:h-9 bg-white/10 border-white/10 text-white placeholder:text-white/50 focus-visible:ring-2 focus-visible:ring-white/30 pl-12"
+              className="h-10 md:h-9 bg-white/10 border-white/10 text-white placeholder:text-white/50 focus-visible:ring-2 focus-visible:ring-white/30 pl-12 sm:pl-12"
             />
           </div>
         </div>
@@ -376,7 +376,7 @@ export function StoreSearch() {
                   }
                 }}
                 placeholder="Search…"
-                className="h-11 rounded-[18px] border-white/10 bg-white/10 pl-12 pr-10 text-sm text-white placeholder:text-white/45 focus-visible:ring-2 focus-visible:ring-white/25"
+                className="h-11 rounded-[18px] border-white/10 bg-white/10 pl-12 pr-10 text-sm text-white placeholder:text-white/45 focus-visible:ring-2 focus-visible:ring-white/25 sm:pl-12 sm:pr-10"
               />
               <button
                 type="button"

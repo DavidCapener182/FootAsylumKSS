@@ -23,9 +23,6 @@ const editIncidentSchema = z.object({
   occurred_at: z.string().min(1, 'Occurred date is required'),
   riddor_reportable: z.enum(['yes', 'no']),
   target_close_date: z.string().optional(),
-  persons_involved_json: z.string().optional(),
-  injury_details_json: z.string().optional(),
-  witnesses_json: z.string().optional(),
 })
 
 type EditIncidentFormValues = z.infer<typeof editIncidentSchema>
@@ -40,25 +37,6 @@ function toLocalDateTimeInput(value: string | null | undefined) {
   if (Number.isNaN(date.getTime())) return ''
   const offsetMs = date.getTimezoneOffset() * 60000
   return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16)
-}
-
-function toPrettyJson(value: unknown) {
-  if (!value) return ''
-  try {
-    return JSON.stringify(value, null, 2)
-  } catch {
-    return ''
-  }
-}
-
-function parseOptionalJson(raw: string | undefined, fieldName: string) {
-  const trimmed = raw?.trim() || ''
-  if (!trimmed) return null
-  try {
-    return JSON.parse(trimmed)
-  } catch {
-    throw new Error(`${fieldName} must be valid JSON`)
-  }
 }
 
 export function EditIncidentDialog({ incident }: EditIncidentDialogProps) {
@@ -77,19 +55,12 @@ export function EditIncidentDialog({ incident }: EditIncidentDialogProps) {
       occurred_at: toLocalDateTimeInput(incident.occurred_at),
       riddor_reportable: incident.riddor_reportable ? 'yes' : 'no',
       target_close_date: incident.target_close_date || '',
-      persons_involved_json: toPrettyJson(incident.persons_involved),
-      injury_details_json: toPrettyJson(incident.injury_details),
-      witnesses_json: toPrettyJson(incident.witnesses),
     },
   })
 
   const onSubmit = async (values: EditIncidentFormValues) => {
     setIsSaving(true)
     try {
-      const personsInvolved = parseOptionalJson(values.persons_involved_json, 'Persons involved')
-      const injuryDetails = parseOptionalJson(values.injury_details_json, 'Injury details')
-      const witnesses = parseOptionalJson(values.witnesses_json, 'Witness statements')
-
       await updateIncident(incident.id, {
         incident_category: values.incident_category,
         severity: values.severity,
@@ -99,9 +70,9 @@ export function EditIncidentDialog({ incident }: EditIncidentDialogProps) {
         occurred_at: new Date(values.occurred_at).toISOString(),
         riddor_reportable: values.riddor_reportable === 'yes',
         target_close_date: values.target_close_date || null,
-        persons_involved: personsInvolved,
-        injury_details: injuryDetails,
-        witnesses,
+        persons_involved: incident.persons_involved ?? null,
+        injury_details: incident.injury_details ?? null,
+        witnesses: incident.witnesses ?? null,
       })
 
       setOpen(false)
@@ -122,13 +93,13 @@ export function EditIncidentDialog({ incident }: EditIncidentDialogProps) {
           Edit Incident
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Update Incident</DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               <FormField
                 control={form.control}
                 name="incident_category"
@@ -231,7 +202,7 @@ export function EditIncidentDialog({ incident }: EditIncidentDialogProps) {
               )}
             />
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               <FormField
                 control={form.control}
                 name="occurred_at"
@@ -282,48 +253,6 @@ export function EditIncidentDialog({ incident }: EditIncidentDialogProps) {
                 )}
               />
             </div>
-
-            <FormField
-              control={form.control}
-              name="persons_involved_json"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Persons Involved (JSON)</FormLabel>
-                  <FormControl>
-                    <Textarea {...field} rows={4} className="font-mono text-xs" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="injury_details_json"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Injury Details (JSON)</FormLabel>
-                  <FormControl>
-                    <Textarea {...field} rows={4} className="font-mono text-xs" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="witnesses_json"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Witness Statements (JSON)</FormLabel>
-                  <FormControl>
-                    <Textarea {...field} rows={4} className="font-mono text-xs" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
 
             <div className="flex items-center justify-end gap-2 pt-2">
               <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={isSaving}>

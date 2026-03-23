@@ -78,15 +78,6 @@ function hasNegatedObstructionSignal(value: unknown): boolean {
   )
 }
 
-function hasNegatedDoorOpenSignal(value: unknown): boolean {
-  if (typeof value !== 'string') return false
-  return (
-    /\b(closed and not held open|not held open|not wedged(?:\s+or\s+held\s+open)?|not propped open|in the close position)\b/i.test(value)
-    || /\bno\b[\s\S]{0,12}\b(held open|wedged open|propped open)\b/i.test(value)
-    || /\b(held open|wedged open|propped open)\b[\s\S]{0,12}\b(?:was|were)?\s*(?:not|no)\b/i.test(value)
-  )
-}
-
 function getResponseAnswer(response: FRAResponseLike): boolean | null {
   const responseJson = getResponseJson(response)
   return normalizeYesNoAnswer(
@@ -185,11 +176,7 @@ export function buildFraRiskFindingsFromResponses(responses: FRAResponseLike[]):
     && !textIncludesAny(extractedData.combustibleStorageEscapeCompromise, [/\bremained clear\b/i, /\bwithout obstruction\b/i, /\bunobstructed\b/i])
 
   const extractedDoorIssues =
-    (
-      textIncludesAny(extractedData.fireDoorsCondition, [/\bheld open\b/i, /\bblocked\b/i, /\bobstructed\b/i])
-      && !hasNegatedDoorOpenSignal(extractedData.fireDoorsCondition)
-      && !textIncludesAny(extractedData.fireDoorsCondition, [/\bunobstructed\b/i, /\bfree from obstruction\b/i])
-    )
+    textIncludesAny(extractedData.fireDoorsCondition, [/\bheld open\b/i, /\bblocked\b/i, /\bobstructed\b/i])
     || textIncludesAny(extractedData.compartmentationStatus, [/\bbreach\b/i, /\bgap\b/i, /\bdamage\b/i, /\bmissing\b/i])
 
   const combustibleRouteSignal = hasNarrativeSignal(
