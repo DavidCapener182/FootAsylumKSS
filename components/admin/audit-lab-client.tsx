@@ -13,8 +13,6 @@ import {
   Loader2,
   Trash2,
   Edit2,
-  Upload,
-  X,
   Camera,
   Image as ImageIcon,
   Download,
@@ -1303,7 +1301,6 @@ function AuditFormView({
   const [previousFailures, setPreviousFailures] = useState<PreviousFailureMap>({})
   const [previousAuditDate, setPreviousAuditDate] = useState<string | null>(null)
   const [hsAuditPastedText, setHsAuditPastedText] = useState('')
-  const [hsAuditPdfFile, setHsAuditPdfFile] = useState<File | null>(null)
   const [uploadingHSAudit, setUploadingHSAudit] = useState(false)
 
   useEffect(() => {
@@ -1411,47 +1408,8 @@ function AuditFormView({
           } finally {
             setUploadingHSAudit(false)
           }
-        } else if (hsAuditPdfFile) {
-          setUploadingHSAudit(true)
-          try {
-            console.log('[AUDIT-LAB] Uploading H&S audit PDF for server-side extraction...')
-            const formData = new FormData()
-            formData.append('file', hsAuditPdfFile)
-            formData.append('fraInstanceId', instance.id)
-            formData.append('storeId', selectedStoreId)
-
-            const res = await fetch('/api/fra-reports/parse-hs-audit', {
-              method: 'POST',
-              body: formData,
-            })
-            const result = await res.json().catch(() => ({ error: 'Failed to parse H&S audit PDF' }))
-            if (!res.ok) {
-              throw new Error(result.error || result.details || 'Failed to parse H&S audit PDF')
-            }
-            if (!result.hasText) {
-              throw new Error(result.parseError || 'H&S audit PDF was uploaded, but no text could be extracted')
-            }
-            if (!result.stored) {
-              throw new Error(result.storageError || 'H&S audit PDF text was extracted, but could not be stored')
-            }
-            console.log('[AUDIT-LAB] H&S audit PDF stored:', {
-              textLength: result.textLength,
-              hasText: result.hasText,
-              stored: result.stored,
-            })
-            console.log('[AUDIT-LAB] Waiting 2 seconds for extracted PDF text to be available...')
-            await new Promise(resolve => setTimeout(resolve, 2000))
-          } catch (pdfError: any) {
-            console.error('[AUDIT-LAB] H&S audit PDF error:', pdfError?.message || pdfError)
-            alert(`Failed to process H&S audit PDF: ${pdfError?.message || 'Unknown error'}`)
-            setUploadingHSAudit(false)
-            setStartingAudit(false)
-            return
-          } finally {
-            setUploadingHSAudit(false)
-          }
         } else {
-          console.log('[AUDIT-LAB] No pasted H&S audit text or PDF provided - will use database audit only')
+          console.log('[AUDIT-LAB] No pasted H&S audit text provided - will use database audit only')
         }
         
         // Do not auto-complete FRA here.
@@ -1644,31 +1602,10 @@ function AuditFormView({
             <div className="pt-4 border-t space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Upload H&S Audit PDF (Optional Fallback)
+                  Paste H&S Audit Text
                 </label>
                 <p className="text-xs text-slate-500 mb-2">
-                  If pasted text is also provided, the text will be used first and this PDF will be ignored.
-                </p>
-                <input
-                  type="file"
-                  accept="application/pdf"
-                  onChange={(e) => setHsAuditPdfFile(e.target.files?.[0] || null)}
-                  disabled={startingAudit || uploadingHSAudit}
-                  className="block w-full text-sm text-slate-700 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200 disabled:opacity-60"
-                />
-                {hsAuditPdfFile && (
-                  <p className="mt-2 text-xs text-green-600">
-                    Selected PDF: {hsAuditPdfFile.name}
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Paste H&S Audit Text (Preferred)
-                </label>
-                <p className="text-xs text-slate-500 mb-2">
-                  Paste the full H&S audit text to populate the FRA report. If both text and a PDF are provided, the text is used.
+                  Paste the full H&S audit text to populate the FRA report.
                 </p>
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-slate-700">H&S audit text</label>
