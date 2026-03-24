@@ -31,7 +31,7 @@ export function AuthShell({
                 alt="KSS x Footasylum Logo"
                 width={120}
                 height={60}
-                className="object-contain"
+                className="h-auto w-auto object-contain"
                 priority
               />
             </div>

@@ -39,6 +39,8 @@ interface StoreDetailWorkspaceProps {
     notes: StoreCrmNote[]
     trackerEntries: StoreCrmTrackerEntry[]
     userMap: Record<string, string | null>
+    isAvailable: boolean
+    unavailableMessage: string | null
   }
   canEdit: boolean
 }
@@ -326,6 +328,8 @@ export function StoreDetailWorkspace({ store, incidents, actions, userRole, crmD
           notes={crmData.notes}
           trackerEntries={crmData.trackerEntries}
           userMap={crmData.userMap}
+          isAvailable={crmData.isAvailable}
+          unavailableMessage={crmData.unavailableMessage}
           safetyCompliancePct={latestAuditScore ?? 0}
           actionResolutionPct={actionResolutionPct}
         />

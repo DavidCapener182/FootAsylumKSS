@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { logActivity } from '@/lib/activity-log'
+import { formatStoreCrmActionError, isMissingStoreCrmTableError } from '@/lib/store-crm-schema'
 
 const WRITABLE_ROLES = new Set(['admin', 'ops'])
 const CONTACT_METHODS = new Set(['phone', 'email', 'either'])
@@ -110,7 +111,7 @@ export async function createStoreContact(input: CreateStoreContactInput) {
       .eq('is_primary', true)
 
     if (clearPrimaryError) {
-      throw new Error(`Failed to update primary contact state: ${clearPrimaryError.message}`)
+      throw new Error(formatStoreCrmActionError('Failed to update primary contact state', clearPrimaryError))
     }
   }
 
@@ -131,7 +132,7 @@ export async function createStoreContact(input: CreateStoreContactInput) {
     .single()
 
   if (error) {
-    throw new Error(`Failed to create store contact: ${error.message}`)
+    throw new Error(formatStoreCrmActionError('Failed to create store contact', error))
   }
 
   try {
@@ -164,7 +165,7 @@ export async function deleteStoreContact(storeId: string, contactId: string) {
     .eq('store_id', normalizedStoreId)
 
   if (error) {
-    throw new Error(`Failed to delete store contact: ${error.message}`)
+    throw new Error(formatStoreCrmActionError('Failed to delete store contact', error))
   }
 
   try {
@@ -211,7 +212,7 @@ export async function createStoreNote(input: CreateStoreNoteInput) {
     .single()
 
   if (error) {
-    throw new Error(`Failed to create store note: ${error.message}`)
+    throw new Error(formatStoreCrmActionError('Failed to create store note', error))
   }
 
   try {
@@ -244,7 +245,7 @@ export async function deleteStoreNote(storeId: string, noteId: string) {
     .eq('store_id', normalizedStoreId)
 
   if (error) {
-    throw new Error(`Failed to delete store note: ${error.message}`)
+    throw new Error(formatStoreCrmActionError('Failed to delete store note', error))
   }
 
   try {
@@ -296,7 +297,14 @@ export async function createStoreContactTrackerEntry(input: CreateStoreContactTr
       .eq('store_id', storeId)
       .maybeSingle()
 
-    if (contactError || !contact) {
+    if (contactError) {
+      if (isMissingStoreCrmTableError(contactError)) {
+        throw new Error(formatStoreCrmActionError('Store CRM is unavailable', contactError))
+      }
+      throw new Error(`Selected contact lookup failed: ${contactError.message}`)
+    }
+
+    if (!contact) {
       throw new Error('Selected contact was not found for this store')
     }
   }
@@ -318,7 +326,7 @@ export async function createStoreContactTrackerEntry(input: CreateStoreContactTr
     .single()
 
   if (error) {
-    throw new Error(`Failed to create contact tracker entry: ${error.message}`)
+    throw new Error(formatStoreCrmActionError('Failed to create contact tracker entry', error))
   }
 
   try {
@@ -352,7 +360,7 @@ export async function deleteStoreContactTrackerEntry(storeId: string, entryId: s
     .eq('store_id', normalizedStoreId)
 
   if (error) {
-    throw new Error(`Failed to delete contact tracker entry: ${error.message}`)
+    throw new Error(formatStoreCrmActionError('Failed to delete contact tracker entry', error))
   }
 
   try {

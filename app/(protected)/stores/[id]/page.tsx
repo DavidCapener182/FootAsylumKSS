@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 import { requireRole } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { StoreDetailWorkspace } from '@/components/stores/store-detail-workspace'
+import { getMissingStoreCrmTables, getStoreCrmUnavailableMessage } from '@/lib/store-crm-schema'
 import {
   buildStoreMergeContext,
   getStoreIdsIncludingAliases,
@@ -165,13 +166,19 @@ async function getStoreCrmData(storeId: string) {
       .order('interaction_at', { ascending: false }),
   ])
 
-  if (contactsResult.error) {
+  const missingTables = getMissingStoreCrmTables({
+    fa_store_contacts: contactsResult.error,
+    fa_store_notes: notesResult.error,
+    fa_store_contact_tracker: trackerResult.error,
+  })
+
+  if (contactsResult.error && !missingTables.includes('fa_store_contacts')) {
     console.error('Error fetching store contacts:', contactsResult.error)
   }
-  if (notesResult.error) {
+  if (notesResult.error && !missingTables.includes('fa_store_notes')) {
     console.error('Error fetching store notes:', notesResult.error)
   }
-  if (trackerResult.error) {
+  if (trackerResult.error && !missingTables.includes('fa_store_contact_tracker')) {
     console.error('Error fetching store contact tracker:', trackerResult.error)
   }
 
@@ -209,7 +216,15 @@ async function getStoreCrmData(storeId: string) {
     return accumulator
   }, {})
 
-  return { contacts, notes, trackerEntries, userMap }
+  return {
+    contacts,
+    notes,
+    trackerEntries,
+    userMap,
+    isAvailable: missingTables.length === 0,
+    unavailableMessage:
+      missingTables.length > 0 ? getStoreCrmUnavailableMessage(missingTables) : null,
+  }
 }
 
 export default async function StoreCrmPage({

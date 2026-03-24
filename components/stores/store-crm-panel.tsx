@@ -85,6 +85,8 @@ interface StoreCrmPanelProps {
   notes: StoreCrmNote[]
   trackerEntries: StoreCrmTrackerEntry[]
   userMap: Record<string, string | null>
+  isAvailable?: boolean
+  unavailableMessage?: string | null
   safetyCompliancePct?: number
   actionResolutionPct?: number
 }
@@ -158,6 +160,8 @@ export function StoreCrmPanel({
   notes,
   trackerEntries,
   userMap,
+  isAvailable = true,
+  unavailableMessage,
   safetyCompliancePct,
   actionResolutionPct,
 }: StoreCrmPanelProps) {
@@ -219,9 +223,20 @@ export function StoreCrmPanel({
   const [isDeletingNote, startDeleteNote] = useTransition()
   const [isDeletingTracker, startDeleteTracker] = useTransition()
 
+  const canEditCrm = canEdit && isAvailable
+  const contactsEmptyMessage = isAvailable
+    ? 'No contacts recorded for this store yet.'
+    : unavailableMessage || 'Store CRM contacts are unavailable until the latest Supabase migrations are applied.'
+  const notesEmptyMessage = isAvailable
+    ? 'No notes logged for this store.'
+    : unavailableMessage || 'Store notes are unavailable until the latest Supabase migrations are applied.'
+  const trackerEmptyMessage = isAvailable
+    ? 'No communication log entries yet.'
+    : unavailableMessage || 'Store contact tracking is unavailable until the latest Supabase migrations are applied.'
+
   const handleCreateContact = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (!canEdit) return
+    if (!canEditCrm) return
 
     setContactError(null)
     startSaveContact(async () => {
@@ -256,7 +271,7 @@ export function StoreCrmPanel({
 
   const handleCreateNote = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (!canEdit) return
+    if (!canEditCrm) return
 
     setNoteError(null)
     startSaveNote(async () => {
@@ -283,7 +298,7 @@ export function StoreCrmPanel({
 
   const handleCreateTrackerEntry = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (!canEdit) return
+    if (!canEditCrm) return
 
     setTrackerError(null)
     startSaveTracker(async () => {
@@ -317,7 +332,7 @@ export function StoreCrmPanel({
   }
 
   const handleDeleteContact = (contact: StoreCrmContact) => {
-    if (!canEdit) return
+    if (!canEditCrm) return
     if (!confirm(`Delete contact "${contact.contact_name}"?`)) return
 
     setDeletingContactId(contact.id)
@@ -334,7 +349,7 @@ export function StoreCrmPanel({
   }
 
   const handleDeleteNote = (note: StoreCrmNote) => {
-    if (!canEdit) return
+    if (!canEditCrm) return
     if (!confirm('Delete this note?')) return
 
     setDeletingNoteId(note.id)
@@ -351,7 +366,7 @@ export function StoreCrmPanel({
   }
 
   const handleDeleteTrackerEntry = (entry: StoreCrmTrackerEntry) => {
-    if (!canEdit) return
+    if (!canEditCrm) return
     if (!confirm('Delete this tracker entry?')) return
 
     setDeletingTrackerId(entry.id)
@@ -373,6 +388,13 @@ export function StoreCrmPanel({
   return (
     <div className="grid grid-cols-1 gap-8 md:grid-cols-12">
       <div className="space-y-6 md:col-span-8">
+        {!isAvailable ? (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 shadow-sm">
+            <p className="font-semibold">Store CRM is unavailable in this Supabase project.</p>
+            <p className="mt-1">{unavailableMessage}</p>
+          </div>
+        ) : null}
+
         <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <div className="flex overflow-x-auto border-b border-slate-200 bg-slate-50/50">
             <button
@@ -417,7 +439,7 @@ export function StoreCrmPanel({
               <div className="space-y-4">
                 <div className="mb-4 flex items-center justify-between gap-3">
                   <h3 className="text-lg font-bold">Primary Contacts</h3>
-                  {canEdit ? (
+                  {canEditCrm ? (
                     <button
                       onClick={() => setShowContactForm((prev) => !prev)}
                       className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-blue-700"
@@ -427,7 +449,7 @@ export function StoreCrmPanel({
                   ) : null}
                 </div>
 
-                {showContactForm && canEdit && (
+                {showContactForm && canEditCrm && (
                   <form onSubmit={handleCreateContact} className="mb-4 grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
                     <div className="grid gap-3 sm:grid-cols-2">
                       <Input
@@ -505,7 +527,7 @@ export function StoreCrmPanel({
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   {displayContacts.length === 0 ? (
                     <div className="rounded-xl border border-slate-100 p-4 text-sm text-slate-500 sm:col-span-2">
-                      No contacts recorded for this store yet.
+                      {contactsEmptyMessage}
                     </div>
                   ) : (
                     displayContacts.map((contact) => (
@@ -534,7 +556,7 @@ export function StoreCrmPanel({
                             </p>
                             <p className="text-xs font-medium text-slate-500">{contact.job_title || 'No title set'}</p>
                           </div>
-                          {canEdit && !contact.isReadOnly ? (
+                          {canEditCrm && !contact.isReadOnly ? (
                             <button
                               className="text-slate-300 transition-colors hover:text-red-600"
                               onClick={() => handleDeleteContact(contact)}
@@ -569,7 +591,7 @@ export function StoreCrmPanel({
               <div className="space-y-4">
                 <div className="mb-4 flex items-center justify-between gap-3">
                   <h3 className="text-lg font-bold">Recent Store Notes</h3>
-                  {canEdit ? (
+                  {canEditCrm ? (
                     <button
                       onClick={() => setShowNoteForm((prev) => !prev)}
                       className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-blue-700"
@@ -579,7 +601,7 @@ export function StoreCrmPanel({
                   ) : null}
                 </div>
 
-                {showNoteForm && canEdit && (
+                {showNoteForm && canEditCrm && (
                   <form onSubmit={handleCreateNote} className="mb-4 grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
                     <div className="grid gap-3 sm:grid-cols-2">
                       <select
@@ -623,7 +645,7 @@ export function StoreCrmPanel({
                 <div className="space-y-3">
                   {notes.length === 0 ? (
                     <div className="rounded-xl border border-slate-100 p-4 text-sm text-slate-500">
-                      No notes logged for this store.
+                      {notesEmptyMessage}
                     </div>
                   ) : (
                     notes.map((note) => {
@@ -649,7 +671,7 @@ export function StoreCrmPanel({
                                 <span className="text-[10px] font-mono text-slate-400">
                                   {format(new Date(note.created_at), 'dd MMM yyyy')}
                                 </span>
-                                {canEdit ? (
+                                {canEditCrm ? (
                                   <button
                                     className="text-slate-300 transition-colors hover:text-red-600"
                                     onClick={() => handleDeleteNote(note)}
@@ -690,7 +712,7 @@ export function StoreCrmPanel({
               <div className="space-y-4">
                 <div className="mb-4 flex items-center justify-between gap-3">
                   <h3 className="text-lg font-bold">Communication Log</h3>
-                  {canEdit ? (
+                  {canEditCrm ? (
                     <button
                       onClick={() => setShowTrackerForm((prev) => !prev)}
                       className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-blue-700"
@@ -700,7 +722,7 @@ export function StoreCrmPanel({
                   ) : null}
                 </div>
 
-                {showTrackerForm && canEdit && (
+                {showTrackerForm && canEditCrm && (
                   <form
                     onSubmit={handleCreateTrackerEntry}
                     className="mb-4 grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4"
@@ -791,7 +813,7 @@ export function StoreCrmPanel({
                 <div className="space-y-3">
                   {trackerEntries.length === 0 ? (
                     <div className="rounded-xl border border-slate-100 p-4 text-sm text-slate-500">
-                      No communication log entries yet.
+                      {trackerEmptyMessage}
                     </div>
                   ) : (
                     trackerEntries.map((entry) => {
@@ -825,7 +847,7 @@ export function StoreCrmPanel({
                               &quot;{entry.outcome || entry.details || 'No outcome recorded.'}&quot;
                             </p>
                           </div>
-                          {canEdit ? (
+                          {canEditCrm ? (
                             <button
                               className="text-slate-300 transition-colors hover:text-red-600"
                               onClick={() => handleDeleteTrackerEntry(entry)}

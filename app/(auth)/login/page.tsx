@@ -69,7 +69,7 @@ function LoginContent() {
             alt="KSS x Footasylum Logo"
             width={200}
             height={100}
-            className="object-contain"
+            className="h-auto w-auto object-contain"
             priority
           />
         </div>
