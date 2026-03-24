@@ -142,6 +142,16 @@ AndyMcIntosh
 Private&Confidential 25/34
 `
 
+const ANDY_DUPLICATE_GLYPH_SPACED_TEXT = `
+C o n d u c t e d o n 1 8 . 0 2 . 2 0 2 6 1 4 : 4 9 G M T
+F i r e S a f e t y
+W e e k l y F i r e T e s t s c a r r i e d o u t a n d d o c u m e n t e d ? Y e s
+W e e k l y f i r e t e s t s m a k e u p p a r t o f t h e w e e k l y h e a l t h a n d s a f e t y c h e c k s . T h e s e a r e r e c o r d e d i n z i p l i n e .
+I s p a n e l f r e e o f f a u l t s Y e s
+S i g n a t u r e o f P e r s o n i n C h a r g e o f s t o r e a t t i m e o f a s s e s s m e n t . L u i s a A s i e d u 1 8 . 0 2 . 2 0 2 6 1 0 : 4 8 G M T
+A u d i t C o m p l e t e d b y A n d y M c I n t o s h 1 8 . 0 2 . 2 0 2 6 1 0 : 3 4 G M T
+`
+
 describe('FRA PDF parser', () => {
   it('prefers a locked parser variant when one is already stored', () => {
     const variant = getLockedFraParserVariantFromResponses([
@@ -207,6 +217,15 @@ describe('FRA PDF parser', () => {
     expect(extracted.firePanelLocation).toBe('Ground floor fire exit')
     expect(extracted.firePanelFaults).toBe('No faults')
     expect(extracted.emergencyLightingSwitch).toBe('Ground floor stockroom')
+    expect(extracted.weeklyFireTests).toContain('recorded in zip line')
+  })
+
+  it('extracts Andy duplicate fields from glyph-spaced clipboard text', () => {
+    const extracted = extractFraPdfDataFromText(ANDY_DUPLICATE_GLYPH_SPACED_TEXT, { variant: 'andy_duplicate' })
+
+    expect(extracted.storeManager).toBe('Luisa Asiedu')
+    expect(extracted.conductedDate).toBe('18 February 2026')
+    expect(extracted.assessmentStartTime).toBe('14:49 GMT')
     expect(extracted.weeklyFireTests).toContain('recorded in zip line')
   })
 

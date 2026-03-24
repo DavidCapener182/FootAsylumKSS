@@ -227,17 +227,68 @@ const ANDY_DUPLICATE_CONFIG: ParserConfig = {
   fireDrillAnchor: /fire\s+drill\s+has\s+been\s+carried\s+out\s+in\s+the\s+past\s+6\s+months\s+and\s+records\s+available\s+on\s+site\s*\?/i,
 }
 
+function isSpacedGlyphToken(value: string): boolean {
+  return /^[A-Za-z0-9&/().:+?-]$/.test(value)
+}
+
+function shouldCollapseGlyphRun(tokens: string[]): boolean {
+  if (tokens.length >= 5) return true
+  if (tokens.length >= 4 && tokens.some((token) => /[A-Za-z]/.test(token))) return true
+  if (tokens.length >= 3 && tokens.some((token) => /\d/.test(token))) return true
+  return false
+}
+
+function collapseSpacedGlyphRuns(value: string): string {
+  return value
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .map((line) => {
+      const tokens = line.split(/\s+/).filter(Boolean)
+      if (tokens.length === 0) return ''
+
+      const collapsed: string[] = []
+      let run: string[] = []
+      const flushRun = () => {
+        if (run.length === 0) return
+        if (shouldCollapseGlyphRun(run)) {
+          collapsed.push(run.join(''))
+        } else {
+          collapsed.push(...run)
+        }
+        run = []
+      }
+
+      for (const token of tokens) {
+        if (isSpacedGlyphToken(token)) {
+          run.push(token)
+          continue
+        }
+        flushRun()
+        collapsed.push(token)
+      }
+      flushRun()
+
+      return collapsed.join(' ')
+    })
+    .join('\n')
+}
+
 function normalizeDenseAuditText(value: string): string {
-  let normalized = value.replace(/\u00A0/g, ' ')
+  let normalized = collapseSpacedGlyphRuns(
+    value.replace(/[\u00A0\u200B-\u200D\uFEFF]/g, ' ')
+  )
 
   for (const [pattern, replacement] of DENSE_AUDIT_TEXT_REPLACEMENTS) {
     normalized = normalized.replace(pattern, replacement)
   }
 
   normalized = normalized
+    .replace(/([.?!])([A-Za-z])/g, '$1 $2')
     .replace(/(\d{1,2}[\/.-]\d{1,2}[\/.-]\d{2,4})(\d{1,2}:\d{2}\s*(?:am|pm|gmt|bst|utc))/gi, '$1 $2')
     .replace(/(\d{1,2}:\d{2})(am|pm|gmt|bst|utc)\b/gi, '$1 $2')
     .replace(/(\b\d{1,2}(?:st|nd|rd|th))of\b/gi, '$1 of')
+    .replace(/([A-Za-z?])((?:Yes|No|N\/A|NA)\b)/g, '$1 $2')
+    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
     .replace(/([a-z]{2,})([A-Z][a-z]{2,})/g, '$1 $2')
 
   return normalized
@@ -364,6 +415,7 @@ export function extractDateFromText(value: string): string | null {
 }
 
 export function extractConductedDateFromPdfText(pdfText: string): string | null {
+  const normalizedText = normalizeDenseAuditText(pdfText)
   const patterns = [
     /(?:conducted\s*on|conducted\s*at|assessment\s*date)[\s:]*([^\n\r]{1,80})/i,
     /conducted[\s\S]{0,100}?(\d{1,2}[\/.-]\d{1,2}[\/.-]\d{2,4})/i,
@@ -371,7 +423,7 @@ export function extractConductedDateFromPdfText(pdfText: string): string | null 
   ]
 
   for (const pattern of patterns) {
-    const match = pdfText.match(pattern)
+    const match = normalizedText.match(pattern)
     if (!match?.[1]) continue
     const date = extractDateFromText(match[1])
     if (date) return date
@@ -381,6 +433,7 @@ export function extractConductedDateFromPdfText(pdfText: string): string | null 
 }
 
 export function extractAssessmentStartTime(text: string): string | null {
+  const normalizedText = normalizeDenseAuditText(text)
   const patterns = [
     /(?:conducted\s*on|conducted\s*at|assessment\s*date)[^\n\r]{0,120}?(\d{1,2}:\d{2}\s*(?:am|pm)\s*(?:gmt|bst|utc)?)/i,
     /(?:conducted\s*on|conducted\s*at|assessment\s*date)[^\n\r]{0,120}?(\d{1,2}\.\d{2}\s*(?:am|pm)\s*(?:gmt|bst|utc)?)/i,
@@ -390,7 +443,7 @@ export function extractAssessmentStartTime(text: string): string | null {
   ]
 
   for (const pattern of patterns) {
-    const match = text.match(pattern)
+    const match = normalizedText.match(pattern)
     if (!match?.[1]) continue
     const raw = normalizeWhitespace(match[1]).replace(/(\d{1,2})\.(\d{2})/, '$1:$2')
     const normalized = raw
@@ -1261,11 +1314,11 @@ function sanitizeStoreManagerName(value: string | null | undefined): string | nu
   if (!normalized) return null
 
   const trimmed = normalized
-    .replace(/\b\d{1,2}[\/.-]\d{1,2}[\/.-]\d{2,4}\b[\s\S]*$/i, '')
-    .replace(/\b\d{1,2}(?:st|nd|rd|th)?(?:\s+of)?\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s+\d{4}\b[\s\S]*$/i, '')
+    .replace(/\d{1,2}\s*[\/.-]\s*\d{1,2}\s*[\/.-]\s*\d{2,4}\b[\s\S]*$/i, '')
+    .replace(/\d{1,2}(?:st|nd|rd|th)?(?:\s+of)?\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s+\d{4}\b[\s\S]*$/i, '')
     .replace(/\baudit\s+completed\s+by\b[\s\S]*$/i, '')
     .replace(/\bprivate\s*&\s*confidential\b[\s\S]*$/i, '')
-    .replace(/\b\d{1,2}:\d{2}\s*(?:am|pm|gmt|bst|utc)\b[\s\S]*$/i, '')
+    .replace(/\d{1,2}\s*[:.]\s*\d{2}\s*(?:am|pm|gmt|bst|utc)\b[\s\S]*$/i, '')
     .replace(/^[^A-Za-z]+/, '')
     .replace(/\s+/g, ' ')
     .trim()
@@ -1300,7 +1353,7 @@ export function extractFraPdfDataFromText(
 ): FraPdfExtractedData {
   const variant = options?.variant ?? 'default'
   const config = getParserConfig(variant)
-  const originalText = pdfText
+  const originalText = normalizeDenseAuditText(pdfText)
   const cleanedAuditText = preCleanAuditText(originalText)
   const sectionText = splitAuditSections(cleanedAuditText)
   const generalSiteText = sectionText.generalSiteInformation || cleanedAuditText
@@ -1388,6 +1441,8 @@ export function extractFraPdfDataFromText(
         /location\s+of\s+emergency\s+lighting\s+test\s+switch/i,
         /\bphoto\s+\d+\b/i,
         /private\s*&\s*confidential/i,
+        /signature\s+of\s+person\s+in\s+charge/i,
+        /audit\s+completed\s+by/i,
       ],
       { maxChars: 120, stripLeadingAnswer: false }
     ) || ''
@@ -1411,6 +1466,8 @@ export function extractFraPdfDataFromText(
         [
           /location\s+of\s+emergency\s+lighting\s+test\s+switch/i,
           /\bphoto\s+\d+\b/i,
+          /signature\s+of\s+person\s+in\s+charge/i,
+          /audit\s+completed\s+by/i,
         ],
         { maxChars: 260 }
       )
