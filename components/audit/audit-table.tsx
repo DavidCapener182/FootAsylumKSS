@@ -1109,6 +1109,7 @@ export function AuditTable({
 
                           {nextAudit !== null ? (
                             <Button
+                              type="button"
                               size="sm"
                               onClick={() => handleAddAudit(row)}
                               className="w-full bg-slate-900 text-white hover:bg-slate-800"
@@ -1414,6 +1415,7 @@ export function AuditTable({
 
                               {getNextAuditNumber(row) !== null ? (
                                 <Button
+                                  type="button"
                                   size="sm"
                                   variant="default"
                                   onClick={() => handleAddAudit(row)}
