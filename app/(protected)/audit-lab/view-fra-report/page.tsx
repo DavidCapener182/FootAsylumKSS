@@ -399,8 +399,8 @@ export default function FRAReportViewPage({
           </Button>
         </div>
       </div>
-      <div className="fra-view-scroll-container h-[calc(100vh-48px)] flex items-center justify-center bg-white print:block print:h-auto">
-        <div className="w-[min(90vw,calc(100vh-48px))] h-[min(90vw,calc(100vh-48px))] overflow-auto print:w-full print:max-w-none print:h-auto print:overflow-visible print:min-h-0">
+      <div className="fra-view-scroll-container h-[calc(100vh-48px)] bg-white print:block print:h-auto">
+        <div className="mx-auto h-full w-full max-w-[1200px] overflow-auto px-2 py-3 print:w-full print:max-w-none print:h-auto print:overflow-visible print:min-h-0">
           {loading ? (
             <div className="flex items-center justify-center h-full min-h-[400px]">
               <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />

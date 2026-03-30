@@ -763,14 +763,22 @@ export async function deleteAuditInstance(id: string) {
     throw new Error('Unauthorized')
   }
 
-  // Check if user has permission (admin or owner)
-  const { data: instance } = await supabase
+  // Load instance metadata up front so we can:
+  // - enforce permissions
+  // - if this is an FRA, keep fa_stores.fire_risk_assessment_date in sync after delete
+  const { data: instance, error: instanceError } = await supabase
     .from('fa_audit_instances')
-    .select('conducted_by_user_id')
+    .select(`
+      conducted_by_user_id,
+      store_id,
+      conducted_at,
+      created_at,
+      fa_audit_templates ( category )
+    `)
     .eq('id', id)
     .single()
 
-  if (!instance) {
+  if (instanceError || !instance) {
     throw new Error('Audit instance not found')
   }
 
@@ -782,11 +790,15 @@ export async function deleteAuditInstance(id: string) {
     .single()
 
   const isAdmin = profile?.role === 'admin'
-  const isOwner = instance.conducted_by_user_id === user.id
+  const isOwner = (instance as any).conducted_by_user_id === user.id
 
   if (!isAdmin && !isOwner) {
     throw new Error('Unauthorized - You can only delete your own audits or be an admin')
   }
+
+  const templateCategory = ((instance as any).fa_audit_templates as { category?: string } | null)?.category
+  const storeId = (instance as any).store_id as string | null
+  const isFRA = templateCategory === 'fire_risk_assessment'
 
   // Delete the instance (cascade will handle responses and media)
   const { error } = await supabase
@@ -798,7 +810,43 @@ export async function deleteAuditInstance(id: string) {
     throw new Error(`Failed to delete audit instance: ${error.message}`)
   }
 
+  // If the deleted audit was an FRA, recompute the latest completed FRA date for the store.
+  // The FRA tracker keys off fa_stores.fire_risk_assessment_date, so we must keep it consistent.
+  if (isFRA && storeId) {
+    const { data: latestRemaining, error: latestRemainingError } = await supabase
+      .from('fa_audit_instances')
+      .select(`
+        conducted_at,
+        created_at,
+        fa_audit_templates!inner ( category )
+      `)
+      .eq('store_id', storeId)
+      .eq('status', 'completed')
+      .eq('fa_audit_templates.category', 'fire_risk_assessment')
+      .order('conducted_at', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (latestRemainingError) {
+      console.error('Failed to load latest remaining FRA instance after delete:', latestRemainingError)
+    } else {
+      const nextDateIso = (latestRemaining as any)?.conducted_at || (latestRemaining as any)?.created_at || null
+      const nextDateDay = typeof nextDateIso === 'string' ? nextDateIso.slice(0, 10) : null
+
+      const { error: updateStoreError } = await supabase
+        .from('fa_stores')
+        .update({ fire_risk_assessment_date: nextDateDay })
+        .eq('id', storeId)
+
+      if (updateStoreError) {
+        console.error('Failed to update store FRA date after deleting FRA instance:', updateStoreError)
+      }
+    }
+  }
+
   revalidatePath('/audit-lab')
+  revalidatePath('/fire-risk-assessment')
   return { success: true }
 }
 
@@ -831,6 +879,20 @@ export async function bulkDeleteAuditInstances(ids: string[]) {
     throw new Error('Unauthorized - Only admins can bulk delete audits')
   }
 
+  // Preload instance metadata so we can keep the FRA tracker in sync after delete.
+  const { data: instancesMeta, error: instancesMetaError } = await supabase
+    .from('fa_audit_instances')
+    .select(`
+      id,
+      store_id,
+      fa_audit_templates ( category )
+    `)
+    .in('id', ids)
+
+  if (instancesMetaError) {
+    console.error('Failed to preload audit instances for bulk delete:', instancesMetaError)
+  }
+
   const { error } = await supabase
     .from('fa_audit_instances')
     .delete()
@@ -840,7 +902,62 @@ export async function bulkDeleteAuditInstances(ids: string[]) {
     throw new Error(`Failed to bulk delete audit instances: ${error.message}`)
   }
 
+  // Recompute FRA dates for any affected stores.
+  const affectedStoreIds = Array.from(
+    new Set(
+      (instancesMeta || [])
+        .filter((row: any) => ((row.fa_audit_templates as any)?.category === 'fire_risk_assessment') && row.store_id)
+        .map((row: any) => row.store_id as string)
+    )
+  )
+
+  if (affectedStoreIds.length > 0) {
+    try {
+      const { data: remainingFraInstances, error: remainingFraInstancesError } = await supabase
+        .from('fa_audit_instances')
+        .select(`
+          store_id,
+          conducted_at,
+          created_at,
+          fa_audit_templates!inner ( category )
+        `)
+        .in('store_id', affectedStoreIds)
+        .eq('status', 'completed')
+        .eq('fa_audit_templates.category', 'fire_risk_assessment')
+        .order('store_id', { ascending: true })
+        .order('conducted_at', { ascending: false })
+        .order('created_at', { ascending: false })
+
+      if (remainingFraInstancesError) {
+        console.error('Failed to load remaining FRA instances after bulk delete:', remainingFraInstancesError)
+      } else {
+        const latestByStore = new Map<string, string | null>()
+        for (const row of (remainingFraInstances || []) as any[]) {
+          const sid = row.store_id as string | null
+          if (!sid || latestByStore.has(sid)) continue
+          const nextDateIso = row.conducted_at || row.created_at || null
+          latestByStore.set(sid, typeof nextDateIso === 'string' ? nextDateIso.slice(0, 10) : null)
+        }
+
+        for (const storeId of affectedStoreIds) {
+          const nextDateDay = latestByStore.get(storeId) ?? null
+          const { error: updateStoreError } = await supabase
+            .from('fa_stores')
+            .update({ fire_risk_assessment_date: nextDateDay })
+            .eq('id', storeId)
+
+          if (updateStoreError) {
+            console.error(`Failed to update store FRA date for ${storeId} after bulk delete:`, updateStoreError)
+          }
+        }
+      }
+    } catch (e) {
+      console.error('Unexpected error recomputing FRA dates after bulk delete:', e)
+    }
+  }
+
   revalidatePath('/audit-lab')
+  revalidatePath('/fire-risk-assessment')
   return { success: true, deleted: ids.length }
 }
 
