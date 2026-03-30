@@ -110,6 +110,16 @@ export default function FRAReportViewPage({
       window.location.replace(`/print/fra-report?instanceId=${instanceId}`)
     }
   }, [isPrintPreview, instanceId])
+
+  // Persist last location so "Active Audits → Edit" can resume where the user left off.
+  useEffect(() => {
+    if (!instanceId || typeof window === 'undefined') return
+    try {
+      window.localStorage.setItem(`fra:last_location:${instanceId}`, window.location.pathname + window.location.search)
+    } catch {
+      // ignore storage failures
+    }
+  }, [instanceId])
   const [fraData, setFraData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -117,6 +127,7 @@ export default function FRAReportViewPage({
   const [saveSuccess, setSaveSuccess] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [generatingPdf, setGeneratingPdf] = useState(false)
+  const [needsSetup, setNeedsSetup] = useState(false)
 
   const fetchData = async () => {
     if (!instanceId) {
@@ -127,10 +138,18 @@ export default function FRAReportViewPage({
 
     try {
       setLoading(true)
+      setNeedsSetup(false)
       const response = await fetch(`/api/fra-reports/view?instanceId=${instanceId}`)
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to load FRA report')
+        const message = errorData.error || 'Failed to load FRA report'
+        // If the report isn't ready yet, prompt the user to continue the setup flow.
+        if (message.toLowerCase().includes('failed to generate fra report')) {
+          setNeedsSetup(true)
+          setError(null)
+          return
+        }
+        throw new Error(message)
       }
       let data = await response.json()
 
@@ -404,6 +423,24 @@ export default function FRAReportViewPage({
           {loading ? (
             <div className="flex items-center justify-center h-full min-h-[400px]">
               <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+            </div>
+          ) : needsSetup ? (
+            <div className="mx-auto max-w-2xl rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+              <h2 className="text-lg font-semibold text-slate-900">This FRA is not ready to view yet</h2>
+              <p className="mt-2 text-sm text-slate-600">
+                We still need to extract and review the H&S audit text before the full document can be generated.
+              </p>
+              <div className="mt-4">
+                <Button
+                  onClick={() => {
+                    if (!instanceId) return
+                    router.push(`/audit-lab/review-fra-data?instanceId=${instanceId}`)
+                  }}
+                  className="bg-indigo-600 hover:bg-indigo-500"
+                >
+                  Continue setup
+                </Button>
+              </div>
             </div>
           ) : error ? (
             <div className="p-6 text-sm text-red-600">{error}</div>

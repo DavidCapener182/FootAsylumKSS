@@ -81,6 +81,15 @@ export default function ReviewFRADataPage({
       return
     }
 
+    // Persist last location so "Active Audits → Edit" can resume where the user left off.
+    if (typeof window !== 'undefined') {
+      try {
+        window.localStorage.setItem(`fra:last_location:${instanceId}`, window.location.pathname + window.location.search)
+      } catch {
+        // ignore storage failures
+      }
+    }
+
     const fetchData = async (retryCount = 0) => {
       try {
         setLoading(true)

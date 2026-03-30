@@ -590,10 +590,35 @@ export function AuditLabClient() {
             audits={activeAudits} 
             loading={loadingAudits} 
             onReload={loadActiveAudits}
-            onEdit={(auditInstanceId) => {
+            onEdit={async (auditInstanceId) => {
               // Find the audit to get its template_id
               const audit = activeAudits.find((a: any) => a.id === auditInstanceId)
               if (audit && audit.template_id) {
+                const category = (audit.fa_audit_templates as any)?.category
+
+                // FRA edits should return to the FRA document flow (review/report),
+                // not the generic audit execution UI (which can show only the PDF Storage section).
+                //
+                // Important: do not block navigation on a network call here.
+                // If the report view endpoint is slow, the UI looks unresponsive.
+                if (category === 'fire_risk_assessment' && typeof window !== 'undefined') {
+                  try {
+                    const lastLocationKey = `fra:last_location:${auditInstanceId}`
+                    const lastLocation = window.localStorage.getItem(lastLocationKey)
+                    if (lastLocation && lastLocation.includes(`instanceId=${auditInstanceId}`)) {
+                      window.location.href = lastLocation
+                      return
+                    }
+                  } catch {
+                    // ignore storage failures and fallback
+                  }
+
+                  // Default to the document view. If the report isn't ready yet,
+                  // the report view will prompt the user to continue setup.
+                  window.location.href = `/audit-lab/view-fra-report?instanceId=${auditInstanceId}`
+                  return
+                }
+
                 // Set template and instance, switch to templates tab, and show audit execution view
                 setSelectedTemplate(audit.template_id)
                 setSelectedAuditInstance(auditInstanceId)
@@ -3465,6 +3490,7 @@ function ActiveAuditsView({
   onEdit?: (auditId: string) => void
 }) {
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
 
   const handleDelete = async (auditId: string) => {
     const audit = audits.find(a => a.id === auditId)
@@ -3493,7 +3519,18 @@ function ActiveAuditsView({
 
   const handleEdit = (auditId: string) => {
     if (onEdit) {
-      onEdit(auditId)
+      // Give immediate feedback; navigation may take a moment.
+      setEditingId(auditId)
+      Promise.resolve()
+        .then(() => onEdit(auditId))
+        .catch((error) => {
+          console.error('Error editing audit:', error)
+        })
+        .finally(() => {
+          // If navigation occurs, this component unmounts before this runs.
+          // If navigation is blocked, ensure the button doesn't stay stuck.
+          window.setTimeout(() => setEditingId(null), 1500)
+        })
     } else {
       // TODO: Implement edit navigation
       alert('Edit functionality coming soon')
@@ -3556,10 +3593,20 @@ function ActiveAuditsView({
                           variant="ghost"
                           size="sm"
                           onClick={() => handleEdit(audit.id)}
+                          disabled={editingId === audit.id || deletingId === audit.id}
                           className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
                         >
-                          <Edit2 className="h-4 w-4 mr-1" />
-                          Edit
+                          {editingId === audit.id ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Please wait…
+                            </>
+                          ) : (
+                            <>
+                              <Edit2 className="mr-1 h-4 w-4" />
+                              {(audit.fa_audit_templates as any)?.category === 'fire_risk_assessment' ? 'Continue' : 'Edit'}
+                            </>
+                          )}
                         </Button>
                         <Button
                           variant="ghost"
