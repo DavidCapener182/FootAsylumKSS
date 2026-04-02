@@ -66,6 +66,8 @@ function hasHighLikelihoodTriggers(findings: FRARiskFindings): boolean {
     || findings.combustibles_in_escape_routes
     || findings.fire_doors_held_open
     || findings.fire_doors_blocked
+    || findings.fire_door_integrity_issues
+    || findings.fire_panel_access_obstructed
   )
 }
 
@@ -109,6 +111,8 @@ export function computeFRARiskRating(findings: FRARiskFindings): FRARiskRatingRe
     || findings.fire_doors_held_open
     || findings.fire_doors_blocked
     || findings.combustibles_in_escape_routes
+    || findings.fire_door_integrity_issues
+    || findings.fire_panel_access_obstructed
   ) {
     consequence = 'Moderate Harm'
   } else {
@@ -133,7 +137,7 @@ export function computeFRARiskRating(findings: FRARiskFindings): FRARiskRatingRe
     rationale.push('Back-of-house housekeeping and combustible storage standards require improvement.')
   }
   if (findings.fire_panel_access_obstructed) {
-    rationale.push('Access to the fire alarm panel was impeded and should be kept clear at all times.')
+    rationale.push('A fire alarm panel fault and/or access impediment was identified and requires urgent corrective action.')
   }
   if (findings.fire_door_integrity_issues) {
     rationale.push('Fire door integrity issues were identified and require corrective maintenance.')
@@ -234,7 +238,7 @@ export function buildFRAConsistencyNarratives(
       : 'Fire doors were generally in serviceable condition at the time of assessment and should remain closed and unobstructed in normal operation.'
 
   const firePanelAccessStatement = findings.fire_panel_access_obstructed
-    ? 'Access to the fire alarm panel was impeded. This should be rectified to ensure immediate access during alarm activation, fault response, or emergency attendance.'
+    ? 'A fire alarm panel fault and/or access impediment was identified. This should be rectified to ensure immediate control during alarm activation, fault response, or emergency attendance.'
     : null
 
   const trainingStatement: string | null = null

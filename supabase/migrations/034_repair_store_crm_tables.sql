@@ -104,17 +104,6 @@ BEGIN
         USING (fa_get_user_role(auth.uid()) = 'readonly');
     END IF;
 
-    IF NOT EXISTS (
-      SELECT 1
-      FROM pg_policies
-      WHERE schemaname = 'public'
-        AND tablename = 'fa_store_contacts'
-        AND policyname = 'Client can view store contacts'
-    ) THEN
-      CREATE POLICY "Client can view store contacts"
-        ON public.fa_store_contacts FOR SELECT
-        USING (fa_get_user_role(auth.uid()) = 'client');
-    END IF;
   END IF;
 END
 $$;
@@ -163,17 +152,6 @@ BEGIN
         USING (fa_get_user_role(auth.uid()) = 'readonly');
     END IF;
 
-    IF NOT EXISTS (
-      SELECT 1
-      FROM pg_policies
-      WHERE schemaname = 'public'
-        AND tablename = 'fa_store_notes'
-        AND policyname = 'Client can view store notes'
-    ) THEN
-      CREATE POLICY "Client can view store notes"
-        ON public.fa_store_notes FOR SELECT
-        USING (fa_get_user_role(auth.uid()) = 'client');
-    END IF;
   END IF;
 END
 $$;
@@ -222,17 +200,6 @@ BEGIN
         USING (fa_get_user_role(auth.uid()) = 'readonly');
     END IF;
 
-    IF NOT EXISTS (
-      SELECT 1
-      FROM pg_policies
-      WHERE schemaname = 'public'
-        AND tablename = 'fa_store_contact_tracker'
-        AND policyname = 'Client can view store contact tracker'
-    ) THEN
-      CREATE POLICY "Client can view store contact tracker"
-        ON public.fa_store_contact_tracker FOR SELECT
-        USING (fa_get_user_role(auth.uid()) = 'client');
-    END IF;
   END IF;
 END
 $$;

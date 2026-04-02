@@ -1,6 +1,6 @@
 'use client'
 
-import { Fragment, useMemo, useState } from 'react'
+import React, { Fragment, useMemo, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Input } from '@/components/ui/input'
@@ -90,13 +90,13 @@ export function StoreDirectory({ stores }: StoreDirectoryProps) {
           </div>
 
           <div className="relative w-full md:w-80">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <Input
               type="text"
               placeholder="Search by name, code, city, area, postcode"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-11 w-full rounded-2xl border-slate-200 bg-white pl-10 pr-4 text-base focus-visible:ring-2 focus-visible:ring-indigo-500 sm:h-10 sm:rounded-xl sm:text-sm"
+              className="h-11 w-full rounded-2xl border-slate-200 bg-white pl-10 pr-4 text-base focus-visible:ring-2 focus-visible:ring-indigo-500 sm:h-10 sm:rounded-xl sm:pl-10 sm:pr-4 sm:text-sm"
             />
           </div>
         </div>

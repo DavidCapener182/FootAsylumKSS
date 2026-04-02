@@ -96,6 +96,12 @@ const getTemplateTheme = (category?: string) => {
   }
 }
 
+const isFireRiskAssessmentCategory = (category?: string | null): boolean => {
+  if (!category) return false
+  const normalized = String(category).trim().toLowerCase().replace(/[\s-]+/g, '_')
+  return normalized === 'fire_risk_assessment' || normalized === 'fire_risk'
+}
+
 const toTitleCase = (value: string): string =>
   value
     .toLowerCase()
@@ -601,7 +607,7 @@ export function AuditLabClient() {
                 //
                 // Important: do not block navigation on a network call here.
                 // If the report view endpoint is slow, the UI looks unresponsive.
-                if (category === 'fire_risk_assessment' && typeof window !== 'undefined') {
+                if (isFireRiskAssessmentCategory(category) && typeof window !== 'undefined') {
                   try {
                     const lastLocationKey = `fra:last_location:${auditInstanceId}`
                     const lastLocation = window.localStorage.getItem(lastLocationKey)
@@ -643,6 +649,23 @@ export function AuditLabClient() {
               // Find the audit to get its template_id
               const audit = auditHistory.find((a: any) => a.id === auditId)
               if (audit && (audit.template_id || templateId)) {
+                const category = (audit.fa_audit_templates as any)?.category
+                if (isFireRiskAssessmentCategory(category) && typeof window !== 'undefined') {
+                  try {
+                    const lastLocationKey = `fra:last_location:${auditId}`
+                    const lastLocation = window.localStorage.getItem(lastLocationKey)
+                    if (lastLocation && lastLocation.includes(`instanceId=${auditId}`)) {
+                      window.location.href = lastLocation
+                      return
+                    }
+                  } catch {
+                    // ignore storage failures and fallback
+                  }
+
+                  window.location.href = `/audit-lab/view-fra-report?instanceId=${auditId}`
+                  return
+                }
+
                 // Set template and instance, switch to templates tab, and show audit execution view
                 setSelectedTemplate(audit.template_id || templateId)
                 setSelectedAuditInstance(auditId)

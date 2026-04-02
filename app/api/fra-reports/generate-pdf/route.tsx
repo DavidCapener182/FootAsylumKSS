@@ -88,8 +88,30 @@ export async function GET(request: NextRequest) {
       timeout: 30000,
     })
 
-    // Wait for content to load: print page fetches data client-side, so wrapper appears after API + render
-    await page.waitForSelector('.fra-report-print-wrapper', { timeout: 35000 })
+    // Wait for content to load: print page fetches data client-side.
+    // Some builds render the root with #print-root first, then inject the wrapper class.
+    await page.waitForFunction(
+      () => {
+        const hasReportWrapper = !!document.querySelector('.fra-report-print-wrapper')
+        const hasPrintRoot = !!document.querySelector('#print-root')
+        const hasPages = !!document.querySelector('.fra-print-page')
+        const hasError = /failed to load|no data available|not ready to view/i.test(
+          (document.body?.innerText || '').toLowerCase()
+        )
+        return (hasReportWrapper || hasPrintRoot || hasPages) || hasError
+      },
+      { timeout: 35000 }
+    )
+
+    const pageHasRenderableReport = await page.evaluate(() => {
+      return !!document.querySelector('.fra-report-print-wrapper, #print-root, .fra-print-page')
+    })
+
+    if (!pageHasRenderableReport) {
+      const visibleText = await page.evaluate(() => (document.body?.innerText || '').slice(0, 500))
+      throw new Error(`Print page did not render report content. Visible page text: ${visibleText}`)
+    }
+
     await page.waitForSelector('.fra-print-page', { timeout: 15000 })
     await sleep(1500)
 

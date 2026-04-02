@@ -1604,7 +1604,7 @@ export async function mapHSAuditToFRAData(fraInstanceId: string) {
     }
   }
   const hasPanelFaultCondition =
-    /\b(fault(?:s)? (?:at|present|detected|indicated)|indicates? a fault|fault condition|panel fault)\b/i.test(panelFaultsText)
+    /\b(fault(?:s)? (?:at|present|detected|indicated|show(?:ing|n))|indicates? a fault|fault condition|panel fault|show(?:ing|n)\s+faults?)\b/i.test(panelFaultsText)
     && !/\b(no faults?|fault[\s-]*free|free of faults|normal)\b/i.test(panelFaultsText)
 
   // Emergency Lighting - extract test switch location - prioritize edited data, then PDF, then database
@@ -1893,7 +1893,8 @@ export async function mapHSAuditToFRAData(fraInstanceId: string) {
     fire_doors_blocked: fireDoorsBlocked,
     combustibles_in_escape_routes: combustibleEscapeCompromise,
     combustibles_poorly_stored: combustiblesPoorlyStored,
-    fire_panel_access_obstructed: panelAccessObstructed,
+    // Treat explicit panel fault conditions as a critical panel-management finding for risk scoring.
+    fire_panel_access_obstructed: panelAccessObstructed || hasPanelFaultCondition,
     fire_door_integrity_issues: fireDoorIntegrityIssues,
     housekeeping_poor_back_of_house: housekeepingPoorBackOfHouse,
     housekeeping_good: housekeepingGood,

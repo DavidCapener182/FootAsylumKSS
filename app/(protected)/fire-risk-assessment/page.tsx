@@ -138,12 +138,14 @@ async function getStoreFRAs() {
           if ((audit.fa_audit_templates as any)?.category !== 'fire_risk_assessment') continue
           if (!audit.store_id || ratingByStoreId.has(audit.store_id)) continue
 
-          const rating =
-            (typeof audit.fra_overall_risk_rating === 'string' && audit.fra_overall_risk_rating.trim())
+          const responses = Array.isArray(audit.fa_audit_responses) ? audit.fa_audit_responses : []
+          const fromEvidence = extractFraRiskRatingFromResponses(responses)
+          const stored =
+            typeof audit.fra_overall_risk_rating === 'string' && audit.fra_overall_risk_rating.trim()
               ? audit.fra_overall_risk_rating
-              : extractFraRiskRatingFromResponses(
-                  Array.isArray(audit.fa_audit_responses) ? audit.fa_audit_responses : []
-                )
+              : null
+          // Prefer evidence-based rating so tracker matches the live report; column can lag after logic changes.
+          const rating = fromEvidence ?? stored
 
           ratingByStoreId.set(audit.store_id, rating)
         }

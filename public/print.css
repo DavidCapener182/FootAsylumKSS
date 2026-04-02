@@ -187,6 +187,18 @@ body.fra-print-document .fra-print-page-header .fra-report-print-title {
 body.fra-print-document .fra-print-page-header .fra-report-print-logo {
   flex-shrink: 0;
 }
+body.fra-print-document .fra-print-page-header .fra-kss-logo-header {
+  height: 8mm !important;
+  width: auto !important;
+  max-width: none !important;
+  object-fit: contain !important;
+}
+body.fra-print-document .fra-front-page .fra-kss-logo-cover {
+  height: 18mm !important;
+  width: auto !important;
+  max-width: none !important;
+  object-fit: contain !important;
+}
 
 /* Travel Distances: compact tables, tight row height */
 body.fra-print-document .fra-travel-distances-tables table {

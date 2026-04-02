@@ -128,6 +128,7 @@ export default function FRAReportViewPage({
   const [saveError, setSaveError] = useState<string | null>(null)
   const [generatingPdf, setGeneratingPdf] = useState(false)
   const [needsSetup, setNeedsSetup] = useState(false)
+  const [saveDraftBeforeComplete, setSaveDraftBeforeComplete] = useState<(() => Promise<boolean>) | null>(null)
 
   const fetchData = async () => {
     if (!instanceId) {
@@ -281,6 +282,13 @@ export default function FRAReportViewPage({
     setSaveSuccess(false)
     setSaveError(null)
     try {
+      if (saveDraftBeforeComplete) {
+        const saved = await saveDraftBeforeComplete()
+        if (!saved) {
+          throw new Error('Could not save your latest report edits. Please resolve any save errors and try again.')
+        }
+      }
+
       const res = await fetch('/api/fra-reports/complete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -445,7 +453,13 @@ export default function FRAReportViewPage({
           ) : error ? (
             <div className="p-6 text-sm text-red-600">{error}</div>
           ) : fraData ? (
-            <FRAReportView data={fraData} onDataUpdate={fetchData} />
+            <FRAReportView
+              data={fraData}
+              onDataUpdate={fetchData}
+              onRegisterSaveHandler={(handler) => {
+                setSaveDraftBeforeComplete(() => handler)
+              }}
+            />
           ) : (
             <div className="p-6 text-sm text-slate-600">No data available.</div>
           )}

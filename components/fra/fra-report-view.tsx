@@ -6,7 +6,9 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Save, Loader2, Upload, X } from 'lucide-react'
 import {
+  buildFRARiskSummary,
   buildFRAConsistencyNarratives,
+  computeFRARiskRating,
   FRA_RISK_CONSEQUENCE_ORDER,
   FRA_RISK_LIKELIHOOD_ORDER,
   FRA_RISK_MATRIX,
@@ -199,6 +201,7 @@ interface FRAData {
 interface FRAReportViewProps {
   data: FRAData
   onDataUpdate?: () => void
+  onRegisterSaveHandler?: (handler: (() => Promise<boolean>) | null) => void
   /** When true, show print header/footer on screen (for print preview) */
   showPrintHeaderFooter?: boolean
 }
@@ -295,7 +298,7 @@ async function optimizeImageForUpload(file: File): Promise<File> {
   }
 }
 
-export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRAReportViewProps) {
+export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showPrintHeaderFooter }: FRAReportViewProps) {
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -348,12 +351,21 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
     fire_alarm_tests_current: null,
     extinguishers_serviced_current: null,
   }
-  const fireFindings = data.fireFindings ?? fallbackFindings
+  const panelFaultText = `${String(data.fireAlarmPanelFaults || '')} ${String(data.fireAlarmPanelFaultsComment || '')}`.toLowerCase()
+  const panelFaultSignal =
+    /\b(fault(?:s)? (?:at|present|detected|indicated|show(?:ing|n))|indicates? a fault|fault condition|panel fault|show(?:ing|n)\s+faults?)\b/.test(panelFaultText)
+    && !/\b(no faults?|fault[\s-]*free|free of faults|normal)\b/.test(panelFaultText)
+  const fireFindings = {
+    ...(data.fireFindings ?? fallbackFindings),
+    fire_panel_access_obstructed: (data.fireFindings ?? fallbackFindings).fire_panel_access_obstructed || panelFaultSignal,
+  }
+  const displayRiskRating = computeFRARiskRating(fireFindings)
   const effectiveFloorCount = parseFloorCount(customData.numberOfFloors || data.numberOfFloors)
-  const effectiveRiskLikelihood: FRARiskLikelihood = data.riskRatingLikelihood ?? 'Normal'
-  const effectiveRiskConsequence: FRARiskConsequence = data.riskRatingConsequences ?? 'Moderate Harm'
+  const effectiveRiskLikelihood: FRARiskLikelihood = displayRiskRating.likelihood
+  const effectiveRiskConsequence: FRARiskConsequence = displayRiskRating.consequence
   const matrixDerivedOverallRisk = FRA_RISK_MATRIX[effectiveRiskLikelihood][effectiveRiskConsequence]
   const effectiveOverallRisk = matrixDerivedOverallRisk
+  const displayRiskSummary = buildFRARiskSummary(fireFindings, displayRiskRating)
   const consistencyNarratives = buildFRAConsistencyNarratives(
     fireFindings,
     effectiveOverallRisk as FRAOverallRisk
@@ -476,7 +488,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
     })
   }, [data.floorArea, data.occupancy, data.operatingHours, data.buildDate, data.propertyType, data.numberOfFloors, data.numberOfFireExits, data.adjacentOccupancies, data.sleepingRisk, data.totalStaffEmployed, data.maxStaffOnSite, data.youngPersonsCount, data.description, data.intumescentStripsPresent])
 
-  const handleSave = async () => {
+  const persistCustomData = async (): Promise<boolean> => {
     try {
       setSaving(true)
       const response = await fetch('/api/fra-reports/save-custom-data', {
@@ -503,13 +515,28 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
       setSaved(true)
       setEditing(false)
       setTimeout(() => setSaved(false), 3000)
+      return true
     } catch (error: any) {
       console.error('Error saving custom data:', error)
       alert(`Failed to save: ${error.message}`)
+      return false
     } finally {
       setSaving(false)
     }
   }
+
+  const handleSave = async () => {
+    await persistCustomData()
+  }
+
+  useEffect(() => {
+    if (!onRegisterSaveHandler) return
+    onRegisterSaveHandler(async () => {
+      if (!editing) return true
+      return await persistCustomData()
+    })
+    return () => onRegisterSaveHandler(null)
+  }, [onRegisterSaveHandler, editing, customData, data.fraInstance?.id, onDataUpdate])
 
   const handleIntumescentStripsToggle = async (value: boolean) => {
     const previousValue = customData.intumescentStripsPresent
@@ -878,18 +905,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
 
   const printHeaderContent = (
     <>
-      <span className="fra-report-print-logo flex items-center shrink-0">
-        {logoError ? (
-          <span className="font-semibold text-slate-800">KSS NW Ltd</span>
-        ) : (
-          <img
-            src="/kss-logo.png"
-            alt="KSS"
-            className="h-8 w-auto object-contain"
-            onError={() => setLogoError(true)}
-          />
-        )}
-      </span>
+      <span className="w-[80px] shrink-0" aria-hidden="true" />
       <span className="fra-report-print-title flex-1 text-center mx-3">Fire Risk Assessment</span>
       <span className="w-[80px] shrink-0" aria-hidden="true" />
     </>
@@ -946,7 +962,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
               <img
                 src="/kss-logo.png"
                 alt="KSS NW Ltd"
-                className="h-10 w-auto mx-auto object-contain"
+                className="fra-kss-logo fra-kss-logo-cover h-10 w-auto mx-auto object-contain"
                 onError={() => setLogoError(true)}
               />
             )}
@@ -2730,7 +2746,7 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
           </div>
           <div>
             <h3 className="font-semibold mb-2">7.1.3 Summary of Risk Rating</h3>
-            <p className="mb-2 whitespace-pre-line">{data.summaryOfRiskRating ?? 'Taking into account the nature of the building and the occupants, as well as the fire protection and procedural arrangements observed at the time of this fire risk assessment, it is considered that the consequences for life safety in the event of fire would be: Moderate Harm. Accordingly, it is considered that the risk from fire at these premises is: Tolerable.'}</p>
+            <p className="mb-2 whitespace-pre-line">{displayRiskSummary}</p>
             {data.riskRatingRationale && data.riskRatingRationale.length > 0 && (
               <ul className="list-disc list-inside text-slate-700 space-y-1 mb-2">
                 {data.riskRatingRationale.map((reason, idx) => (
@@ -2755,7 +2771,14 @@ export function FRAReportView({ data, onDataUpdate, showPrintHeaderFooter }: FRA
         </div>
         <h2 className="text-xl font-semibold mb-4">8. Action Plan</h2>
         <p className="text-sm mb-4">
-          It is considered that the following recommendations should be implemented in order to reduce fire risk to a tolerable level:{' '}
+          Current assessed risk level:{' '}
+          <span className={`inline-block px-3 py-1.5 font-bold text-base rounded border align-middle ${getOverallRiskBadgeClass(effectiveOverallRisk)}`}>
+            {effectiveOverallRisk}
+          </span>
+          .
+        </p>
+        <p className="text-sm mb-4">
+          It is considered that the following recommendations should be implemented to reduce fire risk to the target level:{' '}
           <span className={`inline-block px-3 py-1.5 font-bold text-base rounded border align-middle ${getOverallRiskBadgeClass('Tolerable')}`}>
             Tolerable
           </span>
