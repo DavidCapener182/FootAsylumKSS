@@ -285,7 +285,8 @@ async function optimizeImageForUpload(file: File): Promise<File> {
     if (!bestBlob) return file
 
     const unchangedSize = scale >= 1 && bestBlob.size >= file.size
-    if (unchangedSize) return file
+    const shouldKeepOriginal = unchangedSize && file.type !== 'image/webp'
+    if (shouldKeepOriginal) return file
 
     return new File(
       [bestBlob],
@@ -293,6 +294,9 @@ async function optimizeImageForUpload(file: File): Promise<File> {
       { type: bestBlob.type, lastModified: Date.now() }
     )
   } catch (error) {
+    if (file.type === 'image/webp') {
+      throw new Error('WEBP photos could not be processed. Please retry or use JPG/PNG.')
+    }
     console.warn('Image compression skipped:', error)
     return file
   }
