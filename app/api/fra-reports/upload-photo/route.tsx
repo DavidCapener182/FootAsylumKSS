@@ -3,6 +3,29 @@ import { createClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
 
+function inferImageMimeType(fileName: string): string {
+  const ext = fileName.split('.').pop()?.toLowerCase() || ''
+  if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg'
+  if (ext === 'png') return 'image/png'
+  if (ext === 'webp') return 'image/webp'
+  if (ext === 'heic') return 'image/heic'
+  if (ext === 'heif') return 'image/heif'
+  if (ext === 'avif') return 'image/avif'
+  if (ext === 'bmp') return 'image/bmp'
+  if (ext === 'tif' || ext === 'tiff') return 'image/tiff'
+  if (ext === 'jfif') return 'image/jpeg'
+  if (ext === 'gif') return 'image/gif'
+  if (ext === 'svg') return 'image/svg+xml'
+  return ''
+}
+
+function resolveUploadMimeType(file: File): string {
+  const inferred = inferImageMimeType(file.name)
+  const declared = String(file.type || '').toLowerCase()
+  if (!declared || declared === 'application/octet-stream') return inferred
+  return declared
+}
+
 export async function POST(request: NextRequest) {
   try {
     const supabase = createClient()
@@ -63,17 +86,11 @@ export async function POST(request: NextRequest) {
     const uploadedFiles: any[] = []
 
     for (const file of files) {
-      // Validate file type
-      if (!file.type.startsWith('image/')) {
-        return NextResponse.json({ error: 'Only image files are allowed' }, { status: 400 })
-      }
+      const detectedType = resolveUploadMimeType(file)
 
-      // Bucket policy does not accept WEBP uploads.
-      if (file.type === 'image/webp') {
-        return NextResponse.json(
-          { error: 'WEBP photos are not supported. Please upload JPG or PNG files.' },
-          { status: 400 }
-        )
+      // Validate file type
+      if (!detectedType.startsWith('image/')) {
+        return NextResponse.json({ error: 'Only image files are allowed' }, { status: 400 })
       }
 
       // Validate file size (max 25MB for high-res site/premises photos)
@@ -91,7 +108,7 @@ export async function POST(request: NextRequest) {
       const { error: uploadError } = await supabase.storage
         .from('fa-attachments')
         .upload(filePath, file, {
-          contentType: file.type,
+          contentType: detectedType,
           upsert: false
         })
 
@@ -107,7 +124,7 @@ export async function POST(request: NextRequest) {
       uploadedFiles.push({
         file_path: filePath,
         file_name: file.name,
-        file_type: file.type,
+        file_type: detectedType,
         file_size: file.size,
         public_url: signed?.signedUrl ?? ''
       })

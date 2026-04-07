@@ -36,7 +36,7 @@ describe('FRA upload-photo route', () => {
     mockStorageCreateSignedUrl.mockResolvedValue({ data: { signedUrl: 'https://signed-url' } })
   })
 
-  it('rejects WEBP files with a clear error message', async () => {
+  it('accepts WEBP files', async () => {
     const { POST } = await import('./route')
 
     const formData = new FormData()
@@ -52,8 +52,34 @@ describe('FRA upload-photo route', () => {
     const response = await POST(request)
     const json = await response.json()
 
-    expect(response.status).toBe(400)
-    expect(json.error).toContain('WEBP photos are not supported')
-    expect(mockStorageUpload).not.toHaveBeenCalled()
+    expect(response.status).toBe(200)
+    expect(Array.isArray(json.files)).toBe(true)
+    expect(mockStorageUpload).toHaveBeenCalledTimes(1)
+    const uploadCall = mockStorageUpload.mock.calls[0]
+    expect(uploadCall?.[2]?.contentType).toBe('image/webp')
+  })
+
+  it('accepts image uploads when browser sends octet-stream but filename is jpg', async () => {
+    const { POST } = await import('./route')
+
+    const file = new File(['fake-jpg'], 'photo.jpg', { type: 'application/octet-stream' })
+    const formData = new FormData()
+    formData.set('instanceId', 'fra-123')
+    formData.set('placeholderId', 'fire-panel-photo')
+    formData.append('files', file)
+
+    const request = new NextRequest('http://localhost/api/fra-reports/upload-photo', {
+      method: 'POST',
+      body: formData,
+    })
+
+    const response = await POST(request)
+    const json = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(Array.isArray(json.files)).toBe(true)
+    expect(mockStorageUpload).toHaveBeenCalledTimes(1)
+    const uploadCall = mockStorageUpload.mock.calls[0]
+    expect(uploadCall?.[2]?.contentType).toBe('image/jpeg')
   })
 })

@@ -212,6 +212,22 @@ const MAX_UPLOAD_IMAGE_DIMENSION = 1800
 const MAX_UPLOAD_IMAGE_BYTES = 2 * 1024 * 1024
 const COMPRESSION_QUALITIES = [0.78, 0.68, 0.58]
 
+function inferImageMimeType(fileName: string): string {
+  const ext = fileName.split('.').pop()?.toLowerCase() || ''
+  if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg'
+  if (ext === 'png') return 'image/png'
+  if (ext === 'webp') return 'image/webp'
+  if (ext === 'heic') return 'image/heic'
+  if (ext === 'heif') return 'image/heif'
+  if (ext === 'avif') return 'image/avif'
+  if (ext === 'bmp') return 'image/bmp'
+  if (ext === 'tif' || ext === 'tiff') return 'image/tiff'
+  if (ext === 'jfif') return 'image/jpeg'
+  if (ext === 'gif') return 'image/gif'
+  if (ext === 'svg') return 'image/svg+xml'
+  return ''
+}
+
 function buildCompressedFileName(originalName: string, mimeType: string): string {
   const baseName = originalName.replace(/\.[^/.]+$/, '')
   if (mimeType === 'image/jpeg') return `${baseName}.jpg`
@@ -244,8 +260,9 @@ async function canvasToBlob(
 }
 
 async function optimizeImageForUpload(file: File): Promise<File> {
-  if (!file.type.startsWith('image/')) return file
-  if (file.type === 'image/gif' || file.type === 'image/svg+xml') return file
+  const detectedType = file.type || inferImageMimeType(file.name)
+  if (!detectedType.startsWith('image/')) return file
+  if (detectedType === 'image/gif' || detectedType === 'image/svg+xml') return file
   if (typeof window === 'undefined') return file
 
   try {
@@ -328,6 +345,10 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
   const [deletingPhotoPath, setDeletingPhotoPath] = useState<string | null>(null)
   const [placeholderPhotos, setPlaceholderPhotos] = useState<Record<string, any[]>>({})
   const [logoError, setLogoError] = useState(false)
+  const customDataRef = useRef(customData)
+  const editingRef = useRef(editing)
+  const instanceIdRef = useRef(data.fraInstance?.id as string | undefined)
+  const onDataUpdateRef = useRef(onDataUpdate)
   const lowerEscapeEvidence = String(data.escapeRoutesEvidence || '').toLowerCase()
   const lowerFireDoorText = `${String(data.internalFireDoors || '')} ${String(data.compartmentationStatus || '')}`.toLowerCase()
   const fallbackHeldOpenSentences = lowerFireDoorText.match(/[^.!?\n]*\b(held open|wedged open|propped open)\b[^.!?\n]*/gi) || []
@@ -492,17 +513,37 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
     })
   }, [data.floorArea, data.occupancy, data.operatingHours, data.buildDate, data.propertyType, data.numberOfFloors, data.numberOfFireExits, data.adjacentOccupancies, data.sleepingRisk, data.totalStaffEmployed, data.maxStaffOnSite, data.youngPersonsCount, data.description, data.intumescentStripsPresent])
 
+  useEffect(() => {
+    customDataRef.current = customData
+  }, [customData])
+
+  useEffect(() => {
+    editingRef.current = editing
+  }, [editing])
+
+  useEffect(() => {
+    instanceIdRef.current = data.fraInstance?.id
+  }, [data.fraInstance?.id])
+
+  useEffect(() => {
+    onDataUpdateRef.current = onDataUpdate
+  }, [onDataUpdate])
+
   const persistCustomData = async (): Promise<boolean> => {
     try {
       setSaving(true)
+      const instanceId = instanceIdRef.current
+      if (!instanceId) {
+        throw new Error('Missing FRA instance id')
+      }
       const response = await fetch('/api/fra-reports/save-custom-data', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          instanceId: data.fraInstance.id,
-          customData: customData,
+          instanceId,
+          customData: customDataRef.current,
         }),
       })
 
@@ -512,8 +553,8 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
       }
 
       // Re-fetch persisted data so the UI reflects exactly what is stored.
-      if (onDataUpdate) {
-        await onDataUpdate()
+      if (onDataUpdateRef.current) {
+        await onDataUpdateRef.current()
       }
 
       setSaved(true)
@@ -536,11 +577,11 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
   useEffect(() => {
     if (!onRegisterSaveHandler) return
     onRegisterSaveHandler(async () => {
-      if (!editing) return true
+      if (!editingRef.current) return true
       return await persistCustomData()
     })
     return () => onRegisterSaveHandler(null)
-  }, [onRegisterSaveHandler, editing, customData, data.fraInstance?.id, onDataUpdate])
+  }, [onRegisterSaveHandler])
 
   const handleIntumescentStripsToggle = async (value: boolean) => {
     const previousValue = customData.intumescentStripsPresent
@@ -681,7 +722,17 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
     const triggerFileInput = (mode: UploadMode = 'append') => {
       if (isUploading) return
       nextUploadModeRef.current = mode
-      fileInputRef.current?.click()
+      const input = fileInputRef.current
+      if (!input) return
+      input.value = ''
+      input.click()
+    }
+
+    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+      const mode = nextUploadModeRef.current
+      handlePhotoUpload(placeholderId, event.target.files, maxPhotos, mode)
+      nextUploadModeRef.current = 'append'
+      event.target.value = ''
     }
 
     const hasDraggedFiles = (event: React.DragEvent<HTMLDivElement>): boolean => {
@@ -730,13 +781,6 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
       handlePhotoUpload(placeholderId, droppedFiles, maxPhotos, 'append')
     }
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const mode = nextUploadModeRef.current
-      handlePhotoUpload(placeholderId, e.target.files, maxPhotos, mode)
-      nextUploadModeRef.current = 'append'
-      e.target.value = '' // allow re-selecting same file
-    }
-
     const isGrid = (maxPhotos ?? 5) > 1
     const isContain = fit === 'contain'
     const imageWrapperClass = fullHeight && photos.length === 1
@@ -769,8 +813,10 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
           accept="image/*"
           multiple
           onChange={handleFileChange}
-          className="hidden"
           disabled={isUploading}
+          tabIndex={-1}
+          aria-hidden="true"
+          className="fixed left-[-9999px] top-0 h-px w-px opacity-0"
         />
         {photos.length > 0 ? (
           <div className={photos.length === 1 ? 'flex justify-center' : stacked ? 'grid grid-cols-1 gap-2' : `grid grid-cols-2 md:grid-cols-3 gap-2 ${isGrid ? 'fra-photo-grid' : ''}`}>

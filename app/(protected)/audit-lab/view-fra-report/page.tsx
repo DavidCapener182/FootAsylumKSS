@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { FRAReportView } from '@/components/fra/fra-report-view'
 import { Button } from '@/components/ui/button'
 import { Loader2, Save, Printer, X, Download } from 'lucide-react'
@@ -129,6 +129,9 @@ export default function FRAReportViewPage({
   const [generatingPdf, setGeneratingPdf] = useState(false)
   const [needsSetup, setNeedsSetup] = useState(false)
   const [saveDraftBeforeComplete, setSaveDraftBeforeComplete] = useState<(() => Promise<boolean>) | null>(null)
+  const handleRegisterSaveHandler = useCallback((handler: (() => Promise<boolean>) | null) => {
+    setSaveDraftBeforeComplete(() => handler)
+  }, [])
 
   const fetchData = async () => {
     if (!instanceId) {
@@ -456,9 +459,7 @@ export default function FRAReportViewPage({
             <FRAReportView
               data={fraData}
               onDataUpdate={fetchData}
-              onRegisterSaveHandler={(handler) => {
-                setSaveDraftBeforeComplete(() => handler)
-              }}
+              onRegisterSaveHandler={handleRegisterSaveHandler}
             />
           ) : (
             <div className="p-6 text-sm text-slate-600">No data available.</div>
