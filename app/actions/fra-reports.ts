@@ -1514,9 +1514,30 @@ export async function mapHSAuditToFRAData(fraInstanceId: string) {
   const escapeObstructedFromNarrative = hasEscapeRouteObstructionSignal(escapeRoutesNarrativeFromAudit)
   const escapeObstructed = escapeObstructedFromAnswers || escapeObstructedFromNarrative
   const hasEscapeRouteConcern = escapeObstructed
-  const combustibleEscapeCompromise = (pdfExtractedData as any).combustibleStorageEscapeCompromiseFlag === 'yes' ||
-    pdfExtractedData.combustibleStorageEscapeCompromise === 'yes' ||
-    Boolean(combustibleMaterials && String(combustibleMaterials.value).toLowerCase() === 'no')
+  const combustibleNarrative = normalizeWhitespace(
+    `${pdfExtractedData.combustibleStorageEscapeCompromise ?? ''} ${combustibleMaterials?.comment ?? ''}`
+  )
+  const combustibleNarrativeLower = combustibleNarrative.toLowerCase()
+  const combustibleNarrativeRouteObstruction = hasEscapeRouteObstructionSignal(combustibleNarrative)
+  const combustibleNarrativeExplicitRouteIssue =
+    /\b(escape routes?|fire exits?|final exits?|evacuation routes?)\b[\s\S]{0,45}\b(obstructed|blocked|restricted|compromised|impeded)\b/.test(combustibleNarrativeLower)
+    || /\b(obstructed|blocked|restricted|compromised|impeded)\b[\s\S]{0,45}\b(escape routes?|fire exits?|final exits?|evacuation routes?)\b/.test(combustibleNarrativeLower)
+  const combustibleNarrativeExplicitRouteClear =
+    /\b(escape routes?|fire exits?|final exits?|evacuation routes?)\b[\s\S]{0,45}\b(clear|unobstructed|free from hazards?|without obstruction|fully accessible)\b/.test(combustibleNarrativeLower)
+
+  const escapeRoutesNarrativeLower = normalizeWhitespace(escapeRoutesNarrativeFromAudit || '').toLowerCase()
+  const escapeRoutesExplicitlyClear =
+    /\b(escape routes?|fire exits?|final exits?|evacuation routes?)\b[\s\S]{0,45}\b(clear|unobstructed|free from hazards?|without obstruction|fully accessible)\b/.test(escapeRoutesNarrativeLower)
+
+  const combustibleCompromiseCandidate =
+    (pdfExtractedData as any).combustibleStorageEscapeCompromiseFlag === 'yes'
+    || pdfExtractedData.combustibleStorageEscapeCompromise === 'yes'
+    || combustibleNarrativeRouteObstruction
+
+  const combustibleEscapeCompromise =
+    combustibleNarrativeExplicitRouteIssue
+      ? true
+      : (combustibleCompromiseCandidate && !combustibleNarrativeExplicitRouteClear && !escapeRoutesExplicitlyClear)
   const fireSafetyTrainingShortfall = pdfExtractedData.fireSafetyTrainingShortfall === 'yes' ||
     trainingInduction?.value === 'No' || trainingToolbox?.value === 'No'
 

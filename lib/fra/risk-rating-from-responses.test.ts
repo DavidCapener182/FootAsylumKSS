@@ -59,4 +59,27 @@ describe('buildFraRiskFindingsFromResponses', () => {
     const overall = extractFraRiskRatingFromResponses(responses as any)
     expect(overall).not.toBe('Tolerable')
   })
+
+  it('treats combustible storage "No" without route obstruction text as poor storage, not route compromise', () => {
+    const responses = [
+      {
+        response_value: 'No',
+        response_json: {
+          value: 'No',
+          comment: 'Build up of cardboard in stockroom; remove as housekeeping action.',
+          fra_extracted_data: {
+            combustibleStorageEscapeCompromise: 'At the time of inspection there was a build up of cardboard that needed to be removed',
+            escapeRoutesEvidence: 'All fire exits were clear and free from hazards',
+          },
+        },
+        fa_audit_template_questions: {
+          question_text: 'Combustible materials are stored correctly?',
+        },
+      },
+    ]
+
+    const findings = buildFraRiskFindingsFromResponses(responses as any)
+    expect(findings.combustibles_poorly_stored).toBe(true)
+    expect(findings.combustibles_in_escape_routes).toBe(false)
+  })
 })

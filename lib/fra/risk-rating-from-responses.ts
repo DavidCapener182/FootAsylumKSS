@@ -230,7 +230,7 @@ export function buildFraRiskFindingsFromResponses(responses: FRAResponseLike[]):
 
   const combustiblesInEscapeRoutes =
     extractedCombustiblesInEscapeRoutes
-    || (combustibleStorage.answer === false && combustibleRouteSignal !== false)
+    || (combustibleStorage.answer === false && combustibleRouteSignal === true)
 
   const combustiblesPoorlyStored =
     (combustibleStorage.answer === false || textIncludesAny(extractedData.combustibleStorageEscapeCompromise, [/\bstacked incorrectly\b/i, /\btipping hazards?\b/i]))
