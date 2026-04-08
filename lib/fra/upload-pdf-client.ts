@@ -2,7 +2,7 @@
 
 import { createClient } from '@/lib/supabase/client'
 
-const MAX_FRA_PDF_SIZE_BYTES = 25 * 1024 * 1024
+const MAX_FRA_PDF_SIZE_BYTES = 100 * 1024 * 1024
 
 export async function uploadFraPdfFromClient(storeId: string, file: File): Promise<string> {
   if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
@@ -10,7 +10,7 @@ export async function uploadFraPdfFromClient(storeId: string, file: File): Promi
   }
 
   if (file.size > MAX_FRA_PDF_SIZE_BYTES) {
-    throw new Error('File size must be less than 25MB')
+    throw new Error('File size must be less than 100MB')
   }
 
   const supabase = createClient()
