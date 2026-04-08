@@ -2,6 +2,8 @@
 
 import { createClient } from '@/lib/supabase/server'
 
+const MAX_FRA_PDF_SIZE_BYTES = 500 * 1024 * 1024
+
 /**
  * Upload a PDF file for a Fire Risk Assessment
  * @param storeId - The store ID
@@ -24,10 +26,8 @@ export async function uploadFRAPDF(
     throw new Error('Only PDF files are allowed')
   }
 
-  // Validate file size (max 10MB)
-  const maxSize = 10 * 1024 * 1024 // 10MB
-  if (file.size > maxSize) {
-    throw new Error('File size must be less than 10MB')
+  if (file.size > MAX_FRA_PDF_SIZE_BYTES) {
+    throw new Error('File size must be less than 500MB')
   }
 
   const fileExt = 'pdf'

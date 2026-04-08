@@ -11,10 +11,15 @@ export const dynamic = 'force-dynamic'
  */
 async function loadPlaceholderPhotos(
   supabase: Awaited<ReturnType<typeof createClient>>,
-  instanceId: string
+  instanceId: string,
+  options?: { forPdf?: boolean }
 ): Promise<Record<string, { file_path: string; public_url: string }[]>> {
   const result: Record<string, { file_path: string; public_url: string }[]> = {}
   const prefix = `fra/${instanceId}/photos`
+  const forPdf = options?.forPdf === true
+  const transformWidth = forPdf ? 900 : 1600
+  const transformHeight = forPdf ? 900 : 1600
+  const transformQuality = forPdf ? 45 : 70
   const { data: placeholders, error: listError } = await supabase.storage
     .from('fa-attachments')
     .list(prefix, { limit: 50 })
@@ -41,10 +46,10 @@ async function loadPlaceholderPhotos(
         .from('fa-attachments')
         .createSignedUrl(filePath, 120, {
           transform: {
-            width: 1600,
-            height: 1600,
+            width: transformWidth,
+            height: transformHeight,
             resize: 'contain',
-            quality: 70,
+            quality: transformQuality,
           },
         })
 
@@ -82,6 +87,7 @@ export async function GET(request: NextRequest) {
 
     const searchParams = request.nextUrl.searchParams
     const instanceId = searchParams.get('instanceId')
+    const forPdf = searchParams.get('forPdf') === '1'
 
     if (!instanceId) {
       return NextResponse.json({ error: 'instanceId is required' }, { status: 400 })
@@ -91,7 +97,7 @@ export async function GET(request: NextRequest) {
     const fraData = await mapHSAuditToFRAData(instanceId)
 
     // Load uploaded placeholder photos from storage so they appear after refresh and in PDF
-    const placeholderPhotos = await loadPlaceholderPhotos(supabase, instanceId)
+    const placeholderPhotos = await loadPlaceholderPhotos(supabase, instanceId, { forPdf })
     const dataWithPhotos = { ...fraData, placeholderPhotos }
 
     return NextResponse.json(dataWithPhotos)

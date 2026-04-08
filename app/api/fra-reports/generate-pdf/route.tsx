@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
     const protocol = request.headers.get('x-forwarded-proto') || 'http'
     const host = request.headers.get('host') || 'localhost:3000'
     const baseUrl = `${protocol}://${host}`
-    const reportUrl = `${baseUrl}/print/fra-report?instanceId=${instanceId}`
+    const reportUrl = `${baseUrl}/print/fra-report?instanceId=${instanceId}&forPdf=1`
 
     const executablePath = resolveChromeExecutablePath()
 

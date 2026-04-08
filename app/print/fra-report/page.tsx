@@ -104,7 +104,7 @@ const isManualSource = (sources: Record<string, string> | undefined, fieldName: 
 export default function FRAPrintReportPage({
   searchParams,
 }: {
-  searchParams: { instanceId?: string }
+  searchParams: { instanceId?: string; forPdf?: string }
 }) {
   const router = useRouter()
   const instanceId = searchParams?.instanceId
@@ -121,7 +121,8 @@ export default function FRAPrintReportPage({
     }
     try {
       setLoading(true)
-      const response = await fetch(`/api/fra-reports/view?instanceId=${instanceId}`)
+      const forPdf = searchParams?.forPdf === '1'
+      const response = await fetch(`/api/fra-reports/view?instanceId=${instanceId}${forPdf ? '&forPdf=1' : ''}`)
       if (!response.ok) {
         const errorData = await response.json()
         throw new Error(errorData.error || 'Failed to load FRA report')
