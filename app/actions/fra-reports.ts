@@ -1731,7 +1731,11 @@ export async function mapHSAuditToFRAData(fraInstanceId: string) {
   const fireDoorIntegrityIssues = (() => {
     const doorsCondition = normalizeYesNo(fireDoorsCondition?.value)
     const stripsCondition = normalizeYesNo(intumescentStrips?.value)
-    return doorsCondition === 'no' || stripsCondition === 'no' || hasCompartmentationDefect
+    const damageSignal = hasPositiveDoorSignal(
+      fireDoorEvidenceText,
+      /\b(fire door(?:s)?|door(?:s)?)\b[\s\S]{0,40}\b(damage(?:d)?|broken|crack(?:ed)?|split|hole|warp(?:ed|ing)?|delaminat(?:ed|ion)|dent(?:ed)?|defect(?:ive)?)\b|\b(damage(?:d)?|broken|crack(?:ed)?|split|hole|warp(?:ed|ing)?|delaminat(?:ed|ion)|dent(?:ed)?|defect(?:ive)?)\b[\s\S]{0,40}\b(fire door(?:s)?|door(?:s)?)\b/
+    )
+    return doorsCondition === 'no' || stripsCondition === 'no' || hasCompartmentationDefect || damageSignal
   })()
 
   const panelAccessObstructed = (() => {
@@ -2375,7 +2379,7 @@ Sprinkler heads are installed throughout the premises in accordance with the ori
       fireFindings.fire_doors_held_open || fireFindings.fire_doors_blocked
         ? 'Stop fire doors from being held open or blocked; enforce local checks to maintain effective compartmentation at all times.'
         : fireFindings.fire_door_integrity_issues
-          ? 'Rectify fire door integrity issues (including missing or damaged intumescent strips/seals) and verify all fire doors meet required fire-resisting standards.'
+          ? 'Rectify fire door integrity issues (including damaged doors/frames and missing or damaged intumescent strips/seals) and verify all fire doors meet required fire-resisting standards.'
           : 'Ensure internal fire doors are maintained in effective working order and are not wedged or held open.',
       fireFindings.fire_alarm_tests_current === false || fireFindings.emergency_lighting_tests_current === false || fireFindings.extinguishers_serviced_current === false ? 'Bring routine testing and servicing records up to date for fire alarm systems, emergency lighting and fire-fighting equipment in accordance with statutory requirements and British Standards.' : 'Continue routine testing, inspection and servicing of fire alarm systems, emergency lighting and fire-fighting equipment in accordance with statutory requirements and British Standards.',
       'Continue to conduct and record fire drills at appropriate intervals to ensure staff familiarity with evacuation procedures.'
@@ -2428,10 +2432,10 @@ Sprinkler heads are installed throughout the premises in accordance with the ori
             priority: 'High',
             recommendation: 'Fire doors were observed held open and/or blocked. Reinstate effective door management immediately to maintain compartmentation and smoke control.',
           })
-        } else if (fireFindings.fire_door_integrity_issues && !hasAction(/\bfire door\b.*\b(intumescent|integrity|seal|strip|compartmentation)\b/)) {
+        } else if (fireFindings.fire_door_integrity_issues && !hasAction(/\bfire door\b.*\b(intumescent|integrity|seal|strip|compartmentation|damag|frame|repair)\b/)) {
           normalized.push({
             priority: 'Medium',
-            recommendation: 'Rectify fire door integrity defects (including missing or damaged intumescent strips/seals) and record completion checks.',
+            recommendation: 'Rectify fire door integrity defects (including damaged doors/frames and missing or damaged intumescent strips/seals) and record completion checks.',
           })
         }
         if (fireFindings.combustibles_in_escape_routes && !hasAction(/\bcombustible\b.*\b(escape route|final exit)\b|\bescape route\b.*\bcombustible\b/)) {
@@ -2476,7 +2480,7 @@ Sprinkler heads are installed throughout the premises in accordance with the ori
       } else if (fireFindings.fire_door_integrity_issues) {
         derived.push({
           priority: 'Medium',
-          recommendation: 'Rectify fire door integrity defects (including missing or damaged intumescent strips/seals) and record completion checks.',
+          recommendation: 'Rectify fire door integrity defects (including damaged doors/frames and missing or damaged intumescent strips/seals) and record completion checks.',
         })
       }
       if (fireFindings.combustibles_in_escape_routes) {
