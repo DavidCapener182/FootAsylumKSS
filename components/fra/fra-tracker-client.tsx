@@ -1,12 +1,15 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { FRATable, FRARow } from './fra-table'
 import { FRACompletedTable } from './fra-completed-table'
 import { FRAStatsCards } from './fra-stats-cards'
 import { UserRole } from '@/lib/auth'
 import { CheckCircle2, Download, Flame } from 'lucide-react'
+import { getFRAPDFDownloadUrl } from '@/app/actions/fra-pdfs'
+import { getFRAStatus, storeNeedsFRA } from './fra-table-helpers'
+import { useToast } from '@/hooks/use-toast'
 
 interface FRATrackerClientProps {
   stores: FRARow[]
@@ -16,6 +19,78 @@ interface FRATrackerClientProps {
 export function FRATrackerClient({ stores, userRole }: FRATrackerClientProps) {
   const [activeView, setActiveView] = useState<'required' | 'completed'>('required')
   const [areaFilter, setAreaFilter] = useState<string>('all')
+  const [isDownloadingAll, setIsDownloadingAll] = useState(false)
+  const { toast } = useToast()
+
+  const downloadableCompletedRows = useMemo(() => {
+    return stores.filter((row) => {
+      const needsFRA = storeNeedsFRA(row)
+      const status = getFRAStatus(row.fire_risk_assessment_date, needsFRA)
+      const areaMatches = areaFilter === 'all' || row.region === areaFilter
+      return areaMatches && status === 'up_to_date' && Boolean(row.fire_risk_assessment_pdf_path)
+    })
+  }, [stores, areaFilter])
+
+  const handleDownloadAllCompleted = async () => {
+    if (downloadableCompletedRows.length === 0) {
+      toast({
+        title: 'No completed FRA PDFs',
+        description: 'There are no uploaded completed FRA files to download for the current filter.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    setIsDownloadingAll(true)
+
+    let successCount = 0
+    let failedCount = 0
+
+    for (const row of downloadableCompletedRows) {
+      if (!row.fire_risk_assessment_pdf_path) continue
+
+      try {
+        const signedUrl = await getFRAPDFDownloadUrl(row.fire_risk_assessment_pdf_path)
+        if (!signedUrl) {
+          failedCount += 1
+          continue
+        }
+
+        const anchor = document.createElement('a')
+        anchor.href = signedUrl
+        const storeCode = row.store_code?.trim() ? `${row.store_code.trim()}-` : ''
+        const safeStoreName = row.store_name.replace(/[^a-z0-9]+/gi, '-').replace(/(^-|-$)/g, '')
+        const fraDate = row.fire_risk_assessment_date || 'fra'
+        anchor.download = `${storeCode}${safeStoreName}-FRA-${fraDate}.pdf`
+        anchor.rel = 'noopener noreferrer'
+        document.body.appendChild(anchor)
+        anchor.click()
+        document.body.removeChild(anchor)
+
+        successCount += 1
+      } catch (error) {
+        console.error('Failed to download FRA PDF:', row.id, error)
+        failedCount += 1
+      }
+    }
+
+    setIsDownloadingAll(false)
+
+    if (failedCount === 0) {
+      toast({
+        title: 'Downloads started',
+        description: `Started ${successCount} FRA PDF download${successCount === 1 ? '' : 's'}.`,
+        variant: 'success',
+      })
+      return
+    }
+
+    toast({
+      title: 'Download completed with issues',
+      description: `Started ${successCount} download${successCount === 1 ? '' : 's'}, ${failedCount} failed.`,
+      variant: 'destructive',
+    })
+  }
 
   return (
     <div className="space-y-6">
@@ -37,10 +112,14 @@ export function FRATrackerClient({ stores, userRole }: FRATrackerClientProps) {
             </div>
             <button
               type="button"
+              onClick={handleDownloadAllCompleted}
+              disabled={isDownloadingAll || downloadableCompletedRows.length === 0}
               className="inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-bold text-slate-900 transition-colors hover:bg-slate-100 sm:min-h-[44px] sm:w-auto md:rounded-lg md:px-4 md:py-2"
             >
               <Download size={16} />
-              Export Data
+              {isDownloadingAll
+                ? 'Starting downloads...'
+                : `Download Completed FRAs (${downloadableCompletedRows.length})`}
             </button>
           </div>
 
