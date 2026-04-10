@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/client'
 import { getFRAPDFDownloadUrl, deleteFRAPDF } from '@/app/actions/fra-pdfs'
 import { uploadFraPdfFromClient } from '@/lib/fra/upload-pdf-client'
-import { File, Search, Upload } from 'lucide-react'
+import { Download, File, Search, Upload } from 'lucide-react'
 import { PDFViewerModal } from '@/components/shared/pdf-viewer-modal'
 import { getInternalAreaDisplayName } from '@/lib/areas'
 import { getDisplayStoreCode } from '@/lib/utils'
@@ -26,11 +26,17 @@ import {
 export function FRACompletedTable({ 
   rows, 
   areaFilter: externalAreaFilter, 
-  onAreaFilterChange 
+  onAreaFilterChange,
+  onDownloadAllCompleted,
+  downloadAllCount,
+  isDownloadingAll
 }: { 
   rows: FRARow[]
   areaFilter?: string
   onAreaFilterChange?: (area: string) => void
+  onDownloadAllCompleted?: () => void
+  downloadAllCount?: number
+  isDownloadingAll?: boolean
 }) {
   const [search, setSearch] = useState('')
   const [internalArea, setInternalArea] = useState<string>('all')
@@ -201,8 +207,21 @@ export function FRACompletedTable({
             Reset
           </Button>
         </div>
-        <div className="text-sm text-slate-500">
-          Showing {filtered.length} of {rows.length} stores
+        <div className="flex items-center gap-3">
+          {onDownloadAllCompleted ? (
+            <Button
+              type="button"
+              onClick={onDownloadAllCompleted}
+              disabled={Boolean(isDownloadingAll) || (downloadAllCount || 0) === 0}
+              className="hidden md:inline-flex"
+            >
+              <Download className="mr-2 h-4 w-4" />
+              {isDownloadingAll ? 'Starting downloads...' : `Download Completed FRAs (${downloadAllCount || 0})`}
+            </Button>
+          ) : null}
+          <div className="text-sm text-slate-500">
+            Showing {filtered.length} of {rows.length} stores
+          </div>
         </div>
       </div>
 

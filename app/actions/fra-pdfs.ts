@@ -67,7 +67,7 @@ export async function uploadFRAPDF(
  * @param filePath - The file path in storage
  * @returns The signed URL (valid for 1 hour)
  */
-export async function getFRAPDFDownloadUrl(filePath: string | null) {
+export async function getFRAPDFDownloadUrl(filePath: string | null, downloadFilename?: string) {
   if (!filePath) {
     return null
   }
@@ -81,7 +81,9 @@ export async function getFRAPDFDownloadUrl(filePath: string | null) {
 
   const { data, error } = await supabase.storage
     .from('fa-attachments')
-    .createSignedUrl(filePath, 3600) // 1 hour expiry
+    .createSignedUrl(filePath, 3600, {
+      download: downloadFilename || true,
+    }) // 1 hour expiry
 
   if (error || !data) {
     throw new Error('Failed to generate download URL')
