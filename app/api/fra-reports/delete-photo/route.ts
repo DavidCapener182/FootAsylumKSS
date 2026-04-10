@@ -42,6 +42,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    await supabase
+      .from('fa_fra_photo_comments')
+      .delete()
+      .eq('audit_instance_id', instanceId)
+      .eq('file_path', filePath)
+
     return NextResponse.json({ success: true })
   } catch (error: any) {
     console.error('Error in delete-photo:', error)

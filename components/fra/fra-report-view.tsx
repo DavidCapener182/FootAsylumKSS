@@ -195,7 +195,7 @@ interface FRAData {
   intumescentStripsPresent?: boolean
   sitePremisesPhotos?: any[]
   /** Uploaded photos per placeholder (from storage), so they appear after refresh and in PDF */
-  placeholderPhotos?: Record<string, { file_path: string; public_url: string }[]>
+  placeholderPhotos?: Record<string, { file_path: string; public_url: string; comment?: string }[]>
 }
 
 interface FRAReportViewProps {
@@ -207,6 +207,7 @@ interface FRAReportViewProps {
 }
 
 type UploadMode = 'append' | 'replace'
+type PlaceholderPhoto = { file_path: string; public_url: string; comment?: string }
 
 const MAX_UPLOAD_IMAGE_DIMENSION = 1800
 const MAX_UPLOAD_IMAGE_BYTES = 2 * 1024 * 1024
@@ -343,7 +344,8 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
   })
   const [uploadingPhotos, setUploadingPhotos] = useState<Record<string, boolean>>({})
   const [deletingPhotoPath, setDeletingPhotoPath] = useState<string | null>(null)
-  const [placeholderPhotos, setPlaceholderPhotos] = useState<Record<string, any[]>>({})
+  const [placeholderPhotos, setPlaceholderPhotos] = useState<Record<string, PlaceholderPhoto[]>>({})
+  const [savingPhotoCommentPath, setSavingPhotoCommentPath] = useState<string | null>(null)
   const [logoError, setLogoError] = useState(false)
   const customDataRef = useRef(customData)
   const editingRef = useRef(editing)
@@ -710,6 +712,38 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
     }
   }
 
+  const handlePhotoCommentSave = async (placeholderId: string, filePath: string, comment: string) => {
+    const normalizedComment = comment.trim()
+    setSavingPhotoCommentPath(filePath)
+    try {
+      const response = await fetch('/api/fra-reports/photo-comment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          instanceId: data.fraInstance.id,
+          placeholderId,
+          filePath,
+          comment: normalizedComment,
+        }),
+      })
+      const result = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        throw new Error((result?.error ?? result?.details ?? 'Failed to save comment') as string)
+      }
+      setPlaceholderPhotos(prev => ({
+        ...prev,
+        [placeholderId]: (prev[placeholderId] || []).map((photo) => {
+          if (photo.file_path !== filePath) return photo
+          return { ...photo, comment: normalizedComment }
+        }),
+      }))
+    } catch (error: any) {
+      alert(error?.message || 'Failed to save photo comment')
+    } finally {
+      setSavingPhotoCommentPath(null)
+    }
+  }
+
   const PhotoPlaceholder = ({ placeholderId, label, maxPhotos = 5, aspect = 'landscape', stacked = false, compact = false, fit = 'cover', fullHeight = false }: { placeholderId: string, label: string, maxPhotos?: number, aspect?: 'portrait' | 'landscape', stacked?: boolean, compact?: boolean, fit?: 'cover' | 'contain', fullHeight?: boolean }) => {
     const photos = placeholderPhotos[placeholderId] || []
     const isUploading = uploadingPhotos[placeholderId]
@@ -820,8 +854,9 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
         />
         {photos.length > 0 ? (
           <div className={photos.length === 1 ? 'flex justify-center' : stacked ? 'grid grid-cols-1 gap-2' : `grid grid-cols-2 md:grid-cols-3 gap-2 ${isGrid ? 'fra-photo-grid' : ''}`}>
-            {photos.map((photo: any, idx: number) => (
-              <div key={idx} className={`relative fra-photo-block ${photos.length === 1 && !fullHeight ? 'max-w-lg w-full' : ''} ${photos.length === 1 && fullHeight ? 'w-full' : ''} ${imageWrapperClass}`}>
+            {photos.map((photo: PlaceholderPhoto, idx: number) => (
+              <div key={idx} className={`relative fra-photo-block ${photos.length === 1 && !fullHeight ? 'max-w-lg w-full' : ''} ${photos.length === 1 && fullHeight ? 'w-full' : ''}`}>
+                <div className={`relative ${imageWrapperClass}`}>
                 <img 
                   src={photo.public_url || photo.file_path} 
                   alt={`${label} ${idx + 1}`}
@@ -839,6 +874,22 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
                     <X className="h-3 w-3" />
                   )}
                 </button>
+                </div>
+                <div className="mt-2 print:mt-1">
+                  <Textarea
+                    defaultValue={photo.comment || ''}
+                    onBlur={(event) => handlePhotoCommentSave(placeholderId, photo.file_path, event.target.value)}
+                    placeholder="Optional photo comment"
+                    rows={2}
+                    className="text-sm print:hidden"
+                  />
+                  {!!photo.comment?.trim() && (
+                    <p className="hidden print:block text-xs text-slate-600 mt-1">{photo.comment}</p>
+                  )}
+                  {savingPhotoCommentPath === photo.file_path && (
+                    <p className="text-xs text-slate-500 mt-1 print:hidden">Saving comment...</p>
+                  )}
+                </div>
               </div>
             ))}
           </div>

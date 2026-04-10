@@ -13,8 +13,8 @@ async function loadPlaceholderPhotos(
   supabase: Awaited<ReturnType<typeof createClient>>,
   instanceId: string,
   options?: { forPdf?: boolean }
-): Promise<Record<string, { file_path: string; public_url: string }[]>> {
-  const result: Record<string, { file_path: string; public_url: string }[]> = {}
+): Promise<Record<string, { file_path: string; public_url: string; comment?: string }[]>> {
+  const result: Record<string, { file_path: string; public_url: string; comment?: string }[]> = {}
   const prefix = `fra/${instanceId}/photos`
   const forPdf = options?.forPdf === true
   const transformWidth = forPdf ? 900 : 1600
@@ -28,6 +28,19 @@ async function loadPlaceholderPhotos(
     return result
   }
 
+
+  const { data: photoComments } = await supabase
+    .from('fa_fra_photo_comments')
+    .select('file_path, comment')
+    .eq('audit_instance_id', instanceId)
+
+  const commentByFilePath = new Map<string, string>()
+  for (const item of photoComments || []) {
+    const comment = typeof item.comment === 'string' ? item.comment.trim() : ''
+    if (!comment) continue
+    commentByFilePath.set(item.file_path, comment)
+  }
+
   for (const item of placeholders) {
     const placeholderId = item.name
     if (!placeholderId || placeholderId.includes('/')) continue
@@ -38,7 +51,7 @@ async function loadPlaceholderPhotos(
 
     if (filesError || !files?.length) continue
 
-    const entries: { file_path: string; public_url: string }[] = []
+    const entries: { file_path: string; public_url: string; comment?: string }[] = []
     for (const f of files) {
       if (!f.name) continue
       const filePath = `${folderPath}/${f.name}`
@@ -55,7 +68,11 @@ async function loadPlaceholderPhotos(
 
       // Fallback to original if image transforms are unavailable for this file/project.
       if (transformed?.signedUrl) {
-        entries.push({ file_path: filePath, public_url: transformed.signedUrl })
+        entries.push({
+          file_path: filePath,
+          public_url: transformed.signedUrl,
+          comment: commentByFilePath.get(filePath) || '',
+        })
         continue
       }
 
@@ -66,7 +83,11 @@ async function loadPlaceholderPhotos(
       const { data: signed } = await supabase.storage
         .from('fa-attachments')
         .createSignedUrl(filePath, 120)
-      entries.push({ file_path: filePath, public_url: signed?.signedUrl ?? '' })
+      entries.push({
+        file_path: filePath,
+        public_url: signed?.signedUrl ?? '',
+        comment: commentByFilePath.get(filePath) || '',
+      })
     }
     if (entries.length) {
       result[placeholderId] = entries
