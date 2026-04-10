@@ -50,7 +50,11 @@ export function FRATrackerClient({ stores, userRole }: FRATrackerClientProps) {
       if (!row.fire_risk_assessment_pdf_path) continue
 
       try {
-        const signedUrl = await getFRAPDFDownloadUrl(row.fire_risk_assessment_pdf_path)
+        const storeCode = row.store_code?.trim() ? `${row.store_code.trim()}-` : ''
+        const safeStoreName = row.store_name.replace(/[^a-z0-9]+/gi, '-').replace(/(^-|-$)/g, '')
+        const fraDate = row.fire_risk_assessment_date || 'fra'
+        const fileName = `${storeCode}${safeStoreName}-FRA-${fraDate}.pdf`
+        const signedUrl = await getFRAPDFDownloadUrl(row.fire_risk_assessment_pdf_path, fileName)
         if (!signedUrl) {
           failedCount += 1
           continue
@@ -58,10 +62,7 @@ export function FRATrackerClient({ stores, userRole }: FRATrackerClientProps) {
 
         const anchor = document.createElement('a')
         anchor.href = signedUrl
-        const storeCode = row.store_code?.trim() ? `${row.store_code.trim()}-` : ''
-        const safeStoreName = row.store_name.replace(/[^a-z0-9]+/gi, '-').replace(/(^-|-$)/g, '')
-        const fraDate = row.fire_risk_assessment_date || 'fra'
-        anchor.download = `${storeCode}${safeStoreName}-FRA-${fraDate}.pdf`
+        anchor.download = fileName
         anchor.rel = 'noopener noreferrer'
         document.body.appendChild(anchor)
         anchor.click()
@@ -114,7 +115,7 @@ export function FRATrackerClient({ stores, userRole }: FRATrackerClientProps) {
               type="button"
               onClick={handleDownloadAllCompleted}
               disabled={isDownloadingAll || downloadableCompletedRows.length === 0}
-              className="inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-bold text-slate-900 transition-colors hover:bg-slate-100 sm:min-h-[44px] sm:w-auto md:rounded-lg md:px-4 md:py-2"
+              className="inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-bold text-slate-900 transition-colors hover:bg-slate-100 sm:min-h-[44px] sm:w-auto md:hidden"
             >
               <Download size={16} />
               {isDownloadingAll
@@ -162,7 +163,14 @@ export function FRATrackerClient({ stores, userRole }: FRATrackerClientProps) {
             </TabsContent>
 
             <TabsContent value="completed" className="mt-0">
-              <FRACompletedTable rows={stores} areaFilter={areaFilter} onAreaFilterChange={setAreaFilter} />
+              <FRACompletedTable
+                rows={stores}
+                areaFilter={areaFilter}
+                onAreaFilterChange={setAreaFilter}
+                onDownloadAllCompleted={handleDownloadAllCompleted}
+                downloadAllCount={downloadableCompletedRows.length}
+                isDownloadingAll={isDownloadingAll}
+              />
             </TabsContent>
           </div>
         </Tabs>
