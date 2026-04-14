@@ -301,11 +301,16 @@ body.fra-print-document .fra-photo-block img {
   object-fit: cover !important;
 }
 body.fra-print-document .fra-photo-grid {
-  display: grid !important;
-  grid-template-columns: repeat(3, 1fr) !important;
+  display: flex !important;
+  flex-wrap: wrap !important;
+  justify-content: center !important;
+  align-items: flex-start !important;
   gap: 6mm !important;
 }
 body.fra-print-document .fra-photo-grid .fra-photo-block {
+  flex: 0 0 55mm !important;
+  width: 55mm !important;
+  max-width: 55mm !important;
   height: 70mm !important;
   min-height: 70mm !important;
 }

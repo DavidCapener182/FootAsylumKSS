@@ -321,6 +321,8 @@ async function optimizeImageForUpload(file: File): Promise<File> {
 }
 
 export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showPrintHeaderFooter }: FRAReportViewProps) {
+  const showHeaderFooter = showPrintHeaderFooter === true
+  const printOnlyUiClass = showHeaderFooter ? 'hidden' : 'print:hidden'
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -459,7 +461,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
     
     return (
       <span 
-        className={`ml-2 px-1.5 py-0.5 text-xs rounded border print:hidden ${colorClass}`}
+        className={`ml-2 px-1.5 py-0.5 text-xs rounded border ${printOnlyUiClass} ${colorClass}`}
         title={`${fieldName}: ${label}`}
       >
         {label}
@@ -817,6 +819,16 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
 
     const isGrid = (maxPhotos ?? 5) > 1
     const isContain = fit === 'contain'
+    const multiPhotoCardWidthClass = fullHeight
+      ? 'w-full print:w-auto'
+      : 'w-[220px] print:w-auto'
+    const photoCardWidthClass = photos.length === 1
+      ? fullHeight
+        ? 'w-full'
+        : compact
+          ? 'w-full max-w-[220px]'
+          : 'w-full max-w-lg'
+      : multiPhotoCardWidthClass
     const imageWrapperClass = fullHeight && photos.length === 1
       ? 'w-full h-[420px] overflow-hidden rounded border border-slate-300'
       : isPortrait
@@ -835,7 +847,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
 
     return (
       <div
-        className={`mt-4 ${compact ? 'max-w-[220px]' : ''} ${isDragActive ? 'rounded-lg ring-2 ring-blue-300 ring-offset-2 ring-offset-white' : ''}`}
+        className={`mt-4 w-full ${isDragActive ? 'rounded-lg ring-2 ring-blue-300 ring-offset-2 ring-offset-white' : ''}`}
         onDragEnter={handleDragEnter}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
@@ -853,9 +865,9 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
           className="fixed left-[-9999px] top-0 h-px w-px opacity-0"
         />
         {photos.length > 0 ? (
-          <div className={photos.length === 1 ? 'flex justify-center' : stacked ? 'grid grid-cols-1 gap-2' : `grid grid-cols-2 md:grid-cols-3 gap-2 ${isGrid ? 'fra-photo-grid' : ''}`}>
+          <div className={photos.length === 1 ? 'flex justify-center' : stacked ? 'flex flex-col items-center gap-2' : `flex flex-wrap justify-center gap-2 ${isGrid ? 'fra-photo-grid' : ''}`}>
             {photos.map((photo: PlaceholderPhoto, idx: number) => (
-              <div key={idx} className={`relative fra-photo-block ${photos.length === 1 && !fullHeight ? 'max-w-lg w-full' : ''} ${photos.length === 1 && fullHeight ? 'w-full' : ''}`}>
+              <div key={idx} className={`relative fra-photo-block ${photoCardWidthClass}`}>
                 <div className={`relative ${imageWrapperClass}`}>
                 <img 
                   src={photo.public_url || photo.file_path} 
@@ -866,7 +878,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
                   type="button"
                   onClick={() => handlePhotoRemove(placeholderId, idx)}
                   disabled={deletingPhotoPath === photo.file_path}
-                  className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 disabled:opacity-50 print:hidden"
+                  className={`absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 disabled:opacity-50 ${printOnlyUiClass}`}
                 >
                   {deletingPhotoPath === photo.file_path ? (
                     <Loader2 className="h-3 w-3 animate-spin" />
@@ -875,26 +887,34 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
                   )}
                 </button>
                 </div>
-                <div className="mt-2 print:mt-1">
-                  <Textarea
-                    defaultValue={photo.comment || ''}
-                    onBlur={(event) => handlePhotoCommentSave(placeholderId, photo.file_path, event.target.value)}
-                    placeholder="Optional photo comment"
-                    rows={2}
-                    className="text-sm print:hidden"
-                  />
-                  {!!photo.comment?.trim() && (
-                    <p className="hidden print:block text-xs text-slate-600 mt-1">{photo.comment}</p>
-                  )}
-                  {savingPhotoCommentPath === photo.file_path && (
-                    <p className="text-xs text-slate-500 mt-1 print:hidden">Saving comment...</p>
-                  )}
-                </div>
+                {showHeaderFooter ? (
+                  !!photo.comment?.trim() && (
+                    <div className="mt-2 print:mt-1">
+                      <p className="text-xs text-slate-600 mt-1 whitespace-pre-line">{photo.comment}</p>
+                    </div>
+                  )
+                ) : (
+                  <div className="mt-2 print:mt-1">
+                    <Textarea
+                      defaultValue={photo.comment || ''}
+                      onBlur={(event) => handlePhotoCommentSave(placeholderId, photo.file_path, event.target.value)}
+                      placeholder="Optional photo comment"
+                      rows={2}
+                      className={`text-sm ${printOnlyUiClass}`}
+                    />
+                    {!!photo.comment?.trim() && (
+                      <p className="hidden print:block text-xs text-slate-600 mt-1 whitespace-pre-line">{photo.comment}</p>
+                    )}
+                    {savingPhotoCommentPath === photo.file_path && (
+                      <p className={`text-xs text-slate-500 mt-1 ${printOnlyUiClass}`}>Saving comment...</p>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
           </div>
-        ) : (
-          <div className={`fra-photo-placeholder-empty ${emptyClass}`}>
+        ) : showHeaderFooter ? null : (
+          <div className={`fra-photo-placeholder-empty mx-auto ${emptyClass}`}>
             <p className="mb-2">{label}</p>
             <p className="mb-3 text-xs text-slate-500">
               {isDragActive ? 'Drop photos to upload' : 'Drag and drop photos here, or use the button below.'}
@@ -922,7 +942,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
           </div>
         )}
         {photos.length > 0 && (
-          <div className="mt-2 flex flex-wrap items-center gap-2 print:hidden">
+          <div className={`mt-2 flex flex-wrap items-center justify-center gap-2 ${printOnlyUiClass}`}>
             {photos.length < maxPhotos && (
               <Button
                 type="button"
@@ -962,7 +982,6 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
     )
   }
 
-  const showHeaderFooter = showPrintHeaderFooter === true
   const headerFooterStyle: React.CSSProperties | undefined = showHeaderFooter
     ? {
         display: 'flex',
@@ -1040,7 +1059,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
       <div className="fra-report-print-content" style={showHeaderFooter ? { paddingTop: 92, paddingBottom: 36 } : undefined}>
       {/* Debug Toggle - only show in development, and never in print preview so preview matches print/PDF */}
       {process.env.NODE_ENV === 'development' && !showHeaderFooter && (
-        <div className="fixed top-4 right-4 z-50 bg-white border border-slate-300 rounded-lg shadow-lg p-3 print:hidden">
+        <div className={`fixed top-4 right-4 z-50 bg-white border border-slate-300 rounded-lg shadow-lg p-3 ${printOnlyUiClass}`}>
           <label className="flex items-center gap-2 text-sm cursor-pointer">
             <input
               type="checkbox"
@@ -1664,7 +1683,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
         </div>
 
         {!editing && (
-          <div className="mb-4 print:hidden">
+          <div className={`mb-4 ${printOnlyUiClass}`}>
             <Button
               variant="outline"
               size="sm"
@@ -1980,7 +1999,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
         </div>
         <h3 className="text-lg font-semibold mb-4">Intumescent strips on doors</h3>
         <div className="space-y-4 text-sm leading-relaxed">
-          <div className="flex flex-wrap items-center gap-3 mb-4 print:hidden">
+          <div className={`flex flex-wrap items-center gap-3 mb-4 ${printOnlyUiClass}`}>
             <span className="font-medium text-slate-700">Intumescent strips present on fire doors:</span>
             <div className="flex rounded-md border border-slate-300 p-0.5 bg-slate-50">
               <button
@@ -2406,7 +2425,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
             <button
               type="button"
               onClick={() => setShowFirePlanPhoto(false)}
-              className="absolute top-0 right-0 z-10 p-1.5 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-600 hover:text-slate-800 print:hidden"
+              className={`absolute top-0 right-0 z-10 p-1.5 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-600 hover:text-slate-800 ${printOnlyUiClass}`}
               title="Hide Fire Plan / Evacuation Route Photo from report and PDF"
             >
               <X className="h-4 w-4" />
@@ -2415,7 +2434,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
           </div>
         )}
         {!showFirePlanPhoto && (
-          <p className="text-sm text-slate-500 mb-6 print:hidden">
+          <p className={`text-sm text-slate-500 mb-6 ${printOnlyUiClass}`}>
             Fire Plan photo hidden.{' '}
             <button type="button" onClick={() => setShowFirePlanPhoto(true)} className="text-indigo-600 hover:underline">
               Show again

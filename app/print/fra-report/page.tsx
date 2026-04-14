@@ -3,8 +3,9 @@
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { FRAReportView } from '@/components/fra/fra-report-view'
+import { FRALoadingGlyph, FRAReportLoadingState } from '@/components/fra/fra-report-loading'
 import { Button } from '@/components/ui/button'
-import { Loader2, Printer, X, Download } from 'lucide-react'
+import { Printer, X, Download } from 'lucide-react'
 import { getFraReportFilename } from '@/lib/utils'
 
 const DAY_ORDER = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const
@@ -112,6 +113,7 @@ export default function FRAPrintReportPage({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [generatingPdf, setGeneratingPdf] = useState(false)
+  const forPdf = searchParams?.forPdf === '1'
 
   const fetchData = async () => {
     if (!instanceId) {
@@ -121,7 +123,6 @@ export default function FRAPrintReportPage({
     }
     try {
       setLoading(true)
-      const forPdf = searchParams?.forPdf === '1'
       const response = await fetch(`/api/fra-reports/view?instanceId=${instanceId}${forPdf ? '&forPdf=1' : ''}`)
       if (!response.ok) {
         const errorData = await response.json()
@@ -149,7 +150,8 @@ export default function FRAPrintReportPage({
             const missingOpeningTimes = !hasOpeningTimes && !isMeaningfulValue(storeOpeningTimes)
             const missingFloorArea = !hasFloorArea
             const missingAdjacentOccupancies = !hasAdjacentOccupancies
-            if ((missingBuildDate || missingOpeningTimes || missingFloorArea || missingAdjacentOccupancies) && data.store?.store_name && data.address) {
+            // PDF generation should not block on optional web-search enrichment.
+            if (!forPdf && (missingBuildDate || missingOpeningTimes || missingFloorArea || missingAdjacentOccupancies) && data.store?.store_name && data.address) {
               try {
                 const searchResponse = await fetch('/api/fra-reports/search-store-data', {
                   method: 'POST',
@@ -201,7 +203,8 @@ export default function FRAPrintReportPage({
             }
           }
         } catch (_) {}
-        if (data.address && !data.accessDescription) {
+        // PDF generation should not block on optional AI-generated narrative text.
+        if (!forPdf && data.address && !data.accessDescription) {
           try {
             const descResponse = await fetch('/api/fra-reports/generate-access-description', {
               method: 'POST',
@@ -287,12 +290,22 @@ export default function FRAPrintReportPage({
 
   return (
     <div className="fra-print-page-root min-h-screen flex flex-col bg-white">
+      {generatingPdf && (
+        <div className="fixed inset-0 z-30 flex items-center justify-center bg-slate-950/20 px-4 backdrop-blur-[2px] print:hidden">
+          <FRAReportLoadingState
+            title="Generating PDF"
+            description="Creating the print-ready document and packaging images for download. Keep this preview open until the file starts downloading."
+            className="min-h-0 p-0"
+            panelClassName="max-w-lg shadow-[0_28px_90px_rgba(15,23,42,0.2)]"
+          />
+        </div>
+      )}
       <div className="no-print flex items-center justify-center gap-4 bg-slate-200 py-2 px-4 border-b border-slate-300 shrink-0">
         <span className="text-sm text-slate-600">
           Use <strong>Print</strong> (or Cmd+P / Ctrl+P) to print multiple A4 pages. Use <strong>Download PDF</strong> to export. This toolbar will not appear on the printed document.
         </span>
         <Button variant="default" size="sm" onClick={handleDownloadPDF} disabled={generatingPdf} className="bg-indigo-600 hover:bg-indigo-500">
-          {generatingPdf ? (<><Loader2 className="h-4 w-4 mr-2 animate-spin" />Generating...</>) : (<><Download className="h-4 w-4 mr-2" />Download PDF</>)}
+          {generatingPdf ? (<><FRALoadingGlyph className="mr-2 h-4 w-4 text-white" />Generating...</>) : (<><Download className="h-4 w-4 mr-2" />Download PDF</>)}
         </Button>
         <Button variant="default" size="sm" onClick={handlePrint} className="bg-slate-700 hover:bg-slate-600">
           <Printer className="h-4 w-4 mr-2" />Print
@@ -303,7 +316,16 @@ export default function FRAPrintReportPage({
       </div>
       <div className="fra-print-page-content flex-1 min-h-0 overflow-auto bg-white">
         {loading ? (
-          <div className="flex items-center justify-center min-h-[50vh]"><Loader2 className="h-8 w-8 animate-spin text-indigo-600" /></div>
+          <FRAReportLoadingState
+            title={forPdf ? 'Preparing PDF Content' : 'Loading Print Preview'}
+            description={
+              forPdf
+                ? 'Building the print-ready report, photos and supporting data for export.'
+                : 'Loading the print-ready report and optimising it for preview.'
+            }
+            className="min-h-[60vh]"
+            panelClassName="max-w-lg"
+          />
         ) : error ? (
           <div className="p-6 text-sm text-red-600">{error}</div>
         ) : fraData ? (

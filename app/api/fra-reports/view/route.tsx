@@ -14,6 +14,7 @@ async function loadPlaceholderPhotos(
   instanceId: string,
   options?: { forPdf?: boolean }
 ): Promise<Record<string, { file_path: string; public_url: string; comment?: string }[]>> {
+  type PlaceholderPhotoEntry = { file_path: string; public_url: string; comment: string }
   const result: Record<string, { file_path: string; public_url: string; comment?: string }[]> = {}
   const prefix = `fra/${instanceId}/photos`
   const forPdf = options?.forPdf === true
@@ -41,57 +42,70 @@ async function loadPlaceholderPhotos(
     commentByFilePath.set(item.file_path, comment)
   }
 
-  for (const item of placeholders) {
-    const placeholderId = item.name
-    if (!placeholderId || placeholderId.includes('/')) continue
-    const folderPath = `${prefix}/${placeholderId}`
-    const { data: files, error: filesError } = await supabase.storage
-      .from('fa-attachments')
-      .list(folderPath, { limit: 20 })
+  const placeholderEntries = await Promise.all(
+    placeholders.map(async (item) => {
+      const placeholderId = item.name
+      if (!placeholderId || placeholderId.includes('/')) return null
 
-    if (filesError || !files?.length) continue
-
-    const entries: { file_path: string; public_url: string; comment?: string }[] = []
-    for (const f of files) {
-      if (!f.name) continue
-      const filePath = `${folderPath}/${f.name}`
-      const { data: transformed, error: transformedError } = await supabase.storage
+      const folderPath = `${prefix}/${placeholderId}`
+      const { data: files, error: filesError } = await supabase.storage
         .from('fa-attachments')
-        .createSignedUrl(filePath, 120, {
-          transform: {
-            width: transformWidth,
-            height: transformHeight,
-            resize: 'contain',
-            quality: transformQuality,
-          },
+        .list(folderPath, { limit: 20 })
+
+      if (filesError || !files?.length) return null
+
+      const entries = await Promise.all(
+        files.map(async (f) => {
+          if (!f.name) return null
+
+          const filePath = `${folderPath}/${f.name}`
+          const { data: transformed, error: transformedError } = await supabase.storage
+            .from('fa-attachments')
+            .createSignedUrl(filePath, 120, {
+              transform: {
+                width: transformWidth,
+                height: transformHeight,
+                resize: 'contain',
+                quality: transformQuality,
+              },
+            })
+
+          // Fallback to original if image transforms are unavailable for this file/project.
+          if (transformed?.signedUrl) {
+            return {
+              file_path: filePath,
+              public_url: transformed.signedUrl,
+              comment: commentByFilePath.get(filePath) || '',
+            }
+          }
+
+          if (transformedError) {
+            console.warn('Signed URL transform fallback:', transformedError.message)
+          }
+
+          const { data: signed } = await supabase.storage
+            .from('fa-attachments')
+            .createSignedUrl(filePath, 120)
+
+          return {
+            file_path: filePath,
+            public_url: signed?.signedUrl ?? '',
+            comment: commentByFilePath.get(filePath) || '',
+          }
         })
+      )
 
-      // Fallback to original if image transforms are unavailable for this file/project.
-      if (transformed?.signedUrl) {
-        entries.push({
-          file_path: filePath,
-          public_url: transformed.signedUrl,
-          comment: commentByFilePath.get(filePath) || '',
-        })
-        continue
-      }
+      const filteredEntries = entries.filter((entry): entry is PlaceholderPhotoEntry => entry !== null)
 
-      if (transformedError) {
-        console.warn('Signed URL transform fallback:', transformedError.message)
-      }
+      if (!filteredEntries.length) return null
 
-      const { data: signed } = await supabase.storage
-        .from('fa-attachments')
-        .createSignedUrl(filePath, 120)
-      entries.push({
-        file_path: filePath,
-        public_url: signed?.signedUrl ?? '',
-        comment: commentByFilePath.get(filePath) || '',
-      })
-    }
-    if (entries.length) {
-      result[placeholderId] = entries
-    }
+      return [placeholderId, filteredEntries] as const
+    })
+  )
+
+  for (const entry of placeholderEntries) {
+    if (!entry) continue
+    result[entry[0]] = entry[1]
   }
 
   return result

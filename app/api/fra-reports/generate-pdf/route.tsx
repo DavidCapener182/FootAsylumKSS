@@ -1,40 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getFraReportFilename } from '@/lib/utils'
-import puppeteer from 'puppeteer'
-import fs from 'fs'
+import { launchPuppeteerBrowser } from '@/lib/pdf/puppeteer-browser'
+import type { Browser } from 'puppeteer'
 
 export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
-
-function resolveChromeExecutablePath(): string | undefined {
-  const candidates = [
-    process.env.PUPPETEER_EXECUTABLE_PATH,
-    process.env.CHROME_PATH,
-    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-    '/Applications/Chromium.app/Contents/MacOS/Chromium',
-    '/usr/bin/google-chrome',
-    '/usr/bin/chromium-browser',
-    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-  ].filter(Boolean) as string[]
-
-  return candidates.find((candidate) => {
-    try {
-      return fs.existsSync(candidate)
-    } catch {
-      return false
-    }
-  })
-}
 
 /**
  * Generate a PDF of the FRA report using Puppeteer.
  * Loads /print/fra-report with print media; PDF uses preferCSSPageSize and margin 0 so @page in print.css is the single source of truth (no double/triple margins).
  */
 export async function GET(request: NextRequest) {
-  let browser: Awaited<ReturnType<typeof puppeteer.launch>> | null = null
+  let browser: Browser | null = null
   try {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
@@ -56,30 +36,36 @@ export async function GET(request: NextRequest) {
     const baseUrl = `${protocol}://${host}`
     const reportUrl = `${baseUrl}/print/fra-report?instanceId=${instanceId}&forPdf=1`
 
-    const executablePath = resolveChromeExecutablePath()
-
-    // Launch Puppeteer
-    browser = await puppeteer.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-      ...(executablePath ? { executablePath } : {}),
-    })
+    browser = await launchPuppeteerBrowser()
 
     const page = await browser.newPage()
+    const failingRequests: string[] = []
+    const pageErrors: string[] = []
+    const consoleErrors: string[] = []
+    const rawCookieHeader = request.headers.get('cookie')
+
+    page.on('response', (response) => {
+      if (response.status() < 400) return
+      const responseUrl = response.url()
+      if (!responseUrl.startsWith(baseUrl)) return
+      failingRequests.push(`${response.status()} ${responseUrl}`)
+    })
+
+    page.on('pageerror', (error) => {
+      pageErrors.push(error instanceof Error ? error.message : String(error))
+    })
+
+    page.on('console', (message) => {
+      if (message.type() !== 'error') return
+      consoleErrors.push(message.text())
+    })
 
     // Use A4-like viewport so map and content get full width (map was half grey otherwise)
     await page.setViewport({ width: 794, height: 1123 })
 
-    // Set cookies from the request to maintain authentication
-    const cookies = request.cookies.getAll()
-    if (cookies.length > 0) {
-      const cookieObjects = cookies.map(cookie => ({
-        name: cookie.name,
-        value: cookie.value,
-        domain: new URL(baseUrl).hostname,
-        path: '/',
-      }))
-      await page.setCookie(...cookieObjects)
+    // Preserve the exact incoming auth/session cookies for the internal report page request.
+    if (rawCookieHeader) {
+      await page.setExtraHTTPHeaders({ cookie: rawCookieHeader })
     }
 
     // Navigate to the report page (use 'load' - networkidle0 is flaky and can timeout)
@@ -90,29 +76,49 @@ export async function GET(request: NextRequest) {
 
     // Wait for content to load: print page fetches data client-side.
     // Some builds render the root with #print-root first, then inject the wrapper class.
-    await page.waitForFunction(
-      () => {
-        const hasReportWrapper = !!document.querySelector('.fra-report-print-wrapper')
-        const hasPrintRoot = !!document.querySelector('#print-root')
-        const hasPages = !!document.querySelector('.fra-print-page')
-        const hasError = /failed to load|no data available|not ready to view/i.test(
-          (document.body?.innerText || '').toLowerCase()
-        )
-        return (hasReportWrapper || hasPrintRoot || hasPages) || hasError
-      },
-      { timeout: 35000 }
-    )
-
-    const pageHasRenderableReport = await page.evaluate(() => {
-      return !!document.querySelector('.fra-report-print-wrapper, #print-root, .fra-print-page')
-    })
-
-    if (!pageHasRenderableReport) {
-      const visibleText = await page.evaluate(() => (document.body?.innerText || '').slice(0, 500))
-      throw new Error(`Print page did not render report content. Visible page text: ${visibleText}`)
+    try {
+      await page.waitForFunction(
+        () => {
+          const hasReportWrapper = !!document.querySelector('.fra-report-print-wrapper')
+          const hasPrintRoot = !!document.querySelector('#print-root')
+          const hasPages = !!document.querySelector('.fra-print-page')
+          const hasErrorBlock = !!document.querySelector('.text-red-600')
+          const bodyText = (document.body?.innerText || '').toLowerCase()
+          const hasTerminalText = /failed to load|failed to generate|unauthorized|forbidden|no data available|missing audit instance|instanceid is required|not ready to view/i.test(bodyText)
+          return hasReportWrapper || hasPrintRoot || hasPages || hasErrorBlock || hasTerminalText
+        },
+        { timeout: 60000 }
+      )
+    } catch {
+      const visibleText = await page.evaluate(() => (document.body?.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 500))
+      const details = [
+        visibleText ? `Visible page text: ${visibleText}` : '',
+        failingRequests.length ? `Failing requests: ${failingRequests.slice(0, 6).join(' | ')}` : '',
+        pageErrors.length ? `Page errors: ${pageErrors.slice(0, 4).join(' | ')}` : '',
+        consoleErrors.length ? `Console errors: ${consoleErrors.slice(0, 4).join(' | ')}` : '',
+      ].filter(Boolean).join(' ')
+      throw new Error(`Print page did not finish rendering within 60000ms. ${details}`.trim())
     }
 
-    await page.waitForSelector('.fra-print-page', { timeout: 15000 })
+    const renderState = await page.evaluate(() => {
+      const hasRenderableReport = !!document.querySelector('.fra-report-print-wrapper, #print-root, .fra-print-page')
+      const errorText = document.querySelector('.text-red-600')?.textContent?.trim() || ''
+      const visibleText = (document.body?.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 500)
+      return { hasRenderableReport, errorText, visibleText }
+    })
+
+    if (!renderState.hasRenderableReport) {
+      const details = [
+        renderState.errorText ? `Page error: ${renderState.errorText}` : '',
+        renderState.visibleText ? `Visible page text: ${renderState.visibleText}` : '',
+        failingRequests.length ? `Failing requests: ${failingRequests.slice(0, 6).join(' | ')}` : '',
+        pageErrors.length ? `Page errors: ${pageErrors.slice(0, 4).join(' | ')}` : '',
+        consoleErrors.length ? `Console errors: ${consoleErrors.slice(0, 4).join(' | ')}` : '',
+      ].filter(Boolean).join(' ')
+      throw new Error(`Print page did not render report content. ${details}`.trim())
+    }
+
+    await page.waitForSelector('.fra-print-page', { timeout: 30000 })
     await sleep(1500)
 
     // Apply print media before map checks so Leaflet renders at final PDF dimensions.
@@ -221,12 +227,8 @@ export async function GET(request: NextRequest) {
       } catch (_) {}
     }
     const message = error?.message || String(error)
-    const launchHint =
-      resolveChromeExecutablePath()
-        ? ''
-        : ' No Chrome executable was found. Set PUPPETEER_EXECUTABLE_PATH to your browser binary, or install one with `npx puppeteer browsers install chrome`.'
     return NextResponse.json(
-      { error: 'Failed to generate PDF', details: `${message}${launchHint}` },
+      { error: 'Failed to generate PDF', details: message },
       { status: 500 }
     )
   }

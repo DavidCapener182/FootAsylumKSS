@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
 import { FRAReportView } from '@/components/fra/fra-report-view'
+import { FRALoadingGlyph, FRAReportLoadingState } from '@/components/fra/fra-report-loading'
 import { Button } from '@/components/ui/button'
 import { Loader2, Save, Printer, X, Download } from 'lucide-react'
 import { getFraReportFilename } from '@/lib/utils'
@@ -358,14 +359,27 @@ export default function FRAReportViewPage({
 
   if (isPrintPreview && instanceId) {
     return (
-      <div className="flex items-center justify-center min-h-[200px] text-slate-600">
-        <span>Redirecting to print view…</span>
-      </div>
+      <FRAReportLoadingState
+        title="Opening Print Preview"
+        description="Preparing the print-ready report in a new view."
+        className="min-h-[280px]"
+        panelClassName="max-w-lg"
+      />
     )
   }
 
   return (
     <div className="min-h-screen bg-white print:bg-white print:min-h-0">
+      {generatingPdf && (
+        <div className="fixed inset-0 z-30 flex items-center justify-center bg-slate-950/20 px-4 backdrop-blur-[2px] print:hidden">
+          <FRAReportLoadingState
+            title="Generating PDF"
+            description="Building the printable report and processing uploaded images. Keep this tab open until the download starts."
+            className="min-h-0 p-0"
+            panelClassName="max-w-lg shadow-[0_28px_90px_rgba(15,23,42,0.2)]"
+          />
+        </div>
+      )}
       <div className="no-print sticky top-0 z-10 flex items-center justify-between gap-4 bg-slate-900 text-white px-4 py-3 shadow">
         <div className="flex items-center gap-4">
           <Link href="/audit-lab" className="text-sm font-semibold uppercase tracking-wide">
@@ -397,7 +411,7 @@ export default function FRAReportViewPage({
           >
             {generatingPdf ? (
               <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                <FRALoadingGlyph className="mr-2 h-4 w-4 text-white" />
                 Generating...
               </>
             ) : (
@@ -432,9 +446,11 @@ export default function FRAReportViewPage({
       <div className="fra-view-scroll-container h-[calc(100vh-48px)] bg-white print:block print:h-auto">
         <div className="mx-auto h-full w-full max-w-[1200px] overflow-auto px-2 py-3 print:w-full print:max-w-none print:h-auto print:overflow-visible print:min-h-0">
           {loading ? (
-            <div className="flex items-center justify-center h-full min-h-[400px]">
-              <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
-            </div>
+            <FRAReportLoadingState
+              title="Loading FRA Report"
+              description="Preparing the report, supporting details and uploaded photos. Large reports can take a little longer to open."
+              className="h-full min-h-[400px]"
+            />
           ) : needsSetup ? (
             <div className="mx-auto max-w-2xl rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
               <h2 className="text-lg font-semibold text-slate-900">This FRA is not ready to view yet</h2>
