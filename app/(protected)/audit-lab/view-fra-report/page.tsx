@@ -333,7 +333,13 @@ export default function FRAReportViewPage({
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = getFraReportFilename(fraData?.premises, fraData?.assessmentDate, 'pdf')
+      a.download = getFraReportFilename(
+        fraData?.premises,
+        fraData?.assessmentDate,
+        'pdf',
+        fraData?.store?.store_code,
+        fraData?.store?.store_name
+      )
       document.body.appendChild(a)
       a.click()
       window.URL.revokeObjectURL(url)

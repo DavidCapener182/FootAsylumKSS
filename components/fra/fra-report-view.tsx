@@ -1045,6 +1045,8 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
       data-pdf-premises={data.premises ?? ''}
       data-pdf-assessor={data.assessorName ?? ''}
       data-pdf-date={pdfFooterDate}
+      data-pdf-store-code={(data.store as any)?.store_code ?? ''}
+      data-pdf-store-name={(data.store as any)?.store_name ?? ''}
     >
       {/* On-screen preview: fixed header. Omit in print/PDF context so only per-page headers show (avoids double header on page 1). */}
       {!showHeaderFooter && (

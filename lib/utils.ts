@@ -136,17 +136,39 @@ export function parseContentDispositionFilename(
 }
 
 /**
- * Build FRA report download filename: "FRA - (Store name) (DD-MMM-YYYY).pdf" or ".docx"
+ * Build FRA report download filename:
+ * "StoreCode - Store Name, DD-MMM-YYYY - FRA.pdf" (or .docx)
  */
 export function getFraReportFilename(
   premises: string | null | undefined,
   assessmentDate: string | null | undefined,
-  extension: 'pdf' | 'docx' = 'pdf'
+  extension: 'pdf' | 'docx' = 'pdf',
+  storeCode?: string | null,
+  storeName?: string | null
 ): string {
-  const sanitized = sanitizeForFilename(premises || '')
-  if (!sanitized) return `fra-report.${extension}`
   const datePart = formatDateForFilename(assessmentDate)
-  return `FRA - ${sanitized} ${datePart}.${extension}`
+  const sanitizedCode = sanitizeForFilename(storeCode || '')
+  const sanitizedNameFromInput = sanitizeForFilename(storeName || '')
+
+  const derivedStoreName = (() => {
+    const sanitizedPremises = sanitizeForFilename(premises || '')
+    if (!sanitizedPremises) return ''
+    const match = sanitizedPremises.match(/^footasylum\s*-\s*(.+)$/i)
+    return sanitizeForFilename((match?.[1] || sanitizedPremises).trim())
+  })()
+
+  const finalStoreName = sanitizedNameFromInput || derivedStoreName
+
+  if (sanitizedCode && finalStoreName) {
+    return `${sanitizedCode} - ${finalStoreName}, ${datePart} - FRA.${extension}`
+  }
+  if (finalStoreName) {
+    return `${finalStoreName}, ${datePart} - FRA.${extension}`
+  }
+  if (sanitizedCode) {
+    return `${sanitizedCode}, ${datePart} - FRA.${extension}`
+  }
+  return `fra-report.${extension}`
 }
 
 /**

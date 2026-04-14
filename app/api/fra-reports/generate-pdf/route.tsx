@@ -192,11 +192,13 @@ export async function GET(request: NextRequest) {
     // Read premises/date from the page for filename only. Do not use displayHeaderFooter:
     // each .fra-print-page already has its own .fra-print-page-header in the HTML, so
     // Puppeteer's header would duplicate it.
-    const { premises, date } = await page.evaluate(() => {
+    const { premises, date, storeCode, storeName } = await page.evaluate(() => {
       const root = document.getElementById('print-root')
       return {
         premises: root?.getAttribute('data-pdf-premises') ?? 'Report',
         date: root?.getAttribute('data-pdf-date') ?? '—',
+        storeCode: root?.getAttribute('data-pdf-store-code') ?? '',
+        storeName: root?.getAttribute('data-pdf-store-name') ?? '',
       }
     })
 
@@ -211,7 +213,7 @@ export async function GET(request: NextRequest) {
     await browser.close()
     browser = null
 
-    const filename = getFraReportFilename(premises, date, 'pdf')
+    const filename = getFraReportFilename(premises, date, 'pdf', storeCode, storeName)
 
     return new NextResponse(pdfBuffer as unknown as BodyInit, {
       headers: {
