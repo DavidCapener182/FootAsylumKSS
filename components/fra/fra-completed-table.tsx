@@ -216,7 +216,7 @@ export function FRACompletedTable({
               className="hidden md:inline-flex"
             >
               <Download className="mr-2 h-4 w-4" />
-              {isDownloadingAll ? 'Starting downloads...' : `Download Completed FRAs (${downloadAllCount || 0})`}
+              {isDownloadingAll ? 'Preparing ZIP...' : `Download Completed FRAs (${downloadAllCount || 0})`}
             </Button>
           ) : null}
           <div className="text-sm text-slate-500">

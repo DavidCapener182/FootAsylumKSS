@@ -95,6 +95,19 @@ export default async function AdminPage() {
             Open SafeHub
           </a>
         </div>
+
+        <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm sm:rounded-lg sm:border-emerald-200 sm:bg-emerald-50 sm:p-4 sm:shadow-none">
+          <h2 className="mb-2 text-base font-semibold text-slate-900 sm:text-lg sm:text-emerald-900">Crowd Management Plans</h2>
+          <p className="mb-4 text-sm text-slate-600 sm:mb-3 sm:text-emerald-700">
+            Admin-only KSS workspace for crowd management and security operations plans.
+          </p>
+          <a
+            href="/admin/crowd-management-plans"
+            className="inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-slate-800 sm:min-h-0 sm:w-auto sm:rounded-md sm:bg-emerald-600 sm:px-4 sm:py-2 sm:hover:bg-emerald-700"
+          >
+            Open CMP Workspace
+          </a>
+        </div>
       </div>
 
       <AdminClient />

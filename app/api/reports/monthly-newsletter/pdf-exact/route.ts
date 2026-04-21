@@ -1,7 +1,6 @@
-import fs from 'fs'
-import path from 'path'
 import { NextRequest, NextResponse } from 'next/server'
-import puppeteer, { type Browser, type LaunchOptions, type Page } from 'puppeteer'
+import { type Browser, type Page } from 'puppeteer'
+import { launchPuppeteerBrowser } from '@/lib/pdf/puppeteer-browser'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -18,25 +17,6 @@ function sanitizeFileName(value: string): string {
     .replace(/[^a-zA-Z0-9._-]+/g, '-')
     .replace(/-+/g, '-')
     .replace(/^-+|-+$/g, '')
-}
-
-function resolveChromeExecutablePath(): string | undefined {
-  const candidates = [
-    process.env.PUPPETEER_EXECUTABLE_PATH,
-    process.env.CHROME_PATH,
-    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-    '/Applications/Chromium.app/Contents/MacOS/Chromium',
-    '/usr/bin/google-chrome',
-    '/usr/bin/chromium-browser',
-  ].filter(Boolean) as string[]
-
-  return candidates.find((candidate) => {
-    try {
-      return fs.existsSync(candidate)
-    } catch {
-      return false
-    }
-  })
 }
 
 function clampPdfDimensionPx(value: number, fallback: number): number {
@@ -90,17 +70,9 @@ export async function POST(request: NextRequest) {
         : `monthly-newsletter-${Date.now()}-exact.pdf`
     const fileName = preferredName.endsWith('.pdf') ? preferredName : `${preferredName}.pdf`
 
-    const launchOptions: LaunchOptions = {
-      headless: true,
+    browser = await launchPuppeteerBrowser({
       args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu'],
-    }
-
-    const chromeExecutable = resolveChromeExecutablePath()
-    if (chromeExecutable) {
-      launchOptions.executablePath = chromeExecutable
-    }
-
-    browser = await puppeteer.launch(launchOptions)
+    })
     const page = await browser.newPage()
     await page.setViewport({ width: 1800, height: 2400, deviceScaleFactor: 1 })
     await page.setContent(html, { waitUntil: 'networkidle0' })
@@ -156,19 +128,9 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('Error generating exact newsletter PDF:', error)
 
-    const launchHint = resolveChromeExecutablePath()
-      ? ''
-      : ` No Chrome executable was found. Set PUPPETEER_EXECUTABLE_PATH to your browser binary (for example: ${path.join(
-          '/Applications',
-          'Google Chrome.app',
-          'Contents',
-          'MacOS',
-          'Google Chrome'
-        )}).`
-
     return NextResponse.json(
       {
-        error: `${error?.message || 'Failed to generate exact newsletter PDF.'}${launchHint}`,
+        error: error?.message || 'Failed to generate exact newsletter PDF.',
       },
       { status: 500 }
     )

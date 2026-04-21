@@ -4,12 +4,18 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
-import { FileText, Settings, User, Activity, X } from 'lucide-react'
+import { User, Activity, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { UserRole, UserProfile } from '@/lib/auth'
 import { useSidebar } from './sidebar-provider'
 import { navItems, type NavItem } from './nav-items'
 import { FeedbackModal } from '@/components/FeedbackModal'
+import {
+  getCmpNavItems,
+  getCmpPageTitle,
+  isCmpNavItemActive,
+  isCmpSectionPath,
+} from './cmp-chrome'
 
 const activityItem: NavItem = { href: '/activity', label: 'Recent Activity', icon: Activity, clientHidden: true }
 const allNavItems = [...navItems, activityItem]
@@ -23,6 +29,9 @@ export function SidebarClient({ userRole, userProfile }: SidebarClientProps) {
   const pathname = usePathname()
   const { isOpen, setIsOpen } = useSidebar()
   const [feedbackOpen, setFeedbackOpen] = useState(false)
+  const isCmpSection = isCmpSectionPath(pathname)
+  const cmpNavItems = getCmpNavItems(pathname)
+  const cmpPageTitle = getCmpPageTitle(pathname)
 
   const filteredItems = (() => {
     if (userRole === 'admin') {
@@ -67,19 +76,23 @@ export function SidebarClient({ userRole, userProfile }: SidebarClientProps) {
         <div className="flex items-center gap-3">
           <div className="relative h-12 w-24 md:h-20 md:w-48">
             <Image
-              src="/fa-logo.png"
-              alt="KSS x Footasylum"
+              src={isCmpSection ? '/kss-logo.png' : '/fa-logo.png'}
+              alt={isCmpSection ? 'KSS Crowd Management' : 'KSS x Footasylum'}
               fill
               sizes="192px"
               className="object-contain"
-              style={{ top: 4, left: 10 }}
+              style={isCmpSection ? undefined : { top: 4, left: 10 }}
             />
           </div>
           <div className="min-w-0 md:hidden">
-            <p className="text-[11px] font-semibold tracking-[0.16em] text-slate-500">KSS x Footasylum</p>
-            <p className="text-sm font-semibold text-slate-900">Navigation</p>
+            <p className="text-[11px] font-semibold tracking-[0.16em] text-slate-500">
+              {isCmpSection ? 'KSS Crowd Management' : 'KSS x Footasylum'}
+            </p>
+            <p className="text-sm font-semibold text-slate-900">
+              {isCmpSection ? cmpPageTitle : 'Navigation'}
+            </p>
           </div>
-          <span className="sr-only">KSS x Footasylum</span>
+          <span className="sr-only">{isCmpSection ? 'KSS Crowd Management' : 'KSS x Footasylum'}</span>
         </div>
         <button
           onClick={() => setIsOpen(false)}
@@ -91,9 +104,13 @@ export function SidebarClient({ userRole, userProfile }: SidebarClientProps) {
       </div>
       <nav className="flex-1 overflow-y-auto px-4 pb-4">
         <ul className="overflow-hidden rounded-[28px] border border-slate-200 bg-white/85 shadow-[0_16px_30px_rgba(15,23,42,0.08)] md:space-y-1.5 md:rounded-none md:border-0 md:bg-transparent md:shadow-none">
-          {filteredItems.map((item) => {
+          {(isCmpSection ? cmpNavItems : filteredItems).map((item) => {
             const Icon = item.icon
-            const isActive = !item.action && (pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href)))
+            const isActive = !item.action && (
+              isCmpSection
+                ? isCmpNavItemActive(pathname, item.href)
+                : pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href))
+            )
 
             if (item.action === 'feedback') {
               return (
@@ -111,20 +128,36 @@ export function SidebarClient({ userRole, userProfile }: SidebarClientProps) {
 
             return (
               <li key={item.href} className="border-t border-slate-100 first:border-t-0 md:border-t-0">
-                <Link
-                  href={item.href}
-                  prefetch={false}
-                  onClick={() => setIsOpen(false)}
-                  className={cn(
-                    'flex min-h-[52px] items-center gap-3 px-4 py-3 text-[15px] font-medium transition-all md:min-h-[48px] md:rounded-2xl md:text-sm',
-                    isActive
-                      ? 'bg-white text-slate-950 font-semibold shadow-[inset_0_0_0_1px_rgba(15,23,42,0.05)] md:bg-white md:text-slate-950 md:shadow-[inset_0_0_0_1px_rgba(15,23,42,0.05)]'
-                      : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900 md:text-white/80 md:hover:bg-white/10 md:hover:text-white'
-                  )}
-                >
-                  <Icon className={cn('h-5 w-5 flex-shrink-0', isActive ? 'text-slate-900 md:text-slate-900' : 'text-slate-400 md:text-white/70')} />
-                  {item.label}
-                </Link>
+                {isCmpSection ? (
+                  <a
+                    href={item.href}
+                    onClick={() => setIsOpen(false)}
+                    className={cn(
+                      'flex min-h-[52px] items-center gap-3 px-4 py-3 text-[15px] font-medium transition-all md:min-h-[48px] md:rounded-2xl md:text-sm',
+                      isActive
+                        ? 'bg-white text-slate-950 font-semibold shadow-[inset_0_0_0_1px_rgba(15,23,42,0.05)] md:bg-white md:text-slate-950 md:shadow-[inset_0_0_0_1px_rgba(15,23,42,0.05)]'
+                        : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900 md:text-white/80 md:hover:bg-white/10 md:hover:text-white'
+                    )}
+                  >
+                    <Icon className={cn('h-5 w-5 flex-shrink-0', isActive ? 'text-slate-900 md:text-slate-900' : 'text-slate-400 md:text-white/70')} />
+                    {item.label}
+                  </a>
+                ) : (
+                  <Link
+                    href={item.href}
+                    prefetch={false}
+                    onClick={() => setIsOpen(false)}
+                    className={cn(
+                      'flex min-h-[52px] items-center gap-3 px-4 py-3 text-[15px] font-medium transition-all md:min-h-[48px] md:rounded-2xl md:text-sm',
+                      isActive
+                        ? 'bg-white text-slate-950 font-semibold shadow-[inset_0_0_0_1px_rgba(15,23,42,0.05)] md:bg-white md:text-slate-950 md:shadow-[inset_0_0_0_1px_rgba(15,23,42,0.05)]'
+                        : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900 md:text-white/80 md:hover:bg-white/10 md:hover:text-white'
+                    )}
+                  >
+                    <Icon className={cn('h-5 w-5 flex-shrink-0', isActive ? 'text-slate-900 md:text-slate-900' : 'text-slate-400 md:text-white/70')} />
+                    {item.label}
+                  </Link>
+                )}
               </li>
             )
           })}

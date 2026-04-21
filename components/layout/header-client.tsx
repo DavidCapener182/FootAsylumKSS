@@ -10,6 +10,7 @@ import { cn, formatAppDate, formatAppDateTime, formatAppTime } from '@/lib/utils
 import { StoreSearch } from '@/components/layout/store-search'
 import { createClient } from '@/lib/supabase/client'
 import type { UserRole } from '@/lib/auth'
+import { getCmpPageTitle, isCmpSectionPath } from './cmp-chrome'
 import {
   Dialog,
   DialogContent,
@@ -321,6 +322,7 @@ function pickBestPresenceMeta(
 export function HeaderClient({ signOut, currentUser }: HeaderClientProps) {
   const { isOpen, setIsOpen } = useSidebar()
   const pathname = usePathname()
+  const isCmpSection = isCmpSectionPath(pathname)
   const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([
     { id: currentUser.id, name: currentUser.name, page: pathname || '/', lastSeen: null },
   ])
@@ -421,6 +423,12 @@ export function HeaderClient({ signOut, currentUser }: HeaderClientProps) {
   }
 
   useEffect(() => {
+    if (isCmpSection) {
+      presenceChannelRef.current = null
+      setOnlineUsers([{ id: currentUser.id, name: currentUser.name, page: pathname || '/', lastSeen: null }])
+      return
+    }
+
     const supabase = createClient()
     const initialPage = window.location.pathname || '/'
     const channel = supabase.channel('fa-online-users', {
@@ -491,9 +499,11 @@ export function HeaderClient({ signOut, currentUser }: HeaderClientProps) {
       void channel.untrack()
       void supabase.removeChannel(channel)
     }
-  }, [currentUser.name, presenceKey])
+  }, [currentUser.id, currentUser.name, isCmpSection, pathname, presenceKey])
 
   useEffect(() => {
+    if (isCmpSection) return
+
     const channel = presenceChannelRef.current
     if (!channel) return
 
@@ -502,13 +512,16 @@ export function HeaderClient({ signOut, currentUser }: HeaderClientProps) {
       page: pathname || '/',
       lastSeen: new Date().toISOString(),
     })
-  }, [pathname, currentUser.name])
+  }, [pathname, currentUser.name, isCmpSection])
 
   useEffect(() => {
+    if (isCmpSection) {
+      setLatestActivityByUser({})
+      return
+    }
+
     if (currentUser.role !== 'admin') return
     if (onlineUsers.length === 0) return
-
-    const supabase = createClient()
 
     const fetchLatestActivity = async () => {
       const userIds = onlineUsers.map((user) => user.id).filter(isUuid)
@@ -517,29 +530,26 @@ export function HeaderClient({ signOut, currentUser }: HeaderClientProps) {
         return
       }
 
-      const { data, error } = await supabase
-        .from('fa_activity_log')
-        .select('performed_by_user_id, entity_type, entity_id, action, created_at, details')
-        .in('performed_by_user_id', userIds)
-        .order('created_at', { ascending: false })
-        .limit(200)
+      try {
+        const response = await fetch('/api/admin/latest-activity', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userIds }),
+        })
 
-      if (error || !data) return
-
-      const latestByUser: Record<string, LatestActivity> = {}
-      data.forEach((row: any) => {
-        const userId = String(row.performed_by_user_id || '')
-        if (!userId || latestByUser[userId]) return
-        latestByUser[userId] = {
-          action: String(row.action || ''),
-          entityType: String(row.entity_type || ''),
-          entityId: row.entity_id ? String(row.entity_id) : null,
-          createdAt: String(row.created_at || ''),
-          details: isRecord(row.details) ? (row.details as ActivityDetails) : null,
+        if (!response.ok) {
+          return
         }
-      })
 
-      setLatestActivityByUser(latestByUser)
+        const payload = await response.json().catch(() => ({}))
+        const latestByUser = isRecord(payload?.latestByUser)
+          ? (payload.latestByUser as Record<string, LatestActivity>)
+          : {}
+
+        setLatestActivityByUser(latestByUser)
+      } catch (error) {
+        console.warn('Failed to load latest admin activity', error)
+      }
     }
 
     void fetchLatestActivity()
@@ -548,14 +558,15 @@ export function HeaderClient({ signOut, currentUser }: HeaderClientProps) {
     return () => {
       window.clearInterval(interval)
     }
-  }, [currentUser.role, onlineUsers])
+  }, [currentUser.role, onlineUsers, isCmpSection])
 
   const visibleUsers = onlineUsers.slice(0, 5)
   const mobileVisibleUsers = visibleUsers.slice(0, 2)
   const overflowCount = Math.max(onlineUsers.length - visibleUsers.length, 0)
   const mobileOverflowCount = Math.max(onlineUsers.length - mobileVisibleUsers.length, 0)
   const isAdmin = currentUser.role === 'admin'
-  const mobilePageTitle = getMobilePageTitle(pathname || '/')
+  const cmpPageTitle = getCmpPageTitle(pathname)
+  const mobilePageTitle = isCmpSection ? cmpPageTitle : getMobilePageTitle(pathname || '/')
 
   return (
     <header
@@ -579,27 +590,29 @@ export function HeaderClient({ signOut, currentUser }: HeaderClientProps) {
 
           <div className="min-w-0 flex-1">
             <p className="text-[10px] font-semibold tracking-[0.16em] text-white/45">
-              KSS x Footasylum
+              {isCmpSection ? 'KSS Crowd Management' : 'KSS x Footasylum'}
             </p>
             <h1 className="truncate text-[1.08rem] font-semibold tracking-[-0.01em] text-white">{mobilePageTitle}</h1>
           </div>
 
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1.5" aria-label="Currently online users">
-              {mobileVisibleUsers.map((user) => (
-                <div key={user.id} title={user.name} className="relative">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-white/10 text-[10px] font-bold text-white shadow-[0_8px_18px_rgba(2,12,24,0.14)] backdrop-blur-sm">
-                    {getInitials(user.name)}
+            {isCmpSection ? null : (
+              <div className="flex items-center gap-1.5" aria-label="Currently online users">
+                {mobileVisibleUsers.map((user) => (
+                  <div key={user.id} title={user.name} className="relative">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-white/10 text-[10px] font-bold text-white shadow-[0_8px_18px_rgba(2,12,24,0.14)] backdrop-blur-sm">
+                      {getInitials(user.name)}
+                    </div>
+                    <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border border-[#0e1925] bg-emerald-400" />
                   </div>
-                  <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border border-[#0e1925] bg-emerald-400" />
-                </div>
-              ))}
-              {mobileOverflowCount > 0 ? (
-                <div className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-white/10 text-[10px] font-bold text-white shadow-[0_8px_18px_rgba(2,12,24,0.14)] backdrop-blur-sm">
-                  +{mobileOverflowCount}
-                </div>
-              ) : null}
-            </div>
+                ))}
+                {mobileOverflowCount > 0 ? (
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-white/10 text-[10px] font-bold text-white shadow-[0_8px_18px_rgba(2,12,24,0.14)] backdrop-blur-sm">
+                    +{mobileOverflowCount}
+                  </div>
+                ) : null}
+              </div>
+            )}
             <Button
               type="button"
               variant="ghost"
@@ -612,9 +625,11 @@ export function HeaderClient({ signOut, currentUser }: HeaderClientProps) {
           </div>
         </div>
 
-        <div className="md:hidden">
-          <StoreSearch />
-        </div>
+        {isCmpSection ? null : (
+          <div className="md:hidden">
+            <StoreSearch />
+          </div>
+        )}
 
         <div className="hidden min-w-0 flex-1 items-center gap-3 md:flex md:gap-4">
           <button
@@ -629,54 +644,66 @@ export function HeaderClient({ signOut, currentUser }: HeaderClientProps) {
           >
             <Menu className="h-6 w-6 text-white pointer-events-none" />
           </button>
-
-          <StoreSearch />
+          {isCmpSection ? (
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold tracking-[0.18em] text-white/45">
+                KSS Crowd Management
+              </p>
+              <p className="truncate text-sm font-semibold text-white">
+                {cmpPageTitle}
+              </p>
+            </div>
+          ) : (
+            <StoreSearch />
+          )}
         </div>
 
         <div className="hidden items-center gap-2 md:flex md:gap-4">
-          <div className="flex items-center gap-2" aria-label="Currently online users">
-          {visibleUsers.map((user) => (
-            <div
-              key={user.id}
-              title={user.name}
-              className="group relative"
-            >
-              <div className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-white/10 text-[11px] font-bold text-white backdrop-blur-sm md:h-9 md:w-9 md:text-xs">
-                {getInitials(user.name)}
-              </div>
-              <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border border-[#0e1925] bg-emerald-400" />
-
-              {isAdmin ? (
-                <div className="pointer-events-none absolute right-0 top-full z-50 mt-2 hidden w-72 rounded-lg border border-slate-200 bg-white p-3 text-left text-xs text-slate-700 shadow-lg group-hover:block">
-                  <p className="font-semibold text-slate-900">{user.name}</p>
-                  <p className="mt-1 text-slate-600">
-                    <span className="font-semibold text-slate-800">Page:</span> {formatPagePath(user.page, latestActivityByUser[user.id])}
-                  </p>
-                  <p className="mt-1 text-slate-600">
-                    <span className="font-semibold text-slate-800">Latest action:</span>{' '}
-                    {formatLatestAction(latestActivityByUser[user.id])}
-                  </p>
-                  <p className="mt-1 text-slate-600 break-words">
-                    <span className="font-semibold text-slate-800">Updated:</span>{' '}
-                    {formatLatestChange(latestActivityByUser[user.id])}
-                  </p>
-                  <p className="mt-1 text-slate-600">
-                    <span className="font-semibold text-slate-800">Seen:</span>{' '}
-                    {formatTime(user.lastSeen, latestActivityByUser[user.id]?.createdAt)}
-                  </p>
+          {isCmpSection ? null : (
+            <div className="flex items-center gap-2" aria-label="Currently online users">
+            {visibleUsers.map((user) => (
+              <div
+                key={user.id}
+                title={user.name}
+                className="group relative"
+              >
+                <div className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-white/10 text-[11px] font-bold text-white backdrop-blur-sm md:h-9 md:w-9 md:text-xs">
+                  {getInitials(user.name)}
                 </div>
-              ) : null}
+                <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border border-[#0e1925] bg-emerald-400" />
+
+                {isAdmin ? (
+                  <div className="pointer-events-none absolute right-0 top-full z-50 mt-2 hidden w-72 rounded-lg border border-slate-200 bg-white p-3 text-left text-xs text-slate-700 shadow-lg group-hover:block">
+                    <p className="font-semibold text-slate-900">{user.name}</p>
+                    <p className="mt-1 text-slate-600">
+                      <span className="font-semibold text-slate-800">Page:</span> {formatPagePath(user.page, latestActivityByUser[user.id])}
+                    </p>
+                    <p className="mt-1 text-slate-600">
+                      <span className="font-semibold text-slate-800">Latest action:</span>{' '}
+                      {formatLatestAction(latestActivityByUser[user.id])}
+                    </p>
+                    <p className="mt-1 text-slate-600 break-words">
+                      <span className="font-semibold text-slate-800">Updated:</span>{' '}
+                      {formatLatestChange(latestActivityByUser[user.id])}
+                    </p>
+                    <p className="mt-1 text-slate-600">
+                      <span className="font-semibold text-slate-800">Seen:</span>{' '}
+                      {formatTime(user.lastSeen, latestActivityByUser[user.id]?.createdAt)}
+                    </p>
+                  </div>
+                ) : null}
+              </div>
+            ))}
+            {overflowCount > 0 ? (
+              <div
+                title={`${overflowCount} more online`}
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-white/10 text-[11px] font-bold text-white backdrop-blur-sm md:h-9 md:w-9 md:text-xs"
+              >
+                +{overflowCount}
+              </div>
+            ) : null}
             </div>
-          ))}
-          {overflowCount > 0 ? (
-            <div
-              title={`${overflowCount} more online`}
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-white/10 text-[11px] font-bold text-white backdrop-blur-sm md:h-9 md:w-9 md:text-xs"
-            >
-              +{overflowCount}
-            </div>
-          ) : null}
-          </div>
+          )}
           <Button
             type="button"
             variant="ghost"

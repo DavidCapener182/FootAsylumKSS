@@ -7,13 +7,27 @@ import { FRACompletedTable } from './fra-completed-table'
 import { FRAStatsCards } from './fra-stats-cards'
 import { UserRole } from '@/lib/auth'
 import { CheckCircle2, Download, Flame } from 'lucide-react'
-import { getFRAPDFDownloadUrl } from '@/app/actions/fra-pdfs'
 import { getFRAStatus, storeNeedsFRA } from './fra-table-helpers'
 import { useToast } from '@/hooks/use-toast'
 
 interface FRATrackerClientProps {
   stores: FRARow[]
   userRole: UserRole
+}
+
+function getDownloadFileName(response: Response, fallback: string): string {
+  const disposition = response.headers.get('content-disposition') || ''
+  const match = disposition.match(/filename\*?=(?:UTF-8''|\"?)([^\";]+)/i)
+
+  if (!match?.[1]) {
+    return fallback
+  }
+
+  try {
+    return decodeURIComponent(match[1])
+  } catch {
+    return match[1]
+  }
 }
 
 export function FRATrackerClient({ stores, userRole }: FRATrackerClientProps) {
@@ -43,54 +57,60 @@ export function FRATrackerClient({ stores, userRole }: FRATrackerClientProps) {
 
     setIsDownloadingAll(true)
 
-    let successCount = 0
-    let failedCount = 0
-
-    for (const row of downloadableCompletedRows) {
-      if (!row.fire_risk_assessment_pdf_path) continue
-
-      try {
-        const storeCode = row.store_code?.trim() ? `${row.store_code.trim()}-` : ''
-        const safeStoreName = row.store_name.replace(/[^a-z0-9]+/gi, '-').replace(/(^-|-$)/g, '')
-        const fraDate = row.fire_risk_assessment_date || 'fra'
-        const fileName = `${storeCode}${safeStoreName}-FRA-${fraDate}.pdf`
-        const signedUrl = await getFRAPDFDownloadUrl(row.fire_risk_assessment_pdf_path, fileName)
-        if (!signedUrl) {
-          failedCount += 1
-          continue
-        }
-
-        const anchor = document.createElement('a')
-        anchor.href = signedUrl
-        anchor.download = fileName
-        anchor.rel = 'noopener noreferrer'
-        document.body.appendChild(anchor)
-        anchor.click()
-        document.body.removeChild(anchor)
-
-        successCount += 1
-      } catch (error) {
-        console.error('Failed to download FRA PDF:', row.id, error)
-        failedCount += 1
-      }
-    }
-
-    setIsDownloadingAll(false)
-
-    if (failedCount === 0) {
-      toast({
-        title: 'Downloads started',
-        description: `Started ${successCount} FRA PDF download${successCount === 1 ? '' : 's'}.`,
-        variant: 'success',
+    try {
+      const response = await fetch('/api/fra-pdfs/download-all', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          storeIds: downloadableCompletedRows.map((row) => row.id),
+        }),
       })
-      return
-    }
 
-    toast({
-      title: 'Download completed with issues',
-      description: `Started ${successCount} download${successCount === 1 ? '' : 's'}, ${failedCount} failed.`,
-      variant: 'destructive',
-    })
+      if (!response.ok) {
+        const data = (await response.json().catch(() => ({}))) as { error?: string }
+        throw new Error(data.error || 'Failed to prepare FRA download bundle.')
+      }
+
+      const includedCount = Number(response.headers.get('x-fra-files-count') || '0')
+      const skippedCount = Number(response.headers.get('x-fra-skipped-count') || '0')
+      const blob = await response.blob()
+      const fileName = getDownloadFileName(response, 'completed-fra-pdfs.zip')
+      const objectUrl = URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+
+      anchor.href = objectUrl
+      anchor.download = fileName
+      document.body.appendChild(anchor)
+      anchor.click()
+      document.body.removeChild(anchor)
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000)
+
+      if (skippedCount === 0) {
+        toast({
+          title: 'Download ready',
+          description: `Saved ${includedCount} completed FRA PDF${includedCount === 1 ? '' : 's'} in one ZIP file.`,
+          variant: 'success',
+        })
+        return
+      }
+
+      toast({
+        title: 'Download ready with issues',
+        description: `Saved ${includedCount} FRA PDF${includedCount === 1 ? '' : 's'} in the ZIP file, ${skippedCount} skipped.`,
+        variant: 'destructive',
+      })
+    } catch (error) {
+      console.error('Failed to download FRA archive:', error)
+      toast({
+        title: 'Download failed',
+        description: error instanceof Error ? error.message : 'Failed to prepare FRA download bundle.',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsDownloadingAll(false)
+    }
   }
 
   return (
@@ -118,9 +138,7 @@ export function FRATrackerClient({ stores, userRole }: FRATrackerClientProps) {
               className="inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-bold text-slate-900 transition-colors hover:bg-slate-100 sm:min-h-[44px] sm:w-auto md:hidden"
             >
               <Download size={16} />
-              {isDownloadingAll
-                ? 'Starting downloads...'
-                : `Download Completed FRAs (${downloadableCompletedRows.length})`}
+              {isDownloadingAll ? 'Preparing ZIP...' : `Download Completed FRAs (${downloadableCompletedRows.length})`}
             </button>
           </div>
 

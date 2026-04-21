@@ -644,3 +644,226 @@
 body.fra-print-preview .fra-preview-hide-toolbar {
   display: none !important;
 }
+
+/* ---------- CMP REPORT PRINT / A4 ---------- */
+
+.cmp-a4-page {
+  width: 210mm;
+  height: 297mm;
+  min-height: 297mm;
+  box-sizing: border-box;
+  padding: 18mm;
+  background: #fff;
+  margin: 0 auto 12px;
+  page-break-after: always;
+  break-after: page;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.cmp-report-preview {
+  padding-bottom: 12px;
+}
+
+.cmp-report-print-content {
+  width: 210mm;
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+.cmp-block-table th,
+.cmp-block-table td {
+  vertical-align: top;
+}
+
+.cmp-page-body {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+@media (max-width: 767px) {
+  .cmp-a4-page {
+    width: 100%;
+    height: auto;
+    min-height: auto;
+    padding: 5mm;
+  }
+
+  .cmp-report-print-content {
+    width: 100%;
+  }
+}
+
+@media print {
+  body.cmp-print-document .cmp-print-page-root,
+  body.cmp-print-document .cmp-report-print-wrapper,
+  body.cmp-print-document .cmp-report-print-content,
+  body.cmp-print-document #print-root {
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  body.cmp-print-document .cmp-a4-page,
+  body.cmp-print-document .cmp-print-page {
+    width: 100% !important;
+    min-height: 267mm !important;
+    height: 267mm !important;
+    margin: 0 !important;
+    margin-bottom: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    break-after: page !important;
+    page-break-after: always !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+  }
+
+  body.cmp-print-document .cmp-a4-page:last-child,
+  body.cmp-print-document .cmp-print-page:last-child {
+    break-after: auto !important;
+    page-break-after: auto !important;
+  }
+
+  body.cmp-print-document .cmp-front-page .cmp-front-page-body {
+    min-height: 267mm !important;
+  }
+
+  body.cmp-print-document .cmp-page-header,
+  body.cmp-print-document .cmp-page-footer,
+  body.cmp-print-document .cmp-block-table tr,
+  body.cmp-print-document .cmp-block-table th,
+  body.cmp-print-document .cmp-block-table td {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+}
+
+/* ---------- CMP MASTER TEMPLATE PRINT / A4 ---------- */
+
+.cmp-master-template-content {
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+.cmp-master-template-print-stage {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.cmp-master-template-page {
+  box-sizing: border-box;
+  background: #fff;
+  margin: 0 auto;
+  border: 1px solid #cbd5e1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 20px 44px rgba(15, 23, 42, 0.12);
+}
+
+.cmp-master-template-page--portrait {
+  width: 210mm;
+  height: 297mm;
+  min-height: 297mm;
+  padding: 14mm;
+}
+
+.cmp-master-template-page--landscape {
+  width: 297mm;
+  height: 210mm;
+  min-height: 210mm;
+  padding: 12mm 14mm;
+}
+
+@media (max-width: 767px) {
+  .cmp-master-template-page--portrait,
+  .cmp-master-template-page--landscape {
+    width: 100%;
+    height: auto;
+    min-height: auto;
+    padding: 5mm;
+    box-shadow: none;
+  }
+
+  .cmp-master-template-content {
+    width: 100%;
+  }
+}
+
+@media print {
+  html,
+  body {
+    overflow: visible !important;
+  }
+
+  .cmp-master-template-print-stage {
+    display: block !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: #fff !important;
+    overflow: visible !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+  }
+
+  .cmp-master-template-print-root,
+  .cmp-master-template-root,
+  .cmp-master-template-content,
+  #print-root {
+    display: block !important;
+    width: 100% !important;
+    max-width: none !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
+    background: #fff !important;
+  }
+
+  .cmp-master-template-page {
+    margin: 0 auto !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    break-after: page !important;
+    page-break-after: always !important;
+  }
+
+  .cmp-master-template-page--portrait {
+    width: 210mm !important;
+    min-width: 210mm !important;
+    max-width: 210mm !important;
+    height: 297mm !important;
+    min-height: 297mm !important;
+    padding: 14mm !important;
+  }
+
+  .cmp-master-template-page--landscape {
+    width: 297mm !important;
+    min-width: 297mm !important;
+    max-width: 297mm !important;
+    height: 210mm !important;
+    min-height: 210mm !important;
+    padding: 12mm 14mm !important;
+  }
+
+  .cmp-master-template-page:last-child {
+    break-after: auto !important;
+    page-break-after: auto !important;
+  }
+}

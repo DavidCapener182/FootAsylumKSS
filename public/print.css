@@ -335,3 +335,105 @@ body.fra-print-document .fra-report-print-footer,
 body.fra-print-document button {
   display: none !important;
 }
+
+/* CMP print layout */
+body.cmp-print-document .cmp-print-page-root,
+body.cmp-print-document .cmp-print-page-content,
+body.cmp-print-document #print-root,
+body.cmp-print-document .cmp-report-print-wrapper,
+body.cmp-print-document .cmp-report-print-content,
+body.cmp-print-document .cmp-report-preview {
+  display: block !important;
+  width: 100% !important;
+  max-width: none !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow: visible !important;
+  position: static !important;
+  transform: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  box-sizing: border-box !important;
+  gap: 0 !important;
+}
+
+body.cmp-print-document .cmp-print-page-root {
+  background: #fff !important;
+}
+
+body.cmp-print-document .cmp-a4-page,
+body.cmp-print-document .cmp-print-page {
+  display: block !important;
+  width: 180mm !important;
+  min-width: 180mm !important;
+  max-width: 180mm !important;
+  height: 267mm !important;
+  min-height: 267mm !important;
+  max-height: 267mm !important;
+  overflow: hidden !important;
+  margin: 0 auto !important;
+  padding: 0 !important;
+  box-sizing: border-box !important;
+  box-shadow: none !important;
+  break-after: page !important;
+  page-break-after: always !important;
+}
+
+body.cmp-print-document .cmp-a4-page:last-child,
+body.cmp-print-document .cmp-print-page:last-child {
+  break-after: auto !important;
+  page-break-after: auto !important;
+}
+
+body.cmp-print-document .cmp-front-page .cmp-front-page-body {
+  min-height: 267mm !important;
+  max-height: 267mm !important;
+}
+
+body.cmp-print-document .cmp-page-body,
+body.cmp-print-document .cmp-front-page-body {
+  overflow: hidden !important;
+}
+
+body.cmp-print-document .cmp-page-header,
+body.cmp-print-document .cmp-page-footer,
+body.cmp-print-document .cmp-image-panel,
+body.cmp-print-document .cmp-image-grid-panel,
+body.cmp-print-document .cmp-image-grid,
+body.cmp-print-document .cmp-block-table,
+body.cmp-print-document .cmp-block-table tr,
+body.cmp-print-document .cmp-page-body > * {
+  break-inside: avoid !important;
+  page-break-inside: avoid !important;
+}
+
+body.cmp-print-document .cmp-page-header {
+  margin-bottom: 12px !important;
+  padding-bottom: 8px !important;
+}
+
+body.cmp-print-document .cmp-page-footer {
+  margin-top: 12px !important;
+  padding-top: 8px !important;
+}
+
+body.cmp-print-document .cmp-image-panel img {
+  max-height: 120mm !important;
+  width: 100% !important;
+  object-fit: contain !important;
+}
+
+body.cmp-print-document .cmp-image-grid {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 4mm !important;
+}
+
+body.cmp-print-document .cmp-image-grid-panel .cmp-image-panel img {
+  max-height: 110mm !important;
+}
+
+body.cmp-print-document .cmp-toc-columns {
+  gap: 0 !important;
+}

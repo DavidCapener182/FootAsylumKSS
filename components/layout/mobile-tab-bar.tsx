@@ -7,10 +7,12 @@ import { useEffect, useRef, useState } from 'react'
 import type { UserRole } from '@/lib/auth'
 
 import { cn } from '@/lib/utils'
+import { isCmpSectionPath } from './cmp-chrome'
 import { getMobileMoreItems, getMobileTabItems, isPrimaryMobilePath, matchesMobilePath } from './mobile-nav-config'
 
 export function MobileTabBar({ userRole }: { userRole?: UserRole | null }) {
   const pathname = usePathname()
+  const isCmpSection = isCmpSectionPath(pathname)
   const tabItems = getMobileTabItems(userRole)
   const moreItems = getMobileMoreItems(userRole)
   const moreActive = !isPrimaryMobilePath(pathname, userRole)
@@ -37,6 +39,10 @@ export function MobileTabBar({ userRole }: { userRole?: UserRole | null }) {
       document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [moreOpen])
+
+  if (isCmpSection) {
+    return null
+  }
 
   return (
     <nav

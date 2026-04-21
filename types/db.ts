@@ -28,6 +28,20 @@ export type FaStoreInteractionType =
   | 'audit_update'
   | 'fra_update'
   | 'other'
+export type CmpTemplateFieldType = 'text' | 'textarea' | 'date' | 'number' | 'select'
+export type CmpPlanStatus = 'draft' | 'ready'
+export type CmpFieldValueSource = 'manual' | 'source_doc' | 'default'
+export type CmpSourceDocumentKind =
+  | 'previous_somp'
+  | 'previous_cmp'
+  | 'risk_assessment'
+  | 'event_management_plan'
+  | 'site_map'
+  | 'licensing_schedule'
+  | 'contact_sheet'
+  | 'deployment_matrix'
+  | 'kss_profile'
+  | 'other'
 
 export interface Database {
   public: {
@@ -477,6 +491,234 @@ export interface Database {
           interaction_at?: string
           follow_up_date?: string | null
           created_by_user_id?: string
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      cmp_templates: {
+        Row: {
+          id: string
+          title: string
+          description: string | null
+          created_by_user_id: string
+          is_active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          title: string
+          description?: string | null
+          created_by_user_id: string
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          title?: string
+          description?: string | null
+          created_by_user_id?: string
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      cmp_template_sections: {
+        Row: {
+          id: string
+          template_id: string
+          key: string
+          title: string
+          order_index: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          template_id: string
+          key: string
+          title: string
+          order_index?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          template_id?: string
+          key?: string
+          title?: string
+          order_index?: number
+          created_at?: string
+        }
+      }
+      cmp_template_fields: {
+        Row: {
+          id: string
+          template_id: string
+          section_id: string
+          key: string
+          label: string
+          description: string | null
+          placeholder: string | null
+          field_type: CmpTemplateFieldType
+          order_index: number
+          is_required: boolean
+          options: Json | null
+          default_value_text: string | null
+          default_value_json: Json | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          template_id: string
+          section_id: string
+          key: string
+          label: string
+          description?: string | null
+          placeholder?: string | null
+          field_type?: CmpTemplateFieldType
+          order_index?: number
+          is_required?: boolean
+          options?: Json | null
+          default_value_text?: string | null
+          default_value_json?: Json | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          template_id?: string
+          section_id?: string
+          key?: string
+          label?: string
+          description?: string | null
+          placeholder?: string | null
+          field_type?: CmpTemplateFieldType
+          order_index?: number
+          is_required?: boolean
+          options?: Json | null
+          default_value_text?: string | null
+          default_value_json?: Json | null
+          created_at?: string
+        }
+      }
+      cmp_plans: {
+        Row: {
+          id: string
+          template_id: string
+          title: string
+          event_name: string | null
+          status: CmpPlanStatus
+          document_status: string | null
+          selected_annexes: Json
+          include_kss_profile_appendix: boolean
+          created_by_user_id: string
+          updated_by_user_id: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          template_id: string
+          title: string
+          event_name?: string | null
+          status?: CmpPlanStatus
+          document_status?: string | null
+          selected_annexes?: Json
+          include_kss_profile_appendix?: boolean
+          created_by_user_id: string
+          updated_by_user_id: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          template_id?: string
+          title?: string
+          event_name?: string | null
+          status?: CmpPlanStatus
+          document_status?: string | null
+          selected_annexes?: Json
+          include_kss_profile_appendix?: boolean
+          created_by_user_id?: string
+          updated_by_user_id?: string
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      cmp_source_documents: {
+        Row: {
+          id: string
+          plan_id: string
+          document_kind: CmpSourceDocumentKind
+          file_name: string
+          file_path: string
+          file_type: string
+          file_size: number
+          extracted_text: string | null
+          uploaded_by_user_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          plan_id: string
+          document_kind?: CmpSourceDocumentKind
+          file_name: string
+          file_path: string
+          file_type: string
+          file_size: number
+          extracted_text?: string | null
+          uploaded_by_user_id: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          plan_id?: string
+          document_kind?: CmpSourceDocumentKind
+          file_name?: string
+          file_path?: string
+          file_type?: string
+          file_size?: number
+          extracted_text?: string | null
+          uploaded_by_user_id?: string
+          created_at?: string
+        }
+      }
+      cmp_plan_field_values: {
+        Row: {
+          id: string
+          plan_id: string
+          field_id: string
+          value_text: string | null
+          value_json: Json | null
+          value_source: CmpFieldValueSource
+          source_document_id: string | null
+          source_excerpt: string | null
+          updated_by_user_id: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          plan_id: string
+          field_id: string
+          value_text?: string | null
+          value_json?: Json | null
+          value_source?: CmpFieldValueSource
+          source_document_id?: string | null
+          source_excerpt?: string | null
+          updated_by_user_id: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          plan_id?: string
+          field_id?: string
+          value_text?: string | null
+          value_json?: Json | null
+          value_source?: CmpFieldValueSource
+          source_document_id?: string | null
+          source_excerpt?: string | null
+          updated_by_user_id?: string
           created_at?: string
           updated_at?: string
         }

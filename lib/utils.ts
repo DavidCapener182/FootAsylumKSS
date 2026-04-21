@@ -188,3 +188,25 @@ export function getFraAssessmentReference(
       : '—'
   return `FRA - Footasylum - ${storeName} - ${dateFormatted}`
 }
+
+export function getCmpReportFilename(
+  eventName: string | null | undefined,
+  showDates: string | null | undefined,
+  extension: 'pdf' | 'docx' = 'pdf',
+  venueName?: string | null
+): string {
+  const sanitizedEvent = sanitizeForFilename(eventName || '')
+  const sanitizedVenue = sanitizeForFilename(venueName || '')
+  const datePart = formatDateForFilename(showDates)
+
+  if (sanitizedEvent && sanitizedVenue) {
+    return `${sanitizedEvent} - ${sanitizedVenue}, ${datePart} - CMP.${extension}`
+  }
+  if (sanitizedEvent) {
+    return `${sanitizedEvent}, ${datePart} - CMP.${extension}`
+  }
+  if (sanitizedVenue) {
+    return `${sanitizedVenue}, ${datePart} - CMP.${extension}`
+  }
+  return `cmp-report.${extension}`
+}
