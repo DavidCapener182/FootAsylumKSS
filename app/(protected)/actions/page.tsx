@@ -1,12 +1,13 @@
 import { createClient } from '@/lib/supabase/server'
-import { requireAuth } from '@/lib/auth'
+import { getUserProfile, requireAuth } from '@/lib/auth'
+import { can } from '@/lib/role-capabilities'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Input } from '@/components/ui/input'
 import { ActionsTableRow } from '@/components/shared/actions-table-row'
 import { ActionMobileCard } from '@/components/shared/action-mobile-card'
-import { Search, CheckSquare2, FileText, Clock, AlertCircle, SlidersHorizontal } from 'lucide-react'
+import { Search, CheckSquare2, FileText, Clock, AlertCircle, SlidersHorizontal, CalendarClock, TimerReset } from 'lucide-react'
 import Link from 'next/link'
 import { getInternalAreaDisplayName } from '@/lib/areas'
 import {
@@ -639,6 +640,8 @@ export default async function ActionsPage({
   }
 }) {
   await requireAuth()
+  const profile = await getUserProfile()
+  const canManageActions = can(profile?.role, 'manageActions')
   const filters: ActionFilters = {
     assigned_to: searchParams.assigned_to || undefined,
     status: searchParams.status && searchParams.status !== 'all' ? searchParams.status : undefined,
@@ -664,6 +667,26 @@ export default async function ActionsPage({
   const activeActions = actions.filter(action => 
     !['complete', 'cancelled'].includes(action.status)
   ).length
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const tomorrow = new Date(today)
+  tomorrow.setDate(tomorrow.getDate() + 1)
+  const nextWeek = new Date(today)
+  nextWeek.setDate(nextWeek.getDate() + 7)
+  const dueTodayCount = actions.filter((action) => {
+    if (['complete', 'cancelled'].includes(action.status)) return false
+    const dueDate = new Date(action.due_date)
+    if (Number.isNaN(dueDate.getTime())) return false
+    dueDate.setHours(0, 0, 0, 0)
+    return dueDate.getTime() === today.getTime()
+  }).length
+  const dueSoonCount = actions.filter((action) => {
+    if (['complete', 'cancelled'].includes(action.status)) return false
+    const dueDate = new Date(action.due_date)
+    if (Number.isNaN(dueDate.getTime())) return false
+    dueDate.setHours(0, 0, 0, 0)
+    return dueDate >= tomorrow && dueDate <= nextWeek
+  }).length
   const hasActiveFilters = Boolean(
     filters.q ||
       filters.status ||
@@ -717,25 +740,26 @@ export default async function ActionsPage({
     .sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: 'base' }))
 
   return (
-    <div className="flex flex-col gap-8 p-6 md:p-8 bg-slate-50/50 min-h-screen">
+    <div className="flex min-h-screen flex-col gap-6 bg-slate-50 px-4 py-5 sm:px-6 lg:px-8">
       
       {/* Header Section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
+      <div className="flex flex-col justify-between gap-4 md:flex-row md:items-start">
         <div className="space-y-1 flex-1 min-w-0">
-          <div className="flex items-center gap-2 text-slate-900">
-            <div className="p-2 bg-blue-600 rounded-lg shadow-sm flex-shrink-0">
-              <CheckSquare2 className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Actions</h1>
+          <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-lime-600">
+            <CheckSquare2 className="h-4 w-4" />
+            Action Management
           </div>
-          <p className="max-w-2xl text-sm text-slate-500 sm:text-base md:ml-11">
-            Track action items, monitor due dates, and manage completion status across all incidents.
+          <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">Actions</h1>
+          <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
+            Track audit, FRA and store follow-up actions, monitor due dates, and manage completion evidence.
           </p>
         </div>
       </div>
+      </div>
 
       {/* Stats Overview */}
-      <div className="grid grid-cols-3 gap-2 md:grid-cols-3 md:gap-4">
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-5 md:gap-4">
         <Card className="bg-white shadow-sm border-slate-200">
           <CardContent className="flex h-full flex-col justify-between gap-3 p-3 md:flex-row md:items-center md:p-6">
             <div className="space-y-1 flex-1 min-w-0">
@@ -766,6 +790,28 @@ export default async function ActionsPage({
             </div>
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-50 md:ml-2 md:h-10 md:w-10">
               <AlertCircle className="h-4 w-4 md:h-5 md:w-5 text-rose-600" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-white shadow-sm border-slate-200">
+          <CardContent className="flex h-full flex-col justify-between gap-3 p-3 md:flex-row md:items-center md:p-6">
+            <div className="space-y-1 flex-1 min-w-0">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 md:text-xs">Due Today</p>
+              <p className="text-xl md:text-2xl font-bold text-amber-600">{dueTodayCount}</p>
+            </div>
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-50 md:ml-2 md:h-10 md:w-10">
+              <CalendarClock className="h-4 w-4 md:h-5 md:w-5 text-amber-600" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-white shadow-sm border-slate-200">
+          <CardContent className="flex h-full flex-col justify-between gap-3 p-3 md:flex-row md:items-center md:p-6">
+            <div className="space-y-1 flex-1 min-w-0">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 md:text-xs">Due Soon</p>
+              <p className="text-xl md:text-2xl font-bold text-blue-600">{dueSoonCount}</p>
+            </div>
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-50 md:ml-2 md:h-10 md:w-10">
+              <TimerReset className="h-4 w-4 md:h-5 md:w-5 text-blue-600" />
             </div>
           </CardContent>
         </Card>
@@ -890,7 +936,7 @@ export default async function ActionsPage({
                 <Input
                   name="q"
                   defaultValue={searchParams.q || ''}
-                  placeholder="Search title/question, store, assignee..."
+                  placeholder="Search actions"
                   className="pl-9 bg-white"
                 />
               </div>
@@ -975,7 +1021,7 @@ export default async function ActionsPage({
                   <FileText className="h-5 w-5 text-slate-400" />
                 </div>
                 <p className="font-medium text-slate-900">No actions found</p>
-                <p className="text-sm mt-1 text-center">Actions will appear here when created for incidents or stores.</p>
+                <p className="text-sm mt-1 text-center">Actions will appear here when created from audits, FRAs, incidents or stores.</p>
               </div>
             ) : (
               groupedActions.map((group) => (
@@ -991,7 +1037,7 @@ export default async function ActionsPage({
                   </summary>
                   <div className="border-t p-3 space-y-3">
                     {group.actions.map((action: any) => (
-                      <ActionMobileCard key={action.id} action={action} />
+                      <ActionMobileCard key={action.id} action={action} canManageActions={canManageActions} />
                     ))}
                     {group.isStoreGroup && group.summaryBullets.length > 0 ? (
                       <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
@@ -1016,7 +1062,7 @@ export default async function ActionsPage({
                     <FileText className="h-5 w-5 text-slate-400" />
                   </div>
                   <p className="font-medium text-slate-900">No actions found</p>
-                  <p className="text-sm mt-1">Actions will appear here when created for incidents or stores.</p>
+                  <p className="text-sm mt-1">Actions will appear here when created from audits, FRAs, incidents or stores.</p>
                 </div>
               </div>
             ) : (
@@ -1045,7 +1091,7 @@ export default async function ActionsPage({
                     </TableHeader>
                     <TableBody>
                       {group.actions.map((action: any) => (
-                        <ActionsTableRow key={action.id} action={action} />
+                        <ActionsTableRow key={action.id} action={action} canManageActions={canManageActions} />
                       ))}
                     </TableBody>
                   </Table>

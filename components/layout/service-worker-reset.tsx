@@ -2,8 +2,6 @@
 
 import { useEffect } from 'react'
 
-const RESET_FLAG = 'kss-sw-reset-v1'
-
 export function ServiceWorkerReset() {
   useEffect(() => {
     if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
@@ -42,10 +40,8 @@ export function ServiceWorkerReset() {
           )
         }
 
-        if (!sessionStorage.getItem(RESET_FLAG)) {
-          sessionStorage.setItem(RESET_FLAG, '1')
-          window.location.reload()
-        }
+        // Do not force a reload here. Some environments can end up in a
+        // repeated-refresh loop when this component remounts frequently.
       } catch (error) {
         console.warn('Failed to reset service workers', error)
       }

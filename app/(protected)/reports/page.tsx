@@ -1144,20 +1144,43 @@ export default function ReportsPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6 md:gap-8 bg-slate-50/50 min-h-screen max-w-full overflow-x-hidden">
+    <div className="flex min-h-screen max-w-full flex-col gap-6 overflow-x-hidden bg-slate-50 px-4 py-5 sm:px-6 lg:px-8">
       {/* Header Section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="space-y-1 flex-1 min-w-0">
-          <div className="flex items-center gap-2 text-slate-900">
-            <div className="p-2 bg-indigo-600 rounded-lg shadow-sm flex-shrink-0">
-              <FileSpreadsheet className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
+        <div className="flex flex-col justify-between gap-4 md:flex-row md:items-start">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-lime-600">
+              <FileSpreadsheet className="h-4 w-4" />
+              Compliance Reporting
             </div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Reports & Exports</h1>
+            <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">Reports & Exports</h1>
+            <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
+              Build client-ready audit, FRA, action and area compliance outputs with clear export controls.
+            </p>
           </div>
-          <p className="text-sm sm:text-base text-slate-500 max-w-2xl md:ml-11">
-            Download detailed compliance data or generate AI-powered insights for your team.
-          </p>
         </div>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-4">
+        {[
+          { label: 'Audit Progress', value: 'PDF / CSV', icon: BarChart3, className: 'border-blue-200 bg-blue-50 text-blue-700' },
+          { label: 'FRA Status', value: 'Client-ready', icon: Shield, className: 'border-orange-200 bg-orange-50 text-orange-700' },
+          { label: 'Action Closure', value: 'Overdue focus', icon: AlertCircle, className: 'border-rose-200 bg-rose-50 text-rose-700' },
+          { label: 'Area Packs', value: 'Monthly', icon: Newspaper, className: 'border-emerald-200 bg-emerald-50 text-emerald-700' },
+        ].map((item) => {
+          const Icon = item.icon
+          return (
+            <div key={item.label} className={`rounded-2xl border px-4 py-3 ${item.className}`}>
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wide opacity-80">{item.label}</p>
+                  <p className="mt-1 text-sm font-black">{item.value}</p>
+                </div>
+                <Icon className="h-5 w-5 opacity-80" />
+              </div>
+            </div>
+          )
+        })}
       </div>
 
       <Tabs defaultValue="monthly" className="w-full">
@@ -1166,7 +1189,7 @@ export default function ReportsPage() {
             Monthly Dashboard
           </TabsTrigger>
           <TabsTrigger value="export" className="min-h-[46px] rounded-[16px] md:min-h-[40px]">
-            Export
+            Data Exports
           </TabsTrigger>
         </TabsList>
 
@@ -1181,8 +1204,8 @@ export default function ReportsPage() {
                   Monthly Area Manager Newsletter Dashboard
                 </CardTitle>
                 <CardDescription className="text-slate-600 mt-1">
-                  Generate visual monthly dashboards for area codes (A1, A2, A3...) with audit
-                  scores, H&S findings, reminders, and legislation updates.
+                  Generate visual monthly dashboards for area codes with audit scores, FRA/action
+                  priorities, reminders and legislation updates.
                 </CardDescription>
               </div>
               <Button

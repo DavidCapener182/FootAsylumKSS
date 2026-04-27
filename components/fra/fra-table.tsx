@@ -12,6 +12,7 @@ import { UserRole } from '@/lib/auth'
 import { getFRAPDFDownloadUrl, deleteFRAPDF } from '@/app/actions/fra-pdfs'
 import { updateFRA } from '@/app/actions/stores'
 import { uploadFraPdfFromClient } from '@/lib/fra/upload-pdf-client'
+import { can } from '@/lib/role-capabilities'
 import { Upload, File, SlidersHorizontal, ChevronDown, ChevronUp, Search } from 'lucide-react'
 import { PDFViewerModal } from '@/components/shared/pdf-viewer-modal'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -66,6 +67,7 @@ export function FRATable({
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
   const [deletePdfDialog, setDeletePdfDialog] = useState<DeleteFRAPdfState | null>(null)
   const [tableMessage, setTableMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const canManageFRA = can(userRole, 'manageFRA')
 
   // Sync localRows with rows prop when it changes
   useEffect(() => {
@@ -140,6 +142,10 @@ export function FRATable({
   }, [filtered])
 
   const handleAddFRA = (row: FRARow) => {
+    if (!canManageFRA) {
+      setTableMessage({ type: 'error', text: 'You do not have permission to manage fire risk assessments.' })
+      return
+    }
     setEditing({
       storeId: row.id,
       date: row.fire_risk_assessment_date || new Date().toISOString().split('T')[0],
@@ -154,6 +160,10 @@ export function FRATable({
 
   const handleSaveFRA = async () => {
     if (!editing) return
+    if (!canManageFRA) {
+      setTableMessage({ type: 'error', text: 'You do not have permission to manage fire risk assessments.' })
+      return
+    }
 
     const { storeId, date, notes, pdfFile } = editing
 
@@ -231,6 +241,10 @@ export function FRATable({
   }
 
   const handleUploadPDFStandalone = async (row: FRARow, file: File) => {
+    if (!canManageFRA) {
+      setTableMessage({ type: 'error', text: 'You do not have permission to upload FRA PDFs.' })
+      return
+    }
     setUploadingPdf(row.id)
     setTableMessage(null)
     try {
@@ -257,11 +271,19 @@ export function FRATable({
   }
 
   const handleDeletePDF = (row: FRARow) => {
+    if (!canManageFRA) {
+      setTableMessage({ type: 'error', text: 'You do not have permission to delete FRA PDFs.' })
+      return
+    }
     setDeletePdfDialog({ row })
   }
 
   const handleConfirmDeletePDF = async () => {
     if (!deletePdfDialog) return
+    if (!canManageFRA) {
+      setTableMessage({ type: 'error', text: 'You do not have permission to delete FRA PDFs.' })
+      return
+    }
     const { row } = deletePdfDialog
 
     setDeletingPdf(row.id)
@@ -580,9 +602,11 @@ export function FRATable({
                         </div>
                       ) : (
                         <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-200/80 pt-3">
-                          <Button size="sm" onClick={() => handleAddFRA(row)} className="w-full bg-slate-900 text-white hover:bg-slate-800">
-                            {row.fire_risk_assessment_date ? 'Edit FRA' : 'Add FRA'}
-                          </Button>
+                          {canManageFRA ? (
+                            <Button size="sm" onClick={() => handleAddFRA(row)} className="w-full bg-slate-900 text-white hover:bg-slate-800">
+                              {row.fire_risk_assessment_date ? 'Edit FRA' : 'Add FRA'}
+                            </Button>
+                          ) : null}
                           {row.fire_risk_assessment_pdf_path ? (
                             <>
                               <Button
@@ -595,7 +619,7 @@ export function FRATable({
                                 View PDF
                               </Button>
                             </>
-                          ) : row.fire_risk_assessment_date ? (
+                          ) : canManageFRA && row.fire_risk_assessment_date ? (
                             <>
                               <input
                                 type="file"
@@ -762,7 +786,7 @@ export function FRATable({
                                       <File className="h-4 w-4 text-slate-700" />
                                     </Button>
                                   </>
-                                ) : row.fire_risk_assessment_date ? (
+                                ) : canManageFRA && row.fire_risk_assessment_date ? (
                                   <div className="relative">
                                     <input
                                       type="file"
@@ -853,15 +877,18 @@ export function FRATable({
                                   </div>
                                 </div>
                               ) : (
-                                // In Required tab, all stores need FRA and haven't completed it, so always show button
-                                <Button
-                                  size="sm"
-                                  variant="default"
-                                  onClick={() => handleAddFRA(row)}
-                                  className="h-7 bg-slate-900 px-2 text-xs text-white whitespace-nowrap hover:bg-slate-800"
-                                >
-                                  {row.fire_risk_assessment_date ? 'Edit FRA' : 'Add FRA'}
-                                </Button>
+                                canManageFRA ? (
+                                  <Button
+                                    size="sm"
+                                    variant="default"
+                                    onClick={() => handleAddFRA(row)}
+                                    className="h-7 bg-slate-900 px-2 text-xs text-white whitespace-nowrap hover:bg-slate-800"
+                                  >
+                                    {row.fire_risk_assessment_date ? 'Edit FRA' : 'Add FRA'}
+                                  </Button>
+                                ) : (
+                                  <span className="text-xs text-slate-400">View only</span>
+                                )
                               )}
                             </TableCell>
                           </TableRow>
@@ -885,7 +912,7 @@ export function FRATable({
         pdfUrl={null}
         title={selectedPdfRow ? `Fire Risk Assessment - ${selectedPdfRow.store_name}` : 'Fire Risk Assessment PDF'}
         getDownloadUrl={handleGetPDFUrl}
-        headerActions={selectedPdfRow ? (
+        headerActions={selectedPdfRow && canManageFRA ? (
           <Button
             variant="destructive"
             size="sm"

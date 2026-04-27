@@ -1,9 +1,9 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
 import { logActivity } from '@/lib/activity-log'
 import { revalidatePath } from 'next/cache'
 import { FaIncidentCategory, FaSeverity, FaIncidentStatus } from '@/types/db'
+import { requirePermission } from '@/lib/permissions'
 
 export interface CreateIncidentInput {
   store_id: string
@@ -19,12 +19,7 @@ export interface CreateIncidentInput {
 }
 
 export async function createIncident(input: CreateIncidentInput) {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Unauthorized')
-  }
+  const { supabase, userId } = await requirePermission('manageIncidents')
 
   // Generate reference number
   const { data: refData } = await supabase.rpc('fa_generate_incident_reference')
@@ -35,7 +30,7 @@ export async function createIncident(input: CreateIncidentInput) {
     .insert({
       ...input,
       reference_no,
-      reported_by_user_id: user.id,
+      reported_by_user_id: userId,
       reported_at: new Date().toISOString(),
       status: 'open',
     })
@@ -61,12 +56,7 @@ export async function createIncident(input: CreateIncidentInput) {
 }
 
 export async function updateIncident(id: string, updates: Partial<CreateIncidentInput & { status?: FaIncidentStatus; assigned_investigator_user_id?: string | null; target_close_date?: string | null; closure_summary?: string | null }>) {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Unauthorized')
-  }
+  const { supabase } = await requirePermission('manageIncidents')
 
   // Get current incident for activity log
   const { data: currentIncident } = await supabase
@@ -174,12 +164,7 @@ export async function updateIncident(id: string, updates: Partial<CreateIncident
 }
 
 export async function assignInvestigator(incidentId: string, investigatorId: string) {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Unauthorized')
-  }
+  const { supabase } = await requirePermission('manageIncidents')
 
   // Handle unassigning (empty string or 'unassigned')
   const updateData: any = {
@@ -222,12 +207,7 @@ export async function assignInvestigator(incidentId: string, investigatorId: str
 }
 
 export async function deleteIncident(id: string) {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Unauthorized')
-  }
+  const { supabase } = await requirePermission('manageIncidents')
 
   // Check if incident is in closed_incidents table first
   const { data: closedIncident, error: closedError } = await supabase
@@ -286,5 +266,3 @@ export async function deleteIncident(id: string) {
   revalidatePath('/dashboard')
   return { success: true }
 }
-
-

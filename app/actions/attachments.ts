@@ -1,21 +1,16 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
 import { logActivity } from '@/lib/activity-log'
 import { revalidatePath } from 'next/cache'
 import { FaEntityType } from '@/types/db'
+import { requirePermission } from '@/lib/permissions'
 
 export async function uploadAttachment(
   entityType: FaEntityType,
   entityId: string,
   file: File
 ) {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Unauthorized')
-  }
+  const { supabase, userId } = await requirePermission('uploadEvidence')
 
   const fileExt = file.name.split('.').pop()
   const fileName = `${entityId}/${Date.now()}.${fileExt}`
@@ -40,7 +35,7 @@ export async function uploadAttachment(
       file_path: filePath,
       file_type: file.type || 'application/octet-stream',
       file_size: file.size,
-      uploaded_by_user_id: user.id,
+      uploaded_by_user_id: userId,
     })
     .select()
     .single()
@@ -61,12 +56,7 @@ export async function uploadAttachment(
 }
 
 export async function getAttachmentDownloadUrl(attachmentId: string) {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Unauthorized')
-  }
+  const { supabase } = await requirePermission('viewEvidence')
 
   const { data: attachment, error } = await supabase
     .from('fa_attachments')
@@ -88,5 +78,3 @@ export async function getAttachmentDownloadUrl(attachmentId: string) {
 
   return data.signedUrl
 }
-
-

@@ -3,8 +3,10 @@ import { cn } from '@/lib/utils'
 import { FaIncidentStatus, FaActionStatus, FaSeverity, FaInvestigationStatus } from '@/types/db'
 
 interface StatusBadgeProps {
-  status: FaIncidentStatus | FaActionStatus | FaSeverity | FaInvestigationStatus
-  type?: 'incident' | 'action' | 'severity' | 'investigation'
+  status: FaIncidentStatus | FaActionStatus | FaSeverity | FaInvestigationStatus | string
+  type?: 'incident' | 'action' | 'severity' | 'investigation' | 'fra' | 'audit'
+  label?: string
+  className?: string
 }
 
 const statusColors: Record<string, string> = {
@@ -29,18 +31,41 @@ const statusColors: Record<string, string> = {
   // Investigation statuses
   not_started: 'bg-gray-100 text-gray-700',
   awaiting_actions: 'bg-orange-50 text-orange-700',
+
+  // FRA statuses
+  required: 'bg-orange-50 text-orange-800 border-orange-300',
+  due: 'bg-amber-50 text-amber-800 border-amber-300',
+  overdue: 'bg-rose-50 text-rose-800 border-rose-300',
+  up_to_date: 'bg-emerald-50 text-emerald-800 border-emerald-300',
+  not_required: 'bg-gray-100 text-gray-700 border-gray-200',
+
+  // Audit lifecycle statuses
+  audit_1_complete: 'bg-blue-50 text-blue-800 border-blue-300',
+  second_audit_required: 'bg-orange-50 text-orange-800 border-orange-300',
+  audit_2_planned: 'bg-violet-50 text-violet-800 border-violet-300',
+  audit_2_complete: 'bg-emerald-50 text-emerald-800 border-emerald-300',
+  compliant: 'bg-emerald-50 text-emerald-800 border-emerald-300',
+  escalation_required: 'bg-rose-50 text-rose-800 border-rose-300',
 }
 
-export function StatusBadge({ status, type }: StatusBadgeProps) {
+export function StatusBadge({ status, type, label, className }: StatusBadgeProps) {
   const colorClass = statusColors[status] || 'bg-gray-100 text-gray-700'
-  const displayText = status.split('_').map(word => 
+  const displayText = label || status.split('_').map(word =>
     word.charAt(0).toUpperCase() + word.slice(1)
   ).join(' ')
+  const isComplianceStatus = type === 'fra' || type === 'audit'
 
   return (
-    <Badge variant="default" className={cn('rounded-full shadow-sm', colorClass)}>
+    <Badge
+      variant={isComplianceStatus ? 'outline' : 'default'}
+      className={cn(
+        'rounded-full shadow-sm',
+        isComplianceStatus && 'h-6 border px-2.5 text-[11px] font-semibold leading-none shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]',
+        colorClass,
+        className
+      )}
+    >
       {displayText}
     </Badge>
   )
 }
-

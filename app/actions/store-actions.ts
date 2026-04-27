@@ -1,15 +1,14 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { createClient } from '@/lib/supabase/server'
 import { FaActionPriority } from '@/types/db'
+import { requirePermission } from '@/lib/permissions'
 import {
   matchCanonicalStoreActionQuestion,
   normalizeStoreActionQuestion,
   resolveStoreActionPriorityTheme,
 } from '@/lib/store-action-titles'
 
-const WRITABLE_ROLES = new Set(['admin', 'ops'])
 const NON_ACTIONABLE_STORE_QUESTIONS = new Set<string>([
   'Young persons?',
   'Expectant mothers?',
@@ -70,28 +69,7 @@ export async function createStoreActions(
     throw new Error('No actions to create')
   }
 
-  const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Unauthorized')
-  }
-
-  const { data: profile, error: profileError } = await supabase
-    .from('fa_profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (profileError || !profile) {
-    throw new Error('Unable to verify user role')
-  }
-
-  if (!WRITABLE_ROLES.has(profile.role)) {
-    throw new Error('You do not have permission to create store actions')
-  }
+  const { supabase, userId } = await requirePermission('manageActions')
 
   const fallbackDueDate = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
     .toISOString()
@@ -133,7 +111,7 @@ export async function createStoreActions(
         due_date: toDateOnly(action.dueDate, fallbackDueDate),
         status: 'open',
         ai_generated: action.aiGenerated !== false,
-        created_by_user_id: user.id,
+        created_by_user_id: userId,
       }
     })
     .filter((row): row is NonNullable<typeof row> => row !== null)

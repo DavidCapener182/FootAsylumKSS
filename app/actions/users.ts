@@ -69,44 +69,26 @@ export async function getAllUsers(): Promise<UserWithProfile[]> {
 
   const authLookupById = await getAuthLookupById()
 
-  // Use SQL to join fa_profiles with auth.users to get emails
-  // This requires a function that can access auth.users
-  const { data, error } = await supabase.rpc('get_users_with_profiles')
+  const { data: profiles, error: profilesError } = await supabase
+    .from('fa_profiles')
+    .select('id, full_name, role, created_at')
+    .order('created_at', { ascending: false })
 
-  if (error) {
-    // If the function doesn't exist, fall back to just profiles
-    // and enrich rows from auth users
-    const { data: profiles, error: profilesError } = await supabase
-      .from('fa_profiles')
-      .select('id, full_name, role, created_at')
-      .order('created_at', { ascending: false })
-
-    if (profilesError) {
-      throw new Error(`Failed to fetch profiles: ${profilesError.message}`)
-    }
-
-    return (profiles || []).map((profile: any) => {
-      const authUser = authLookupById.get(profile.id)
-      return {
-        id: profile.id,
-        email: authUser?.email || 'Email not available',
-        full_name: profile.full_name,
-        role: profile.role,
-        created_at: profile.created_at,
-        last_sign_in_at: authUser?.last_sign_in_at || null,
-      }
-    })
+  if (profilesError) {
+    throw new Error(`Failed to fetch profiles: ${profilesError.message}`)
   }
 
-  // If function exists and works, use its results
-  return (data || []).map((row: any) => ({
-    id: row.id,
-    email: row.email || authLookupById.get(row.id)?.email || 'Email not available',
-    full_name: row.full_name,
-    role: row.role,
-    created_at: row.created_at,
-    last_sign_in_at: row.last_sign_in_at || authLookupById.get(row.id)?.last_sign_in_at || null,
-  }))
+  return (profiles || []).map((profile: any) => {
+    const authUser = authLookupById.get(profile.id)
+    return {
+      id: profile.id,
+      email: authUser?.email || 'Email not available',
+      full_name: profile.full_name,
+      role: profile.role,
+      created_at: profile.created_at,
+      last_sign_in_at: authUser?.last_sign_in_at || null,
+    }
+  })
 }
 
 /**

@@ -10,7 +10,7 @@ import { Dialog, DialogClose, DialogContent, DialogTrigger } from '@/components/
 import { navItems } from '@/components/layout/nav-items'
 
 export function MobileNav({ userName }: { userName: string }) {
-  const pathname = usePathname()
+  const pathname = usePathname() || '/'
 
   return (
     <Dialog>

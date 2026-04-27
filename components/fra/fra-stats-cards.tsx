@@ -56,43 +56,43 @@ export function FRAStatsCards({ stores, selectedArea }: FRAStatsCardsProps) {
 
   return (
     <>
-      <div className="col-span-2 rounded-lg border border-slate-700/50 bg-slate-800/50 p-3 backdrop-blur-sm md:col-span-1 md:rounded-2xl md:p-5">
+      <div className="col-span-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:col-span-1 md:p-5">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400 md:text-xs md:tracking-wider">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 md:text-xs md:tracking-wider">
               Stores Requiring FRA
             </p>
-            <p className="mt-0.5 text-2xl font-black text-white md:mt-1 md:text-4xl">{stats.storesRequiringFRA}</p>
+            <p className="mt-0.5 text-2xl font-black text-amber-600 md:mt-1 md:text-4xl">{stats.storesRequiringFRA}</p>
           </div>
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-500/20 text-orange-400 md:h-12 md:w-12">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-100 text-amber-600 md:h-12 md:w-12">
             <Flame className="h-4 w-4 md:h-6 md:w-6" />
           </div>
         </div>
       </div>
       
-      <div className="rounded-lg border border-slate-700/50 bg-slate-800/50 p-3 backdrop-blur-sm md:rounded-2xl md:p-5">
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:p-5">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400 md:text-xs md:tracking-wider">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 md:text-xs md:tracking-wider">
               FRAs Completed
             </p>
-            <p className="mt-0.5 text-2xl font-black text-white md:mt-1 md:text-4xl">{stats.frasCompleted}</p>
+            <p className="mt-0.5 text-2xl font-black text-emerald-600 md:mt-1 md:text-4xl">{stats.frasCompleted}</p>
           </div>
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 md:h-12 md:w-12">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 md:h-12 md:w-12">
             <Store className="h-4 w-4 md:h-6 md:w-6" />
           </div>
         </div>
       </div>
 
-      <div className="rounded-lg border border-slate-700/50 bg-slate-800/50 p-3 backdrop-blur-sm md:rounded-2xl md:p-5">
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:p-5">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400 md:text-xs md:tracking-wider">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 md:text-xs md:tracking-wider">
               Due / Overdue
             </p>
-            <p className="mt-0.5 text-2xl font-black text-white md:mt-1 md:text-4xl">{stats.frasDueOrOverdue}</p>
+            <p className="mt-0.5 text-2xl font-black text-red-600 md:mt-1 md:text-4xl">{stats.frasDueOrOverdue}</p>
           </div>
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-500/20 text-rose-400 md:h-12 md:w-12">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-red-100 text-red-600 md:h-12 md:w-12">
             <AlertCircle className="h-4 w-4 md:h-6 md:w-6" />
           </div>
         </div>

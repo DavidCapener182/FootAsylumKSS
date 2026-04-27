@@ -13,7 +13,21 @@ import {
 } from '@/components/stores/store-crm-panel'
 import { StoreActionsModal } from '@/components/audit/store-actions-modal'
 import { AuditRow } from '@/components/audit/audit-table-helpers'
+import {
+  calculateNextDueDate,
+  getDaysUntilDue,
+  getFRAStatus,
+  statusBadge as renderFRAStatusBadge,
+  storeNeedsFRA,
+} from '@/components/fra/fra-table-helpers'
+import { StatusBadge } from '@/components/shared/status-badge'
 import { UserRole } from '@/lib/auth'
+import {
+  getAuditLifecycle,
+  getOpenActions,
+  getOverdueActions,
+  getStoreComplianceSummary,
+} from '@/lib/compliance-ui'
 import { getStoreActionListTitle } from '@/lib/store-action-titles'
 import { getInternalAreaDisplayName, getReportingAreaDisplayName } from '@/lib/areas'
 import { Button } from '@/components/ui/button'
@@ -22,11 +36,16 @@ import {
   AlertCircle,
   Calendar,
   ChevronRight,
+  CheckCircle2,
+  CheckSquare2,
   ClipboardList,
   Clock,
   ExternalLink,
+  Flame,
   MapPin,
+  ShieldCheck,
   Store,
+  TrendingUp,
 } from 'lucide-react'
 
 interface StoreDetailWorkspaceProps {
@@ -89,7 +108,7 @@ function getActionPriorityTone(priority: string | null | undefined): string {
 
 export function StoreDetailWorkspace({ store, incidents, actions, userRole, crmData, canEdit }: StoreDetailWorkspaceProps) {
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState('store crm')
+  const [activeTab, setActiveTab] = useState('overview')
   const [storeActionsModalOpen, setStoreActionsModalOpen] = useState(false)
   const [actionsMessage, setActionsMessage] = useState<string | null>(null)
 
@@ -158,6 +177,24 @@ export function StoreDetailWorkspace({ store, incidents, actions, userRole, crmD
   }, [store])
 
   const latestAuditScore = auditEntries[0]?.score ?? averageCompliance ?? null
+  const auditLifecycle = useMemo(() => getAuditLifecycle(store), [store])
+  const needsFRA = storeNeedsFRA({
+    id: store.id,
+    region: store.region || null,
+    store_code: store.store_code || null,
+    store_name: store.store_name,
+    is_active: Boolean(store.is_active),
+    compliance_audit_1_date: store.compliance_audit_1_date || null,
+    compliance_audit_2_date: store.compliance_audit_2_date || null,
+    fire_risk_assessment_date: store.fire_risk_assessment_date || null,
+    fire_risk_assessment_pdf_path: store.fire_risk_assessment_pdf_path || null,
+    fire_risk_assessment_notes: store.fire_risk_assessment_notes || null,
+    fire_risk_assessment_pct: store.fire_risk_assessment_pct ?? null,
+    fire_risk_assessment_rating: store.fire_risk_assessment_rating || null,
+  })
+  const fraStatus = getFRAStatus(store.fire_risk_assessment_date || null, needsFRA)
+  const fraDaysUntilDue = getDaysUntilDue(store.fire_risk_assessment_date || null)
+  const fraNextDueDate = calculateNextDueDate(store.fire_risk_assessment_date || null)
 
   const fullAddress = [store.address_line_1, store.city, store.postcode].filter(Boolean).join(', ')
   const mapsSearchUrl = fullAddress
@@ -168,6 +205,21 @@ export function StoreDetailWorkspace({ store, incidents, actions, userRole, crmD
     : null
 
   const actionResolutionPct = actions.length > 0 ? Math.round((completedActions.length / actions.length) * 100) : 0
+  const overdueActions = useMemo(() => getOverdueActions(actions), [actions])
+  const nextOpenAction = useMemo(() => {
+    return getOpenActions(actions).sort((a, b) => {
+      const aTime = a?.due_date ? new Date(a.due_date).getTime() : Number.POSITIVE_INFINITY
+      const bTime = b?.due_date ? new Date(b.due_date).getTime() : Number.POSITIVE_INFINITY
+      return aTime - bTime
+    })[0] || null
+  }, [actions])
+  const complianceLevel = getStoreComplianceSummary({
+    latestAuditScore,
+    fraStatus,
+    overdueActionCount: overdueActions.length,
+    openActionCount: ongoingActions.length,
+    auditLifecycleStatus: auditLifecycle.status,
+  })
   const severityIndex = getSeverityIndexLabel(ongoingIncidents)
   const canCreateStoreActions = userRole === 'admin' || userRole === 'ops'
   const supplementalContacts = useMemo<StoreCrmDisplayContact[]>(() => {
@@ -247,60 +299,68 @@ export function StoreDetailWorkspace({ store, incidents, actions, userRole, crmD
         <span className="font-medium text-slate-900">{store.store_name}</span>
       </nav>
 
-      <div className="flex flex-col items-start justify-between gap-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm md:flex-row md:items-center">
-        <div className="flex items-center gap-6">
-          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
-            <Store size={32} />
-          </div>
-          <div>
-            <div className="mb-1 flex items-center gap-3">
-              <h1 className="text-3xl font-bold tracking-tight">{store.store_name}</h1>
-              <span
-                className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
-                  store.is_active ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'
-                }`}
-              >
-                {store.is_active ? 'Active' : 'Inactive'}
-              </span>
+      <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+        <div className="flex flex-col items-start justify-between gap-6 p-5 md:flex-row md:items-center md:p-6">
+          <div className="flex items-center gap-5">
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
+              <Store size={32} />
             </div>
-            <div className="flex items-center gap-3 text-sm text-slate-500">
-              <span className="rounded bg-slate-100 px-2 py-0.5 font-mono text-slate-700">
-                {store.store_code || 'No code'}
-              </span>
-              <span className="font-medium">
-                Region: {getInternalAreaDisplayName(store.region, { fallback: 'Unassigned', includeCode: false })}
-              </span>
-            </div>
-            {store.reporting_area && (
-              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 font-medium text-slate-600">
-                  Reporting Area: {getReportingAreaDisplayName(store.reporting_area)}
+            <div>
+              <div className="mb-1 flex flex-wrap items-center gap-3">
+                <h1 className="text-2xl font-bold tracking-tight md:text-3xl">{store.store_name}</h1>
+                <span
+                  className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                    store.is_active ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'
+                  }`}
+                >
+                  {store.is_active ? 'Active' : 'Inactive'}
+                </span>
+                <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide ${complianceLevel.className}`}>
+                  <span className={`h-2 w-2 rounded-full ${complianceLevel.dotClassName}`} />
+                  {complianceLevel.label} · {complianceLevel.summary}
                 </span>
               </div>
-            )}
+              <div className="flex flex-wrap items-center gap-3 text-sm text-slate-500">
+                <span className="rounded bg-slate-100 px-2 py-0.5 font-mono text-slate-700">
+                  {store.store_code || 'No code'}
+                </span>
+                <span className="font-medium">
+                  Region: {getInternalAreaDisplayName(store.region, { fallback: 'Unassigned', includeCode: false })}
+                </span>
+              </div>
+              {store.reporting_area && (
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                  <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 font-medium text-slate-600">
+                    Reporting Area: {getReportingAreaDisplayName(store.reporting_area)}
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
 
-        <div className="flex w-full gap-4 border-t border-slate-100 pt-4 md:w-auto md:border-t-0 md:pt-0">
-          <div className="flex-1 border-r border-slate-100 px-6 md:text-right">
-            <p className="mb-1 text-xs font-medium uppercase text-slate-400">Incidents</p>
-            <p className="text-2xl font-bold text-red-500">{incidents.length}</p>
-          </div>
-          <div className="flex-1 border-r border-slate-100 px-6 md:text-right">
-            <p className="mb-1 text-xs font-medium uppercase text-slate-400">Actions</p>
-            <p className="text-2xl font-bold text-blue-600">{actions.length}</p>
-          </div>
-          <div className="flex-1 px-6 md:text-right">
-            <p className="mb-1 text-xs font-medium uppercase text-slate-400">Audit</p>
-            <p className="text-2xl font-bold text-slate-900">
-              {typeof latestAuditScore === 'number' ? `${latestAuditScore.toFixed(2)}%` : '—'}
-            </p>
+          <div className="grid w-full grid-cols-3 gap-3 border-t border-slate-100 pt-4 md:w-auto md:min-w-[420px] md:border-t-0 md:pt-0">
+            <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
+              <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">Audit</p>
+              <p className="text-lg font-black text-slate-900">
+                {typeof latestAuditScore === 'number' ? `${latestAuditScore.toFixed(1)}%` : '—'}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
+              <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">Open Actions</p>
+              <p className={`text-lg font-black ${overdueActions.length > 0 ? 'text-rose-600' : 'text-blue-600'}`}>
+                {ongoingActions.length}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
+              <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">FRA</p>
+              <div className="pt-0.5">{renderFRAStatusBadge(fraStatus, fraDaysUntilDue)}</div>
+            </div>
           </div>
         </div>
       </div>
 
       <div className="no-scrollbar flex gap-8 overflow-x-auto border-b border-slate-200">
-        {['Store CRM', 'Store Actions', 'Operational Data', 'Incidents & Safety', 'Audit History'].map((tab) => {
+        {['Overview', 'Store CRM', 'Store Actions', 'Operational Data', 'Incidents & Safety', 'Audit History'].map((tab) => {
           const value = tab.toLowerCase()
           const isActive = activeTab === value
 
@@ -318,6 +378,136 @@ export function StoreDetailWorkspace({ store, incidents, actions, userRole, crmD
           )
         })}
       </div>
+
+      {activeTab === 'overview' ? (
+        <div className="space-y-6">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Overall Compliance</p>
+                  <p className="mt-2 text-2xl font-black text-slate-900">{complianceLevel.label}</p>
+                  <p className="mt-1 text-sm text-slate-500">{complianceLevel.summary}</p>
+                </div>
+                <ShieldCheck className="h-8 w-8 text-slate-400" />
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Audit Lifecycle</p>
+                  <div className="mt-2">
+                    <StatusBadge type="audit" status={auditLifecycle.status} label={auditLifecycle.label} />
+                  </div>
+                  <p className="mt-2 text-sm text-slate-500">{auditLifecycle.description}</p>
+                </div>
+                <ClipboardList className="h-8 w-8 text-blue-400" />
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Fire Risk Assessment</p>
+                  <div className="mt-2">{renderFRAStatusBadge(fraStatus, fraDaysUntilDue)}</div>
+                  <p className="mt-2 text-sm text-slate-500">
+                    {fraStatus === 'required'
+                      ? 'No FRA has been recorded after audit activity.'
+                      : fraNextDueDate
+                        ? `Next review ${formatActionDate(fraNextDueDate.toISOString())}.`
+                        : 'No review date available.'}
+                  </p>
+                </div>
+                <Flame className="h-8 w-8 text-orange-400" />
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Action Control</p>
+                  <p className={`mt-2 text-2xl font-black ${overdueActions.length > 0 ? 'text-rose-600' : 'text-slate-900'}`}>
+                    {overdueActions.length}
+                  </p>
+                  <p className="mt-1 text-sm text-slate-500">
+                    {overdueActions.length === 1 ? 'overdue action' : 'overdue actions'} · {ongoingActions.length} open
+                  </p>
+                </div>
+                <CheckSquare2 className="h-8 w-8 text-emerald-400" />
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-3">
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm lg:col-span-2">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900">Compliance Priorities</h3>
+                  <p className="text-sm text-slate-500">The next items that need operational attention for this store.</p>
+                </div>
+                <TrendingUp className="h-5 w-5 text-slate-400" />
+              </div>
+              <div className="divide-y divide-slate-100">
+                {[
+                  {
+                    title: overdueActions.length > 0 ? 'Close overdue actions' : 'Action status under control',
+                    body: overdueActions.length > 0
+                      ? `${overdueActions.length} action${overdueActions.length === 1 ? '' : 's'} past due date.`
+                      : `${ongoingActions.length} open action${ongoingActions.length === 1 ? '' : 's'} currently tracked.`,
+                    tone: overdueActions.length > 0 ? 'text-rose-700' : 'text-emerald-700',
+                  },
+                  {
+                    title: auditLifecycle.label,
+                    body: auditLifecycle.description,
+                    tone: auditLifecycle.status === 'second_audit_required' ? 'text-orange-700' : 'text-slate-700',
+                  },
+                  {
+                    title: fraStatus === 'overdue' ? 'FRA overdue' : fraStatus === 'due' ? 'FRA due soon' : fraStatus === 'required' ? 'FRA required' : 'FRA status current',
+                    body: fraStatus === 'required'
+                      ? 'Complete and upload the first FRA for this audited store.'
+                      : fraNextDueDate
+                        ? `Review date: ${formatActionDate(fraNextDueDate.toISOString())}.`
+                        : 'No FRA review date available.',
+                    tone: fraStatus === 'overdue' ? 'text-rose-700' : fraStatus === 'due' || fraStatus === 'required' ? 'text-orange-700' : 'text-emerald-700',
+                  },
+                ].map((item) => (
+                  <div key={item.title} className="py-4 first:pt-0 last:pb-0">
+                    <p className={`text-sm font-bold ${item.tone}`}>{item.title}</p>
+                    <p className="mt-1 text-sm text-slate-600">{item.body}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <h3 className="text-lg font-bold text-slate-900">Store Summary</h3>
+              <div className="mt-4 space-y-3 text-sm">
+                <div className="flex justify-between gap-4 border-b border-slate-100 pb-3">
+                  <span className="text-slate-500">Latest audit</span>
+                  <span className="font-bold text-slate-900">{typeof latestAuditScore === 'number' ? `${latestAuditScore.toFixed(1)}%` : '—'}</span>
+                </div>
+                <div className="flex justify-between gap-4 border-b border-slate-100 pb-3">
+                  <span className="text-slate-500">Audit average</span>
+                  <span className="font-bold text-slate-900">{typeof averageCompliance === 'number' ? `${averageCompliance.toFixed(1)}%` : '—'}</span>
+                </div>
+                <div className="flex justify-between gap-4 border-b border-slate-100 pb-3">
+                  <span className="text-slate-500">Next action due</span>
+                  <span className="font-bold text-slate-900">{nextOpenAction ? formatActionDate(nextOpenAction.due_date) : '—'}</span>
+                </div>
+                <div className="flex justify-between gap-4 border-b border-slate-100 pb-3">
+                  <span className="text-slate-500">Open incidents</span>
+                  <span className="font-bold text-slate-900">{ongoingIncidents.length}</span>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <span className="text-slate-500">Action resolution</span>
+                  <span className="font-bold text-slate-900">{actionResolutionPct}%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {activeTab === 'store crm' ? (
         <StoreCrmPanel

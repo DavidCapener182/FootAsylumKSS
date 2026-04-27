@@ -14,9 +14,10 @@ import { getStoreActionListTitle } from '@/components/shared/store-action-title'
 
 interface ActionMobileCardProps {
   action: any
+  canManageActions?: boolean
 }
 
-export function ActionMobileCard({ action }: ActionMobileCardProps) {
+export function ActionMobileCard({ action, canManageActions = true }: ActionMobileCardProps) {
   const [modalOpen, setModalOpen] = useState(false)
   const isStoreAction = action.source_type === 'store' || !action.incident_id
   const displayTitle = isStoreAction ? getStoreActionListTitle(action) : action.title
@@ -121,7 +122,7 @@ export function ActionMobileCard({ action }: ActionMobileCardProps) {
 
             {/* Actions */}
             <div className="flex items-center gap-1 flex-shrink-0">
-              {!isStoreAction ? (
+              {!isStoreAction && canManageActions ? (
                 <>
                   <div className="scale-90">
                     <DeleteActionButton actionId={action.id} actionTitle={action.title} />

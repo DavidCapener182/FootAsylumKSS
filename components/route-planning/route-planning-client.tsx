@@ -847,58 +847,55 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
 
   return (
     <div className="space-y-6">
-      <div className="relative overflow-hidden rounded-xl bg-[#0f172a] p-3 text-white shadow-xl shadow-slate-200/50 sm:p-4 md:rounded-3xl md:p-8">
-        <div className="absolute right-0 top-0 h-96 w-96 translate-x-1/3 -translate-y-1/2 rounded-full bg-blue-500/10 blur-3xl" />
-        <div className="absolute bottom-0 left-0 h-64 w-64 -translate-x-1/3 translate-y-1/3 rounded-full bg-emerald-500/10 blur-3xl" />
-
-        <div className="relative z-10">
-          <div className="mb-4 flex flex-col items-start justify-between gap-3 md:mb-8 md:flex-row md:items-center">
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
+        <div>
+          <div className="mb-5 flex flex-col items-start justify-between gap-3 md:flex-row md:items-center">
             <div>
-              <div className="mb-1.5 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-blue-400 md:text-xs">
+              <div className="mb-1.5 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-lime-600 md:text-xs">
                 <Navigation size={14} /> Route Optimization
               </div>
-              <h1 className="mb-1 text-xl font-bold tracking-tight sm:text-2xl md:text-3xl">Route Planning</h1>
-              <p className="max-w-2xl text-xs leading-snug text-slate-400 sm:text-sm">
+              <h1 className="mb-1 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">Route Planning</h1>
+              <p className="max-w-2xl text-sm leading-6 text-slate-500">
                 Build daily compliance routes, optimize store selection, and track planned rounds by area and manager.
               </p>
             </div>
-            <button className="flex min-h-[44px] items-center gap-2 rounded-2xl border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-slate-700 sm:text-sm md:rounded-lg md:px-4 md:py-2">
+            <button className="flex min-h-[44px] items-center gap-2 rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-slate-800">
               Live Planner
               <Navigation size={14} className="ml-1" />
             </button>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 md:grid-cols-4 md:gap-4">
-            <div className="flex flex-col justify-between rounded-lg border border-slate-700/50 bg-slate-800/50 p-2.5 backdrop-blur-sm md:rounded-2xl md:p-4">
-              <div className="mb-2 flex items-center gap-2 text-slate-400">
-                <StoreIcon size={14} className="text-blue-400" />
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <div className="flex flex-col justify-between rounded-2xl border border-blue-100 bg-blue-50/50 p-4">
+              <div className="mb-2 flex items-center gap-2 text-blue-700">
+                <StoreIcon size={14} />
                 <span className="text-[10px] font-bold uppercase md:text-xs">Available Stores</span>
               </div>
-              <p className="text-xl font-bold text-white md:text-3xl">{availableStoreCount}</p>
+              <p className="text-2xl font-bold text-blue-700 md:text-3xl">{availableStoreCount}</p>
             </div>
 
-            <div className="flex flex-col justify-between rounded-lg border border-slate-700/50 bg-slate-800/50 p-2.5 backdrop-blur-sm md:rounded-2xl md:p-4">
-              <div className="mb-2 flex items-center gap-2 text-slate-400">
-                <MapIcon size={14} className="text-emerald-400" />
+            <div className="flex flex-col justify-between rounded-2xl border border-emerald-100 bg-emerald-50/50 p-4">
+              <div className="mb-2 flex items-center gap-2 text-emerald-700">
+                <MapIcon size={14} />
                 <span className="text-[10px] font-bold uppercase md:text-xs">Planned Routes</span>
               </div>
-              <p className="text-xl font-bold text-white md:text-3xl">{plannedRouteCount}</p>
+              <p className="text-2xl font-bold text-emerald-700 md:text-3xl">{plannedRouteCount}</p>
             </div>
 
-            <div className="flex flex-col justify-between rounded-lg border border-slate-700/50 bg-slate-800/50 p-2.5 backdrop-blur-sm md:rounded-2xl md:p-4">
-              <div className="mb-2 flex items-center gap-2 text-slate-400">
-                <CheckCircle2 size={14} className="text-violet-400" />
+            <div className="flex flex-col justify-between rounded-2xl border border-teal-100 bg-teal-50/50 p-4">
+              <div className="mb-2 flex items-center gap-2 text-teal-700">
+                <CheckCircle2 size={14} />
                 <span className="text-[10px] font-bold uppercase md:text-xs">Planned Stores</span>
               </div>
-              <p className="text-xl font-bold text-white md:text-3xl">{plannedStoreCount}</p>
+              <p className="text-2xl font-bold text-teal-700 md:text-3xl">{plannedStoreCount}</p>
             </div>
 
-            <div className="flex flex-col justify-between rounded-lg border border-slate-700/50 bg-slate-800/50 p-2.5 backdrop-blur-sm md:rounded-2xl md:p-4">
-              <div className="mb-2 flex items-center gap-2 text-slate-400">
-                <Users size={14} className="text-amber-400" />
+            <div className="flex flex-col justify-between rounded-2xl border border-amber-100 bg-amber-50/50 p-4">
+              <div className="mb-2 flex items-center gap-2 text-amber-700">
+                <Users size={14} />
                 <span className="text-[10px] font-bold uppercase md:text-xs">Managers</span>
               </div>
-              <p className="text-xl font-bold text-white md:text-3xl">{managerCount}</p>
+              <p className="text-2xl font-bold text-amber-700 md:text-3xl">{managerCount}</p>
             </div>
           </div>
         </div>

@@ -1,8 +1,15 @@
 'use client'
 
 import { Card } from '@/components/ui/card'
-import { MapPin, CheckCircle2, XCircle, AlertTriangle, ClipboardList, ArrowUpRight, Navigation } from 'lucide-react'
+import { MapPin, CheckCircle2, XCircle, ClipboardList, ArrowUpRight, Navigation, ShieldCheck } from 'lucide-react'
 import { getDisplayStoreCode } from '@/lib/utils'
+import {
+  getAuditLifecycle,
+  getLatestAuditScore,
+  getOpenActions,
+  getOverdueActions,
+  getStoreComplianceSummary,
+} from '@/lib/compliance-ui'
 import Link from 'next/link'
 
 interface StoreMobileCardProps {
@@ -15,6 +22,16 @@ export function StoreMobileCard({ store }: StoreMobileCardProps) {
   const appleMapsUrl = fullAddress
     ? `https://maps.apple.com/?q=${encodeURIComponent(store.store_name)}&address=${encodeURIComponent(fullAddress)}`
     : null
+  const auditLifecycle = getAuditLifecycle(store)
+  const latestAuditScore = getLatestAuditScore(store)
+  const openActions = getOpenActions(store.actions)
+  const overdueActions = getOverdueActions(store.actions)
+  const complianceSummary = getStoreComplianceSummary({
+    latestAuditScore,
+    openActionCount: openActions.length,
+    overdueActionCount: overdueActions.length,
+    auditLifecycleStatus: auditLifecycle.status,
+  })
 
   return (
     <Card className="overflow-hidden rounded-[30px] border border-slate-200/80 bg-white/95 shadow-[0_14px_28px_rgba(15,23,42,0.06)] transition-shadow hover:shadow-[0_16px_32px_rgba(15,23,42,0.1)]">
@@ -36,6 +53,10 @@ export function StoreMobileCard({ store }: StoreMobileCardProps) {
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
             <p className="text-xs font-medium text-slate-500">Compliance summary</p>
+            <div className={`mt-2 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${complianceSummary.className}`}>
+              <span className={`h-2 w-2 rounded-full ${complianceSummary.dotClassName}`} />
+              {complianceSummary.label} · {complianceSummary.summary}
+            </div>
           </div>
           <div className="flex flex-col items-end gap-1.5">
             {store.is_active ? (
@@ -53,13 +74,21 @@ export function StoreMobileCard({ store }: StoreMobileCardProps) {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <span className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-rose-700">
-            <AlertTriangle className="h-3 w-3" />
-            {store.incidents?.length || 0} incidents
+          <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-700">
+            <ShieldCheck className="h-3 w-3" />
+            {typeof latestAuditScore === 'number' ? `${latestAuditScore.toFixed(1)}% audit` : auditLifecycle.label}
           </span>
-          <span className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-blue-700">
+          <span className="inline-flex items-center gap-1 rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-indigo-700">
             <ClipboardList className="h-3 w-3" />
-            {store.actions?.length || 0} actions
+            {auditLifecycle.label}
+          </span>
+          <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${
+            overdueActions.length > 0
+              ? 'border-rose-200 bg-rose-50 text-rose-700'
+              : 'border-blue-200 bg-blue-50 text-blue-700'
+          }`}>
+            <ClipboardList className="h-3 w-3" />
+            {openActions.length} open actions
           </span>
         </div>
 

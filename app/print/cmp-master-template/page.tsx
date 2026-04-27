@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic'
 export default async function CmpMasterTemplatePrintPage({
   searchParams,
 }: {
-  searchParams: { templateId?: string }
+  searchParams: { templateId?: string; prefill?: string }
 }) {
   await requireCmpAccess()
 
@@ -28,6 +28,22 @@ export default async function CmpMasterTemplatePrintPage({
   }
 
   const pageSize = template.orientation === 'landscape' ? 'A4 landscape' : 'A4 portrait'
+  const prefillRaw = String(searchParams?.prefill || '')
+  let prefillValues: { eventName?: string; eventDate?: string; fields?: Record<string, string> } = {}
+
+  if (prefillRaw) {
+    try {
+      const parsed = JSON.parse(prefillRaw)
+      if (parsed && typeof parsed === 'object') {
+        prefillValues = parsed
+      }
+    } catch {
+      prefillValues = {}
+    }
+  }
+
+  const queryParams = new URLSearchParams({ templateId: template.id })
+  queryParams.set('prefill', JSON.stringify(prefillValues))
 
   return (
     <div className="cmp-master-template-print-root bg-white">
@@ -44,7 +60,7 @@ export default async function CmpMasterTemplatePrintPage({
           </a>
           <CmpMasterTemplatePrintToolbar />
           <a
-            href={`/api/cmp/master-templates/generate-pdf?templateId=${template.id}`}
+            href={`/api/cmp/master-templates/generate-pdf?${queryParams.toString()}`}
             className={cn(buttonVariants({ variant: 'default' }))}
           >
             <Download className="mr-2 h-4 w-4" />
@@ -55,7 +71,7 @@ export default async function CmpMasterTemplatePrintPage({
       </div>
 
       <div className="cmp-master-template-print-stage bg-slate-200 px-4 py-6 md:px-6">
-        <CmpMasterTemplateDocument template={template} />
+        <CmpMasterTemplateDocument template={template} prefillValues={prefillValues} />
       </div>
     </div>
   )

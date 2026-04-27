@@ -4,8 +4,8 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { logActivity } from '@/lib/activity-log'
 import { formatStoreCrmActionError, isMissingStoreCrmTableError } from '@/lib/store-crm-schema'
+import { requirePermission } from '@/lib/permissions'
 
-const WRITABLE_ROLES = new Set(['admin', 'ops'])
 const CONTACT_METHODS = new Set(['phone', 'email', 'either'])
 const NOTE_TYPES = new Set(['general', 'contact', 'audit', 'fra', 'other'])
 const INTERACTION_TYPES = new Set([
@@ -48,30 +48,8 @@ function toIsoDateTime(value?: string | null): string {
 }
 
 async function getWritableContext(): Promise<AuthenticatedWritableContext> {
-  const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Unauthorized')
-  }
-
-  const { data: profile, error: profileError } = await supabase
-    .from('fa_profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (profileError || !profile) {
-    throw new Error('Unable to verify user role')
-  }
-
-  if (!WRITABLE_ROLES.has(profile.role)) {
-    throw new Error('You do not have permission to update store CRM data')
-  }
-
-  return { supabase, userId: user.id }
+  const { supabase, userId } = await requirePermission('manageStoreCRM')
+  return { supabase, userId }
 }
 
 export interface CreateStoreContactInput {

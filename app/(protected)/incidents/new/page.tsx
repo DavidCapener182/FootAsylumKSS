@@ -62,7 +62,7 @@ export default function NewIncidentPage() {
   }, [])
 
   useEffect(() => {
-    const presetStoreId = searchParams.get('storeId')
+    const presetStoreId = searchParams?.get('storeId')
     if (!presetStoreId) return
 
     if (stores.some((store) => store.id === presetStoreId)) {

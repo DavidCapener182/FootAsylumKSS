@@ -11,7 +11,7 @@ import { isCmpSectionPath } from './cmp-chrome'
 import { getMobileMoreItems, getMobileTabItems, isPrimaryMobilePath, matchesMobilePath } from './mobile-nav-config'
 
 export function MobileTabBar({ userRole }: { userRole?: UserRole | null }) {
-  const pathname = usePathname()
+  const pathname = usePathname() || '/'
   const isCmpSection = isCmpSectionPath(pathname)
   const tabItems = getMobileTabItems(userRole)
   const moreItems = getMobileMoreItems(userRole)
@@ -52,7 +52,7 @@ export function MobileTabBar({ userRole }: { userRole?: UserRole | null }) {
       <div className="mx-auto max-w-[392px]" ref={morePanelRef}>
         <div
           className={cn(
-            'pointer-events-none mb-2 origin-bottom rounded-[28px] border border-slate-200/90 bg-[rgba(248,250,252,0.96)] p-3 shadow-[0_18px_38px_rgba(15,23,42,0.16)] backdrop-blur-2xl transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
+            'pointer-events-none mb-2 origin-bottom rounded-[28px] border border-slate-200/90 bg-[rgba(248,250,252,0.96)] p-3 shadow-[0_18px_38px_rgba(15,23,42,0.16)] backdrop-blur-2xl transition-all duration-300 ease-out',
             moreOpen ? 'translate-y-0 scale-100 opacity-100' : 'translate-y-3 scale-[0.96] opacity-0'
           )}
           aria-hidden={!moreOpen}

@@ -1,0 +1,46 @@
+- generic [active] [ref=e1]:
+  - alert [ref=e2]
+  - generic [ref=e4]:
+    - generic [ref=e7]:
+      - generic [ref=e8]:
+        - img "KSS x Footasylum" [ref=e10]
+        - paragraph [ref=e12]: Authorised access
+      - generic [ref=e13]:
+        - generic [ref=e14]:
+          - img [ref=e15]
+          - text: Secure compliance operations
+        - heading "KSS x Footasylum Audit & Fire Safety Platform" [level=1] [ref=e18]
+        - paragraph [ref=e19]: A secure operational system for tracking store audits, fire risk assessments, compliance actions, visit planning and reporting.
+        - generic [ref=e20]:
+          - generic [ref=e23]: Track audit progress across the estate
+          - generic [ref=e26]: Monitor fire risk assessment status
+          - generic [ref=e29]: Manage audit and FRA actions
+          - generic [ref=e32]: Plan visits and regional routes
+          - generic [ref=e35]: Produce clear compliance reports
+      - paragraph [ref=e36]: Access is restricted to authorised KSS and Footasylum users. Activity may be monitored for compliance and system security.
+    - main [ref=e37]:
+      - generic [ref=e38]:
+        - generic [ref=e39]:
+          - img [ref=e41]
+          - heading "Sign in to your account" [level=2] [ref=e45]
+          - paragraph [ref=e46]: Access is restricted to authorised KSS and Footasylum users.
+        - generic [ref=e47]:
+          - generic [ref=e48]:
+            - text: Email
+            - textbox "Email" [ref=e49]:
+              - /placeholder: you@example.com
+          - generic [ref=e50]:
+            - text: Password
+            - generic [ref=e51]:
+              - textbox "Password" [ref=e52]
+              - button "Show password" [ref=e53] [cursor=pointer]:
+                - img [ref=e54]
+          - button "Sign in" [ref=e57] [cursor=pointer]
+          - generic [ref=e58]:
+            - link "Forgot your password?" [ref=e59] [cursor=pointer]:
+              - /url: /login/forgot-password
+            - generic [ref=e60]:
+              - text: Don't have an account?
+              - link "Sign up" [ref=e61] [cursor=pointer]:
+                - /url: /login/signup
+        - paragraph [ref=e62]: Having access issues? Contact your system administrator.

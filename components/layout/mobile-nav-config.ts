@@ -1,4 +1,4 @@
-import { AlertTriangle, Calendar, ClipboardList, LayoutDashboard, Route, Store } from 'lucide-react'
+import { CheckSquare, ClipboardList, Flame, LayoutDashboard } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { UserRole } from '@/lib/auth'
 import { navItems } from './nav-items'
@@ -11,30 +11,30 @@ export type MobileTabItem = {
 
 const defaultMobileTabItems: MobileTabItem[] = [
   { href: '/dashboard', label: 'Home', icon: LayoutDashboard },
-  { href: '/incidents', label: 'Incidents', icon: AlertTriangle },
-  { href: '/stores', label: 'Stores', icon: Store },
-  { href: '/calendar', label: 'Calendar', icon: Calendar },
+  { href: '/audit-tracker', label: 'Audits', icon: ClipboardList },
+  { href: '/fire-risk-assessment', label: 'FRAs', icon: Flame },
+  { href: '/actions', label: 'Actions', icon: CheckSquare },
 ]
 
 const opsMobileTabItems: MobileTabItem[] = [
   { href: '/dashboard', label: 'Home', icon: LayoutDashboard },
-  { href: '/calendar', label: 'Calendar', icon: Calendar },
-  { href: '/audit-tracker', label: 'Audit', icon: ClipboardList },
-  { href: '/route-planning', label: 'Routes', icon: Route },
+  { href: '/audit-tracker', label: 'Audits', icon: ClipboardList },
+  { href: '/fire-risk-assessment', label: 'FRAs', icon: Flame },
+  { href: '/actions', label: 'Actions', icon: CheckSquare },
 ]
 
 const mobilePageTitles: Array<{ href: string; title: string }> = [
   { href: '/dashboard', title: 'Dashboard' },
-  { href: '/incidents', title: 'Incidents' },
+  { href: '/incidents', title: 'Operational Records' },
   { href: '/actions', title: 'Actions' },
-  { href: '/stores', title: 'Stores' },
-  { href: '/audit-tracker', title: 'Audit Tracker' },
+  { href: '/stores', title: 'Store Directory' },
+  { href: '/audit-tracker', title: 'Compliance Audits' },
   { href: '/audit-lab', title: 'SafeHub' },
-  { href: '/fire-risk-assessment', title: 'Fire Risk' },
+  { href: '/fire-risk-assessment', title: 'Fire Risk Assessments' },
   { href: '/route-planning', title: 'Route Planning' },
   { href: '/calendar', title: 'Calendar' },
-  { href: '/reports', title: 'Reports' },
-  { href: '/help', title: 'GDPR' },
+  { href: '/reports', title: 'Reports & Exports' },
+  { href: '/help', title: 'GDPR & Data Protection' },
   { href: '/admin', title: 'Admin' },
   { href: '/activity', title: 'Recent Activity' },
 ]

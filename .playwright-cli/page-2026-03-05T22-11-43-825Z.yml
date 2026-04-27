@@ -1,0 +1,216 @@
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - complementary "Navigation menu" [ref=e305]:
+      - generic [ref=e4]:
+        - generic [ref=e5]:
+          - img "KSS Assurance" [ref=e306]
+          - generic [ref=e8]: KSS Assurance
+        - button "Close menu" [ref=e307] [cursor=pointer]:
+          - img [ref=e10]
+      - navigation [ref=e13]:
+        - list [ref=e14]:
+          - listitem [ref=e15]:
+            - link "Dashboard" [ref=e308] [cursor=pointer]:
+              - /url: /
+              - img [ref=e17]
+              - text: Dashboard
+          - listitem [ref=e22]:
+            - link "Incidents" [ref=e309] [cursor=pointer]:
+              - /url: /incidents
+              - img [ref=e24]
+              - text: Incidents
+          - listitem [ref=e26]:
+            - link "Actions" [ref=e310] [cursor=pointer]:
+              - /url: /actions
+              - img [ref=e28]
+              - text: Actions
+          - listitem [ref=e31]:
+            - link "Stores / CRM" [ref=e311] [cursor=pointer]:
+              - /url: /stores
+              - img [ref=e33]
+              - text: Stores / CRM
+          - listitem [ref=e38]:
+            - link "Audit Tracker" [ref=e312] [cursor=pointer]:
+              - /url: /audit-tracker
+              - img [ref=e40]
+              - text: Audit Tracker
+          - listitem [ref=e43]:
+            - link "Fire Risk Assessment" [ref=e313] [cursor=pointer]:
+              - /url: /fire-risk-assessment
+              - img [ref=e45]
+              - text: Fire Risk Assessment
+          - listitem [ref=e47]:
+            - link "Route Planning" [ref=e314] [cursor=pointer]:
+              - /url: /route-planning
+              - img [ref=e49]
+              - text: Route Planning
+          - listitem [ref=e53]:
+            - link "Calendar" [ref=e315] [cursor=pointer]:
+              - /url: /calendar
+              - img [ref=e55]
+              - text: Calendar
+          - listitem [ref=e57]:
+            - link "Reports" [ref=e316] [cursor=pointer]:
+              - /url: /reports
+              - img [ref=e59]
+              - text: Reports
+          - listitem [ref=e62]:
+            - link "GDPR" [ref=e317] [cursor=pointer]:
+              - /url: /help
+              - img [ref=e64]
+              - text: GDPR
+          - listitem [ref=e67]:
+            - button "Report a Bug" [ref=e318] [cursor=pointer]:
+              - img [ref=e69]
+              - text: Report a Bug
+          - listitem [ref=e78]:
+            - link "Admin" [ref=e319] [cursor=pointer]:
+              - /url: /admin
+              - img [ref=e80]
+              - text: Admin
+          - listitem [ref=e83]:
+            - link "Recent Activity" [ref=e320] [cursor=pointer]:
+              - /url: /activity
+              - img [ref=e85]
+              - text: Recent Activity
+      - generic [ref=e88]:
+        - img [ref=e90]
+        - paragraph [ref=e94]: David Capener
+    - generic [ref=e95]:
+      - banner [ref=e96]:
+        - generic [ref=e97]:
+          - button "Toggle navigation menu" [expanded] [active] [ref=e98] [cursor=pointer]:
+            - img
+          - button "Search stores" [ref=e101] [cursor=pointer]:
+            - img [ref=e102]
+        - generic [ref=e105]:
+          - generic "Currently online users" [ref=e106]:
+            - generic "David Capener" [ref=e107]:
+              - generic [ref=e108]: DC
+          - button [ref=e111] [cursor=pointer]:
+            - img [ref=e112]
+      - main [ref=e115]:
+        - generic [ref=e117]:
+          - generic [ref=e121]:
+            - generic [ref=e122]:
+              - generic [ref=e123]:
+                - img [ref=e124]
+                - text: Calendar Overview
+              - heading "March 2026" [level=1] [ref=e126]
+              - paragraph [ref=e127]: Monthly schedule for planned visits and completed compliance activity across your managed regions.
+            - generic [ref=e128]:
+              - generic [ref=e129]:
+                - paragraph [ref=e130]: Routes
+                - paragraph [ref=e131]: "5"
+              - generic [ref=e132]:
+                - paragraph [ref=e133]: Completed
+                - paragraph [ref=e134]: "1"
+              - generic [ref=e135]:
+                - paragraph [ref=e136]: Active Days
+                - paragraph [ref=e137]: "6"
+          - generic [ref=e138]:
+            - generic [ref=e139]:
+              - heading "Manager Capacity" [level=2] [ref=e140]:
+                - img [ref=e141]
+                - text: Manager Capacity
+              - generic [ref=e146]:
+                - img [ref=e147]
+                - text: 8H TARGET/DAY
+            - generic [ref=e151]:
+              - generic [ref=e152]:
+                - generic [ref=e153]: Andy McIntosh
+                - generic [ref=e154]: 45%
+              - generic [ref=e157]:
+                - generic [ref=e158]:
+                  - img [ref=e159]
+                  - text: 8 stops • 18h across 5 days
+                - generic [ref=e161]:
+                  - img [ref=e162]
+                  - text: "Busiest day: 6.8h"
+          - generic [ref=e165]:
+            - generic [ref=e166]:
+              - generic [ref=e167]:
+                - heading "March 2026" [level=2] [ref=e168]
+                - generic [ref=e169]:
+                  - button [ref=e170] [cursor=pointer]:
+                    - img [ref=e171]
+                  - button [ref=e173] [cursor=pointer]:
+                    - img [ref=e174]
+              - generic [ref=e177]:
+                - button "Planned Route" [ref=e178] [cursor=pointer]:
+                  - img [ref=e179]
+                  - text: Planned Route
+                - button "Completed Store" [ref=e181] [cursor=pointer]:
+                  - img [ref=e182]
+                  - text: Completed Store
+            - generic [ref=e186]:
+              - generic [ref=e187]:
+                - generic [ref=e189]:
+                  - generic [ref=e190]: Tue
+                  - generic [ref=e191]: "3"
+                - button "Photo Studio 74.19% David Capener Revisit Needed" [ref=e193] [cursor=pointer]:
+                  - img [ref=e195]
+                  - generic [ref=e197]:
+                    - generic [ref=e198]:
+                      - generic [ref=e199]: Photo Studio
+                      - generic [ref=e200]: 74.19%
+                    - generic [ref=e201]:
+                      - img [ref=e202]
+                      - text: David Capener
+                    - generic [ref=e207]: Revisit Needed
+              - generic [ref=e208]:
+                - generic [ref=e210]:
+                  - generic [ref=e211]: Tue
+                  - generic [ref=e212]: "10"
+                - button "Andy McIntosh A8 • 1 store" [ref=e214] [cursor=pointer]:
+                  - img [ref=e216]
+                  - generic [ref=e218]:
+                    - generic [ref=e220]: Andy McIntosh
+                    - generic [ref=e221]:
+                      - img [ref=e222]
+                      - text: A8 • 1 store
+              - generic [ref=e227]:
+                - generic [ref=e229]:
+                  - generic [ref=e230]: Wed
+                  - generic [ref=e231]: "11"
+                - button "Andy McIntosh A6 • 3 stores" [ref=e233] [cursor=pointer]:
+                  - img [ref=e235]
+                  - generic [ref=e237]:
+                    - generic [ref=e239]: Andy McIntosh
+                    - generic [ref=e240]:
+                      - img [ref=e241]
+                      - text: A6 • 3 stores
+              - generic [ref=e246]:
+                - generic [ref=e248]:
+                  - generic [ref=e249]: Tue
+                  - generic [ref=e250]: "17"
+                - button "Andy McIntosh A7 • 1 store" [ref=e252] [cursor=pointer]:
+                  - img [ref=e254]
+                  - generic [ref=e256]:
+                    - generic [ref=e258]: Andy McIntosh
+                    - generic [ref=e259]:
+                      - img [ref=e260]
+                      - text: A7 • 1 store
+              - generic [ref=e265]:
+                - generic [ref=e267]:
+                  - generic [ref=e268]: Tue
+                  - generic [ref=e269]: "24"
+                - button "Andy McIntosh A7 • 2 stores" [ref=e271] [cursor=pointer]:
+                  - img [ref=e273]
+                  - generic [ref=e275]:
+                    - generic [ref=e277]: Andy McIntosh
+                    - generic [ref=e278]:
+                      - img [ref=e279]
+                      - text: A7 • 2 stores
+              - generic [ref=e284]:
+                - generic [ref=e286]:
+                  - generic [ref=e287]: Tue
+                  - generic [ref=e288]: "31"
+                - button "Andy McIntosh A7 • 1 store" [ref=e290] [cursor=pointer]:
+                  - img [ref=e292]
+                  - generic [ref=e294]:
+                    - generic [ref=e296]: Andy McIntosh
+                    - generic [ref=e297]:
+                      - img [ref=e298]
+                      - text: A7 • 1 store
+  - alert [ref=e303]

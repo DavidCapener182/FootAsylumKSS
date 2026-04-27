@@ -1,4 +1,5 @@
 import { Badge } from '@/components/ui/badge'
+import { StatusBadge } from '@/components/shared/status-badge'
 import { cn, formatAppDate, formatPercent } from '@/lib/utils'
 
 /**
@@ -107,34 +108,15 @@ export function formatDate(value: string | null): string {
  * Render a status badge for FRA status
  */
 export function statusBadge(status: FRAStatus, days: number | null) {
-  const baseClass =
-    'h-6 rounded-full border px-2.5 text-[11px] font-semibold leading-none shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]'
-
   switch (status) {
     case 'up_to_date':
-      return (
-        <Badge variant="outline" className={cn(baseClass, 'bg-emerald-50 text-emerald-800 border-emerald-300')}>
-          Up to date
-        </Badge>
-      )
+      return <StatusBadge type="fra" status={status} label="Up to date" />
     case 'due':
-      return (
-        <Badge variant="outline" className={cn(baseClass, 'bg-amber-50 text-amber-800 border-amber-300')}>
-          Due in {days} {days === 1 ? 'day' : 'days'}
-        </Badge>
-      )
+      return <StatusBadge type="fra" status={status} label={`Due in ${days} ${days === 1 ? 'day' : 'days'}`} />
     case 'overdue':
-      return (
-        <Badge variant="outline" className={cn(baseClass, 'bg-rose-50 text-rose-800 border-rose-300')}>
-          {days && days < 0 ? `${Math.abs(days)} days overdue` : 'Overdue'}
-        </Badge>
-      )
+      return <StatusBadge type="fra" status={status} label={days && days < 0 ? `${Math.abs(days)} days overdue` : 'Overdue'} />
     case 'required':
-      return (
-        <Badge variant="outline" className={cn(baseClass, 'bg-orange-50 text-orange-800 border-orange-300')}>
-          Required
-        </Badge>
-      )
+      return <StatusBadge type="fra" status={status} label="Required" />
     case 'not_required':
       return (
         <span className="text-xs text-slate-400">—</span>

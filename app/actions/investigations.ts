@@ -1,9 +1,9 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
 import { logActivity } from '@/lib/activity-log'
 import { revalidatePath } from 'next/cache'
 import { FaInvestigationType, FaInvestigationStatus } from '@/types/db'
+import { requirePermission } from '@/lib/permissions'
 
 export interface CreateInvestigationInput {
   investigation_type: FaInvestigationType
@@ -16,12 +16,7 @@ export interface CreateInvestigationInput {
 }
 
 export async function createInvestigation(incidentId: string, input: CreateInvestigationInput) {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Unauthorized')
-  }
+  const { supabase } = await requirePermission('manageIncidents')
 
   const investigationData = {
     ...input,
@@ -49,12 +44,7 @@ export async function createInvestigation(incidentId: string, input: CreateInves
 }
 
 export async function updateInvestigation(id: string, updates: Partial<CreateInvestigationInput & { status?: FaInvestigationStatus }>) {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Unauthorized')
-  }
+  const { supabase } = await requirePermission('manageIncidents')
 
   const { data: currentInvestigation } = await supabase
     .from('fa_investigations')
@@ -93,5 +83,3 @@ export async function updateInvestigation(id: string, updates: Partial<CreateInv
   revalidatePath(`/incidents/${investigation.incident_id}`)
   return investigation
 }
-
-

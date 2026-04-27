@@ -22,15 +22,15 @@ export default async function ProtectedLayout({
     .eq('id', session.user.id)
     .single()
 
-  // Block access for pending users and readonly users (treat readonly as pending)
-  if (profile && (profile.role === 'pending' || profile.role === 'readonly')) {
+  // Pending users cannot access protected data until an administrator approves them.
+  if (profile && profile.role === 'pending') {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
         <div className="w-full max-w-md bg-white rounded-lg shadow-lg p-8 text-center">
           <h1 className="text-2xl font-bold text-gray-900 mb-4">Account Pending Approval</h1>
           <p className="text-gray-600 mb-6">
             Your account has been created but is pending admin approval. 
-            You will be able to access the system once an administrator approves your account and changes your role to Ops, Client, or Admin.
+            You will be able to access the system once an administrator approves your account and assigns the correct role.
           </p>
           <p className="text-sm text-gray-500">
             If you have any questions, please contact your administrator.

@@ -2,13 +2,14 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { requirePermission } from '@/lib/permissions'
 
 export async function updateStoreLocation(
   storeId: string,
   latitude: number | null,
   longitude: number | null
 ) {
-  const supabase = createClient()
+  const { supabase } = await requirePermission('manageRoutePlanning')
 
   const { error } = await supabase
     .from('fa_stores')
@@ -33,7 +34,7 @@ export async function updateManagerHomeAddress(
   latitude: number | null,
   longitude: number | null
 ) {
-  const supabase = createClient()
+  const { supabase } = await requirePermission('manageRoutePlanning')
 
   const { error } = await supabase
     .from('fa_profiles')
@@ -57,7 +58,7 @@ export async function updateRoutePlannedDate(
   storeId: string,
   plannedDate: string | null
 ) {
-  const supabase = createClient()
+  const { supabase } = await requirePermission('manageRoutePlanning')
 
   const { error } = await supabase
     .from('fa_stores')
@@ -82,7 +83,7 @@ export async function updateRouteSequence(
   storeIds: string[],
   routeKey: string
 ) {
-  const supabase = createClient()
+  const { supabase } = await requirePermission('manageRoutePlanning')
 
   // Update each store with its sequence number
   const updates = storeIds.map((storeId, index) => {
@@ -106,7 +107,7 @@ export async function updateRouteSequence(
 }
 
 export async function completeRoute(storeIds: string[]) {
-  const supabase = createClient()
+  const { supabase } = await requirePermission('manageRoutePlanning')
 
   // Update all stores in the route: clear planned date (don't set audit date - audit hasn't happened yet)
   const updates = storeIds.map(storeId => {
@@ -133,7 +134,7 @@ export async function completeRoute(storeIds: string[]) {
 }
 
 export async function rescheduleRoute(storeIds: string[], newDate: string) {
-  const supabase = createClient()
+  const { supabase } = await requirePermission('manageRoutePlanning')
 
   // Update all stores in the route with new planned date
   const updates = storeIds.map(storeId => {
@@ -159,7 +160,7 @@ export async function rescheduleRoute(storeIds: string[], newDate: string) {
 }
 
 export async function cleanupIncompleteAudit2Dates() {
-  const supabase = createClient()
+  const { supabase } = await requirePermission('manageAudits')
 
   // Clear compliance_audit_2_date for stores where audit 2 percentage is null (audit not actually completed)
   const { error } = await supabase
@@ -220,7 +221,7 @@ export async function saveRouteOperationalItem(
   startTime: string,
   durationMinutes: number
 ): Promise<{ data: OperationalItem | null; error: string | null }> {
-  const supabase = createClient()
+  const { supabase } = await requirePermission('manageRoutePlanning')
 
   const { data, error } = await supabase
     .from('fa_route_operational_items')
@@ -252,7 +253,7 @@ export async function updateRouteOperationalItem(
   startTime: string,
   durationMinutes: number
 ): Promise<{ data: OperationalItem | null; error: string | null }> {
-  const supabase = createClient()
+  const { supabase } = await requirePermission('manageRoutePlanning')
 
   const { data, error } = await supabase
     .from('fa_route_operational_items')
@@ -279,7 +280,7 @@ export async function updateRouteOperationalItem(
 export async function deleteRouteOperationalItem(
   id: string
 ): Promise<{ error: string | null }> {
-  const supabase = createClient()
+  const { supabase } = await requirePermission('manageRoutePlanning')
 
   const { error } = await supabase
     .from('fa_route_operational_items')
@@ -332,7 +333,7 @@ export async function saveRouteVisitTime(
   startTime: string,
   endTime: string
 ): Promise<{ data: VisitTime | null; error: string | null }> {
-  const supabase = createClient()
+  const { supabase } = await requirePermission('manageRoutePlanning')
 
   const { data, error } = await supabase
     .from('fa_route_visit_times')
@@ -362,7 +363,7 @@ export async function saveRouteVisitTime(
 export async function deleteRouteVisitTime(
   id: string
 ): Promise<{ error: string | null }> {
-  const supabase = createClient()
+  const { supabase } = await requirePermission('manageRoutePlanning')
 
   const { error } = await supabase
     .from('fa_route_visit_times')
@@ -383,7 +384,7 @@ export async function deleteAllRouteVisitTimes(
   plannedDate: string,
   region: string | null
 ): Promise<{ error: string | null }> {
-  const supabase = createClient()
+  const { supabase } = await requirePermission('manageRoutePlanning')
 
   let query = supabase
     .from('fa_route_visit_times')
@@ -413,7 +414,7 @@ export async function deleteAllRouteOperationalItems(
   plannedDate: string,
   region: string | null
 ): Promise<{ error: string | null }> {
-  const supabase = createClient()
+  const { supabase } = await requirePermission('manageRoutePlanning')
 
   let query = supabase
     .from('fa_route_operational_items')
@@ -481,12 +482,7 @@ export async function markRouteVisitComplete(
   plannedDate: string,
   region: string | null
 ): Promise<{ success: boolean; alreadyCompleted?: boolean; error?: string }> {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    return { success: false, error: 'Unauthorized' }
-  }
+  const { supabase, userId } = await requirePermission('manageRoutePlanning')
 
   const { data: existing, error: existingError } = await supabase
     .from('fa_activity_log')
@@ -516,7 +512,7 @@ export async function markRouteVisitComplete(
       entity_type: 'store',
       entity_id: storeId,
       action: 'ROUTE_VISIT_COMPLETED',
-      performed_by_user_id: user.id,
+      performed_by_user_id: userId,
       details: {
         manager_user_id: managerUserId,
         planned_date: plannedDate,

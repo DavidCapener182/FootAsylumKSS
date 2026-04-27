@@ -1,9 +1,9 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
 import { logActivity } from '@/lib/activity-log'
 import { revalidatePath } from 'next/cache'
 import { FaActionPriority, FaActionStatus } from '@/types/db'
+import { requirePermission } from '@/lib/permissions'
 
 export interface CreateActionInput {
   title: string
@@ -17,12 +17,7 @@ export interface CreateActionInput {
 }
 
 export async function createAction(incidentId: string, input: CreateActionInput) {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Unauthorized')
-  }
+  const { supabase } = await requirePermission('manageActions')
 
   const { data: action, error } = await supabase
     .from('fa_actions')
@@ -62,12 +57,7 @@ export async function createAction(incidentId: string, input: CreateActionInput)
 }
 
 export async function updateAction(id: string, updates: Partial<CreateActionInput & { status?: FaActionStatus; completion_notes?: string }>) {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Unauthorized')
-  }
+  const { supabase } = await requirePermission('manageActions')
 
   const { data: currentAction } = await supabase
     .from('fa_actions')
@@ -146,12 +136,7 @@ export async function updateAction(id: string, updates: Partial<CreateActionInpu
 }
 
 export async function deleteAction(id: string) {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Unauthorized')
-  }
+  const { supabase } = await requirePermission('manageActions')
 
   // Get current action for activity log (before deletion)
   const { data: currentAction } = await supabase
@@ -206,5 +191,3 @@ export async function deleteAction(id: string) {
   revalidatePath('/actions')
   revalidatePath('/dashboard')
 }
-
-

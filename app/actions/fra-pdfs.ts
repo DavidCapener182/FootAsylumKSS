@@ -1,6 +1,6 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
+import { requirePermission } from '@/lib/permissions'
 
 const MAX_FRA_PDF_SIZE_BYTES = 500 * 1024 * 1024
 
@@ -14,12 +14,7 @@ export async function uploadFRAPDF(
   storeId: string,
   file: File
 ) {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Unauthorized')
-  }
+  const { supabase } = await requirePermission('manageFRA')
 
   // Validate file type
   if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
@@ -72,12 +67,7 @@ export async function getFRAPDFDownloadUrl(filePath: string | null, downloadFile
     return null
   }
 
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Unauthorized')
-  }
+  const { supabase } = await requirePermission('viewEvidence')
 
   const { data, error } = await supabase.storage
     .from('fa-attachments')
@@ -98,12 +88,7 @@ export async function getFRAPDFDownloadUrl(filePath: string | null, downloadFile
  * @returns Success status
  */
 export async function deleteFRAPDF(storeId: string) {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Unauthorized')
-  }
+  const { supabase } = await requirePermission('manageFRA')
 
   // Get current PDF path
   const { data: store, error: fetchError } = await supabase

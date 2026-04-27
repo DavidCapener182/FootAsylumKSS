@@ -1,0 +1,1669 @@
+- generic [ref=e2]:
+  - complementary [ref=e3]:
+    - generic [ref=e5]:
+      - img "KSS x Footasylum" [ref=e7]
+      - generic [ref=e8]: KSS x Footasylum
+    - navigation [ref=e9]:
+      - generic [ref=e10]:
+        - generic [ref=e11]:
+          - paragraph [ref=e12]: Overview
+          - list [ref=e13]:
+            - listitem [ref=e14]:
+              - link "Dashboard" [ref=e15] [cursor=pointer]:
+                - /url: /dashboard
+                - img [ref=e16]
+                - text: Dashboard
+            - listitem [ref=e21]:
+              - link "Recent Activity" [ref=e22] [cursor=pointer]:
+                - /url: /activity
+                - img [ref=e23]
+                - text: Recent Activity
+        - generic [ref=e25]:
+          - paragraph [ref=e26]: Audit Management
+          - list [ref=e27]:
+            - listitem [ref=e28]:
+              - link "Compliance Audits" [ref=e29] [cursor=pointer]:
+                - /url: /audit-tracker
+                - img [ref=e30]
+                - text: Compliance Audits
+            - listitem [ref=e33]:
+              - link "Fire Risk Assessments" [ref=e34] [cursor=pointer]:
+                - /url: /fire-risk-assessment
+                - img [ref=e35]
+                - text: Fire Risk Assessments
+            - listitem [ref=e37]:
+              - link "Actions" [ref=e38] [cursor=pointer]:
+                - /url: /actions
+                - img [ref=e39]
+                - text: Actions
+            - listitem [ref=e42]:
+              - link "SafeHub" [ref=e43] [cursor=pointer]:
+                - /url: /audit-lab
+                - img [ref=e44]
+                - text: SafeHub
+        - generic [ref=e46]:
+          - paragraph [ref=e47]: Stores
+          - list [ref=e48]:
+            - listitem [ref=e49]:
+              - link "Store Directory" [ref=e50] [cursor=pointer]:
+                - /url: /stores
+                - img [ref=e51]
+                - text: Store Directory
+        - generic [ref=e56]:
+          - paragraph [ref=e57]: Planning
+          - list [ref=e58]:
+            - listitem [ref=e59]:
+              - link "Route Planning" [ref=e60] [cursor=pointer]:
+                - /url: /route-planning
+                - img [ref=e61]
+                - text: Route Planning
+            - listitem [ref=e65]:
+              - link "Calendar" [ref=e66] [cursor=pointer]:
+                - /url: /calendar
+                - img [ref=e67]
+                - text: Calendar
+        - generic [ref=e69]:
+          - paragraph [ref=e70]: Reporting
+          - list [ref=e71]:
+            - listitem [ref=e72]:
+              - link "Reports & Exports" [ref=e73] [cursor=pointer]:
+                - /url: /reports
+                - img [ref=e74]
+                - text: Reports & Exports
+            - listitem [ref=e77]:
+              - link "GDPR & Data Protection" [ref=e78] [cursor=pointer]:
+                - /url: /help
+                - img [ref=e79]
+                - text: GDPR & Data Protection
+        - generic [ref=e82]:
+          - paragraph [ref=e83]: Administration
+          - list [ref=e84]:
+            - listitem [ref=e85]:
+              - link "Operational Records" [ref=e86] [cursor=pointer]:
+                - /url: /incidents
+                - img [ref=e87]
+                - text: Operational Records
+            - listitem [ref=e89]:
+              - button "Report a Bug" [ref=e90] [cursor=pointer]:
+                - img [ref=e91]
+                - text: Report a Bug
+            - listitem [ref=e100]:
+              - link "Admin" [ref=e101] [cursor=pointer]:
+                - /url: /admin
+                - img [ref=e102]
+                - text: Admin
+    - generic [ref=e106]:
+      - img [ref=e108]
+      - generic [ref=e111]:
+        - paragraph [ref=e112]: David Capener
+        - paragraph [ref=e113]: admin
+  - generic [ref=e114]:
+    - banner [ref=e115]:
+      - generic [ref=e116]:
+        - generic [ref=e120]:
+          - img
+          - textbox "Search stores…" [ref=e121]
+        - generic [ref=e122]:
+          - generic "Currently online users" [ref=e123]:
+            - generic "David Capener" [ref=e124]:
+              - generic [ref=e125]: DC
+          - button "Log Out" [ref=e127] [cursor=pointer]:
+            - img [ref=e128]
+            - generic [ref=e131]: Log Out
+    - main [ref=e132]:
+      - generic [ref=e134]:
+        - generic [ref=e135]:
+          - generic [ref=e136]:
+            - generic [ref=e137]:
+              - generic [ref=e138]:
+                - img [ref=e139]
+                - text: Store Network
+              - heading "Store Directory" [level=1] [ref=e142]
+              - paragraph [ref=e143]: Review store compliance profiles, audit progress, FRA status and follow-up actions across the estate.
+            - link "Add New Store" [ref=e145] [cursor=pointer]:
+              - /url: /stores/new
+              - button "Add New Store" [ref=e146]:
+                - img [ref=e147]
+                - generic [ref=e148]: Add New Store
+                - img [ref=e149]
+          - generic [ref=e152]:
+            - generic [ref=e153]:
+              - paragraph [ref=e154]: Total Stores
+              - paragraph [ref=e155]: "71"
+            - generic [ref=e156]:
+              - paragraph [ref=e157]: Active
+              - paragraph [ref=e158]: "71"
+            - generic [ref=e159]:
+              - paragraph [ref=e160]: Inactive
+              - paragraph [ref=e161]: "0"
+            - generic [ref=e162]:
+              - paragraph [ref=e163]: Active Rate
+              - paragraph [ref=e164]: 100%
+        - generic [ref=e165]:
+          - generic [ref=e167]:
+            - generic [ref=e168]:
+              - generic [ref=e169]:
+                - heading "Store Directory" [level=3] [ref=e170]
+                - generic [ref=e171]: 71 shown
+              - generic [ref=e172]:
+                - img [ref=e173]
+                - text: 12 areas
+              - generic [ref=e177]:
+                - img [ref=e178]
+                - text: 64 need attention
+            - generic [ref=e181]:
+              - img
+              - textbox "Search by name, code, city, area, postcode" [ref=e182]
+          - table [ref=e187]:
+            - rowgroup [ref=e188]:
+              - row "Store Code Compliance Location Status" [ref=e189]:
+                - columnheader "Store" [ref=e190]
+                - columnheader "Code" [ref=e191]
+                - columnheader "Compliance" [ref=e192]
+                - columnheader "Location" [ref=e193]
+                - columnheader "Status" [ref=e194]
+            - rowgroup [ref=e195]:
+              - row "A1 - North & Scotland 13 stores" [ref=e196]:
+                - cell "A1 - North & Scotland 13 stores" [ref=e197]:
+                  - generic [ref=e198]:
+                    - generic [ref=e199]:
+                      - img [ref=e200]
+                      - text: A1 - North & Scotland
+                    - generic [ref=e204]: 13 stores
+              - row "Aberdeen 3 open actions • 0 overdue S0091 Amber 93.9% latest audit Unit LSU5 Union Square Shopping Centre Guild Square, Aberdeen AB11 5RG Active" [ref=e205]:
+                - cell "Aberdeen 3 open actions • 0 overdue" [ref=e206]:
+                  - generic [ref=e207]:
+                    - link "Aberdeen" [ref=e208] [cursor=pointer]:
+                      - /url: /stores/098c9478-7edf-47b4-bd40-55e908157446
+                    - paragraph [ref=e209]: 3 open actions • 0 overdue
+                - cell "S0091" [ref=e210]:
+                  - generic [ref=e211]: S0091
+                - cell "Amber 93.9% latest audit" [ref=e212]:
+                  - generic [ref=e213]:
+                    - generic [ref=e214]: Amber
+                    - paragraph [ref=e216]: 93.9% latest audit
+                - cell "Unit LSU5 Union Square Shopping Centre Guild Square, Aberdeen AB11 5RG" [ref=e217]:
+                  - generic [ref=e218]:
+                    - img [ref=e219]
+                    - generic [ref=e223]: Unit LSU5 Union Square Shopping Centre Guild Square, Aberdeen AB11 5RG
+                - cell "Active" [ref=e224]:
+                  - generic [ref=e225]:
+                    - img [ref=e226]
+                    - text: Active
+              - row "Braehead 9 open actions • 0 overdue S0081 Amber 90.9% latest audit Unit 143 Braehead Shopping Centre, Glasgow G51 4NB Active" [ref=e229]:
+                - cell "Braehead 9 open actions • 0 overdue" [ref=e230]:
+                  - generic [ref=e231]:
+                    - link "Braehead" [ref=e232] [cursor=pointer]:
+                      - /url: /stores/05a05796-7b7d-43e3-9aaa-50e0a45aa495
+                    - paragraph [ref=e233]: 9 open actions • 0 overdue
+                - cell "S0081" [ref=e234]:
+                  - generic [ref=e235]: S0081
+                - cell "Amber 90.9% latest audit" [ref=e236]:
+                  - generic [ref=e237]:
+                    - generic [ref=e238]: Amber
+                    - paragraph [ref=e240]: 90.9% latest audit
+                - cell "Unit 143 Braehead Shopping Centre, Glasgow G51 4NB" [ref=e241]:
+                  - generic [ref=e242]:
+                    - img [ref=e243]
+                    - generic [ref=e247]: Unit 143 Braehead Shopping Centre, Glasgow G51 4NB
+                - cell "Active" [ref=e248]:
+                  - generic [ref=e249]:
+                    - img [ref=e250]
+                    - text: Active
+              - row "Carlisle 6 open actions • 0 overdue S0066 Amber 83.5% latest audit 50-56 Scotch Street, Carlisle CA3 8PU Active" [ref=e253]:
+                - cell "Carlisle 6 open actions • 0 overdue" [ref=e254]:
+                  - generic [ref=e255]:
+                    - link "Carlisle" [ref=e256] [cursor=pointer]:
+                      - /url: /stores/bdf16771-1943-4114-9114-e73b9b493fe2
+                    - paragraph [ref=e257]: 6 open actions • 0 overdue
+                - cell "S0066" [ref=e258]:
+                  - generic [ref=e259]: S0066
+                - cell "Amber 83.5% latest audit" [ref=e260]:
+                  - generic [ref=e261]:
+                    - generic [ref=e262]: Amber
+                    - paragraph [ref=e264]: 83.5% latest audit
+                - cell "50-56 Scotch Street, Carlisle CA3 8PU" [ref=e265]:
+                  - generic [ref=e266]:
+                    - img [ref=e267]
+                    - generic [ref=e271]: 50-56 Scotch Street, Carlisle CA3 8PU
+                - cell "Active" [ref=e272]:
+                  - generic [ref=e273]:
+                    - img [ref=e274]
+                    - text: Active
+              - row "Darlington 4 open actions • 0 overdue S0913 Amber 97.0% latest audit Unit 24, Cornmill Shopping Centre, Darlington DL1 1LS Active" [ref=e277]:
+                - cell "Darlington 4 open actions • 0 overdue" [ref=e278]:
+                  - generic [ref=e279]:
+                    - link "Darlington" [ref=e280] [cursor=pointer]:
+                      - /url: /stores/1fe9618d-03f9-4b53-8096-c22b7e560f74
+                    - paragraph [ref=e281]: 4 open actions • 0 overdue
+                - cell "S0913" [ref=e282]:
+                  - generic [ref=e283]: S0913
+                - cell "Amber 97.0% latest audit" [ref=e284]:
+                  - generic [ref=e285]:
+                    - generic [ref=e286]: Amber
+                    - paragraph [ref=e288]: 97.0% latest audit
+                - cell "Unit 24, Cornmill Shopping Centre, Darlington DL1 1LS" [ref=e289]:
+                  - generic [ref=e290]:
+                    - img [ref=e291]
+                    - generic [ref=e295]: Unit 24, Cornmill Shopping Centre, Darlington DL1 1LS
+                - cell "Active" [ref=e296]:
+                  - generic [ref=e297]:
+                    - img [ref=e298]
+                    - text: Active
+              - row "Dundee 6 open actions • 0 overdue S0053 Amber 83.7% latest audit Unit U2 The Overgate Shopping Centre, Dundee DD1 1UQ Active" [ref=e301]:
+                - cell "Dundee 6 open actions • 0 overdue" [ref=e302]:
+                  - generic [ref=e303]:
+                    - link "Dundee" [ref=e304] [cursor=pointer]:
+                      - /url: /stores/5cbea2e5-fa14-4ed4-a236-f023ad7c71a0
+                    - paragraph [ref=e305]: 6 open actions • 0 overdue
+                - cell "S0053" [ref=e306]:
+                  - generic [ref=e307]: S0053
+                - cell "Amber 83.7% latest audit" [ref=e308]:
+                  - generic [ref=e309]:
+                    - generic [ref=e310]: Amber
+                    - paragraph [ref=e312]: 83.7% latest audit
+                - cell "Unit U2 The Overgate Shopping Centre, Dundee DD1 1UQ" [ref=e313]:
+                  - generic [ref=e314]:
+                    - img [ref=e315]
+                    - generic [ref=e319]: Unit U2 The Overgate Shopping Centre, Dundee DD1 1UQ
+                - cell "Active" [ref=e320]:
+                  - generic [ref=e321]:
+                    - img [ref=e322]
+                    - text: Active
+              - row "Glasgow Argyle 6 open actions • 0 overdue S0021 Amber 93.8% latest audit 116-120 Argyle Street, Glasgow G2 8BH Active" [ref=e325]:
+                - cell "Glasgow Argyle 6 open actions • 0 overdue" [ref=e326]:
+                  - generic [ref=e327]:
+                    - link "Glasgow Argyle" [ref=e328] [cursor=pointer]:
+                      - /url: /stores/48b65674-42ba-4532-b331-875c8651f12d
+                    - paragraph [ref=e329]: 6 open actions • 0 overdue
+                - cell "S0021" [ref=e330]:
+                  - generic [ref=e331]: S0021
+                - cell "Amber 93.8% latest audit" [ref=e332]:
+                  - generic [ref=e333]:
+                    - generic [ref=e334]: Amber
+                    - paragraph [ref=e336]: 93.8% latest audit
+                - cell "116-120 Argyle Street, Glasgow G2 8BH" [ref=e337]:
+                  - generic [ref=e338]:
+                    - img [ref=e339]
+                    - generic [ref=e343]: 116-120 Argyle Street, Glasgow G2 8BH
+                - cell "Active" [ref=e344]:
+                  - generic [ref=e345]:
+                    - img [ref=e346]
+                    - text: Active
+              - row "Glasgow Fort 4 open actions • 0 overdue S0056 Amber 93.8% latest audit Unit 26b Glasgow Fort Shopping Park, Glasgow G34 9DL Active" [ref=e349]:
+                - cell "Glasgow Fort 4 open actions • 0 overdue" [ref=e350]:
+                  - generic [ref=e351]:
+                    - link "Glasgow Fort" [ref=e352] [cursor=pointer]:
+                      - /url: /stores/1d35a49d-f046-405c-80ad-1f955a6e3295
+                    - paragraph [ref=e353]: 4 open actions • 0 overdue
+                - cell "S0056" [ref=e354]:
+                  - generic [ref=e355]: S0056
+                - cell "Amber 93.8% latest audit" [ref=e356]:
+                  - generic [ref=e357]:
+                    - generic [ref=e358]: Amber
+                    - paragraph [ref=e360]: 93.8% latest audit
+                - cell "Unit 26b Glasgow Fort Shopping Park, Glasgow G34 9DL" [ref=e361]:
+                  - generic [ref=e362]:
+                    - img [ref=e363]
+                    - generic [ref=e367]: Unit 26b Glasgow Fort Shopping Park, Glasgow G34 9DL
+                - cell "Active" [ref=e368]:
+                  - generic [ref=e369]:
+                    - img [ref=e370]
+                    - text: Active
+              - row "Glasgow Silverburn 0 open actions • 0 overdue S0122 Amber 92.2% latest audit Unit B7, Silverburn Shopping Centre, Barrhead Rd, Glasgow G53 6AG Active" [ref=e373]:
+                - cell "Glasgow Silverburn 0 open actions • 0 overdue" [ref=e374]:
+                  - generic [ref=e375]:
+                    - link "Glasgow Silverburn" [ref=e376] [cursor=pointer]:
+                      - /url: /stores/d8a50e1f-c40a-40dd-b90f-5988459825fd
+                    - paragraph [ref=e377]: 0 open actions • 0 overdue
+                - cell "S0122" [ref=e378]:
+                  - generic [ref=e379]: S0122
+                - cell "Amber 92.2% latest audit" [ref=e380]:
+                  - generic [ref=e381]:
+                    - generic [ref=e382]: Amber
+                    - paragraph [ref=e384]: 92.2% latest audit
+                - cell "Unit B7, Silverburn Shopping Centre, Barrhead Rd, Glasgow G53 6AG" [ref=e385]:
+                  - generic [ref=e386]:
+                    - img [ref=e387]
+                    - generic [ref=e391]: Unit B7, Silverburn Shopping Centre, Barrhead Rd, Glasgow G53 6AG
+                - cell "Active" [ref=e392]:
+                  - generic [ref=e393]:
+                    - img [ref=e394]
+                    - text: Active
+              - row "Metro New 5 open actions • 0 overdue S0090 Amber 91.8% latest audit Unit 9 Metro Centre, Gateshead NE11 9YG Active" [ref=e397]:
+                - cell "Metro New 5 open actions • 0 overdue" [ref=e398]:
+                  - generic [ref=e399]:
+                    - link "Metro New" [ref=e400] [cursor=pointer]:
+                      - /url: /stores/81bbeec0-c534-4a6d-8ea1-9c624aeecaa4
+                    - paragraph [ref=e401]: 5 open actions • 0 overdue
+                - cell "S0090" [ref=e402]:
+                  - generic [ref=e403]: S0090
+                - cell "Amber 91.8% latest audit" [ref=e404]:
+                  - generic [ref=e405]:
+                    - generic [ref=e406]: Amber
+                    - paragraph [ref=e408]: 91.8% latest audit
+                - cell "Unit 9 Metro Centre, Gateshead NE11 9YG" [ref=e409]:
+                  - generic [ref=e410]:
+                    - img [ref=e411]
+                    - generic [ref=e415]: Unit 9 Metro Centre, Gateshead NE11 9YG
+                - cell "Active" [ref=e416]:
+                  - generic [ref=e417]:
+                    - img [ref=e418]
+                    - text: Active
+              - row "Middlesbrough 0 open actions • 0 overdue S0006 Amber 90.8% latest audit 5-11 Corporation Road, Middlesbrough TS1 1LJ Active" [ref=e421]:
+                - cell "Middlesbrough 0 open actions • 0 overdue" [ref=e422]:
+                  - generic [ref=e423]:
+                    - link "Middlesbrough" [ref=e424] [cursor=pointer]:
+                      - /url: /stores/d165194c-99a2-4c85-ae4e-19ca2d6f44ee
+                    - paragraph [ref=e425]: 0 open actions • 0 overdue
+                - cell "S0006" [ref=e426]:
+                  - generic [ref=e427]: S0006
+                - cell "Amber 90.8% latest audit" [ref=e428]:
+                  - generic [ref=e429]:
+                    - generic [ref=e430]: Amber
+                    - paragraph [ref=e432]: 90.8% latest audit
+                - cell "5-11 Corporation Road, Middlesbrough TS1 1LJ" [ref=e433]:
+                  - generic [ref=e434]:
+                    - img [ref=e435]
+                    - generic [ref=e439]: 5-11 Corporation Road, Middlesbrough TS1 1LJ
+                - cell "Active" [ref=e440]:
+                  - generic [ref=e441]:
+                    - img [ref=e442]
+                    - text: Active
+              - row "Newcastle 0 open actions • 0 overdue S0084 Amber 95.9% latest audit 43-45 Northumberland Street, Newcastle upon Tyne NE1 7AS Active" [ref=e445]:
+                - cell "Newcastle 0 open actions • 0 overdue" [ref=e446]:
+                  - generic [ref=e447]:
+                    - link "Newcastle" [ref=e448] [cursor=pointer]:
+                      - /url: /stores/928a0a13-13cf-4017-8e26-87098352f2c8
+                    - paragraph [ref=e449]: 0 open actions • 0 overdue
+                - cell "S0084" [ref=e450]:
+                  - generic [ref=e451]: S0084
+                - cell "Amber 95.9% latest audit" [ref=e452]:
+                  - generic [ref=e453]:
+                    - generic [ref=e454]: Amber
+                    - paragraph [ref=e456]: 95.9% latest audit
+                - cell "43-45 Northumberland Street, Newcastle upon Tyne NE1 7AS" [ref=e457]:
+                  - generic [ref=e458]:
+                    - img [ref=e459]
+                    - generic [ref=e463]: 43-45 Northumberland Street, Newcastle upon Tyne NE1 7AS
+                - cell "Active" [ref=e464]:
+                  - generic [ref=e465]:
+                    - img [ref=e466]
+                    - text: Active
+              - row "Stockton 0 open actions • 0 overdue S0914 Amber 94.1% latest audit Unit 37-38, Wellington Square, Stockton TS18 1RG Active" [ref=e469]:
+                - cell "Stockton 0 open actions • 0 overdue" [ref=e470]:
+                  - generic [ref=e471]:
+                    - link "Stockton" [ref=e472] [cursor=pointer]:
+                      - /url: /stores/55b31e73-f8d2-4966-a05b-b296c999226a
+                    - paragraph [ref=e473]: 0 open actions • 0 overdue
+                - cell "S0914" [ref=e474]:
+                  - generic [ref=e475]: S0914
+                - cell "Amber 94.1% latest audit" [ref=e476]:
+                  - generic [ref=e477]:
+                    - generic [ref=e478]: Amber
+                    - paragraph [ref=e480]: 94.1% latest audit
+                - cell "Unit 37-38, Wellington Square, Stockton TS18 1RG" [ref=e481]:
+                  - generic [ref=e482]:
+                    - img [ref=e483]
+                    - generic [ref=e487]: Unit 37-38, Wellington Square, Stockton TS18 1RG
+                - cell "Active" [ref=e488]:
+                  - generic [ref=e489]:
+                    - img [ref=e490]
+                    - text: Active
+              - row "Sunderland 6 open actions • 0 overdue S0057 Amber 92.9% latest audit Unit 96a The Bridges Shopping Centre, Sunderland SR1 3DR Active" [ref=e493]:
+                - cell "Sunderland 6 open actions • 0 overdue" [ref=e494]:
+                  - generic [ref=e495]:
+                    - link "Sunderland" [ref=e496] [cursor=pointer]:
+                      - /url: /stores/9ec7da29-d7f3-4d37-b9df-243baeac413a
+                    - paragraph [ref=e497]: 6 open actions • 0 overdue
+                - cell "S0057" [ref=e498]:
+                  - generic [ref=e499]: S0057
+                - cell "Amber 92.9% latest audit" [ref=e500]:
+                  - generic [ref=e501]:
+                    - generic [ref=e502]: Amber
+                    - paragraph [ref=e504]: 92.9% latest audit
+                - cell "Unit 96a The Bridges Shopping Centre, Sunderland SR1 3DR" [ref=e505]:
+                  - generic [ref=e506]:
+                    - img [ref=e507]
+                    - generic [ref=e511]: Unit 96a The Bridges Shopping Centre, Sunderland SR1 3DR
+                - cell "Active" [ref=e512]:
+                  - generic [ref=e513]:
+                    - img [ref=e514]
+                    - text: Active
+              - row "A2 - Yorkshire & Midlands 12 stores" [ref=e517]:
+                - cell "A2 - Yorkshire & Midlands 12 stores" [ref=e518]:
+                  - generic [ref=e519]:
+                    - generic [ref=e520]:
+                      - img [ref=e521]
+                      - text: A2 - Yorkshire & Midlands
+                    - generic [ref=e525]: 12 stores
+              - row "Bradford 8 open actions • 0 overdue S0048 Amber 90.9% latest audit The Broadway, Hall Ings, Bradford BD1 1HA Active" [ref=e526]:
+                - cell "Bradford 8 open actions • 0 overdue" [ref=e527]:
+                  - generic [ref=e528]:
+                    - link "Bradford" [ref=e529] [cursor=pointer]:
+                      - /url: /stores/9eec9a7e-6836-4cbe-ac37-27156d54f3be
+                    - paragraph [ref=e530]: 8 open actions • 0 overdue
+                - cell "S0048" [ref=e531]:
+                  - generic [ref=e532]: S0048
+                - cell "Amber 90.9% latest audit" [ref=e533]:
+                  - generic [ref=e534]:
+                    - generic [ref=e535]: Amber
+                    - paragraph [ref=e537]: 90.9% latest audit
+                - cell "The Broadway, Hall Ings, Bradford BD1 1HA" [ref=e538]:
+                  - generic [ref=e539]:
+                    - img [ref=e540]
+                    - generic [ref=e544]: The Broadway, Hall Ings, Bradford BD1 1HA
+                - cell "Active" [ref=e545]:
+                  - generic [ref=e546]:
+                    - img [ref=e547]
+                    - text: Active
+              - row "Bradford Forster Square 9 open actions • 0 overdue S0119 Amber 95.3% latest audit Unit 5B, Forster Square, Valley Road, Bradford BD1 4RN Active" [ref=e550]:
+                - cell "Bradford Forster Square 9 open actions • 0 overdue" [ref=e551]:
+                  - generic [ref=e552]:
+                    - link "Bradford Forster Square" [ref=e553] [cursor=pointer]:
+                      - /url: /stores/24f9a8ab-d479-46c0-bfa2-01b03b7754db
+                    - paragraph [ref=e554]: 9 open actions • 0 overdue
+                - cell "S0119" [ref=e555]:
+                  - generic [ref=e556]: S0119
+                - cell "Amber 95.3% latest audit" [ref=e557]:
+                  - generic [ref=e558]:
+                    - generic [ref=e559]: Amber
+                    - paragraph [ref=e561]: 95.3% latest audit
+                - cell "Unit 5B, Forster Square, Valley Road, Bradford BD1 4RN" [ref=e562]:
+                  - generic [ref=e563]:
+                    - img [ref=e564]
+                    - generic [ref=e568]: Unit 5B, Forster Square, Valley Road, Bradford BD1 4RN
+                - cell "Active" [ref=e569]:
+                  - generic [ref=e570]:
+                    - img [ref=e571]
+                    - text: Active
+              - row "Derby 3 open actions • 0 overdue S0078 Amber 95.9% latest audit S264 Derbion, Derby DE1 2PL Active" [ref=e574]:
+                - cell "Derby 3 open actions • 0 overdue" [ref=e575]:
+                  - generic [ref=e576]:
+                    - link "Derby" [ref=e577] [cursor=pointer]:
+                      - /url: /stores/ffa7b3a4-f0a5-4e7e-9b80-ae15bafd901b
+                    - paragraph [ref=e578]: 3 open actions • 0 overdue
+                - cell "S0078" [ref=e579]:
+                  - generic [ref=e580]: S0078
+                - cell "Amber 95.9% latest audit" [ref=e581]:
+                  - generic [ref=e582]:
+                    - generic [ref=e583]: Amber
+                    - paragraph [ref=e585]: 95.9% latest audit
+                - cell "S264 Derbion, Derby DE1 2PL" [ref=e586]:
+                  - generic [ref=e587]:
+                    - img [ref=e588]
+                    - generic [ref=e592]: S264 Derbion, Derby DE1 2PL
+                - cell "Active" [ref=e593]:
+                  - generic [ref=e594]:
+                    - img [ref=e595]
+                    - text: Active
+              - row "Doncaster 11 open actions • 0 overdue S0093 Amber 81.0% latest audit Unit 24 Frenchgate Shopping Centre St Sepulchre Gate, Doncaster DN1 1SW Active" [ref=e598]:
+                - cell "Doncaster 11 open actions • 0 overdue" [ref=e599]:
+                  - generic [ref=e600]:
+                    - link "Doncaster" [ref=e601] [cursor=pointer]:
+                      - /url: /stores/8f04b5d8-f514-47dd-b5cf-4b583e4e6770
+                    - paragraph [ref=e602]: 11 open actions • 0 overdue
+                - cell "S0093" [ref=e603]:
+                  - generic [ref=e604]: S0093
+                - cell "Amber 81.0% latest audit" [ref=e605]:
+                  - generic [ref=e606]:
+                    - generic [ref=e607]: Amber
+                    - paragraph [ref=e609]: 81.0% latest audit
+                - cell "Unit 24 Frenchgate Shopping Centre St Sepulchre Gate, Doncaster DN1 1SW" [ref=e610]:
+                  - generic [ref=e611]:
+                    - img [ref=e612]
+                    - generic [ref=e616]: Unit 24 Frenchgate Shopping Centre St Sepulchre Gate, Doncaster DN1 1SW
+                - cell "Active" [ref=e617]:
+                  - generic [ref=e618]:
+                    - img [ref=e619]
+                    - text: Active
+              - row "Fosse Park 3 open actions • 0 overdue S0082 Amber 94.8% latest audit Unit 7a Fosse Park, Leicester LE19 1HY Active" [ref=e622]:
+                - cell "Fosse Park 3 open actions • 0 overdue" [ref=e623]:
+                  - generic [ref=e624]:
+                    - link "Fosse Park" [ref=e625] [cursor=pointer]:
+                      - /url: /stores/2a782730-2bb3-4966-bd7b-6de921da9f38
+                    - paragraph [ref=e626]: 3 open actions • 0 overdue
+                - cell "S0082" [ref=e627]:
+                  - generic [ref=e628]: S0082
+                - cell "Amber 94.8% latest audit" [ref=e629]:
+                  - generic [ref=e630]:
+                    - generic [ref=e631]: Amber
+                    - paragraph [ref=e633]: 94.8% latest audit
+                - cell "Unit 7a Fosse Park, Leicester LE19 1HY" [ref=e634]:
+                  - generic [ref=e635]:
+                    - img [ref=e636]
+                    - generic [ref=e640]: Unit 7a Fosse Park, Leicester LE19 1HY
+                - cell "Active" [ref=e641]:
+                  - generic [ref=e642]:
+                    - img [ref=e643]
+                    - text: Active
+              - row "Hull 3 open actions • 0 overdue S0067 Amber 98.0% latest audit Unit 33 St Stephens Centre, Hull HU2 8LN Active" [ref=e646]:
+                - cell "Hull 3 open actions • 0 overdue" [ref=e647]:
+                  - generic [ref=e648]:
+                    - link "Hull" [ref=e649] [cursor=pointer]:
+                      - /url: /stores/6bd1c8be-bd18-450b-9de7-e05c98b52ce9
+                    - paragraph [ref=e650]: 3 open actions • 0 overdue
+                - cell "S0067" [ref=e651]:
+                  - generic [ref=e652]: S0067
+                - cell "Amber 98.0% latest audit" [ref=e653]:
+                  - generic [ref=e654]:
+                    - generic [ref=e655]: Amber
+                    - paragraph [ref=e657]: 98.0% latest audit
+                - cell "Unit 33 St Stephens Centre, Hull HU2 8LN" [ref=e658]:
+                  - generic [ref=e659]:
+                    - img [ref=e660]
+                    - generic [ref=e664]: Unit 33 St Stephens Centre, Hull HU2 8LN
+                - cell "Active" [ref=e665]:
+                  - generic [ref=e666]:
+                    - img [ref=e667]
+                    - text: Active
+              - row "Leeds 6 open actions • 0 overdue S0044 Amber 89.9% latest audit SU 2.05 Trinity Shopping Centre 30 Albion St, Leeds LS1 6HX Active" [ref=e670]:
+                - cell "Leeds 6 open actions • 0 overdue" [ref=e671]:
+                  - generic [ref=e672]:
+                    - link "Leeds" [ref=e673] [cursor=pointer]:
+                      - /url: /stores/0189e22a-b622-4f15-be01-02982a61e81f
+                    - paragraph [ref=e674]: 6 open actions • 0 overdue
+                - cell "S0044" [ref=e675]:
+                  - generic [ref=e676]: S0044
+                - cell "Amber 89.9% latest audit" [ref=e677]:
+                  - generic [ref=e678]:
+                    - generic [ref=e679]: Amber
+                    - paragraph [ref=e681]: 89.9% latest audit
+                - cell "SU 2.05 Trinity Shopping Centre 30 Albion St, Leeds LS1 6HX" [ref=e682]:
+                  - generic [ref=e683]:
+                    - img [ref=e684]
+                    - generic [ref=e688]: SU 2.05 Trinity Shopping Centre 30 Albion St, Leeds LS1 6HX
+                - cell "Active" [ref=e689]:
+                  - generic [ref=e690]:
+                    - img [ref=e691]
+                    - text: Active
+              - row "Meadowhall 2 open actions • 0 overdue S0072 Amber 96.0% latest audit 12-13 High Street Meadowhall Shopping Centre, Sheffield S9 1EN Active" [ref=e694]:
+                - cell "Meadowhall 2 open actions • 0 overdue" [ref=e695]:
+                  - generic [ref=e696]:
+                    - link "Meadowhall" [ref=e697] [cursor=pointer]:
+                      - /url: /stores/a98a4899-b301-49b7-b25d-6cf744759bab
+                    - paragraph [ref=e698]: 2 open actions • 0 overdue
+                - cell "S0072" [ref=e699]:
+                  - generic [ref=e700]: S0072
+                - cell "Amber 96.0% latest audit" [ref=e701]:
+                  - generic [ref=e702]:
+                    - generic [ref=e703]: Amber
+                    - paragraph [ref=e705]: 96.0% latest audit
+                - cell "12-13 High Street Meadowhall Shopping Centre, Sheffield S9 1EN" [ref=e706]:
+                  - generic [ref=e707]:
+                    - img [ref=e708]
+                    - generic [ref=e712]: 12-13 High Street Meadowhall Shopping Centre, Sheffield S9 1EN
+                - cell "Active" [ref=e713]:
+                  - generic [ref=e714]:
+                    - img [ref=e715]
+                    - text: Active
+              - row "Nottingham Clumber St. 7 open actions • 0 overdue S0037 Amber 90.8% latest audit 25-29 Clumber Street, Nottingham NG1 3ED Active" [ref=e718]:
+                - cell "Nottingham Clumber St. 7 open actions • 0 overdue" [ref=e719]:
+                  - generic [ref=e720]:
+                    - link "Nottingham Clumber St." [ref=e721] [cursor=pointer]:
+                      - /url: /stores/7c8d8486-a5c7-4617-940e-7233eff86f6a
+                    - paragraph [ref=e722]: 7 open actions • 0 overdue
+                - cell "S0037" [ref=e723]:
+                  - generic [ref=e724]: S0037
+                - cell "Amber 90.8% latest audit" [ref=e725]:
+                  - generic [ref=e726]:
+                    - generic [ref=e727]: Amber
+                    - paragraph [ref=e729]: 90.8% latest audit
+                - cell "25-29 Clumber Street, Nottingham NG1 3ED" [ref=e730]:
+                  - generic [ref=e731]:
+                    - img [ref=e732]
+                    - generic [ref=e736]: 25-29 Clumber Street, Nottingham NG1 3ED
+                - cell "Active" [ref=e737]:
+                  - generic [ref=e738]:
+                    - img [ref=e739]
+                    - text: Active
+              - row "Rotherham 3 open actions • 0 overdue S0095 Amber 94.9% latest audit Unit 2B Parkgate Shopping Park Stadium Way, Rotherham S60 1TG Active" [ref=e742]:
+                - cell "Rotherham 3 open actions • 0 overdue" [ref=e743]:
+                  - generic [ref=e744]:
+                    - link "Rotherham" [ref=e745] [cursor=pointer]:
+                      - /url: /stores/175d89a2-d4c1-46e2-b786-fb394e934e8a
+                    - paragraph [ref=e746]: 3 open actions • 0 overdue
+                - cell "S0095" [ref=e747]:
+                  - generic [ref=e748]: S0095
+                - cell "Amber 94.9% latest audit" [ref=e749]:
+                  - generic [ref=e750]:
+                    - generic [ref=e751]: Amber
+                    - paragraph [ref=e753]: 94.9% latest audit
+                - cell "Unit 2B Parkgate Shopping Park Stadium Way, Rotherham S60 1TG" [ref=e754]:
+                  - generic [ref=e755]:
+                    - img [ref=e756]
+                    - generic [ref=e760]: Unit 2B Parkgate Shopping Park Stadium Way, Rotherham S60 1TG
+                - cell "Active" [ref=e761]:
+                  - generic [ref=e762]:
+                    - img [ref=e763]
+                    - text: Active
+              - row "Wakefield 3 open actions • 0 overdue S0118 Amber 94.6% latest audit Unit G16, Trinity Walk, Wakefield WF1 1QU Active" [ref=e766]:
+                - cell "Wakefield 3 open actions • 0 overdue" [ref=e767]:
+                  - generic [ref=e768]:
+                    - link "Wakefield" [ref=e769] [cursor=pointer]:
+                      - /url: /stores/d0d2dae9-b15b-4850-9f40-7591f212d258
+                    - paragraph [ref=e770]: 3 open actions • 0 overdue
+                - cell "S0118" [ref=e771]:
+                  - generic [ref=e772]: S0118
+                - cell "Amber 94.6% latest audit" [ref=e773]:
+                  - generic [ref=e774]:
+                    - generic [ref=e775]: Amber
+                    - paragraph [ref=e777]: 94.6% latest audit
+                - cell "Unit G16, Trinity Walk, Wakefield WF1 1QU" [ref=e778]:
+                  - generic [ref=e779]:
+                    - img [ref=e780]
+                    - generic [ref=e784]: Unit G16, Trinity Walk, Wakefield WF1 1QU
+                - cell "Active" [ref=e785]:
+                  - generic [ref=e786]:
+                    - img [ref=e787]
+                    - text: Active
+              - row "White Rose 7 open actions • 0 overdue S0070 Amber 90.8% latest audit Unit 23 White Rose Shopping Centre Dewsbury Road, Leeds LS11 8LU Active" [ref=e790]:
+                - cell "White Rose 7 open actions • 0 overdue" [ref=e791]:
+                  - generic [ref=e792]:
+                    - link "White Rose" [ref=e793] [cursor=pointer]:
+                      - /url: /stores/4d42703f-83f7-4511-8c8e-501e5c2fc795
+                    - paragraph [ref=e794]: 7 open actions • 0 overdue
+                - cell "S0070" [ref=e795]:
+                  - generic [ref=e796]: S0070
+                - cell "Amber 90.8% latest audit" [ref=e797]:
+                  - generic [ref=e798]:
+                    - generic [ref=e799]: Amber
+                    - paragraph [ref=e801]: 90.8% latest audit
+                - cell "Unit 23 White Rose Shopping Centre Dewsbury Road, Leeds LS11 8LU" [ref=e802]:
+                  - generic [ref=e803]:
+                    - img [ref=e804]
+                    - generic [ref=e808]: Unit 23 White Rose Shopping Centre Dewsbury Road, Leeds LS11 8LU
+                - cell "Active" [ref=e809]:
+                  - generic [ref=e810]:
+                    - img [ref=e811]
+                    - text: Active
+              - row "A3 - Manchester 6 stores" [ref=e814]:
+                - cell "A3 - Manchester 6 stores" [ref=e815]:
+                  - generic [ref=e816]:
+                    - generic [ref=e817]:
+                      - img [ref=e818]
+                      - text: A3 - Manchester
+                    - generic [ref=e822]: 6 stores
+              - row "Bolton 13 open actions • 0 overdue S0017 Amber 75.8% latest audit Unit 26 Marketplace Shopping Centre, Bolton BL1 2AL Active" [ref=e823]:
+                - cell "Bolton 13 open actions • 0 overdue" [ref=e824]:
+                  - generic [ref=e825]:
+                    - link "Bolton" [ref=e826] [cursor=pointer]:
+                      - /url: /stores/9c4775b2-03e3-40a4-9456-d491ffb20788
+                    - paragraph [ref=e827]: 13 open actions • 0 overdue
+                - cell "S0017" [ref=e828]:
+                  - generic [ref=e829]: S0017
+                - cell "Amber 75.8% latest audit" [ref=e830]:
+                  - generic [ref=e831]:
+                    - generic [ref=e832]: Amber
+                    - paragraph [ref=e834]: 75.8% latest audit
+                - cell "Unit 26 Marketplace Shopping Centre, Bolton BL1 2AL" [ref=e835]:
+                  - generic [ref=e836]:
+                    - img [ref=e837]
+                    - generic [ref=e841]: Unit 26 Marketplace Shopping Centre, Bolton BL1 2AL
+                - cell "Active" [ref=e842]:
+                  - generic [ref=e843]:
+                    - img [ref=e844]
+                    - text: Active
+              - row "Bury 0 open actions • 0 overdue S0071 Amber 98.0% latest audit Unit B12 The Rock Goodall Street, Bury BL9 0JQ Active" [ref=e847]:
+                - cell "Bury 0 open actions • 0 overdue" [ref=e848]:
+                  - generic [ref=e849]:
+                    - link "Bury" [ref=e850] [cursor=pointer]:
+                      - /url: /stores/e7da5e32-9fc8-4328-8e65-4601e4ec298e
+                    - paragraph [ref=e851]: 0 open actions • 0 overdue
+                - cell "S0071" [ref=e852]:
+                  - generic [ref=e853]: S0071
+                - cell "Amber 98.0% latest audit" [ref=e854]:
+                  - generic [ref=e855]:
+                    - generic [ref=e856]: Amber
+                    - paragraph [ref=e858]: 98.0% latest audit
+                - cell "Unit B12 The Rock Goodall Street, Bury BL9 0JQ" [ref=e859]:
+                  - generic [ref=e860]:
+                    - img [ref=e861]
+                    - generic [ref=e865]: Unit B12 The Rock Goodall Street, Bury BL9 0JQ
+                - cell "Active" [ref=e866]:
+                  - generic [ref=e867]:
+                    - img [ref=e868]
+                    - text: Active
+              - row "Denton 4 open actions • 0 overdue S0075 Amber 93.8% latest audit Unit 17a Crown Point Shopping Park, Denton M34 3JP Active" [ref=e871]:
+                - cell "Denton 4 open actions • 0 overdue" [ref=e872]:
+                  - generic [ref=e873]:
+                    - link "Denton" [ref=e874] [cursor=pointer]:
+                      - /url: /stores/0b9fff5f-da2e-4231-82d0-9c6a3b5f5380
+                    - paragraph [ref=e875]: 4 open actions • 0 overdue
+                - cell "S0075" [ref=e876]:
+                  - generic [ref=e877]: S0075
+                - cell "Amber 93.8% latest audit" [ref=e878]:
+                  - generic [ref=e879]:
+                    - generic [ref=e880]: Amber
+                    - paragraph [ref=e882]: 93.8% latest audit
+                - cell "Unit 17a Crown Point Shopping Park, Denton M34 3JP" [ref=e883]:
+                  - generic [ref=e884]:
+                    - img [ref=e885]
+                    - generic [ref=e889]: Unit 17a Crown Point Shopping Park, Denton M34 3JP
+                - cell "Active" [ref=e890]:
+                  - generic [ref=e891]:
+                    - img [ref=e892]
+                    - text: Active
+              - row "Manchester Arndale 0 open actions • 0 overdue S0904 Amber 86.8% latest audit Unit L1/L2 Exchange Court Arndale, Manchester M4 3AB Active" [ref=e895]:
+                - cell "Manchester Arndale 0 open actions • 0 overdue" [ref=e896]:
+                  - generic [ref=e897]:
+                    - link "Manchester Arndale" [ref=e898] [cursor=pointer]:
+                      - /url: /stores/5c7464e3-13fb-4ba9-b02b-bb0615dcf055
+                    - paragraph [ref=e899]: 0 open actions • 0 overdue
+                - cell "S0904" [ref=e900]:
+                  - generic [ref=e901]: S0904
+                - cell "Amber 86.8% latest audit" [ref=e902]:
+                  - generic [ref=e903]:
+                    - generic [ref=e904]: Amber
+                    - paragraph [ref=e906]: 86.8% latest audit
+                - cell "Unit L1/L2 Exchange Court Arndale, Manchester M4 3AB" [ref=e907]:
+                  - generic [ref=e908]:
+                    - img [ref=e909]
+                    - generic [ref=e913]: Unit L1/L2 Exchange Court Arndale, Manchester M4 3AB
+                - cell "Active" [ref=e914]:
+                  - generic [ref=e915]:
+                    - img [ref=e916]
+                    - text: Active
+              - row "Manchester Womans 0 open actions • 0 overdue S0007 Grey Not Started Unit L1/L2 Exchange Court Arndale, Manchester M4 3AB Active" [ref=e919]:
+                - cell "Manchester Womans 0 open actions • 0 overdue" [ref=e920]:
+                  - generic [ref=e921]:
+                    - link "Manchester Womans" [ref=e922] [cursor=pointer]:
+                      - /url: /stores/4334a472-66fe-45db-965a-5ef8dcaffbbc
+                    - paragraph [ref=e923]: 0 open actions • 0 overdue
+                - cell "S0007" [ref=e924]:
+                  - generic [ref=e925]: S0007
+                - cell "Grey Not Started" [ref=e926]:
+                  - generic [ref=e927]:
+                    - generic [ref=e928]: Grey
+                    - paragraph [ref=e930]: Not Started
+                - cell "Unit L1/L2 Exchange Court Arndale, Manchester M4 3AB" [ref=e931]:
+                  - generic [ref=e932]:
+                    - img [ref=e933]
+                    - generic [ref=e937]: Unit L1/L2 Exchange Court Arndale, Manchester M4 3AB
+                - cell "Active" [ref=e938]:
+                  - generic [ref=e939]:
+                    - img [ref=e940]
+                    - text: Active
+              - row "Trafford Mega 3 open actions • 0 overdue S0040 Amber 95.8% latest audit LSU8 47-49 Peel Avenue Trafford Centre, Manchester M17 8BN Active" [ref=e943]:
+                - cell "Trafford Mega 3 open actions • 0 overdue" [ref=e944]:
+                  - generic [ref=e945]:
+                    - link "Trafford Mega" [ref=e946] [cursor=pointer]:
+                      - /url: /stores/b66e7bec-0277-44cd-9637-6a77537d9076
+                    - paragraph [ref=e947]: 3 open actions • 0 overdue
+                - cell "S0040" [ref=e948]:
+                  - generic [ref=e949]: S0040
+                - cell "Amber 95.8% latest audit" [ref=e950]:
+                  - generic [ref=e951]:
+                    - generic [ref=e952]: Amber
+                    - paragraph [ref=e954]: 95.8% latest audit
+                - cell "LSU8 47-49 Peel Avenue Trafford Centre, Manchester M17 8BN" [ref=e955]:
+                  - generic [ref=e956]:
+                    - img [ref=e957]
+                    - generic [ref=e961]: LSU8 47-49 Peel Avenue Trafford Centre, Manchester M17 8BN
+                - cell "Active" [ref=e962]:
+                  - generic [ref=e963]:
+                    - img [ref=e964]
+                    - text: Active
+              - row "A4 - Lancashire & Merseyside 11 stores" [ref=e967]:
+                - cell "A4 - Lancashire & Merseyside 11 stores" [ref=e968]:
+                  - generic [ref=e969]:
+                    - generic [ref=e970]:
+                      - img [ref=e971]
+                      - text: A4 - Lancashire & Merseyside
+                    - generic [ref=e975]: 11 stores
+              - row "Blackburn 9 open actions • 0 overdue S0065 Amber 90.9% latest audit Unit 40 The Mall 25 Church Street, Blackburn BB1 5AF Active" [ref=e976]:
+                - cell "Blackburn 9 open actions • 0 overdue" [ref=e977]:
+                  - generic [ref=e978]:
+                    - link "Blackburn" [ref=e979] [cursor=pointer]:
+                      - /url: /stores/b341497b-aec3-4888-90df-2583d5969e28
+                    - paragraph [ref=e980]: 9 open actions • 0 overdue
+                - cell "S0065" [ref=e981]:
+                  - generic [ref=e982]: S0065
+                - cell "Amber 90.9% latest audit" [ref=e983]:
+                  - generic [ref=e984]:
+                    - generic [ref=e985]: Amber
+                    - paragraph [ref=e987]: 90.9% latest audit
+                - cell "Unit 40 The Mall 25 Church Street, Blackburn BB1 5AF" [ref=e988]:
+                  - generic [ref=e989]:
+                    - img [ref=e990]
+                    - generic [ref=e994]: Unit 40 The Mall 25 Church Street, Blackburn BB1 5AF
+                - cell "Active" [ref=e995]:
+                  - generic [ref=e996]:
+                    - img [ref=e997]
+                    - text: Active
+              - row "Blackpool 4 open actions • 0 overdue S0080 Amber 95.9% latest audit Unit N2 Houndshill Shopping Centre, Blackpool FY1 4HU Active" [ref=e1000]:
+                - cell "Blackpool 4 open actions • 0 overdue" [ref=e1001]:
+                  - generic [ref=e1002]:
+                    - link "Blackpool" [ref=e1003] [cursor=pointer]:
+                      - /url: /stores/8977b4eb-c0a8-4135-98c7-0751e47e9eb4
+                    - paragraph [ref=e1004]: 4 open actions • 0 overdue
+                - cell "S0080" [ref=e1005]:
+                  - generic [ref=e1006]: S0080
+                - cell "Amber 95.9% latest audit" [ref=e1007]:
+                  - generic [ref=e1008]:
+                    - generic [ref=e1009]: Amber
+                    - paragraph [ref=e1011]: 95.9% latest audit
+                - cell "Unit N2 Houndshill Shopping Centre, Blackpool FY1 4HU" [ref=e1012]:
+                  - generic [ref=e1013]:
+                    - img [ref=e1014]
+                    - generic [ref=e1018]: Unit N2 Houndshill Shopping Centre, Blackpool FY1 4HU
+                - cell "Active" [ref=e1019]:
+                  - generic [ref=e1020]:
+                    - img [ref=e1021]
+                    - text: Active
+              - row "Bromborough 11 open actions • 0 overdue S0120 Amber 82.9% latest audit The Croft Retail Park, Welton Road, Bromborough CH62 3PN Active" [ref=e1024]:
+                - cell "Bromborough 11 open actions • 0 overdue" [ref=e1025]:
+                  - generic [ref=e1026]:
+                    - link "Bromborough" [ref=e1027] [cursor=pointer]:
+                      - /url: /stores/6e9b8723-f9fe-4035-8a0d-0d86fbdf5d8f
+                    - paragraph [ref=e1028]: 11 open actions • 0 overdue
+                - cell "S0120" [ref=e1029]:
+                  - generic [ref=e1030]: S0120
+                - cell "Amber 82.9% latest audit" [ref=e1031]:
+                  - generic [ref=e1032]:
+                    - generic [ref=e1033]: Amber
+                    - paragraph [ref=e1035]: 82.9% latest audit
+                - cell "The Croft Retail Park, Welton Road, Bromborough CH62 3PN" [ref=e1036]:
+                  - generic [ref=e1037]:
+                    - img [ref=e1038]
+                    - generic [ref=e1042]: The Croft Retail Park, Welton Road, Bromborough CH62 3PN
+                - cell "Active" [ref=e1043]:
+                  - generic [ref=e1044]:
+                    - img [ref=e1045]
+                    - text: Active
+              - row "Broughton Park 9 open actions • 0 overdue S0069 Amber 90.9% latest audit Unit 8B Broughton Shopping Park Chester Road, Broughton CH4 0DP Active" [ref=e1048]:
+                - cell "Broughton Park 9 open actions • 0 overdue" [ref=e1049]:
+                  - generic [ref=e1050]:
+                    - link "Broughton Park" [ref=e1051] [cursor=pointer]:
+                      - /url: /stores/82af3b5b-b8f0-4430-adcc-578011847ec0
+                    - paragraph [ref=e1052]: 9 open actions • 0 overdue
+                - cell "S0069" [ref=e1053]:
+                  - generic [ref=e1054]: S0069
+                - cell "Amber 90.9% latest audit" [ref=e1055]:
+                  - generic [ref=e1056]:
+                    - generic [ref=e1057]: Amber
+                    - paragraph [ref=e1059]: 90.9% latest audit
+                - cell "Unit 8B Broughton Shopping Park Chester Road, Broughton CH4 0DP" [ref=e1060]:
+                  - generic [ref=e1061]:
+                    - img [ref=e1062]
+                    - generic [ref=e1066]: Unit 8B Broughton Shopping Park Chester Road, Broughton CH4 0DP
+                - cell "Active" [ref=e1067]:
+                  - generic [ref=e1068]:
+                    - img [ref=e1069]
+                    - text: Active
+              - row "Edge Lane 4 open actions • 0 overdue S0068 Amber 86.6% latest audit Unit 47 Liverpool Shopping Park Edge Lane, Liverpool L13 1EW Active" [ref=e1072]:
+                - cell "Edge Lane 4 open actions • 0 overdue" [ref=e1073]:
+                  - generic [ref=e1074]:
+                    - link "Edge Lane" [ref=e1075] [cursor=pointer]:
+                      - /url: /stores/00798b6e-2126-4479-8b95-e2e08852bd63
+                    - paragraph [ref=e1076]: 4 open actions • 0 overdue
+                - cell "S0068" [ref=e1077]:
+                  - generic [ref=e1078]: S0068
+                - cell "Amber 86.6% latest audit" [ref=e1079]:
+                  - generic [ref=e1080]:
+                    - generic [ref=e1081]: Amber
+                    - paragraph [ref=e1083]: 86.6% latest audit
+                - cell "Unit 47 Liverpool Shopping Park Edge Lane, Liverpool L13 1EW" [ref=e1084]:
+                  - generic [ref=e1085]:
+                    - img [ref=e1086]
+                    - generic [ref=e1090]: Unit 47 Liverpool Shopping Park Edge Lane, Liverpool L13 1EW
+                - cell "Active" [ref=e1091]:
+                  - generic [ref=e1092]:
+                    - img [ref=e1093]
+                    - text: Active
+              - row "Hanley 0 open actions • 0 overdue S0014 Amber 78.6% latest audit Unit 223 The Potteries Shopping Centre, Stoke-On-Trent ST1 1PS Active" [ref=e1096]:
+                - cell "Hanley 0 open actions • 0 overdue" [ref=e1097]:
+                  - generic [ref=e1098]:
+                    - link "Hanley" [ref=e1099] [cursor=pointer]:
+                      - /url: /stores/5f83a771-4182-4ef1-8a3f-7f944dacfebf
+                    - paragraph [ref=e1100]: 0 open actions • 0 overdue
+                - cell "S0014" [ref=e1101]:
+                  - generic [ref=e1102]: S0014
+                - cell "Amber 78.6% latest audit" [ref=e1103]:
+                  - generic [ref=e1104]:
+                    - generic [ref=e1105]: Amber
+                    - paragraph [ref=e1107]: 78.6% latest audit
+                - cell "Unit 223 The Potteries Shopping Centre, Stoke-On-Trent ST1 1PS" [ref=e1108]:
+                  - generic [ref=e1109]:
+                    - img [ref=e1110]
+                    - generic [ref=e1114]: Unit 223 The Potteries Shopping Centre, Stoke-On-Trent ST1 1PS
+                - cell "Active" [ref=e1115]:
+                  - generic [ref=e1116]:
+                    - img [ref=e1117]
+                    - text: Active
+              - row "Liverpool One 5 open actions • 0 overdue S0015 Amber 88.8% latest audit Unit 98-99 Paradise Street Liverpool One, Liverpool L1 3EU Active" [ref=e1120]:
+                - cell "Liverpool One 5 open actions • 0 overdue" [ref=e1121]:
+                  - generic [ref=e1122]:
+                    - link "Liverpool One" [ref=e1123] [cursor=pointer]:
+                      - /url: /stores/3f5a6196-19e0-429f-8ddc-9e0f0df45ffe
+                    - paragraph [ref=e1124]: 5 open actions • 0 overdue
+                - cell "S0015" [ref=e1125]:
+                  - generic [ref=e1126]: S0015
+                - cell "Amber 88.8% latest audit" [ref=e1127]:
+                  - generic [ref=e1128]:
+                    - generic [ref=e1129]: Amber
+                    - paragraph [ref=e1131]: 88.8% latest audit
+                - cell "Unit 98-99 Paradise Street Liverpool One, Liverpool L1 3EU" [ref=e1132]:
+                  - generic [ref=e1133]:
+                    - img [ref=e1134]
+                    - generic [ref=e1138]: Unit 98-99 Paradise Street Liverpool One, Liverpool L1 3EU
+                - cell "Active" [ref=e1139]:
+                  - generic [ref=e1140]:
+                    - img [ref=e1141]
+                    - text: Active
+              - row "Preston 0 open actions • 0 overdue S0005 Amber 83.0% latest audit 84-86 Fishergate Walk St Georges, Preston PR1 2NR Active" [ref=e1144]:
+                - cell "Preston 0 open actions • 0 overdue" [ref=e1145]:
+                  - generic [ref=e1146]:
+                    - link "Preston" [ref=e1147] [cursor=pointer]:
+                      - /url: /stores/bffb982c-7304-4ce6-972b-99fc8cf2b76d
+                    - paragraph [ref=e1148]: 0 open actions • 0 overdue
+                - cell "S0005" [ref=e1149]:
+                  - generic [ref=e1150]: S0005
+                - cell "Amber 83.0% latest audit" [ref=e1151]:
+                  - generic [ref=e1152]:
+                    - generic [ref=e1153]: Amber
+                    - paragraph [ref=e1155]: 83.0% latest audit
+                - cell "84-86 Fishergate Walk St Georges, Preston PR1 2NR" [ref=e1156]:
+                  - generic [ref=e1157]:
+                    - img [ref=e1158]
+                    - generic [ref=e1162]: 84-86 Fishergate Walk St Georges, Preston PR1 2NR
+                - cell "Active" [ref=e1163]:
+                  - generic [ref=e1164]:
+                    - img [ref=e1165]
+                    - text: Active
+              - row "Speke 4 open actions • 0 overdue S0042 Amber 93.0% latest audit Unit L1b New Mersey Shopping Park, Liverpool L24 8QB Active" [ref=e1168]:
+                - cell "Speke 4 open actions • 0 overdue" [ref=e1169]:
+                  - generic [ref=e1170]:
+                    - link "Speke" [ref=e1171] [cursor=pointer]:
+                      - /url: /stores/e291e218-453f-420a-981e-cd3e9759909b
+                    - paragraph [ref=e1172]: 4 open actions • 0 overdue
+                - cell "S0042" [ref=e1173]:
+                  - generic [ref=e1174]: S0042
+                - cell "Amber 93.0% latest audit" [ref=e1175]:
+                  - generic [ref=e1176]:
+                    - generic [ref=e1177]: Amber
+                    - paragraph [ref=e1179]: 93.0% latest audit
+                - cell "Unit L1b New Mersey Shopping Park, Liverpool L24 8QB" [ref=e1180]:
+                  - generic [ref=e1181]:
+                    - img [ref=e1182]
+                    - generic [ref=e1186]: Unit L1b New Mersey Shopping Park, Liverpool L24 8QB
+                - cell "Active" [ref=e1187]:
+                  - generic [ref=e1188]:
+                    - img [ref=e1189]
+                    - text: Active
+              - row "Warrington 0 open actions • 0 overdue S0092 Amber 98.0% latest audit SU25 Golden Square Shopping Centre, Warrington WA1 1QB Active" [ref=e1192]:
+                - cell "Warrington 0 open actions • 0 overdue" [ref=e1193]:
+                  - generic [ref=e1194]:
+                    - link "Warrington" [ref=e1195] [cursor=pointer]:
+                      - /url: /stores/9bd47346-2fb9-4a4d-ab89-3a40bec03963
+                    - paragraph [ref=e1196]: 0 open actions • 0 overdue
+                - cell "S0092" [ref=e1197]:
+                  - generic [ref=e1198]: S0092
+                - cell "Amber 98.0% latest audit" [ref=e1199]:
+                  - generic [ref=e1200]:
+                    - generic [ref=e1201]: Amber
+                    - paragraph [ref=e1203]: 98.0% latest audit
+                - cell "SU25 Golden Square Shopping Centre, Warrington WA1 1QB" [ref=e1204]:
+                  - generic [ref=e1205]:
+                    - img [ref=e1206]
+                    - generic [ref=e1210]: SU25 Golden Square Shopping Centre, Warrington WA1 1QB
+                - cell "Active" [ref=e1211]:
+                  - generic [ref=e1212]:
+                    - img [ref=e1213]
+                    - text: Active
+              - row "Wigan 0 open actions • 0 overdue S0121 Amber 94.4% latest audit Unit 11B, Robin Retail Park, Loire Drive, Wigan WN5 0UH Active" [ref=e1216]:
+                - cell "Wigan 0 open actions • 0 overdue" [ref=e1217]:
+                  - generic [ref=e1218]:
+                    - link "Wigan" [ref=e1219] [cursor=pointer]:
+                      - /url: /stores/649aa8a1-6928-4115-a993-6b17023e2d4b
+                    - paragraph [ref=e1220]: 0 open actions • 0 overdue
+                - cell "S0121" [ref=e1221]:
+                  - generic [ref=e1222]: S0121
+                - cell "Amber 94.4% latest audit" [ref=e1223]:
+                  - generic [ref=e1224]:
+                    - generic [ref=e1225]: Amber
+                    - paragraph [ref=e1227]: 94.4% latest audit
+                - cell "Unit 11B, Robin Retail Park, Loire Drive, Wigan WN5 0UH" [ref=e1228]:
+                  - generic [ref=e1229]:
+                    - img [ref=e1230]
+                    - generic [ref=e1234]: Unit 11B, Robin Retail Park, Loire Drive, Wigan WN5 0UH
+                - cell "Active" [ref=e1235]:
+                  - generic [ref=e1236]:
+                    - img [ref=e1237]
+                    - text: Active
+              - row "A5 - Birmingham 6 stores" [ref=e1240]:
+                - cell "A5 - Birmingham 6 stores" [ref=e1241]:
+                  - generic [ref=e1242]:
+                    - generic [ref=e1243]:
+                      - img [ref=e1244]
+                      - text: A5 - Birmingham
+                    - generic [ref=e1248]: 6 stores
+              - row "Birmingham Fort 0 open actions • 0 overdue S0022 Amber 93.8% latest audit Unit 3B The Fort Shopping Park 20 Fort Parkway, Birmingham B24 9FP Active" [ref=e1249]:
+                - cell "Birmingham Fort 0 open actions • 0 overdue" [ref=e1250]:
+                  - generic [ref=e1251]:
+                    - link "Birmingham Fort" [ref=e1252] [cursor=pointer]:
+                      - /url: /stores/c758432b-7012-4420-9ae9-be2ac735f094
+                    - paragraph [ref=e1253]: 0 open actions • 0 overdue
+                - cell "S0022" [ref=e1254]:
+                  - generic [ref=e1255]: S0022
+                - cell "Amber 93.8% latest audit" [ref=e1256]:
+                  - generic [ref=e1257]:
+                    - generic [ref=e1258]: Amber
+                    - paragraph [ref=e1260]: 93.8% latest audit
+                - cell "Unit 3B The Fort Shopping Park 20 Fort Parkway, Birmingham B24 9FP" [ref=e1261]:
+                  - generic [ref=e1262]:
+                    - img [ref=e1263]
+                    - generic [ref=e1267]: Unit 3B The Fort Shopping Park 20 Fort Parkway, Birmingham B24 9FP
+                - cell "Active" [ref=e1268]:
+                  - generic [ref=e1269]:
+                    - img [ref=e1270]
+                    - text: Active
+              - row "Bull ring new 2 open actions • 0 overdue S0087 Amber 96.0% latest audit Unit MSU2 Bullring Shopping Centre, Birmingham B5 4BA Active" [ref=e1273]:
+                - cell "Bull ring new 2 open actions • 0 overdue" [ref=e1274]:
+                  - generic [ref=e1275]:
+                    - link "Bull ring new" [ref=e1276] [cursor=pointer]:
+                      - /url: /stores/4c73d354-2e23-48cb-876f-b75e2b672705
+                    - paragraph [ref=e1277]: 2 open actions • 0 overdue
+                - cell "S0087" [ref=e1278]:
+                  - generic [ref=e1279]: S0087
+                - cell "Amber 96.0% latest audit" [ref=e1280]:
+                  - generic [ref=e1281]:
+                    - generic [ref=e1282]: Amber
+                    - paragraph [ref=e1284]: 96.0% latest audit
+                - cell "Unit MSU2 Bullring Shopping Centre, Birmingham B5 4BA" [ref=e1285]:
+                  - generic [ref=e1286]:
+                    - img [ref=e1287]
+                    - generic [ref=e1291]: Unit MSU2 Bullring Shopping Centre, Birmingham B5 4BA
+                - cell "Active" [ref=e1292]:
+                  - generic [ref=e1293]:
+                    - img [ref=e1294]
+                    - text: Active
+              - row "Coventry 5 open actions • 0 overdue S0045 Amber 93.8% latest audit Unit 20 West Orchards Shopping Centre, Coventry CV1 1GF Active" [ref=e1297]:
+                - cell "Coventry 5 open actions • 0 overdue" [ref=e1298]:
+                  - generic [ref=e1299]:
+                    - link "Coventry" [ref=e1300] [cursor=pointer]:
+                      - /url: /stores/77e3f8b8-779c-414c-9cd7-742da6e4b93b
+                    - paragraph [ref=e1301]: 5 open actions • 0 overdue
+                - cell "S0045" [ref=e1302]:
+                  - generic [ref=e1303]: S0045
+                - cell "Amber 93.8% latest audit" [ref=e1304]:
+                  - generic [ref=e1305]:
+                    - generic [ref=e1306]: Amber
+                    - paragraph [ref=e1308]: 93.8% latest audit
+                - cell "Unit 20 West Orchards Shopping Centre, Coventry CV1 1GF" [ref=e1309]:
+                  - generic [ref=e1310]:
+                    - img [ref=e1311]
+                    - generic [ref=e1315]: Unit 20 West Orchards Shopping Centre, Coventry CV1 1GF
+                - cell "Active" [ref=e1316]:
+                  - generic [ref=e1317]:
+                    - img [ref=e1318]
+                    - text: Active
+              - row "Merry Hill 3 open actions • 0 overdue S0029 Amber 95.9% latest audit Unit L38A Merry Hill Shopping Centre Dudley Rd, Brierley Hill DY5 1SJ Active" [ref=e1321]:
+                - cell "Merry Hill 3 open actions • 0 overdue" [ref=e1322]:
+                  - generic [ref=e1323]:
+                    - link "Merry Hill" [ref=e1324] [cursor=pointer]:
+                      - /url: /stores/89dc85a7-d7da-4a2b-973e-05176d474cf9
+                    - paragraph [ref=e1325]: 3 open actions • 0 overdue
+                - cell "S0029" [ref=e1326]:
+                  - generic [ref=e1327]: S0029
+                - cell "Amber 95.9% latest audit" [ref=e1328]:
+                  - generic [ref=e1329]:
+                    - generic [ref=e1330]: Amber
+                    - paragraph [ref=e1332]: 95.9% latest audit
+                - cell "Unit L38A Merry Hill Shopping Centre Dudley Rd, Brierley Hill DY5 1SJ" [ref=e1333]:
+                  - generic [ref=e1334]:
+                    - img [ref=e1335]
+                    - generic [ref=e1339]: Unit L38A Merry Hill Shopping Centre Dudley Rd, Brierley Hill DY5 1SJ
+                - cell "Active" [ref=e1340]:
+                  - generic [ref=e1341]:
+                    - img [ref=e1342]
+                    - text: Active
+              - row "Walsall 5 open actions • 0 overdue S0055 Amber 94.8% latest audit 65 Park Street, Walsall WS1 1NW Active" [ref=e1345]:
+                - cell "Walsall 5 open actions • 0 overdue" [ref=e1346]:
+                  - generic [ref=e1347]:
+                    - link "Walsall" [ref=e1348] [cursor=pointer]:
+                      - /url: /stores/39c50dd0-b387-441e-b0fa-ad3088bbba7c
+                    - paragraph [ref=e1349]: 5 open actions • 0 overdue
+                - cell "S0055" [ref=e1350]:
+                  - generic [ref=e1351]: S0055
+                - cell "Amber 94.8% latest audit" [ref=e1352]:
+                  - generic [ref=e1353]:
+                    - generic [ref=e1354]: Amber
+                    - paragraph [ref=e1356]: 94.8% latest audit
+                - cell "65 Park Street, Walsall WS1 1NW" [ref=e1357]:
+                  - generic [ref=e1358]:
+                    - img [ref=e1359]
+                    - generic [ref=e1363]: 65 Park Street, Walsall WS1 1NW
+                - cell "Active" [ref=e1364]:
+                  - generic [ref=e1365]:
+                    - img [ref=e1366]
+                    - text: Active
+              - row "West Bromwich 0 open actions • 0 overdue S0097 Amber 95.9% latest audit Unit 3 New Street, West Bromwich B70 7PP Active" [ref=e1369]:
+                - cell "West Bromwich 0 open actions • 0 overdue" [ref=e1370]:
+                  - generic [ref=e1371]:
+                    - link "West Bromwich" [ref=e1372] [cursor=pointer]:
+                      - /url: /stores/9783f271-811d-452f-9e04-32c4ef4a067a
+                    - paragraph [ref=e1373]: 0 open actions • 0 overdue
+                - cell "S0097" [ref=e1374]:
+                  - generic [ref=e1375]: S0097
+                - cell "Amber 95.9% latest audit" [ref=e1376]:
+                  - generic [ref=e1377]:
+                    - generic [ref=e1378]: Amber
+                    - paragraph [ref=e1380]: 95.9% latest audit
+                - cell "Unit 3 New Street, West Bromwich B70 7PP" [ref=e1381]:
+                  - generic [ref=e1382]:
+                    - img [ref=e1383]
+                    - generic [ref=e1387]: Unit 3 New Street, West Bromwich B70 7PP
+                - cell "Active" [ref=e1388]:
+                  - generic [ref=e1389]:
+                    - img [ref=e1390]
+                    - text: Active
+              - row "A6 - Wales 5 stores" [ref=e1393]:
+                - cell "A6 - Wales 5 stores" [ref=e1394]:
+                  - generic [ref=e1395]:
+                    - generic [ref=e1396]:
+                      - img [ref=e1397]
+                      - text: A6 - Wales
+                    - generic [ref=e1401]: 5 stores
+              - row "Cardiff 0 open actions • 0 overdue S0023 Grey Not Started Unit 34-36 Town Wall Mall St David's Dewi Sant, Cardiff CF10 2DQ Active" [ref=e1402]:
+                - cell "Cardiff 0 open actions • 0 overdue" [ref=e1403]:
+                  - generic [ref=e1404]:
+                    - link "Cardiff" [ref=e1405] [cursor=pointer]:
+                      - /url: /stores/3a473b49-c5f5-4fb0-a602-a6a2909cbe57
+                    - paragraph [ref=e1406]: 0 open actions • 0 overdue
+                - cell "S0023" [ref=e1407]:
+                  - generic [ref=e1408]: S0023
+                - cell "Grey Not Started" [ref=e1409]:
+                  - generic [ref=e1410]:
+                    - generic [ref=e1411]: Grey
+                    - paragraph [ref=e1413]: Not Started
+                - cell "Unit 34-36 Town Wall Mall St David's Dewi Sant, Cardiff CF10 2DQ" [ref=e1414]:
+                  - generic [ref=e1415]:
+                    - img [ref=e1416]
+                    - generic [ref=e1420]: Unit 34-36 Town Wall Mall St David's Dewi Sant, Cardiff CF10 2DQ
+                - cell "Active" [ref=e1421]:
+                  - generic [ref=e1422]:
+                    - img [ref=e1423]
+                    - text: Active
+              - row "Newport 0 open actions • 0 overdue S0061 Grey Not Started Unit 12 Newport Retail Park Spytty Road, Newport NP19 4QQ Active" [ref=e1426]:
+                - cell "Newport 0 open actions • 0 overdue" [ref=e1427]:
+                  - generic [ref=e1428]:
+                    - link "Newport" [ref=e1429] [cursor=pointer]:
+                      - /url: /stores/d2745a71-9273-4454-b789-852e7bbf67fe
+                    - paragraph [ref=e1430]: 0 open actions • 0 overdue
+                - cell "S0061" [ref=e1431]:
+                  - generic [ref=e1432]: S0061
+                - cell "Grey Not Started" [ref=e1433]:
+                  - generic [ref=e1434]:
+                    - generic [ref=e1435]: Grey
+                    - paragraph [ref=e1437]: Not Started
+                - cell "Unit 12 Newport Retail Park Spytty Road, Newport NP19 4QQ" [ref=e1438]:
+                  - generic [ref=e1439]:
+                    - img [ref=e1440]
+                    - generic [ref=e1444]: Unit 12 Newport Retail Park Spytty Road, Newport NP19 4QQ
+                - cell "Active" [ref=e1445]:
+                  - generic [ref=e1446]:
+                    - img [ref=e1447]
+                    - text: Active
+              - row "Parc Trostre 0 open actions • 0 overdue S0098 Grey Not Started Unit 9B Trostre Road, Llanelli SA14 9UT Active" [ref=e1450]:
+                - cell "Parc Trostre 0 open actions • 0 overdue" [ref=e1451]:
+                  - generic [ref=e1452]:
+                    - link "Parc Trostre" [ref=e1453] [cursor=pointer]:
+                      - /url: /stores/a145869c-8577-45ee-8794-9253fe987619
+                    - paragraph [ref=e1454]: 0 open actions • 0 overdue
+                - cell "S0098" [ref=e1455]:
+                  - generic [ref=e1456]: S0098
+                - cell "Grey Not Started" [ref=e1457]:
+                  - generic [ref=e1458]:
+                    - generic [ref=e1459]: Grey
+                    - paragraph [ref=e1461]: Not Started
+                - cell "Unit 9B Trostre Road, Llanelli SA14 9UT" [ref=e1462]:
+                  - generic [ref=e1463]:
+                    - img [ref=e1464]
+                    - generic [ref=e1468]: Unit 9B Trostre Road, Llanelli SA14 9UT
+                - cell "Active" [ref=e1469]:
+                  - generic [ref=e1470]:
+                    - img [ref=e1471]
+                    - text: Active
+              - row "Watford New Store 0 open actions • 0 overdue S0089 Amber 94.5% latest audit Unit 38-39 Atria Shopping Centre, Watford WD17 2UB Active" [ref=e1474]:
+                - cell "Watford New Store 0 open actions • 0 overdue" [ref=e1475]:
+                  - generic [ref=e1476]:
+                    - link "Watford New Store" [ref=e1477] [cursor=pointer]:
+                      - /url: /stores/5dfe7386-e3ce-4791-a46e-ca9f94177a72
+                    - paragraph [ref=e1478]: 0 open actions • 0 overdue
+                - cell "S0089" [ref=e1479]:
+                  - generic [ref=e1480]: S0089
+                - cell "Amber 94.5% latest audit" [ref=e1481]:
+                  - generic [ref=e1482]:
+                    - generic [ref=e1483]: Amber
+                    - paragraph [ref=e1485]: 94.5% latest audit
+                - cell "Unit 38-39 Atria Shopping Centre, Watford WD17 2UB" [ref=e1486]:
+                  - generic [ref=e1487]:
+                    - img [ref=e1488]
+                    - generic [ref=e1492]: Unit 38-39 Atria Shopping Centre, Watford WD17 2UB
+                - cell "Active" [ref=e1493]:
+                  - generic [ref=e1494]:
+                    - img [ref=e1495]
+                    - text: Active
+              - row "Wrexham 2 open actions • 0 overdue S0096 Amber 97.9% latest audit Unit D11 Eagles Meadow Shopping Centre Smithfield Rd, Wrexham LL13 8DG Active" [ref=e1498]:
+                - cell "Wrexham 2 open actions • 0 overdue" [ref=e1499]:
+                  - generic [ref=e1500]:
+                    - link "Wrexham" [ref=e1501] [cursor=pointer]:
+                      - /url: /stores/ca9f97f6-8a76-4e2b-97ed-9ee83c679508
+                    - paragraph [ref=e1502]: 2 open actions • 0 overdue
+                - cell "S0096" [ref=e1503]:
+                  - generic [ref=e1504]: S0096
+                - cell "Amber 97.9% latest audit" [ref=e1505]:
+                  - generic [ref=e1506]:
+                    - generic [ref=e1507]: Amber
+                    - paragraph [ref=e1509]: 97.9% latest audit
+                - cell "Unit D11 Eagles Meadow Shopping Centre Smithfield Rd, Wrexham LL13 8DG" [ref=e1510]:
+                  - generic [ref=e1511]:
+                    - img [ref=e1512]
+                    - generic [ref=e1516]: Unit D11 Eagles Meadow Shopping Centre Smithfield Rd, Wrexham LL13 8DG
+                - cell "Active" [ref=e1517]:
+                  - generic [ref=e1518]:
+                    - img [ref=e1519]
+                    - text: Active
+              - row "A7 - South 8 stores" [ref=e1522]:
+                - cell "A7 - South 8 stores" [ref=e1523]:
+                  - generic [ref=e1524]:
+                    - generic [ref=e1525]:
+                      - img [ref=e1526]
+                      - text: A7 - South
+                    - generic [ref=e1530]: 8 stores
+              - row "Brighton 0 open actions • 0 overdue S0076 Amber 95.9% latest audit MSU2 Churchill Square, Brighton BN1 2RG Active" [ref=e1531]:
+                - cell "Brighton 0 open actions • 0 overdue" [ref=e1532]:
+                  - generic [ref=e1533]:
+                    - link "Brighton" [ref=e1534] [cursor=pointer]:
+                      - /url: /stores/00a48441-564c-4ea8-8811-ad3c48f35fb4
+                    - paragraph [ref=e1535]: 0 open actions • 0 overdue
+                - cell "S0076" [ref=e1536]:
+                  - generic [ref=e1537]: S0076
+                - cell "Amber 95.9% latest audit" [ref=e1538]:
+                  - generic [ref=e1539]:
+                    - generic [ref=e1540]: Amber
+                    - paragraph [ref=e1542]: 95.9% latest audit
+                - cell "MSU2 Churchill Square, Brighton BN1 2RG" [ref=e1543]:
+                  - generic [ref=e1544]:
+                    - img [ref=e1545]
+                    - generic [ref=e1549]: MSU2 Churchill Square, Brighton BN1 2RG
+                - cell "Active" [ref=e1550]:
+                  - generic [ref=e1551]:
+                    - img [ref=e1552]
+                    - text: Active
+              - row "Bromley 0 open actions • 0 overdue S0049 Amber 91.8% latest audit 137 High Street, Bromley BR1 1JF Active" [ref=e1555]:
+                - cell "Bromley 0 open actions • 0 overdue" [ref=e1556]:
+                  - generic [ref=e1557]:
+                    - link "Bromley" [ref=e1558] [cursor=pointer]:
+                      - /url: /stores/bc352a59-7366-4f8e-9918-12e3d5a2ca46
+                    - paragraph [ref=e1559]: 0 open actions • 0 overdue
+                - cell "S0049" [ref=e1560]:
+                  - generic [ref=e1561]: S0049
+                - cell "Amber 91.8% latest audit" [ref=e1562]:
+                  - generic [ref=e1563]:
+                    - generic [ref=e1564]: Amber
+                    - paragraph [ref=e1566]: 91.8% latest audit
+                - cell "137 High Street, Bromley BR1 1JF" [ref=e1567]:
+                  - generic [ref=e1568]:
+                    - img [ref=e1569]
+                    - generic [ref=e1573]: 137 High Street, Bromley BR1 1JF
+                - cell "Active" [ref=e1574]:
+                  - generic [ref=e1575]:
+                    - img [ref=e1576]
+                    - text: Active
+              - row "Cheshunt 0 open actions • 0 overdue S0085 Amber 91.0% latest audit Unit 4A Brookfield Shopping Park Halfhide Ln, Cheshunt EN8 0QE Active" [ref=e1579]:
+                - cell "Cheshunt 0 open actions • 0 overdue" [ref=e1580]:
+                  - generic [ref=e1581]:
+                    - link "Cheshunt" [ref=e1582] [cursor=pointer]:
+                      - /url: /stores/2d51a068-5e89-45c5-98ad-dd2897428529
+                    - paragraph [ref=e1583]: 0 open actions • 0 overdue
+                - cell "S0085" [ref=e1584]:
+                  - generic [ref=e1585]: S0085
+                - cell "Amber 91.0% latest audit" [ref=e1586]:
+                  - generic [ref=e1587]:
+                    - generic [ref=e1588]: Amber
+                    - paragraph [ref=e1590]: 91.0% latest audit
+                - cell "Unit 4A Brookfield Shopping Park Halfhide Ln, Cheshunt EN8 0QE" [ref=e1591]:
+                  - generic [ref=e1592]:
+                    - img [ref=e1593]
+                    - generic [ref=e1597]: Unit 4A Brookfield Shopping Park Halfhide Ln, Cheshunt EN8 0QE
+                - cell "Active" [ref=e1598]:
+                  - generic [ref=e1599]:
+                    - img [ref=e1600]
+                    - text: Active
+              - row "Croydon 0 open actions • 0 overdue S0032 Grey Not Started 69 North End, Croydon CR0 1TG Active" [ref=e1603]:
+                - cell "Croydon 0 open actions • 0 overdue" [ref=e1604]:
+                  - generic [ref=e1605]:
+                    - link "Croydon" [ref=e1606] [cursor=pointer]:
+                      - /url: /stores/a2d8a716-0bb3-4c80-807e-b81fa53d47a6
+                    - paragraph [ref=e1607]: 0 open actions • 0 overdue
+                - cell "S0032" [ref=e1608]:
+                  - generic [ref=e1609]: S0032
+                - cell "Grey Not Started" [ref=e1610]:
+                  - generic [ref=e1611]:
+                    - generic [ref=e1612]: Grey
+                    - paragraph [ref=e1614]: Not Started
+                - cell "69 North End, Croydon CR0 1TG" [ref=e1615]:
+                  - generic [ref=e1616]:
+                    - img [ref=e1617]
+                    - generic [ref=e1621]: 69 North End, Croydon CR0 1TG
+                - cell "Active" [ref=e1622]:
+                  - generic [ref=e1623]:
+                    - img [ref=e1624]
+                    - text: Active
+              - row "Plymouth 0 open actions • 0 overdue S0060 Amber 89.0% latest audit Unit SU32 Drake Circus, Plymouth PL1 1EA Active" [ref=e1627]:
+                - cell "Plymouth 0 open actions • 0 overdue" [ref=e1628]:
+                  - generic [ref=e1629]:
+                    - link "Plymouth" [ref=e1630] [cursor=pointer]:
+                      - /url: /stores/16e8ec38-d4bd-4051-a086-14223c753645
+                    - paragraph [ref=e1631]: 0 open actions • 0 overdue
+                - cell "S0060" [ref=e1632]:
+                  - generic [ref=e1633]: S0060
+                - cell "Amber 89.0% latest audit" [ref=e1634]:
+                  - generic [ref=e1635]:
+                    - generic [ref=e1636]: Amber
+                    - paragraph [ref=e1638]: 89.0% latest audit
+                - cell "Unit SU32 Drake Circus, Plymouth PL1 1EA" [ref=e1639]:
+                  - generic [ref=e1640]:
+                    - img [ref=e1641]
+                    - generic [ref=e1645]: Unit SU32 Drake Circus, Plymouth PL1 1EA
+                - cell "Active" [ref=e1646]:
+                  - generic [ref=e1647]:
+                    - img [ref=e1648]
+                    - text: Active
+              - row "Portsmouth 0 open actions • 0 overdue S0046 Amber 98.0% latest audit 117 Commercial Road, Portsmouth PO1 1BU Active" [ref=e1651]:
+                - cell "Portsmouth 0 open actions • 0 overdue" [ref=e1652]:
+                  - generic [ref=e1653]:
+                    - link "Portsmouth" [ref=e1654] [cursor=pointer]:
+                      - /url: /stores/1fbf08ce-475c-42e6-bb44-04ab9d790f17
+                    - paragraph [ref=e1655]: 0 open actions • 0 overdue
+                - cell "S0046" [ref=e1656]:
+                  - generic [ref=e1657]: S0046
+                - cell "Amber 98.0% latest audit" [ref=e1658]:
+                  - generic [ref=e1659]:
+                    - generic [ref=e1660]: Amber
+                    - paragraph [ref=e1662]: 98.0% latest audit
+                - cell "117 Commercial Road, Portsmouth PO1 1BU" [ref=e1663]:
+                  - generic [ref=e1664]:
+                    - img [ref=e1665]
+                    - generic [ref=e1669]: 117 Commercial Road, Portsmouth PO1 1BU
+                - cell "Active" [ref=e1670]:
+                  - generic [ref=e1671]:
+                    - img [ref=e1672]
+                    - text: Active
+              - row "Southampton 0 open actions • 0 overdue S0079 Amber 82.7% latest audit 69/75 Above Bar Street, Southampton SO14 7FE Active" [ref=e1675]:
+                - cell "Southampton 0 open actions • 0 overdue" [ref=e1676]:
+                  - generic [ref=e1677]:
+                    - link "Southampton" [ref=e1678] [cursor=pointer]:
+                      - /url: /stores/33e312e5-f2c7-4430-9086-f7ff2123871a
+                    - paragraph [ref=e1679]: 0 open actions • 0 overdue
+                - cell "S0079" [ref=e1680]:
+                  - generic [ref=e1681]: S0079
+                - cell "Amber 82.7% latest audit" [ref=e1682]:
+                  - generic [ref=e1683]:
+                    - generic [ref=e1684]: Amber
+                    - paragraph [ref=e1686]: 82.7% latest audit
+                - cell "69/75 Above Bar Street, Southampton SO14 7FE" [ref=e1687]:
+                  - generic [ref=e1688]:
+                    - img [ref=e1689]
+                    - generic [ref=e1693]: 69/75 Above Bar Street, Southampton SO14 7FE
+                - cell "Active" [ref=e1694]:
+                  - generic [ref=e1695]:
+                    - img [ref=e1696]
+                    - text: Active
+              - row "Thanet 0 open actions • 0 overdue S0074 Amber 97.9% latest audit Unit 6B Westwood Cross Shopping Centre, Broadstairs CT10 2BF Active" [ref=e1699]:
+                - cell "Thanet 0 open actions • 0 overdue" [ref=e1700]:
+                  - generic [ref=e1701]:
+                    - link "Thanet" [ref=e1702] [cursor=pointer]:
+                      - /url: /stores/66deaeef-b461-4b62-83ad-ecfe07acad8d
+                    - paragraph [ref=e1703]: 0 open actions • 0 overdue
+                - cell "S0074" [ref=e1704]:
+                  - generic [ref=e1705]: S0074
+                - cell "Amber 97.9% latest audit" [ref=e1706]:
+                  - generic [ref=e1707]:
+                    - generic [ref=e1708]: Amber
+                    - paragraph [ref=e1710]: 97.9% latest audit
+                - cell "Unit 6B Westwood Cross Shopping Centre, Broadstairs CT10 2BF" [ref=e1711]:
+                  - generic [ref=e1712]:
+                    - img [ref=e1713]
+                    - generic [ref=e1717]: Unit 6B Westwood Cross Shopping Centre, Broadstairs CT10 2BF
+                - cell "Active" [ref=e1718]:
+                  - generic [ref=e1719]:
+                    - img [ref=e1720]
+                    - text: Active
+              - row "A8 - London 6 stores" [ref=e1723]:
+                - cell "A8 - London 6 stores" [ref=e1724]:
+                  - generic [ref=e1725]:
+                    - generic [ref=e1726]:
+                      - img [ref=e1727]
+                      - text: A8 - London
+                    - generic [ref=e1731]: 6 stores
+              - row "Bluewater 0 open actions • 0 overdue S0027 Amber 93.9% latest audit L077 Lower Thames Walk Bluewater Shopping Centre, Greenhithe DA9 9SL Active" [ref=e1732]:
+                - cell "Bluewater 0 open actions • 0 overdue" [ref=e1733]:
+                  - generic [ref=e1734]:
+                    - link "Bluewater" [ref=e1735] [cursor=pointer]:
+                      - /url: /stores/d238bbb0-6b1c-4a3d-b1de-da965d09c4cb
+                    - paragraph [ref=e1736]: 0 open actions • 0 overdue
+                - cell "S0027" [ref=e1737]:
+                  - generic [ref=e1738]: S0027
+                - cell "Amber 93.9% latest audit" [ref=e1739]:
+                  - generic [ref=e1740]:
+                    - generic [ref=e1741]: Amber
+                    - paragraph [ref=e1743]: 93.9% latest audit
+                - cell "L077 Lower Thames Walk Bluewater Shopping Centre, Greenhithe DA9 9SL" [ref=e1744]:
+                  - generic [ref=e1745]:
+                    - img [ref=e1746]
+                    - generic [ref=e1750]: L077 Lower Thames Walk Bluewater Shopping Centre, Greenhithe DA9 9SL
+                - cell "Active" [ref=e1751]:
+                  - generic [ref=e1752]:
+                    - img [ref=e1753]
+                    - text: Active
+              - row "Lakeside New 0 open actions • 0 overdue S0088 Amber 98.9% latest audit Unit 335A Intu Lakeside Upper Mall West Thurrock Way, Grays RM20 2ZG Active" [ref=e1756]:
+                - cell "Lakeside New 0 open actions • 0 overdue" [ref=e1757]:
+                  - generic [ref=e1758]:
+                    - link "Lakeside New" [ref=e1759] [cursor=pointer]:
+                      - /url: /stores/4071478f-ef5c-45e4-95d0-2f31f3539251
+                    - paragraph [ref=e1760]: 0 open actions • 0 overdue
+                - cell "S0088" [ref=e1761]:
+                  - generic [ref=e1762]: S0088
+                - cell "Amber 98.9% latest audit" [ref=e1763]:
+                  - generic [ref=e1764]:
+                    - generic [ref=e1765]: Amber
+                    - paragraph [ref=e1767]: 98.9% latest audit
+                - cell "Unit 335A Intu Lakeside Upper Mall West Thurrock Way, Grays RM20 2ZG" [ref=e1768]:
+                  - generic [ref=e1769]:
+                    - img [ref=e1770]
+                    - generic [ref=e1774]: Unit 335A Intu Lakeside Upper Mall West Thurrock Way, Grays RM20 2ZG
+                - cell "Active" [ref=e1775]:
+                  - generic [ref=e1776]:
+                    - img [ref=e1777]
+                    - text: Active
+              - row "Milton Keynes 0 open actions • 0 overdue S0064 Amber 95.0% latest audit Unit 66 Midsummer Arcade Centre, Milton Keynes MK9 3BB Active" [ref=e1780]:
+                - cell "Milton Keynes 0 open actions • 0 overdue" [ref=e1781]:
+                  - generic [ref=e1782]:
+                    - link "Milton Keynes" [ref=e1783] [cursor=pointer]:
+                      - /url: /stores/d38afc4d-97f7-492c-9c9b-fc760a56c527
+                    - paragraph [ref=e1784]: 0 open actions • 0 overdue
+                - cell "S0064" [ref=e1785]:
+                  - generic [ref=e1786]: S0064
+                - cell "Amber 95.0% latest audit" [ref=e1787]:
+                  - generic [ref=e1788]:
+                    - generic [ref=e1789]: Amber
+                    - paragraph [ref=e1791]: 95.0% latest audit
+                - cell "Unit 66 Midsummer Arcade Centre, Milton Keynes MK9 3BB" [ref=e1792]:
+                  - generic [ref=e1793]:
+                    - img [ref=e1794]
+                    - generic [ref=e1798]: Unit 66 Midsummer Arcade Centre, Milton Keynes MK9 3BB
+                - cell "Active" [ref=e1799]:
+                  - generic [ref=e1800]:
+                    - img [ref=e1801]
+                    - text: Active
+              - row "Oxford Street 1 open actions • 0 overdue S0086 Amber 94.0% latest audit 73-89 Oxford Street, London W1D 2JL Active" [ref=e1804]:
+                - cell "Oxford Street 1 open actions • 0 overdue" [ref=e1805]:
+                  - generic [ref=e1806]:
+                    - link "Oxford Street" [ref=e1807] [cursor=pointer]:
+                      - /url: /stores/bc5dff2e-eb4a-4644-9591-fdf8e1ad4174
+                    - paragraph [ref=e1808]: 1 open actions • 0 overdue
+                - cell "S0086" [ref=e1809]:
+                  - generic [ref=e1810]: S0086
+                - cell "Amber 94.0% latest audit" [ref=e1811]:
+                  - generic [ref=e1812]:
+                    - generic [ref=e1813]: Amber
+                    - paragraph [ref=e1815]: 94.0% latest audit
+                - cell "73-89 Oxford Street, London W1D 2JL" [ref=e1816]:
+                  - generic [ref=e1817]:
+                    - img [ref=e1818]
+                    - generic [ref=e1822]: 73-89 Oxford Street, London W1D 2JL
+                - cell "Active" [ref=e1823]:
+                  - generic [ref=e1824]:
+                    - img [ref=e1825]
+                    - text: Active
+              - row "Stratford 0 open actions • 0 overdue S0030 Amber 92.0% latest audit Unit SU1080 Westfield Stratford City, London E15 1AZ Active" [ref=e1828]:
+                - cell "Stratford 0 open actions • 0 overdue" [ref=e1829]:
+                  - generic [ref=e1830]:
+                    - link "Stratford" [ref=e1831] [cursor=pointer]:
+                      - /url: /stores/96dfd121-bc56-4d5e-84ec-175dde6098ee
+                    - paragraph [ref=e1832]: 0 open actions • 0 overdue
+                - cell "S0030" [ref=e1833]:
+                  - generic [ref=e1834]: S0030
+                - cell "Amber 92.0% latest audit" [ref=e1835]:
+                  - generic [ref=e1836]:
+                    - generic [ref=e1837]: Amber
+                    - paragraph [ref=e1839]: 92.0% latest audit
+                - cell "Unit SU1080 Westfield Stratford City, London E15 1AZ" [ref=e1840]:
+                  - generic [ref=e1841]:
+                    - img [ref=e1842]
+                    - generic [ref=e1846]: Unit SU1080 Westfield Stratford City, London E15 1AZ
+                - cell "Active" [ref=e1847]:
+                  - generic [ref=e1848]:
+                    - img [ref=e1849]
+                    - text: Active
+              - row "White City 0 open actions • 0 overdue S0083 Amber 93.0% latest audit Unit 2075/2076 Westfield London, London W12 7GF Active" [ref=e1852]:
+                - cell "White City 0 open actions • 0 overdue" [ref=e1853]:
+                  - generic [ref=e1854]:
+                    - link "White City" [ref=e1855] [cursor=pointer]:
+                      - /url: /stores/fc23c097-1bdf-411a-9f15-d2cdca590b28
+                    - paragraph [ref=e1856]: 0 open actions • 0 overdue
+                - cell "S0083" [ref=e1857]:
+                  - generic [ref=e1858]: S0083
+                - cell "Amber 93.0% latest audit" [ref=e1859]:
+                  - generic [ref=e1860]:
+                    - generic [ref=e1861]: Amber
+                    - paragraph [ref=e1863]: 93.0% latest audit
+                - cell "Unit 2075/2076 Westfield London, London W12 7GF" [ref=e1864]:
+                  - generic [ref=e1865]:
+                    - img [ref=e1866]
+                    - generic [ref=e1870]: Unit 2075/2076 Westfield London, London W12 7GF
+                - cell "Active" [ref=e1871]:
+                  - generic [ref=e1872]:
+                    - img [ref=e1873]
+                    - text: Active
+              - row "PHOTO 1 stores" [ref=e1876]:
+                - cell "PHOTO 1 stores" [ref=e1877]:
+                  - generic [ref=e1878]:
+                    - generic [ref=e1879]:
+                      - img [ref=e1880]
+                      - text: PHOTO
+                    - generic [ref=e1884]: 1 stores
+              - row "Photo Studio 0 open actions • 0 overdue S0900 Amber 74.2% latest audit Thorp Road, Manchester M40 5BJ Active" [ref=e1885]:
+                - cell "Photo Studio 0 open actions • 0 overdue" [ref=e1886]:
+                  - generic [ref=e1887]:
+                    - link "Photo Studio" [ref=e1888] [cursor=pointer]:
+                      - /url: /stores/3ca88f72-effb-4cb9-85f9-8ba127e4ea51
+                    - paragraph [ref=e1889]: 0 open actions • 0 overdue
+                - cell "S0900" [ref=e1890]:
+                  - generic [ref=e1891]: S0900
+                - cell "Amber 74.2% latest audit" [ref=e1892]:
+                  - generic [ref=e1893]:
+                    - generic [ref=e1894]: Amber
+                    - paragraph [ref=e1896]: 74.2% latest audit
+                - cell "Thorp Road, Manchester M40 5BJ" [ref=e1897]:
+                  - generic [ref=e1898]:
+                    - img [ref=e1899]
+                    - generic [ref=e1903]: Thorp Road, Manchester M40 5BJ
+                - cell "Active" [ref=e1904]:
+                  - generic [ref=e1905]:
+                    - img [ref=e1906]
+                    - text: Active
+              - row "SEVEN 1 stores" [ref=e1909]:
+                - cell "SEVEN 1 stores" [ref=e1910]:
+                  - generic [ref=e1911]:
+                    - generic [ref=e1912]:
+                      - img [ref=e1913]
+                      - text: SEVEN
+                    - generic [ref=e1917]: 1 stores
+              - row "Sevenstore 3 open actions • 0 overdue S0777 Amber 96.9% latest audit 26 Norfolk Street, Baltic Triangle, Liverpool L1 0BE Active" [ref=e1918]:
+                - cell "Sevenstore 3 open actions • 0 overdue" [ref=e1919]:
+                  - generic [ref=e1920]:
+                    - link "Sevenstore" [ref=e1921] [cursor=pointer]:
+                      - /url: /stores/a0fd551a-ee8e-44d1-bd5a-5a5e0641e616
+                    - paragraph [ref=e1922]: 3 open actions • 0 overdue
+                - cell "S0777" [ref=e1923]:
+                  - generic [ref=e1924]: S0777
+                - cell "Amber 96.9% latest audit" [ref=e1925]:
+                  - generic [ref=e1926]:
+                    - generic [ref=e1927]: Amber
+                    - paragraph [ref=e1929]: 96.9% latest audit
+                - cell "26 Norfolk Street, Baltic Triangle, Liverpool L1 0BE" [ref=e1930]:
+                  - generic [ref=e1931]:
+                    - img [ref=e1932]
+                    - generic [ref=e1936]: 26 Norfolk Street, Baltic Triangle, Liverpool L1 0BE
+                - cell "Active" [ref=e1937]:
+                  - generic [ref=e1938]:
+                    - img [ref=e1939]
+                    - text: Active
+              - row "WHSE 1 1 stores" [ref=e1942]:
+                - cell "WHSE 1 1 stores" [ref=e1943]:
+                  - generic [ref=e1944]:
+                    - generic [ref=e1945]:
+                      - img [ref=e1946]
+                      - text: WHSE 1
+                    - generic [ref=e1950]: 1 stores
+              - row "Heywood 0 open actions • 0 overdue WH003 Grey Not Started Unit M3, Heywood Distribution Centre Pilsworth Road, Heywood OL10 2TT Active" [ref=e1951]:
+                - cell "Heywood 0 open actions • 0 overdue" [ref=e1952]:
+                  - generic [ref=e1953]:
+                    - link "Heywood" [ref=e1954] [cursor=pointer]:
+                      - /url: /stores/d15404f9-37c5-49fb-af51-0a75c11f9fc1
+                    - paragraph [ref=e1955]: 0 open actions • 0 overdue
+                - cell "WH003" [ref=e1956]:
+                  - generic [ref=e1957]: WH003
+                - cell "Grey Not Started" [ref=e1958]:
+                  - generic [ref=e1959]:
+                    - generic [ref=e1960]: Grey
+                    - paragraph [ref=e1962]: Not Started
+                - cell "Unit M3, Heywood Distribution Centre Pilsworth Road, Heywood OL10 2TT" [ref=e1963]:
+                  - generic [ref=e1964]:
+                    - img [ref=e1965]
+                    - generic [ref=e1969]: Unit M3, Heywood Distribution Centre Pilsworth Road, Heywood OL10 2TT
+                - cell "Active" [ref=e1970]:
+                  - generic [ref=e1971]:
+                    - img [ref=e1972]
+                    - text: Active
+              - row "WHSE 2 1 stores" [ref=e1975]:
+                - cell "WHSE 2 1 stores" [ref=e1976]:
+                  - generic [ref=e1977]:
+                    - generic [ref=e1978]:
+                      - img [ref=e1979]
+                      - text: WHSE 2
+                    - generic [ref=e1983]: 1 stores
+              - row "Middleton 0 open actions • 0 overdue WH004 Grey Not Started Point 62, Touchet Hall Road, Stakehill Industrial Estate, Middleton M24 2RP Active" [ref=e1984]:
+                - cell "Middleton 0 open actions • 0 overdue" [ref=e1985]:
+                  - generic [ref=e1986]:
+                    - link "Middleton" [ref=e1987] [cursor=pointer]:
+                      - /url: /stores/03cfa587-fe7e-489a-87b1-fd44c660adc6
+                    - paragraph [ref=e1988]: 0 open actions • 0 overdue
+                - cell "WH004" [ref=e1989]:
+                  - generic [ref=e1990]: WH004
+                - cell "Grey Not Started" [ref=e1991]:
+                  - generic [ref=e1992]:
+                    - generic [ref=e1993]: Grey
+                    - paragraph [ref=e1995]: Not Started
+                - cell "Point 62, Touchet Hall Road, Stakehill Industrial Estate, Middleton M24 2RP" [ref=e1996]:
+                  - generic [ref=e1997]:
+                    - img [ref=e1998]
+                    - generic [ref=e2002]: Point 62, Touchet Hall Road, Stakehill Industrial Estate, Middleton M24 2RP
+                - cell "Active" [ref=e2003]:
+                  - generic [ref=e2004]:
+                    - img [ref=e2005]
+                    - text: Active

@@ -14,9 +14,10 @@ import { getStoreActionListTitle } from '@/components/shared/store-action-title'
 
 interface ActionsTableRowProps {
   action: any
+  canManageActions?: boolean
 }
 
-export function ActionsTableRow({ action }: ActionsTableRowProps) {
+export function ActionsTableRow({ action, canManageActions = true }: ActionsTableRowProps) {
   const [modalOpen, setModalOpen] = useState(false)
   const isStoreAction = action.source_type === 'store' || !action.incident_id
   const displayTitle = isStoreAction ? getStoreActionListTitle(action) : action.title
@@ -100,7 +101,7 @@ export function ActionsTableRow({ action }: ActionsTableRowProps) {
               <Eye className="h-3.5 w-3.5 mr-1.5" />
               View
             </Button>
-            {!isStoreAction ? (
+            {!isStoreAction && canManageActions ? (
               <>
                 <div onClick={(event) => event.stopPropagation()}>
                   <CloseActionButton actionId={action.id} actionTitle={action.title} currentStatus={action.status} />

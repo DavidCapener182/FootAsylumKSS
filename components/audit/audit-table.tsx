@@ -10,8 +10,12 @@ import { cn, getDisplayStoreCode } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { UserRole } from '@/lib/auth'
 import { getAuditPDFDownloadUrl, deleteAuditPDF } from '@/app/actions/audit-pdfs'
+import { saveComplianceAudit, updateComplianceAuditScore } from '@/app/actions/stores'
+import { can } from '@/lib/role-capabilities'
+import { getAuditLifecycle } from '@/lib/compliance-ui'
 import { Upload, Eye, EyeOff, File, SlidersHorizontal, ChevronDown, ChevronUp, BellRing, Search } from 'lucide-react'
 import { PDFViewerModal } from '@/components/shared/pdf-viewer-modal'
+import { StatusBadge } from '@/components/shared/status-badge'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { StoreActionsModal } from './store-actions-modal'
 import { 
@@ -151,6 +155,7 @@ export function AuditTable({
   const [storeActionsModalOpen, setStoreActionsModalOpen] = useState(false)
   const [storeActionsRow, setStoreActionsRow] = useState<AuditRow | null>(null)
   const [storeActionCounts, setStoreActionCounts] = useState<Record<string, number>>({})
+  const canManageAudits = can(userRole, 'manageAudits')
 
   useEffect(() => {
     if (!tableMessage) return
@@ -398,6 +403,10 @@ export function AuditTable({
 
   const handleSaveAudit = async () => {
     if (!addAuditState) return
+    if (!canManageAudits) {
+      setTableMessage({ type: 'error', text: 'You do not have permission to manage audits.' })
+      return
+    }
 
     const { storeId, storeName, auditNumber, date, percentage, pdfFile } = addAuditState
 
@@ -421,8 +430,6 @@ export function AuditTable({
     setTableMessage(null)
 
     try {
-      const supabase = createClient()
-      
       // Upload PDF if provided
       let pdfPath: string | null = null
       if (pdfFile) {
@@ -453,53 +460,16 @@ export function AuditTable({
         }
       }
       
-      // Build update object
-      const updateData: any = {}
-      
-      if (auditNumber === 1) {
-        updateData.compliance_audit_1_date = date
-        updateData.compliance_audit_1_overall_pct = pctNum
-        updateData.action_plan_1_sent = autoActionPlanSent
-        if (pdfPath) {
-          updateData.compliance_audit_1_pdf_path = pdfPath
-        }
-      } else {
-        updateData.compliance_audit_2_date = date
-        updateData.compliance_audit_2_overall_pct = pctNum
-        updateData.action_plan_2_sent = autoActionPlanSent
-        if (pdfPath) {
-          updateData.compliance_audit_2_pdf_path = pdfPath
-        }
-      }
-
-      // Calculate total_audits_to_date
       const row = localRows.find(r => r.id === storeId)
-      if (row) {
-        let totalAudits = 0
-        // Count audit 1 if it will be complete after this save
-        const audit1Complete = auditNumber === 1 ? true : (row.compliance_audit_1_date && row.compliance_audit_1_overall_pct !== null)
-        if (audit1Complete) totalAudits++
-        // Count audit 2 if it will be complete after this save
-        const audit2Complete = auditNumber === 2 ? true : (row.compliance_audit_2_date && row.compliance_audit_2_overall_pct !== null)
-        if (audit2Complete) totalAudits++
-        updateData.total_audits_to_date = totalAudits
-      }
-
-      const { data, error } = await supabase
-        .from('fa_stores')
-        .update(updateData)
-        .eq('id', storeId)
-        .select()
-        .single()
-
-      if (error) {
-        console.error('Supabase error:', error)
-        throw new Error(error.message || 'Failed to save audit data')
-      }
-
-      if (!data) {
-        throw new Error('No data returned from update')
-      }
+      const data = await saveComplianceAudit({
+        storeId,
+        auditNumber,
+        date,
+        percentage: pctNum,
+        pdfPath,
+        currentAudit1Complete: Boolean(row?.compliance_audit_1_date && row.compliance_audit_1_overall_pct !== null),
+        currentAudit2Complete: Boolean(row?.compliance_audit_2_date && row.compliance_audit_2_overall_pct !== null),
+      })
 
       // Update local state with the returned data
       setLocalRows(prevRows => 
@@ -566,6 +536,10 @@ export function AuditTable({
   }
 
   const handleOpenPDFUpload = (row: AuditRow, auditNumber?: 1 | 2) => {
+    if (!canManageAudits) {
+      setTableMessage({ type: 'error', text: 'You do not have permission to upload audit PDFs.' })
+      return
+    }
     setPdfUploadRow(row)
     setPdfUploadFile(null)
     
@@ -596,6 +570,10 @@ export function AuditTable({
   }
 
   const handleUploadPDF = async () => {
+    if (!canManageAudits) {
+      setTableMessage({ type: 'error', text: 'You do not have permission to upload audit PDFs.' })
+      return
+    }
     if (!pdfUploadRow || !pdfUploadFile || !selectedAuditForUpload) {
       setTableMessage({ type: 'error', text: 'Please select an audit and PDF file.' })
       return
@@ -657,11 +635,19 @@ export function AuditTable({
   }
 
   const handleDeletePDF = (row: AuditRow, auditNumber: 1 | 2) => {
+    if (!canManageAudits) {
+      setTableMessage({ type: 'error', text: 'You do not have permission to delete audit PDFs.' })
+      return
+    }
     setDeletePdfDialog({ row, auditNumber })
   }
 
   const handleConfirmDeletePDF = async () => {
     if (!deletePdfDialog) return
+    if (!canManageAudits) {
+      setTableMessage({ type: 'error', text: 'You do not have permission to delete audit PDFs.' })
+      return
+    }
     const { row, auditNumber } = deletePdfDialog
 
     setDeletingPdf(`${row.id}-${auditNumber}`)
@@ -701,6 +687,10 @@ export function AuditTable({
   }
 
   const handleOpenUpdateScore = (row: AuditRow, auditNumber: 1 | 2) => {
+    if (!canManageAudits) {
+      setTableMessage({ type: 'error', text: 'You do not have permission to update audit scores.' })
+      return
+    }
     const currentPct = auditNumber === 1 ? row.compliance_audit_1_overall_pct : row.compliance_audit_2_overall_pct
     const currentDate = auditNumber === 1 ? row.compliance_audit_1_date : row.compliance_audit_2_date
 
@@ -719,6 +709,10 @@ export function AuditTable({
 
   const handleUpdateScore = async () => {
     if (!updateScoreState) return
+    if (!canManageAudits) {
+      setUpdateScoreError('You do not have permission to update audit scores.')
+      return
+    }
 
     const pctNum = Number(updateScoreState.percentage)
     if (!updateScoreState.percentage || isNaN(pctNum)) {
@@ -734,33 +728,8 @@ export function AuditTable({
     setUpdatingScore(true)
 
     try {
-      const supabase = createClient()
-      const updateData: Record<string, number | boolean> = {}
       const autoActionPlanSent = pctNum < 80
-
-      if (updateScoreState.auditNumber === 1) {
-        updateData.compliance_audit_1_overall_pct = pctNum
-        updateData.action_plan_1_sent = autoActionPlanSent
-      } else {
-        updateData.compliance_audit_2_overall_pct = pctNum
-        updateData.action_plan_2_sent = autoActionPlanSent
-      }
-
-      const { data, error } = await supabase
-        .from('fa_stores')
-        .update(updateData)
-        .eq('id', updateScoreState.storeId)
-        .select()
-        .single()
-
-      if (error) {
-        console.error('Supabase error:', error)
-        throw new Error(error.message || 'Failed to update audit score')
-      }
-
-      if (!data) {
-        throw new Error('No data returned from update')
-      }
+      const data = await updateComplianceAuditScore(updateScoreState.storeId, updateScoreState.auditNumber, pctNum)
 
       setLocalRows(prevRows => 
         prevRows.map(row => {
@@ -830,6 +799,10 @@ export function AuditTable({
 
   const renderPercentageCell = (value: number | null, storeId: string, auditNum: 1 | 2) => {
     if (value === null || value === undefined) {
+      return pctBadge(value)
+    }
+
+    if (!canManageAudits) {
       return pctBadge(value)
     }
 
@@ -1042,8 +1015,8 @@ export function AuditTable({
                 <div className="space-y-2.5">
                   {areaRows.map((row) => {
                     const nextAudit = getNextAuditNumber(row)
-                    const completedCount = getCompletedAuditCount(row)
                     const upcomingActionFlag = getUpcomingActionFlag(row)
+                    const auditLifecycle = getAuditLifecycle(row)
 
                     return (
                       <div key={row.id} className="mobile-card-surface rounded-2xl border p-3.5 shadow-sm">
@@ -1064,8 +1037,8 @@ export function AuditTable({
                               <span>{getInternalAreaDisplayName(row.region, { fallback: 'Unassigned' })}</span>
                             </div>
                           </div>
-                          <div className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-500">
-                            {completedCount}/2 complete
+                          <div className="shrink-0">
+                            <StatusBadge type="audit" status={auditLifecycle.status} label={auditLifecycle.label} />
                           </div>
                         </div>
 
@@ -1107,7 +1080,7 @@ export function AuditTable({
                             </Button>
                           ) : null}
 
-                          {nextAudit !== null ? (
+                          {canManageAudits && nextAudit !== null ? (
                             <Button
                               type="button"
                               size="sm"
@@ -1136,12 +1109,12 @@ export function AuditTable({
                                         Audit 1
                                       </Button>
                                     </>
-                                  ) : (
+                                  ) : canManageAudits ? (
                                     <Button size="sm" variant="outline" onClick={() => handleOpenPDFUpload(row, 1)} className="h-8 border-slate-300 bg-white">
                                       <Upload className="h-3 w-3 mr-1" />
                                       Upload A1 PDF
                                     </Button>
-                                  )
+                                  ) : null
                                 ) : null}
 
                                 {row.compliance_audit_2_date && row.compliance_audit_2_overall_pct !== null ? (
@@ -1157,12 +1130,12 @@ export function AuditTable({
                                         Audit 2
                                       </Button>
                                     </>
-                                  ) : (
+                                  ) : canManageAudits ? (
                                     <Button size="sm" variant="outline" onClick={() => handleOpenPDFUpload(row, 2)} className="h-8 border-slate-300 bg-white">
                                       <Upload className="h-3 w-3 mr-1" />
                                       Upload A2 PDF
                                     </Button>
-                                  )
+                                  ) : null
                                 ) : null}
                               </div>
                             </div>
@@ -1280,6 +1253,7 @@ export function AuditTable({
                       {/* Store Rows */}
                       {areaRows.map((row) => {
                         const upcomingActionFlag = getUpcomingActionFlag(row)
+                        const auditLifecycle = getAuditLifecycle(row)
 
                         return (
                         <TableRow
@@ -1318,6 +1292,7 @@ export function AuditTable({
                                   {upcomingActionFlag.isDebugPreview ? 'Debug preview' : 'Previous actions'}
                                 </button>
                               ) : null}
+                              <StatusBadge type="audit" status={auditLifecycle.status} label={auditLifecycle.label} />
                             </div>
                           </TableCell>
                           
@@ -1338,7 +1313,7 @@ export function AuditTable({
                                     <File className="h-4 w-4 text-slate-700" />
                                   </Button>
                                 </>
-                              ) : (row.compliance_audit_1_date && row.compliance_audit_1_overall_pct !== null) ? (
+                              ) : canManageAudits && row.compliance_audit_1_date && row.compliance_audit_1_overall_pct !== null ? (
                                 <Button
                                   size="sm"
                                   variant="ghost"
@@ -1371,7 +1346,7 @@ export function AuditTable({
                                     <File className="h-4 w-4 text-slate-700" />
                                   </Button>
                                 </>
-                              ) : (row.compliance_audit_2_date && row.compliance_audit_2_overall_pct !== null) ? (
+                              ) : canManageAudits && row.compliance_audit_2_date && row.compliance_audit_2_overall_pct !== null ? (
                                 <Button
                                   size="sm"
                                   variant="ghost"
@@ -1413,7 +1388,7 @@ export function AuditTable({
                                 </Button>
                               ) : null}
 
-                              {getNextAuditNumber(row) !== null ? (
+                              {canManageAudits && getNextAuditNumber(row) !== null ? (
                                 <Button
                                   type="button"
                                   size="sm"
@@ -1447,7 +1422,7 @@ export function AuditTable({
         pdfUrl={null}
         title={selectedPdfRow ? `Audit ${selectedPdfRow.auditNumber} - ${selectedPdfRow.row.store_name}` : 'Audit PDF'}
         getDownloadUrl={handleGetPDFUrl}
-        headerActions={selectedPdfRow ? (
+        headerActions={selectedPdfRow && canManageAudits ? (
           <Button
             variant="destructive"
             size="sm"

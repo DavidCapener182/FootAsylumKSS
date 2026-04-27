@@ -531,6 +531,30 @@ async function getDashboardData() {
     up_to_date: 0,
   })
 
+  const regionalComplianceMap = allActiveStores.reduce((acc: Record<string, { region: string; total: number; inDate: number }>, store: any) => {
+    const region = store.region || 'Not Available'
+    const fraData = fraDataMap.get(store.id) || { fire_risk_assessment_date: null }
+    const fraStatus = getFRAStatusFromDate(fraData.fire_risk_assessment_date)
+
+    if (!acc[region]) {
+      acc[region] = { region, total: 0, inDate: 0 }
+    }
+
+    acc[region].total += 1
+    if (fraStatus === 'up_to_date' || fraStatus === 'due') {
+      acc[region].inDate += 1
+    }
+
+    return acc
+  }, {})
+
+  const regionalCompliance = Object.values(regionalComplianceMap)
+    .map((region) => ({
+      ...region,
+      inDatePercentage: region.total > 0 ? truncateToDecimals((region.inDate / region.total) * 100) : 0,
+    }))
+    .sort((a, b) => b.inDatePercentage - a.inDatePercentage)
+
   const fourteenDaysFromNow = new Date(todayDateOnly)
   fourteenDaysFromNow.setDate(fourteenDaysFromNow.getDate() + 14)
   const plannedVisitsNext14Days = routesWithOperationalItems.filter((route: any) => {
@@ -613,6 +637,7 @@ async function getDashboardData() {
         : 0,
     },
     storesRequiringFRA,
+    regionalCompliance,
     complianceForecast,
   }
 }

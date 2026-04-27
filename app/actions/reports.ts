@@ -1,7 +1,6 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
+import { requirePermission } from '@/lib/permissions'
 
 function normalizeJsonObject(value: any): Record<string, any> | null {
   if (!value) return null
@@ -32,12 +31,7 @@ function getReportedByDisplay(incident: any) {
 }
 
 export async function exportIncidentsCSV() {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Unauthorized')
-  }
+  const { supabase } = await requirePermission('exportReports')
 
   const { data: incidents, error } = await supabase
     .from('fa_incidents')
@@ -99,12 +93,7 @@ export async function exportIncidentsCSV() {
 }
 
 export async function exportActionsCSV() {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Unauthorized')
-  }
+  const { supabase } = await requirePermission('exportReports')
 
   const { data: actions, error } = await supabase
     .from('fa_actions')
@@ -155,4 +144,3 @@ export async function exportActionsCSV() {
     },
   })
 }
-

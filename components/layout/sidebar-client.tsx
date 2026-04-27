@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
-import { User, Activity, X } from 'lucide-react'
+import { User, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { UserRole, UserProfile } from '@/lib/auth'
 import { useSidebar } from './sidebar-provider'
@@ -17,8 +17,16 @@ import {
   isCmpSectionPath,
 } from './cmp-chrome'
 
-const activityItem: NavItem = { href: '/activity', label: 'Recent Activity', icon: Activity, clientHidden: true }
-const allNavItems = [...navItems, activityItem]
+const sectionOrder: NonNullable<NavItem['section']>[] = [
+  'Overview',
+  'Audit Management',
+  'Stores',
+  'Planning',
+  'Reporting',
+  'Administration',
+]
+
+const allNavItems = navItems
 
 interface SidebarClientProps {
   userRole?: UserRole | null
@@ -26,7 +34,7 @@ interface SidebarClientProps {
 }
 
 export function SidebarClient({ userRole, userProfile }: SidebarClientProps) {
-  const pathname = usePathname()
+  const pathname = usePathname() || '/'
   const { isOpen, setIsOpen } = useSidebar()
   const [feedbackOpen, setFeedbackOpen] = useState(false)
   const isCmpSection = isCmpSectionPath(pathname)
@@ -103,8 +111,19 @@ export function SidebarClient({ userRole, userProfile }: SidebarClientProps) {
         </button>
       </div>
       <nav className="flex-1 overflow-y-auto px-4 pb-4">
-        <ul className="overflow-hidden rounded-[28px] border border-slate-200 bg-white/85 shadow-[0_16px_30px_rgba(15,23,42,0.08)] md:space-y-1.5 md:rounded-none md:border-0 md:bg-transparent md:shadow-none">
-          {(isCmpSection ? cmpNavItems : filteredItems).map((item) => {
+        <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white/85 shadow-[0_16px_30px_rgba(15,23,42,0.08)] md:space-y-4 md:rounded-none md:border-0 md:bg-transparent md:shadow-none">
+          {(isCmpSection ? [{ section: null, items: cmpNavItems }] : sectionOrder.map((section) => ({
+            section,
+            items: filteredItems.filter((item) => (item.section || 'Overview') === section),
+          })).filter((group) => group.items.length > 0)).map((group) => (
+            <div key={group.section || 'cmp'}>
+              {group.section ? (
+                <p className="hidden px-3 pb-1 text-[10px] font-bold uppercase tracking-[0.16em] text-white/40 md:block">
+                  {group.section}
+                </p>
+              ) : null}
+              <ul className="md:space-y-1.5">
+          {group.items.map((item) => {
             const Icon = item.icon
             const isActive = !item.action && (
               isCmpSection
@@ -161,7 +180,10 @@ export function SidebarClient({ userRole, userProfile }: SidebarClientProps) {
               </li>
             )
           })}
-        </ul>
+              </ul>
+            </div>
+          ))}
+        </div>
       </nav>
       <div className="p-4 pt-2">
         <div className="flex items-center gap-3 rounded-[28px] border border-slate-200 bg-white/85 px-4 py-3 shadow-[0_14px_30px_rgba(15,23,42,0.08)] backdrop-blur-sm md:rounded-[24px] md:border-white/10 md:bg-white/10 md:shadow-none">
@@ -172,6 +194,11 @@ export function SidebarClient({ userRole, userProfile }: SidebarClientProps) {
             <p className="truncate text-sm font-semibold text-slate-900 md:text-white">
               {userProfile?.full_name || 'User'}
             </p>
+            {userRole === 'readonly' ? (
+              <p className="mt-0.5 text-xs font-semibold text-amber-700 md:text-amber-200">View only</p>
+            ) : userRole ? (
+              <p className="mt-0.5 text-xs capitalize text-slate-500 md:text-white/50">{userRole}</p>
+            ) : null}
           </div>
         </div>
       </div>

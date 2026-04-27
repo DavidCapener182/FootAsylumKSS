@@ -5,9 +5,16 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Input } from '@/components/ui/input'
 import { StoreMobileCard } from '@/components/stores/store-mobile-card'
-import { Search, Store, MapPin, CheckCircle2, XCircle, Layers3 } from 'lucide-react'
+import { Search, Store, MapPin, CheckCircle2, XCircle, Layers3, ShieldCheck } from 'lucide-react'
 import { getInternalAreaDisplayName } from '@/lib/areas'
 import { getDisplayStoreCode } from '@/lib/utils'
+import {
+  getAuditLifecycle,
+  getLatestAuditScore,
+  getOpenActions,
+  getOverdueActions,
+  getStoreComplianceSummary,
+} from '@/lib/compliance-ui'
 import Link from 'next/link'
 
 interface StoreDirectoryProps {
@@ -71,6 +78,18 @@ export function StoreDirectory({ stores }: StoreDirectoryProps) {
   }, [filteredStores])
 
   const areaCount = groupedStores.length
+  const attentionCount = useMemo(() => {
+    return filteredStores.filter((store) => {
+      const lifecycle = getAuditLifecycle(store)
+      const summary = getStoreComplianceSummary({
+        latestAuditScore: getLatestAuditScore(store),
+        openActionCount: getOpenActions(store.actions).length,
+        overdueActionCount: getOverdueActions(store.actions).length,
+        auditLifecycleStatus: lifecycle.status,
+      })
+      return summary.level === 'red' || summary.level === 'amber'
+    }).length
+  }, [filteredStores])
 
   return (
     <Card className="overflow-hidden rounded-2xl border-slate-200 bg-white shadow-sm">
@@ -87,13 +106,17 @@ export function StoreDirectory({ stores }: StoreDirectoryProps) {
               <Layers3 className="h-3 w-3" />
               {areaCount} {areaCount === 1 ? 'area' : 'areas'}
             </div>
+            <div className="mt-2 ml-2 inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+              <ShieldCheck className="h-3 w-3" />
+              {attentionCount} need attention
+            </div>
           </div>
 
           <div className="relative w-full md:w-80">
             <Search className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <Input
               type="text"
-              placeholder="Search by name, code, city, area, postcode"
+              placeholder="Search stores"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="h-11 w-full rounded-2xl border-slate-200 bg-white pl-10 pr-4 text-base focus-visible:ring-2 focus-visible:ring-indigo-500 sm:h-10 sm:rounded-xl sm:pl-10 sm:pr-4 sm:text-sm"
@@ -146,6 +169,7 @@ export function StoreDirectory({ stores }: StoreDirectoryProps) {
                 <TableRow>
                   <TableHead className="font-semibold text-slate-500">Store</TableHead>
                   <TableHead className="w-[130px] font-semibold text-slate-500">Code</TableHead>
+                  <TableHead className="w-[170px] font-semibold text-slate-500">Compliance</TableHead>
                   <TableHead className="font-semibold text-slate-500">Location</TableHead>
                   <TableHead className="w-[120px] font-semibold text-slate-500">Status</TableHead>
                 </TableRow>
@@ -153,7 +177,7 @@ export function StoreDirectory({ stores }: StoreDirectoryProps) {
               <TableBody>
                 {groupedStores.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="h-44 text-center">
+                    <TableCell colSpan={5} className="h-44 text-center">
                       <div className="flex flex-col items-center justify-center text-slate-500">
                         <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-slate-100">
                           <Store className="h-5 w-5 text-slate-400" />
@@ -169,7 +193,7 @@ export function StoreDirectory({ stores }: StoreDirectoryProps) {
                   groupedStores.map((group) => (
                     <Fragment key={group.area}>
                       <TableRow className="bg-slate-50/80 hover:bg-slate-50/80">
-                        <TableCell colSpan={4} className="py-2.5">
+                        <TableCell colSpan={5} className="py-2.5">
                           <div className="flex items-center justify-between">
                             <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
                               <Layers3 className="h-3 w-3" />
@@ -184,7 +208,19 @@ export function StoreDirectory({ stores }: StoreDirectoryProps) {
                         </TableCell>
                       </TableRow>
 
-                      {group.stores.map((store) => (
+                      {group.stores.map((store) => {
+                        const lifecycle = getAuditLifecycle(store)
+                        const latestScore = getLatestAuditScore(store)
+                        const openActions = getOpenActions(store.actions)
+                        const overdueActions = getOverdueActions(store.actions)
+                        const summary = getStoreComplianceSummary({
+                          latestAuditScore: latestScore,
+                          openActionCount: openActions.length,
+                          overdueActionCount: overdueActions.length,
+                          auditLifecycleStatus: lifecycle.status,
+                        })
+
+                        return (
                         <TableRow key={store.id} className="align-top border-b border-slate-100 transition-colors hover:bg-slate-50/70">
                           <TableCell>
                             <div className="space-y-1">
@@ -196,7 +232,7 @@ export function StoreDirectory({ stores }: StoreDirectoryProps) {
                                 {store.store_name}
                               </Link>
                               <p className="text-[11px] text-slate-500">
-                                {(store.incidents?.length || 0)} incidents • {(store.actions?.length || 0)} actions
+                                {openActions.length} open actions • {overdueActions.length} overdue
                               </p>
                             </div>
                           </TableCell>
@@ -209,6 +245,18 @@ export function StoreDirectory({ stores }: StoreDirectoryProps) {
                             ) : (
                               <span className="text-sm text-slate-400">—</span>
                             )}
+                          </TableCell>
+
+                          <TableCell>
+                            <div className="space-y-1.5">
+                              <span className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${summary.className}`}>
+                                <span className={`h-2 w-2 rounded-full ${summary.dotClassName}`} />
+                                {summary.label}
+                              </span>
+                              <p className="text-[11px] text-slate-500">
+                                {typeof latestScore === 'number' ? `${latestScore.toFixed(1)}% latest audit` : lifecycle.label}
+                              </p>
+                            </div>
                           </TableCell>
 
                           <TableCell>
@@ -244,7 +292,8 @@ export function StoreDirectory({ stores }: StoreDirectoryProps) {
                             )}
                           </TableCell>
                         </TableRow>
-                      ))}
+                        )
+                      })}
                     </Fragment>
                   ))
                 )}

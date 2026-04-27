@@ -52,43 +52,43 @@ export function AuditStatsCards({ stores, selectedArea }: AuditStatsCardsProps) 
 
   return (
     <>
-      <div className="col-span-2 rounded-lg border border-slate-700/50 bg-slate-800/50 p-3 backdrop-blur-sm md:col-span-1 md:rounded-2xl md:p-5">
+      <div className="col-span-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:col-span-1 md:p-5">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400 md:text-xs md:tracking-wider">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 md:text-xs md:tracking-wider">
               {areaLabel} Average
             </p>
-            <p className="mt-0.5 text-2xl font-black text-white md:mt-1 md:text-4xl">{formatPercent(stats.avgScore)}</p>
+            <p className="mt-0.5 text-2xl font-black text-emerald-600 md:mt-1 md:text-4xl">{formatPercent(stats.avgScore)}</p>
           </div>
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 md:h-12 md:w-12">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 md:h-12 md:w-12">
             <TrendingUp className="h-4 w-4 md:h-6 md:w-6" />
           </div>
         </div>
       </div>
       
-      <div className="rounded-lg border border-slate-700/50 bg-slate-800/50 p-3 backdrop-blur-sm md:rounded-2xl md:p-5">
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:p-5">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400 md:text-xs md:tracking-wider">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 md:text-xs md:tracking-wider">
               Active Stores
             </p>
-            <p className="mt-0.5 text-2xl font-black text-white md:mt-1 md:text-4xl">{stats.activeStores}</p>
+            <p className="mt-0.5 text-2xl font-black text-blue-600 md:mt-1 md:text-4xl">{stats.activeStores}</p>
           </div>
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-500/20 text-blue-400 md:h-12 md:w-12">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-blue-600 md:h-12 md:w-12">
             <Store className="h-4 w-4 md:h-6 md:w-6" />
           </div>
         </div>
       </div>
 
-      <div className="rounded-lg border border-slate-700/50 bg-slate-800/50 p-3 backdrop-blur-sm md:rounded-2xl md:p-5">
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:p-5">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400 md:text-xs md:tracking-wider">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 md:text-xs md:tracking-wider">
               Audits Completed
             </p>
-            <p className="mt-0.5 text-2xl font-black text-white md:mt-1 md:text-4xl">{stats.auditsCompleted}</p>
+            <p className="mt-0.5 text-2xl font-black text-teal-600 md:mt-1 md:text-4xl">{stats.auditsCompleted}</p>
           </div>
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-purple-500/20 text-purple-400 md:h-12 md:w-12">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-teal-100 text-teal-600 md:h-12 md:w-12">
             <ClipboardCheck className="h-4 w-4 md:h-6 md:w-6" />
           </div>
         </div>
