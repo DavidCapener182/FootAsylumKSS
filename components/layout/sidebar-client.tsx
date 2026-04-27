@@ -19,7 +19,7 @@ import {
 
 const sectionOrder: NonNullable<NavItem['section']>[] = [
   'Overview',
-  'Audit Management',
+  'Compliance Management',
   'Stores',
   'Planning',
   'Reporting',

@@ -742,18 +742,16 @@ export default async function IncidentsPage({
   const formatDelta = (value: number) => (value > 0 ? `+${value}%` : `${value}%`)
 
   return (
-    <div className="flex flex-col gap-4 md:gap-6 lg:gap-8 bg-slate-50/50 min-h-screen">
-      
-      {/* Header Section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="space-y-1 flex-1 min-w-0">
+    <div className="min-h-full bg-slate-50">
+      <div className="flex flex-col gap-4 border-b border-slate-200 bg-white px-6 py-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0 flex-1 space-y-1">
           <div className="flex items-center gap-2 text-slate-900">
-            <div className="p-2 bg-indigo-600 rounded-lg shadow-sm flex-shrink-0">
-              <AlertTriangle className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-700">
+              <AlertTriangle className="h-5 w-5" />
             </div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Incidents</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-950">Incidents</h1>
           </div>
-          <p className="max-w-2xl text-sm text-slate-500 sm:text-base md:ml-11">
+          <p className="max-w-2xl text-sm text-slate-500 md:ml-12">
             Track safety incidents, manage investigations, and monitor resolution progress.
           </p>
         </div>
@@ -762,7 +760,9 @@ export default async function IncidentsPage({
         </div>
       </div>
 
-      <Card className="shadow-sm border-slate-200 bg-white">
+      <div className="space-y-6 px-4 py-5 sm:px-6 lg:px-8">
+
+      <Card className="rounded-2xl border-slate-200 bg-white shadow-sm">
         <CardContent className="p-3 md:p-5">
           <form method="get" className="space-y-3 md:hidden">
             <div className="relative">
@@ -922,43 +922,43 @@ export default async function IncidentsPage({
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 md:gap-4">
-        <Card className="border-slate-200 border-l-4 border-l-emerald-500">
+      <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-6">
+        <Card className="rounded-2xl border-slate-200 border-l-4 border-l-emerald-500 shadow-sm">
           <CardContent className="p-3 md:p-4">
             <p className="text-xs text-slate-500">Accidents (Month)</p>
             <p className="text-2xl font-bold text-slate-900 mt-2">{accidentsMonth}</p>
             <p className="text-xs text-slate-500 mt-1">{formatDelta(accidentsMonthDelta)} vs previous month</p>
           </CardContent>
         </Card>
-        <Card className="border-slate-200 border-l-4 border-l-amber-500">
+        <Card className="rounded-2xl border-slate-200 border-l-4 border-l-amber-500 shadow-sm">
           <CardContent className="p-3 md:p-4">
             <p className="text-xs text-slate-500">Accidents (YTD)</p>
             <p className="text-2xl font-bold text-slate-900 mt-2">{accidentsYtd}</p>
             <p className="text-xs text-slate-500 mt-1">{formatDelta(accidentsYtdDelta)} vs prior YTD</p>
           </CardContent>
         </Card>
-        <Card className="border-slate-200 border-l-4 border-l-red-500">
+        <Card className="rounded-2xl border-slate-200 border-l-4 border-l-red-500 shadow-sm">
           <CardContent className="p-3 md:p-4">
             <p className="text-xs text-slate-500">RIDDOR (Month)</p>
             <p className="text-2xl font-bold text-slate-900 mt-2">{riddorMonth}</p>
             <p className="text-xs text-slate-500 mt-1">Reportable this month</p>
           </CardContent>
         </Card>
-        <Card className="border-slate-200 border-l-4 border-l-teal-600">
+        <Card className="rounded-2xl border-slate-200 border-l-4 border-l-teal-600 shadow-sm">
           <CardContent className="p-3 md:p-4">
             <p className="text-xs text-slate-500">RIDDOR (YTD)</p>
             <p className="text-2xl font-bold text-slate-900 mt-2">{riddorYtd}</p>
             <p className="text-xs text-slate-500 mt-1">Total reportable</p>
           </CardContent>
         </Card>
-        <Card className="border-slate-200 border-l-4 border-l-emerald-600">
+        <Card className="rounded-2xl border-slate-200 border-l-4 border-l-emerald-600 shadow-sm">
           <CardContent className="p-3 md:p-4">
             <p className="text-xs text-slate-500">Near Miss (Month)</p>
             <p className="text-2xl font-bold text-slate-900 mt-2">{nearMissMonth}</p>
             <p className="text-xs text-slate-500 mt-1">Current month</p>
           </CardContent>
         </Card>
-        <Card className="border-slate-200 border-l-4 border-l-indigo-500">
+        <Card className="rounded-2xl border-slate-200 border-l-4 border-l-indigo-500 shadow-sm">
           <CardContent className="p-3 md:p-4">
             <p className="text-xs text-slate-500">Child Incidents</p>
             <p className="text-2xl font-bold text-slate-900 mt-2">{childIncidentsMonth}</p>
@@ -967,8 +967,8 @@ export default async function IncidentsPage({
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        <Card className="border-slate-200 xl:col-span-2">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+        <Card className="rounded-2xl border-slate-200 shadow-sm xl:col-span-2">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between gap-3">
               <CardTitle className="text-lg font-semibold text-slate-900">Board Summary</CardTitle>
@@ -1005,7 +1005,7 @@ export default async function IncidentsPage({
           </CardContent>
         </Card>
 
-        <Card className="border-slate-200">
+        <Card className="rounded-2xl border-slate-200 shadow-sm">
           <CardHeader className="pb-3">
             <CardTitle className="text-lg font-semibold text-slate-900">All-Time Persons Affected</CardTitle>
           </CardHeader>
@@ -1037,7 +1037,7 @@ export default async function IncidentsPage({
       </div>
 
       <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2 gap-1 rounded-2xl border border-slate-200 bg-white p-1 md:inline-flex md:w-auto md:rounded-md">
+        <TabsList className="grid w-full grid-cols-2 gap-1 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm md:inline-flex md:w-auto">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="trends">Trends & Analysis</TabsTrigger>
           <TabsTrigger value="incidents">Incidents</TabsTrigger>
@@ -1068,8 +1068,8 @@ export default async function IncidentsPage({
 
         <TabsContent value="incidents" className="space-y-6">
       {/* Open Incidents Table */}
-      <Card className="shadow-sm border-slate-200 bg-white overflow-hidden">
-        <CardHeader className="border-b bg-slate-50/40 px-6 py-4">
+      <Card className="overflow-hidden rounded-2xl border-slate-200 bg-white shadow-sm">
+        <CardHeader className="border-b border-slate-100 bg-white px-6 py-4">
           <div className="flex items-center justify-between gap-4">
             <CardTitle className="text-base font-semibold text-slate-800">Open Incidents</CardTitle>
             {hasActiveFilters ? (
@@ -1245,8 +1245,8 @@ export default async function IncidentsPage({
       </Card>
 
       {/* Closed Incidents Table */}
-      <Card className="shadow-sm border-slate-200 bg-white overflow-hidden">
-        <CardHeader className="border-b bg-slate-50/40 px-6 py-4">
+      <Card className="overflow-hidden rounded-2xl border-slate-200 bg-white shadow-sm">
+        <CardHeader className="border-b border-slate-100 bg-white px-6 py-4">
           <CardTitle className="text-base font-semibold text-slate-800">Closed Incidents Log</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
@@ -1423,8 +1423,8 @@ export default async function IncidentsPage({
       <TabsContent value="claims" className="space-y-6">
 
       {/* RIDDOR Register */}
-      <Card className="shadow-sm border-red-200 bg-white overflow-hidden">
-        <CardHeader className="border-b bg-red-50/50 px-6 py-4">
+      <Card className="overflow-hidden rounded-2xl border-red-100 bg-white shadow-sm">
+        <CardHeader className="border-b border-red-100 bg-red-50/50 px-6 py-4">
           <div className="flex items-center justify-between gap-4">
             <CardTitle className="text-base font-semibold text-red-800">RIDDOR Incidents</CardTitle>
             <Badge variant="destructive" className="font-semibold">
@@ -1528,8 +1528,8 @@ export default async function IncidentsPage({
       </Card>
 
       {/* Claims Register */}
-      <Card className="shadow-sm border-slate-200 bg-white overflow-hidden">
-        <CardHeader className="border-b bg-slate-50/40 px-6 py-4">
+      <Card className="overflow-hidden rounded-2xl border-slate-200 bg-white shadow-sm">
+        <CardHeader className="border-b border-slate-100 bg-white px-6 py-4">
           <div className="flex items-center justify-between gap-3">
             <CardTitle className="text-base font-semibold text-slate-800">Insurance Claims Register</CardTitle>
             <div className="flex items-center gap-2">
@@ -1670,6 +1670,7 @@ export default async function IncidentsPage({
       </Card>
       </TabsContent>
       </Tabs>
+      </div>
     </div>
   )
 }
