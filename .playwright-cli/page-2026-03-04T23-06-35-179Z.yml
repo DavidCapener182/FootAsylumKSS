@@ -1,5 +1,0 @@
-- generic [active] [ref=e1]:
-  - paragraph [ref=e4]: Loading...
-  - region "Notifications (F8)":
-    - list
-  - alert [ref=e5]

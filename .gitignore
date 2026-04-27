@@ -7,6 +7,15 @@
 
 # testing
 /coverage
+/.playwright-cli/
+/.playwright-mcp/
+/output/playwright/
+/output/pdf/
+/tmp/
+/tmp-*.png
+/*-desktop-*.png
+/*-mobile-*.png
+/*-viewport-*.png
 
 # next.js
 /.next/
