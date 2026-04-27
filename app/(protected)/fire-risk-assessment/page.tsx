@@ -165,7 +165,7 @@ async function getStoreFRAs() {
 }
 
 export default async function FireRiskAssessmentPage() {
-  const { profile } = await requireRole(['admin', 'ops', 'readonly'])
+  const { profile } = await requireRole(['admin', 'ops', 'client', 'readonly'])
   const stores = await getStoreFRAs()
 
   return <FRATrackerClient stores={stores as FRARow[]} userRole={profile.role} />

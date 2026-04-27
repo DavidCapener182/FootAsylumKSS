@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     id: "/",
     name: "Footasylum KSS",
     short_name: "KSS",
-    description: "KSS Internal - Incident Management System",
+    description: "Audit, fire risk assessment, action tracking and compliance reporting platform.",
     start_url: "/",
     scope: "/",
     display: "standalone",

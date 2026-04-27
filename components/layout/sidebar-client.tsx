@@ -118,7 +118,7 @@ export function SidebarClient({ userRole, userProfile }: SidebarClientProps) {
           })).filter((group) => group.items.length > 0)).map((group) => (
             <div key={group.section || 'cmp'}>
               {group.section ? (
-                <p className="hidden px-3 pb-1 text-[10px] font-bold uppercase tracking-[0.16em] text-white/40 md:block">
+                <p className="px-4 pb-1 pt-4 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500 md:px-3 md:pt-0 md:text-white/40">
                   {group.section}
                 </p>
               ) : null}

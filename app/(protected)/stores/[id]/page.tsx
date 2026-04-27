@@ -232,7 +232,7 @@ export default async function StoreCrmPage({
 }: {
   params: { id: string }
 }) {
-  const { profile } = await requireRole(['admin', 'ops', 'readonly'])
+  const { profile } = await requireRole(['admin', 'ops', 'client', 'readonly'])
 
   const [store, mergeContext] = await Promise.all([
     getStore(params.id),

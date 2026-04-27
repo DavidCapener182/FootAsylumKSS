@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
 import { getLatestHSAuditForStore } from '@/app/actions/fra-reports'
+import { requirePermission } from '@/lib/permissions'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -18,12 +18,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { supabase } = await requirePermission('manageFRA')
 
     const formData = await request.formData()
     const file = formData.get('file') as File | null

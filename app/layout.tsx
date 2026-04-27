@@ -6,8 +6,8 @@ import "./globals.css"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "KSS x Footasylum Audit Platform",
-  description: "Secure audit, fire risk assessment and compliance tracking platform for KSS x Footasylum.",
+  title: "KSS x Footasylum Audit & Fire Safety Platform",
+  description: "Audit, fire risk assessment, action tracking and compliance reporting platform.",
   applicationName: "Footasylum KSS",
   manifest: "/manifest.webmanifest",
   appleWebApp: {

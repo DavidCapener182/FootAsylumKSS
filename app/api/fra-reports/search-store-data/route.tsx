@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
 import { getOpeningHoursFromSearch } from '@/lib/fra/opening-hours-search'
 import { getBuildDateFromSearch } from '@/lib/fra/build-date-search'
 import { getStoreDataFromGoogleSearch } from '@/lib/fra/google-store-data-search'
+import { requirePermission } from '@/lib/permissions'
 
 export const dynamic = 'force-dynamic'
 
@@ -11,12 +11,7 @@ export const dynamic = 'force-dynamic'
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { supabase } = await requirePermission('manageFRA')
 
     const { storeName, address, city, storeId } = await request.json()
 

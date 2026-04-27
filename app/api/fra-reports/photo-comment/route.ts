@@ -1,16 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { requirePermission } from '@/lib/permissions'
 
 export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { supabase, userId } = await requirePermission('manageFRA')
 
     const body = await request.json().catch(() => ({}))
     const instanceId = String(body.instanceId || '')
@@ -45,7 +40,7 @@ export async function POST(request: NextRequest) {
           placeholder_id: placeholderId,
           file_path: filePath,
           comment,
-          created_by: user.id,
+          created_by: userId,
         },
         { onConflict: 'audit_instance_id,file_path' }
       )

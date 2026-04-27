@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { extractConductedDateFromPdfText, parseAuditDateString } from '@/lib/fra/pdf-parser'
 import { revalidatePath } from 'next/cache'
 import { persistFraRiskRatingForInstance } from '@/lib/fra/persist-risk-rating'
+import { requirePermission } from '@/lib/permissions'
 
 // ============================================
 // TEMPLATE ACTIONS
@@ -130,25 +131,9 @@ export async function createTemplate(data: {
     }>
   }>
 }) {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { supabase, userId, role } = await requirePermission('manageAudits')
 
-  if (!user) {
-    throw new Error('Unauthorized')
-  }
-
-  // Get profile to get user ID
-  const { data: profile } = await supabase
-    .from('fa_profiles')
-    .select('id, role')
-    .eq('id', user.id)
-    .single()
-
-  if (!profile) {
-    throw new Error('Profile not found')
-  }
-
-  if (data.category === 'footasylum_audit' && profile.role !== 'admin') {
+  if (data.category === 'footasylum_audit' && role !== 'admin') {
     throw new Error('Unauthorized - Admin access required for Footasylum H&S template')
   }
 
@@ -159,7 +144,7 @@ export async function createTemplate(data: {
       title: data.title,
       description: data.description || null,
       category: data.category,
-      created_by_user_id: profile.id,
+      created_by_user_id: userId,
       is_active: true,
     })
     .select()
@@ -220,11 +205,10 @@ export async function updateTemplate(id: string, data: {
   category?: 'footasylum_audit' | 'fire_risk_assessment' | 'custom'
   is_active?: boolean
 }) {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { supabase, role } = await requirePermission('manageAudits')
 
-  if (!user) {
-    throw new Error('Unauthorized')
+  if (data.category === 'footasylum_audit' && role !== 'admin') {
+    throw new Error('Unauthorized - Admin access required for Footasylum H&S template')
   }
 
   const updateData: any = {
@@ -250,12 +234,7 @@ export async function updateTemplate(id: string, data: {
 }
 
 export async function deleteTemplate(id: string) {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Unauthorized')
-  }
+  const { supabase } = await requirePermission('manageAudits')
 
   // Soft delete - set is_active to false
   const { error } = await supabase
@@ -276,29 +255,14 @@ export async function deleteTemplate(id: string) {
 // ============================================
 
 export async function createAuditInstance(templateId: string, storeId: string) {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Unauthorized')
-  }
-
-  const { data: profile } = await supabase
-    .from('fa_profiles')
-    .select('id')
-    .eq('id', user.id)
-    .single()
-
-  if (!profile) {
-    throw new Error('Profile not found')
-  }
+  const { supabase, userId } = await requirePermission('manageAudits')
 
   const { data: instance, error } = await supabase
     .from('fa_audit_instances')
     .insert({
       template_id: templateId,
       store_id: storeId,
-      conducted_by_user_id: profile.id,
+      conducted_by_user_id: userId,
       status: 'draft',
     })
     .select()
@@ -321,12 +285,7 @@ export async function saveAuditResponse(
     score?: number | null
   }
 ) {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Unauthorized')
-  }
+  const { supabase } = await requirePermission('manageAudits')
 
   // Check if response already exists
   const { data: existing } = await supabase
@@ -382,12 +341,7 @@ export async function uploadAuditMedia(
   questionId: string | null,
   file: File
 ) {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Unauthorized')
-  }
+  const { supabase } = await requirePermission('manageAudits')
 
   const fileExt = file.name.split('.').pop()
   const fileName = `${instanceId}/${questionId || 'general'}/${Date.now()}.${fileExt}`
@@ -427,12 +381,7 @@ export async function uploadAuditMedia(
 }
 
 export async function completeAudit(instanceId: string) {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Unauthorized')
-  }
+  const { supabase } = await requirePermission('manageAudits')
 
   const { data: instanceMeta, error: instanceMetaError } = await supabase
     .from('fa_audit_instances')
@@ -756,12 +705,7 @@ export async function getAuditInstance(id: string) {
 }
 
 export async function deleteAuditInstance(id: string) {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Unauthorized')
-  }
+  const { supabase, userId, role } = await requirePermission('manageAudits')
 
   // Load instance metadata up front so we can:
   // - enforce permissions
@@ -782,15 +726,9 @@ export async function deleteAuditInstance(id: string) {
     throw new Error('Audit instance not found')
   }
 
-  // Check if user is admin or owner
-  const { data: profile } = await supabase
-    .from('fa_profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  const isAdmin = profile?.role === 'admin'
-  const isOwner = (instance as any).conducted_by_user_id === user.id
+  // Ops users can delete only their own audits; admins can delete any audit.
+  const isAdmin = role === 'admin'
+  const isOwner = (instance as any).conducted_by_user_id === userId
 
   if (!isAdmin && !isOwner) {
     throw new Error('Unauthorized - You can only delete your own audits or be an admin')
@@ -860,24 +798,7 @@ export async function bulkDeleteAuditInstances(ids: string[]) {
     return { success: true, deleted: 0 }
   }
 
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Unauthorized')
-  }
-
-  // Check admin role
-  const { data: profile } = await supabase
-    .from('fa_profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  const isAdmin = profile?.role === 'admin'
-  if (!isAdmin) {
-    throw new Error('Unauthorized - Only admins can bulk delete audits')
-  }
+  const { supabase } = await requirePermission('adminUsers')
 
   // Preload instance metadata so we can keep the FRA tracker in sync after delete.
   const { data: instancesMeta, error: instancesMetaError } = await supabase
@@ -966,22 +887,7 @@ export async function bulkDeleteAuditInstances(ids: string[]) {
 // ============================================
 
 export async function seedFootAsylumSafetyCultureTemplate() {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Unauthorized')
-  }
-
-  const { data: profile } = await supabase
-    .from('fa_profiles')
-    .select('id')
-    .eq('id', user.id)
-    .single()
-
-  if (!profile) {
-    throw new Error('Profile not found')
-  }
+  const { supabase } = await requirePermission('adminUsers')
 
   // Check if template already exists
   const { data: existing } = await supabase

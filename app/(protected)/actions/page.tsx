@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import { getUserProfile, requireAuth } from '@/lib/auth'
+import { requireRole } from '@/lib/auth'
 import { can } from '@/lib/role-capabilities'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -639,8 +639,7 @@ export default async function ActionsPage({
     date_to?: string
   }
 }) {
-  await requireAuth()
-  const profile = await getUserProfile()
+  const { profile } = await requireRole(['admin', 'ops', 'client', 'readonly'])
   const canManageActions = can(profile?.role, 'manageActions')
   const filters: ActionFilters = {
     assigned_to: searchParams.assigned_to || undefined,

@@ -164,7 +164,7 @@ async function getStoreRelationsForStores(stores: any[], mergeContext: StoreMerg
 }
 
 export default async function StoresPage() {
-  const { profile } = await requireRole(['admin', 'ops', 'readonly'])
+  const { profile } = await requireRole(['admin', 'ops', 'client', 'readonly'])
   const allStores = await getStores()
   const mergeContext = buildStoreMergeContext(allStores)
   const stores = allStores.filter((store) => !shouldHideStore(store))

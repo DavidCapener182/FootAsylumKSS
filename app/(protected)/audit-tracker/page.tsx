@@ -53,7 +53,7 @@ async function getStoreAudits() {
 }
 
 export default async function AuditTrackerPage() {
-  const { profile } = await requireRole(['admin', 'ops', 'readonly'])
+  const { profile } = await requireRole(['admin', 'ops', 'client', 'readonly'])
   const stores = await getStoreAudits()
 
   return (

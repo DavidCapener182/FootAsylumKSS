@@ -1,6 +1,6 @@
-# KSS x Footasylum Assurance Platform (KSS Internal)
+# KSS x Footasylum Audit & Fire Safety Platform (KSS Internal)
 
-A standalone internal web application for KSS NW (KSS x Footasylum's security/assurance partner). The system serves as a Single Source of Truth for managing incidents, accidents, investigations, and action tracking.
+A standalone internal web application for KSS NW (KSS x Footasylum's security/assurance partner). The system serves as a single source of truth for audits, fire risk assessments, action tracking, store compliance visits, and compliance reporting.
 
 ## Tech Stack
 
@@ -58,8 +58,8 @@ All tables and enums are prefixed with `fa_` to prevent collisions in the shared
 
 - `fa_profiles` - User profiles extending auth.users
 - `fa_stores` - Store locations
-- `fa_incidents` - Incident records
-- `fa_investigations` - Investigation details
+- `fa_incidents` - Legacy incident records
+- `fa_investigations` - Legacy investigation details
 - `fa_actions` - Action items
 - `fa_attachments` - File attachments
 - `fa_activity_log` - Audit trail
@@ -68,19 +68,19 @@ All tables and enums are prefixed with `fa_` to prevent collisions in the shared
 
 RLS is enabled on all tables with role-based access:
 - **Admin**: Full access (read/write all, manage users/stores)
-- **Ops**: Read/Write Incidents, Investigations, Actions. Cannot manage users/stores
+- **Ops**: Read/write audit, fire risk assessment, action, and compliance visit workflows. Cannot manage users
 - **Readonly**: View only (internal KSS users)
-- **Client**: Read-only access to incidents, actions, audits, and stores. No access to route planning or activity logs (KSS x Footasylum client portal)
+- **Client**: Read-only access to actions, audits, fire risk assessments, reports, and stores. No access to route planning or activity logs (KSS x Footasylum client portal)
 
 ## Features
 
-- **Incident Management**: Create, view, and manage incidents with full workflow
-- **Investigations**: Track investigations with root cause analysis
-- **Actions**: Assign and track action items with overdue detection
+- **Compliance Audits**: Track store audit progress, second-audit requirements, and completion status
+- **Fire Risk Assessments**: Manage FRA status, due dates, uploads, and reports
+- **Actions**: Assign and track audit/FRA action items with overdue detection
 - **Attachments**: Upload and manage file attachments
-- **Dashboard**: KPIs, charts, and activity feed with AI-powered compliance reports
-- **Reports**: CSV export for incidents and actions
-- **Print View**: Printable incident reports
+- **Dashboard**: KPIs, attention cards, regional compliance, and activity feed with summary generation
+- **Reports**: Compliance reporting and exports
+- **Print View**: Printable audit and FRA reports
 - **Audit Trail**: Complete activity logging for all changes
 
 ## Project Structure
@@ -90,7 +90,7 @@ RLS is enabled on all tables with role-based access:
   /(auth)          - Authentication pages
   /(protected)     - Protected routes
     /dashboard     - Dashboard with KPIs
-    /incidents     - Incident management
+    /incidents     - Legacy incident records
     /actions       - Actions list
     /stores        - Store management (admin only)
     /reports       - Reports and exports
@@ -169,9 +169,9 @@ RLS is enabled on all tables with role-based access:
 
 #### Role Assignment Examples
 
-- **KSS x Footasylum Client**: Set role to `'client'` for read-only access to incidents, actions, and audits
+- **KSS x Footasylum Client**: Set role to `'client'` for read-only access to actions, audits, fire risk assessments, reports, and stores
 - **KSS Managers**: Set role to `'admin'` for full access (same as David Capener)
-- **KSS Operations Staff**: Set role to `'ops'` for incident/action management
+- **KSS Operations Staff**: Set role to `'ops'` for audit, FRA, action, and route-planning management
 - **KSS Read-only Staff**: Leave as `'readonly'` (default)
 
 ### Email Confirmation Settings

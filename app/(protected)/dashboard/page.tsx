@@ -1,14 +1,15 @@
 import { createClient } from '@/lib/supabase/server'
-import { requireAuth } from '@/lib/auth'
+import { requireRole } from '@/lib/auth'
 import { truncateToDecimals } from '@/lib/utils'
 import { subDays } from 'date-fns'
 import { DashboardClient } from '@/components/dashboard/dashboard-client'
+import type { DashboardData, RegionalCompliance } from '@/components/dashboard/dashboard-types'
 import { computeComplianceForecast, getFRAStatusFromDate } from '@/lib/compliance-forecast'
 import { buildStoreMergeContext, getCanonicalStoreId, shouldHideStore } from '@/lib/store-normalization'
 
 // --- Data Fetching ---
 
-async function getDashboardData() {
+async function getDashboardData(): Promise<DashboardData> {
   const supabase = createClient()
   const thirtyDaysAgo = subDays(new Date(), 30).toISOString()
   const today = new Date().toISOString().split('T')[0]
@@ -548,7 +549,7 @@ async function getDashboardData() {
     return acc
   }, {})
 
-  const regionalCompliance = Object.values(regionalComplianceMap)
+  const regionalCompliance: RegionalCompliance[] = Object.values(regionalComplianceMap)
     .map((region) => ({
       ...region,
       inDatePercentage: region.total > 0 ? truncateToDecimals((region.inDate / region.total) * 100) : 0,
@@ -645,7 +646,7 @@ async function getDashboardData() {
 // --- Main Page Component ---
 
 export default async function DashboardPage() {
-  await requireAuth()
+  await requireRole(['admin', 'ops', 'client', 'readonly'])
   const data = await getDashboardData()
 
   return <DashboardClient initialData={data} />

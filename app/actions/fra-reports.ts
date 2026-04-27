@@ -12,6 +12,7 @@ import {
   parseAuditDateString,
 } from '@/lib/fra/pdf-parser'
 import { buildFRARiskSummary, computeFRARiskRating, type FRARiskFindings } from '@/lib/fra/risk-rating'
+import { requirePermission } from '@/lib/permissions'
 import { getAuditInstance } from './safehub'
 
 type ParsedYesNoQuestion = {
@@ -531,12 +532,7 @@ export async function getLatestHSAuditForStore(storeId: string, fraInstanceId?: 
  * Map H&S audit data to FRA report structure
  */
 export async function mapHSAuditToFRAData(fraInstanceId: string) {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Unauthorized')
-  }
+  const { supabase, userId } = await requirePermission('manageFRA')
 
   // Get the FRA audit instance
   const fraInstance = await getAuditInstance(fraInstanceId)
@@ -622,7 +618,7 @@ export async function mapHSAuditToFRAData(fraInstanceId: string) {
     const parserVariant = await ensureLockedFraParserVariant({
       supabase,
       instanceId: fraInstanceId,
-      userId: user.id,
+      userId,
       pdfText,
     })
     console.log('[FRA] Extracting data from PDF text, length:', pdfText.length, 'variant:', parserVariant)

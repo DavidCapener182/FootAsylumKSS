@@ -1,8 +1,8 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
 import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { UserRole } from '@/lib/auth'
+import { requirePermission } from '@/lib/permissions'
 
 export interface UserWithProfile {
   id: string
@@ -49,23 +49,7 @@ async function getAuthLookupById(): Promise<Map<string, AuthLookupRecord>> {
  * Only accessible by admin users
  */
 export async function getAllUsers(): Promise<UserWithProfile[]> {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Unauthorized')
-  }
-
-  // Check if user is admin
-  const { data: profile } = await supabase
-    .from('fa_profiles')
-    .select('role, id')
-    .eq('id', user.id)
-    .single()
-
-  if (!profile || profile.role !== 'admin') {
-    throw new Error('Unauthorized - Admin access required')
-  }
+  const { supabase } = await requirePermission('adminUsers')
 
   const authLookupById = await getAuthLookupById()
 
@@ -99,23 +83,7 @@ export async function inviteUserByEmail(
   email: string,
   role: UserRole = 'pending'
 ): Promise<{ success: boolean; message?: string }> {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Unauthorized')
-  }
-
-  // Check if user is admin
-  const { data: profile } = await supabase
-    .from('fa_profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (!profile || profile.role !== 'admin') {
-    throw new Error('Unauthorized - Admin access required')
-  }
+  const { supabase } = await requirePermission('adminUsers')
 
   // Validate email
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -217,23 +185,7 @@ export async function inviteUserByEmail(
  * Only accessible by admin users
  */
 export async function updateUserRole(userId: string, newRole: UserRole): Promise<{ success: boolean }> {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Unauthorized')
-  }
-
-  // Check if user is admin
-  const { data: profile } = await supabase
-    .from('fa_profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (!profile || profile.role !== 'admin') {
-    throw new Error('Unauthorized - Admin access required')
-  }
+  const { supabase } = await requirePermission('adminUsers')
 
   // Validate role
   const validRoles: UserRole[] = ['admin', 'ops', 'readonly', 'client', 'pending']
@@ -291,26 +243,10 @@ export async function updateUserRole(userId: string, newRole: UserRole): Promise
  * - User from auth.users
  */
 export async function deleteUser(userId: string): Promise<{ success: boolean; message?: string }> {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Unauthorized')
-  }
-
-  // Check if user is admin
-  const { data: profile } = await supabase
-    .from('fa_profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (!profile || profile.role !== 'admin') {
-    throw new Error('Unauthorized - Admin access required')
-  }
+  const { supabase, userId: currentUserId } = await requirePermission('adminUsers')
 
   // Prevent admin from deleting themselves
-  if (userId === user.id) {
+  if (userId === currentUserId) {
     throw new Error('You cannot delete your own account')
   }
 
