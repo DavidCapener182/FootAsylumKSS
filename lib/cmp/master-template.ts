@@ -1,6 +1,7 @@
 import type { Json } from '@/types/db'
 
 export type CmpFieldType = 'text' | 'textarea' | 'date' | 'number' | 'select'
+export type CmpFieldEditMode = 'event_required' | 'event_optional' | 'generic_framework'
 
 export type CmpDocumentKind =
   | 'previous_somp'
@@ -41,6 +42,7 @@ export interface CmpMasterTemplateField {
   label: string
   order: number
   type: CmpFieldType
+  editMode?: CmpFieldEditMode
   annexKeys?: CmpAnnexKey[]
   description?: string
   placeholder?: string
@@ -153,6 +155,15 @@ export const CMP_DOCUMENT_KIND_OPTIONS: Array<{ value: CmpDocumentKind; label: s
 export const CMP_MASTER_TEMPLATE_TITLE = 'Crowd Management and Security Operations Plan'
 export const CMP_MASTER_TEMPLATE_DESCRIPTION =
   'Admin-only KSS event planning template combining crowd analysis, operational security controls, safeguarding, emergency response, and modular annexes.'
+
+const CMP_GENERIC_FRAMEWORK_SECTION_KEYS = new Set([
+  'strategic_objectives',
+  'safeguarding_vulnerability',
+  'incident_management',
+  'counter_terrorism',
+  'staff_welfare',
+  'post_event_reporting',
+])
 
 export const CMP_MASTER_TEMPLATE_SECTIONS: CmpMasterTemplateSection[] = [
   section(
@@ -884,8 +895,27 @@ export function getCmpFieldByKey(fieldKey: string) {
   return CMP_MASTER_TEMPLATE_FIELDS.find((fieldItem) => fieldItem.key === fieldKey) || null
 }
 
+export function getCmpFieldEditMode(fieldKey: string): CmpFieldEditMode {
+  const field = getCmpFieldByKey(fieldKey)
+  if (!field) return 'event_optional'
+  if (field.editMode) return field.editMode
+  if (field.required) return 'event_required'
+  if (CMP_GENERIC_FRAMEWORK_SECTION_KEYS.has(field.sectionKey)) return 'generic_framework'
+  return 'event_optional'
+}
+
 export function isCmpFieldVisible(fieldKey: string, selectedAnnexes: string[]) {
   const field = getCmpFieldByKey(fieldKey)
   if (!field?.annexKeys?.length) return true
   return field.annexKeys.some((annexKey) => selectedAnnexes.includes(annexKey))
+}
+
+export function isCmpFieldVisibleInEditor(
+  fieldKey: string,
+  selectedAnnexes: string[],
+  showGenericFramework = false
+) {
+  if (!isCmpFieldVisible(fieldKey, selectedAnnexes)) return false
+  const editMode = getCmpFieldEditMode(fieldKey)
+  return showGenericFramework || editMode !== 'generic_framework'
 }

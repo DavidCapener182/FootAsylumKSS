@@ -7,7 +7,7 @@ const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: "KSS x Footasylum Audit Platform",
-  description: "KSS Internal - Incident Management System",
+  description: "Secure audit, fire risk assessment and compliance tracking platform for KSS x Footasylum.",
   applicationName: "Footasylum KSS",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
@@ -42,8 +42,8 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
-      <body className={inter.className}>
+    <html lang="en" suppressHydrationWarning>
+      <body className={inter.className} suppressHydrationWarning>
         <ScreenZoomNormalizer />
         {children}
       </body>

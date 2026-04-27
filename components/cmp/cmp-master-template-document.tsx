@@ -15,6 +15,53 @@ import {
 } from '@/lib/cmp/master-templates'
 import { cn } from '@/lib/utils'
 
+type CmpMasterTemplatePrefillValues = {
+  eventName?: string
+  eventDate?: string
+  fields?: Record<string, string>
+  tableCells?: Record<string, string>
+}
+
+function formatPrefillDate(value: string | undefined) {
+  const raw = String(value || '').trim()
+  const isoDateMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (!isoDateMatch) return raw
+  const [, year, month, day] = isoDateMatch
+  return `${day}/${month}/${year}`
+}
+
+function resolvePrefillValue(label: string, prefillValues?: CmpMasterTemplatePrefillValues) {
+  const normalizedLabel = String(label || '').toLowerCase()
+  const exactFieldValue = prefillValues?.fields?.[label]
+  if (typeof exactFieldValue === 'string' && exactFieldValue.trim()) {
+    return exactFieldValue.trim()
+  }
+
+  const normalizedFieldEntries = Object.entries(prefillValues?.fields || {})
+  const matchingFieldEntry = normalizedFieldEntries.find(([key]) => key.trim().toLowerCase() === normalizedLabel)
+  if (matchingFieldEntry?.[1]?.trim()) {
+    return matchingFieldEntry[1].trim()
+  }
+
+  const eventName = String(prefillValues?.eventName || '').trim()
+  const eventDate = formatPrefillDate(prefillValues?.eventDate)
+
+  if (normalizedLabel.includes('event') && normalizedLabel.includes('date')) {
+    if (eventName && eventDate) return `${eventName} - ${eventDate}`
+    return eventName || eventDate
+  }
+
+  if (normalizedLabel.includes('event')) {
+    return eventName
+  }
+
+  if (normalizedLabel.includes('date')) {
+    return eventDate
+  }
+
+  return ''
+}
+
 function getInfoGridClass(fieldCount: number) {
   if (fieldCount >= 4) {
     return 'grid-cols-1 md:grid-cols-2 xl:grid-cols-4'
@@ -100,7 +147,13 @@ function getTemplateHeaderFields(template: CmpMasterTemplateDefinition): CmpMast
   }
 }
 
-function MasterTemplateHeader({ template }: { template: CmpMasterTemplateDefinition }) {
+function MasterTemplateHeader({
+  template,
+  prefillValues,
+}: {
+  template: CmpMasterTemplateDefinition
+  prefillValues?: CmpMasterTemplatePrefillValues
+}) {
   const headerFields = getTemplateHeaderFields(template)
   const fieldCount = template.kind === 'incident_form' ? 4 : headerFields.length
 
@@ -170,7 +223,9 @@ function MasterTemplateHeader({ template }: { template: CmpMasterTemplateDefinit
                 <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
                   {field.label}
                 </div>
-                <div className="mt-4 h-[18px] border-b border-slate-700" />
+                <div className="mt-4 flex h-[18px] items-end border-b border-slate-700 pb-0.5 text-[10px] font-medium text-slate-900">
+                  {resolvePrefillValue(field.label, prefillValues)}
+                </div>
               </div>
             ))
           )}
@@ -204,7 +259,13 @@ function DocumentFooter({ template }: { template: CmpMasterTemplateDefinition })
   )
 }
 
-function PairInfoTable({ rows }: { rows: Array<[string, string]> }) {
+function PairInfoTable({
+  rows,
+  prefillValues,
+}: {
+  rows: Array<[string, string]>
+  prefillValues?: CmpMasterTemplatePrefillValues
+}) {
   return (
     <div className="overflow-hidden rounded-md border border-slate-300">
       <table className="w-full table-fixed border-collapse text-[10px] leading-[1.3]">
@@ -214,11 +275,15 @@ function PairInfoTable({ rows }: { rows: Array<[string, string]> }) {
               <td className="w-1/4 border border-slate-300 bg-slate-100 px-2 py-2 font-semibold text-slate-900">
                 {row[0]}
               </td>
-              <td className="w-1/4 border border-slate-300 px-2 py-2" />
+              <td className="w-1/4 border border-slate-300 px-2 py-2 font-medium text-slate-900">
+                {resolvePrefillValue(row[0], prefillValues)}
+              </td>
               <td className="w-1/4 border border-slate-300 bg-slate-100 px-2 py-2 font-semibold text-slate-900">
                 {row[1]}
               </td>
-              <td className="border border-slate-300 px-2 py-2" />
+              <td className="border border-slate-300 px-2 py-2 font-medium text-slate-900">
+                {resolvePrefillValue(row[1], prefillValues)}
+              </td>
             </tr>
           ))}
         </tbody>
@@ -256,9 +321,19 @@ function SectionBox({
 }
 
 function TableTemplateDocument({ template }: { template: CmpMasterTemplateTable }) {
+  return <TableTemplateDocumentWithPrefill template={template} />
+}
+
+function TableTemplateDocumentWithPrefill({
+  template,
+  prefillValues,
+}: {
+  template: CmpMasterTemplateTable
+  prefillValues?: CmpMasterTemplatePrefillValues
+}) {
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="min-h-0 flex-1 overflow-hidden rounded-md border border-slate-300">
+    <div className="cmp-master-template-table-layout flex min-h-0 flex-1 flex-col">
+      <div className="cmp-master-template-table-shell min-h-0 flex-1 overflow-hidden rounded-md border border-slate-300">
         <table className="w-full table-fixed border-collapse text-[10px] leading-[1.25]">
           <thead>
             <tr>
@@ -269,7 +344,7 @@ function TableTemplateDocument({ template }: { template: CmpMasterTemplateTable 
                     key={column.key}
                     style={{ width: column.width }}
                     className={cn(
-                      'border border-slate-300 px-2 py-2 text-left align-top text-[9px] font-semibold uppercase tracking-[0.08em]',
+                      'cmp-master-template-table-head-cell border border-slate-300 px-2 py-2 text-left align-top text-[9px] font-semibold uppercase tracking-[0.08em]',
                       tone.header,
                       column.align === 'center' ? 'text-center' : ''
                     )}
@@ -282,18 +357,23 @@ function TableTemplateDocument({ template }: { template: CmpMasterTemplateTable 
           </thead>
           <tbody>
             {Array.from({ length: template.emptyRows }).map((_, rowIndex) => (
-              <tr key={`${template.id}-row-${rowIndex}`} className={template.rowHeightClass || 'h-[31px]'}>
+              <tr
+                key={`${template.id}-row-${rowIndex}`}
+                className={cn('cmp-master-template-table-row', template.rowHeightClass || 'h-[31px]')}
+              >
                 {template.columns.map((column) => {
                   const tone = getToneClasses(column.tone)
                   return (
                     <td
                       key={`${template.id}-${column.key}-${rowIndex}`}
                       className={cn(
-                        'border border-slate-300 px-2 py-2 align-top',
+                        'cmp-master-template-table-cell border border-slate-300 px-2 py-2 align-top',
                         tone.cell,
                         column.align === 'center' ? 'text-center' : ''
                       )}
-                    />
+                    >
+                      {prefillValues?.tableCells?.[`${rowIndex}:${column.key}`] || ''}
+                    </td>
                   )
                 })}
               </tr>
@@ -303,7 +383,7 @@ function TableTemplateDocument({ template }: { template: CmpMasterTemplateTable 
       </div>
 
       {template.footerNote || template.footerRight ? (
-        <div className="mt-3 flex items-end justify-between gap-4 text-[10px] leading-5 text-slate-600">
+        <div className="cmp-master-template-table-note mt-3 flex items-end justify-between gap-4 text-[10px] leading-5 text-slate-600">
           <div className="max-w-[720px]">{template.footerNote ? <p>{template.footerNote}</p> : <span />}</div>
           {template.footerRight ? (
             <div className="whitespace-nowrap font-medium text-slate-500">{template.footerRight}</div>
@@ -314,10 +394,16 @@ function TableTemplateDocument({ template }: { template: CmpMasterTemplateTable 
   )
 }
 
-function IncidentTemplateDocument({ template }: { template: CmpMasterTemplateIncidentForm }) {
+function IncidentTemplateDocument({
+  template,
+  prefillValues,
+}: {
+  template: CmpMasterTemplateIncidentForm
+  prefillValues?: CmpMasterTemplatePrefillValues
+}) {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
-      <PairInfoTable rows={template.infoRows} />
+      <PairInfoTable rows={template.infoRows} prefillValues={prefillValues} />
 
       <SectionBox title="Category (tick all that apply)">
         <div className="grid grid-cols-2 gap-x-4 gap-y-2 md:grid-cols-3">
@@ -411,17 +497,30 @@ function NumberedLinesSection({
 }
 
 function NarrativeTemplateDocument({ template }: { template: CmpMasterTemplateNarrativeForm }) {
+  return <NarrativeTemplateDocumentWithPrefill template={template} />
+}
+
+function NarrativeTemplateDocumentWithPrefill({
+  template,
+  prefillValues,
+}: {
+  template: CmpMasterTemplateNarrativeForm
+  prefillValues?: CmpMasterTemplatePrefillValues
+}) {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
       {template.sections.map((section) => {
         if (section.type === 'textbox') {
+          const sectionPrefill = resolvePrefillValue(section.title, prefillValues)
           return (
             <SectionBox
               key={section.title}
               title={section.title}
               heightClass={section.heightClass}
               tone={section.tone}
-            />
+            >
+              {sectionPrefill ? <p className="whitespace-pre-wrap leading-5">{sectionPrefill}</p> : null}
+            </SectionBox>
           )
         }
 
@@ -435,10 +534,16 @@ function NarrativeTemplateDocument({ template }: { template: CmpMasterTemplateNa
   )
 }
 
-function EmergencyActionPlanDocument({ template }: { template: CmpMasterTemplateEmergencyActionPlan }) {
+function EmergencyActionPlanDocument({
+  template,
+  prefillValues,
+}: {
+  template: CmpMasterTemplateEmergencyActionPlan
+  prefillValues?: CmpMasterTemplatePrefillValues
+}) {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
-      <PairInfoTable rows={template.infoRows} />
+      <PairInfoTable rows={template.infoRows} prefillValues={prefillValues} />
 
       <SectionBox title="Immediate Escalation Actions">
         <div className="space-y-3 text-[10px] leading-5">
@@ -483,10 +588,16 @@ function EmergencyActionPlanDocument({ template }: { template: CmpMasterTemplate
   )
 }
 
-function SuspiciousItemTemplateDocument({ template }: { template: CmpMasterTemplateSuspiciousItemReport }) {
+function SuspiciousItemTemplateDocument({
+  template,
+  prefillValues,
+}: {
+  template: CmpMasterTemplateSuspiciousItemReport
+  prefillValues?: CmpMasterTemplatePrefillValues
+}) {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
-      <PairInfoTable rows={template.infoRows} />
+      <PairInfoTable rows={template.infoRows} prefillValues={prefillValues} />
 
       <SectionBox title="HOT Assessment (Hidden, Obviously Suspicious, Typical)" tone="warning">
         <div className="space-y-3">
@@ -522,13 +633,22 @@ function SuspiciousItemTemplateDocument({ template }: { template: CmpMasterTempl
   )
 }
 
-export function CmpMasterTemplateDocument({ template }: { template: CmpMasterTemplateDefinition }) {
+export function CmpMasterTemplateDocument({
+  template,
+  prefillValues,
+}: {
+  template: CmpMasterTemplateDefinition
+  prefillValues?: CmpMasterTemplatePrefillValues
+}) {
   return (
     <div
       id="print-root"
       data-pdf-title={template.title}
       data-pdf-template-id={template.id}
       data-pdf-filename={template.filename}
+      data-pdf-event-name={prefillValues?.eventName || ''}
+      data-pdf-event-date={prefillValues?.eventDate || ''}
+      data-pdf-prefill-fields={JSON.stringify(prefillValues?.fields || {})}
       className="cmp-master-template-root"
     >
       <div className="cmp-master-template-content">
@@ -540,21 +660,21 @@ export function CmpMasterTemplateDocument({ template }: { template: CmpMasterTem
               : 'cmp-master-template-page--portrait'
           )}
         >
-          <MasterTemplateHeader template={template} />
+          <MasterTemplateHeader template={template} prefillValues={prefillValues} />
 
-          <div className="flex min-h-0 flex-1 flex-col gap-3">
+          <div className="cmp-master-template-page-body flex min-h-0 flex-1 flex-col gap-3">
             {template.notice ? <NoticeBanner notice={template.notice} /> : null}
 
             {template.kind === 'table' ? (
-              <TableTemplateDocument template={template} />
+              <TableTemplateDocumentWithPrefill template={template} prefillValues={prefillValues} />
             ) : template.kind === 'incident_form' ? (
-              <IncidentTemplateDocument template={template} />
+              <IncidentTemplateDocument template={template} prefillValues={prefillValues} />
             ) : template.kind === 'narrative_form' ? (
-              <NarrativeTemplateDocument template={template} />
+              <NarrativeTemplateDocumentWithPrefill template={template} prefillValues={prefillValues} />
             ) : template.kind === 'emergency_action_plan' ? (
-              <EmergencyActionPlanDocument template={template} />
+              <EmergencyActionPlanDocument template={template} prefillValues={prefillValues} />
             ) : (
-              <SuspiciousItemTemplateDocument template={template} />
+              <SuspiciousItemTemplateDocument template={template} prefillValues={prefillValues} />
             )}
           </div>
 

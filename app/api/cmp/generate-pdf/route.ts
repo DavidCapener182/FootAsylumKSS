@@ -101,6 +101,12 @@ export async function GET(request: NextRequest) {
     await page.emulateMediaType('print')
     await page.evaluate(() => {
       document.body.classList.add('cmp-print-document')
+      const existingPageStyle = document.getElementById('cmp-pdf-page-style')
+      existingPageStyle?.remove()
+      const pageStyle = document.createElement('style')
+      pageStyle.id = 'cmp-pdf-page-style'
+      pageStyle.textContent = '@page { size: A4; margin: 0; }'
+      document.head.appendChild(pageStyle)
       window.dispatchEvent(new Event('resize'))
     })
     await sleep(700)
@@ -116,23 +122,6 @@ export async function GET(request: NextRequest) {
     }
 
     await sleep(300)
-
-    await page.evaluate(() => {
-      const root = document.getElementById('print-root')
-      if (!root) return
-      let el: HTMLElement | null = root
-      while (el) {
-        el.style.setProperty('height', 'auto', 'important')
-        el.style.setProperty('min-height', '0', 'important')
-        el.style.setProperty('overflow', 'visible', 'important')
-        el.style.setProperty('max-height', 'none', 'important')
-        el.style.setProperty('display', 'block', 'important')
-        el = el.parentElement
-      }
-      document.documentElement.style.setProperty('height', 'auto', 'important')
-      document.body.style.setProperty('height', 'auto', 'important')
-      document.body.style.setProperty('overflow', 'visible', 'important')
-    })
 
     const visibleText = await page.evaluate(() =>
       (document.body?.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 800)

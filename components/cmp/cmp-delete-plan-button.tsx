@@ -46,7 +46,7 @@ export function CmpDeletePlanButton({
         variant="outline"
         onClick={handleDelete}
         disabled={isPending}
-        className="border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
+        className="pointer-events-auto border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
       >
         {isPending ? (
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />

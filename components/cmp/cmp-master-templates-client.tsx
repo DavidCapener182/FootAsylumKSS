@@ -1,10 +1,11 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   AlertTriangle,
   ClipboardCheck,
   Download,
+  Edit3,
   Eye,
   FileText,
   Map,
@@ -17,10 +18,15 @@ import {
   Clock,
   UserMinus,
   Users,
+  Save,
+  Trash2,
 } from 'lucide-react'
 import { CmpMasterTemplateDocument } from '@/components/cmp/cmp-master-template-document'
 import { Badge } from '@/components/ui/badge'
-import { buttonVariants } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import {
   CMP_MASTER_TEMPLATES,
   groupCmpMasterTemplatesByCategory,
@@ -30,6 +36,19 @@ import {
 import { cn } from '@/lib/utils'
 
 const TEMPLATE_GROUPS = groupCmpMasterTemplatesByCategory()
+const PREFILL_STORAGE_KEY = 'cmp-master-template-prefill-v1'
+
+type CmpMasterTemplateEventProfile = {
+  id: string
+  event_name: string
+  event_date: string | null
+  prefill_data: {
+    eventName?: string
+    eventDate?: string
+    templateFieldValues?: Record<string, Record<string, string>>
+    templateTableCellValues?: Record<string, Record<string, string>>
+  } | null
+}
 
 const iconMap: Record<CmpMasterTemplateIconKey, typeof Shield> = {
   shield: Shield,
@@ -50,36 +69,368 @@ const iconMap: Record<CmpMasterTemplateIconKey, typeof Shield> = {
 
 export function CmpMasterTemplatesClient() {
   const [activeTemplateId, setActiveTemplateId] = useState(CMP_MASTER_TEMPLATES[0]?.id ?? '')
+  const [eventName, setEventName] = useState('')
+  const [eventDate, setEventDate] = useState('')
+  const [detailsModalOpen, setDetailsModalOpen] = useState(false)
+  const [bulkModalOpen, setBulkModalOpen] = useState(false)
+  const [templateFieldValues, setTemplateFieldValues] = useState<Record<string, Record<string, string>>>({})
+  const [templateTableCellValues, setTemplateTableCellValues] = useState<Record<string, Record<string, string>>>({})
+  const [selectedTemplateIds, setSelectedTemplateIds] = useState<string[]>([])
+  const [isBulkDownloading, setIsBulkDownloading] = useState(false)
+  const [eventProfiles, setEventProfiles] = useState<CmpMasterTemplateEventProfile[]>([])
+  const [activeEventProfileId, setActiveEventProfileId] = useState('')
+  const [isSavingEventProfile, setIsSavingEventProfile] = useState(false)
 
   const activeTemplate = useMemo<CmpMasterTemplateDefinition | null>(
     () => CMP_MASTER_TEMPLATES.find((template) => template.id === activeTemplateId) ?? CMP_MASTER_TEMPLATES[0] ?? null,
     [activeTemplateId]
   )
 
+  const templateInputLabels = (() => {
+    if (!activeTemplate) return []
+    if (activeTemplate.kind === 'table') return activeTemplate.infoFields.map((field) => field.label)
+    if (activeTemplate.kind === 'narrative_form') return activeTemplate.headerFields.map((field) => field.label)
+    if (activeTemplate.kind === 'incident_form' || activeTemplate.kind === 'emergency_action_plan' || activeTemplate.kind === 'suspicious_item_report') {
+      return activeTemplate.infoRows.flatMap((row) => [row[0], row[1]])
+    }
+    return []
+  })()
+
+  const uniqueTemplateInputLabels = Array.from(new Set(templateInputLabels.map((label) => String(label || '').trim()).filter(Boolean)))
+  const activeTemplateFields = activeTemplate ? templateFieldValues[activeTemplate.id] || {} : {}
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(PREFILL_STORAGE_KEY)
+      if (!raw) return
+      const parsed = JSON.parse(raw) as {
+        eventName?: string
+        eventDate?: string
+        templateFieldValues?: Record<string, Record<string, string>>
+        templateTableCellValues?: Record<string, Record<string, string>>
+      }
+      if (typeof parsed.eventName === 'string') setEventName(parsed.eventName)
+      if (typeof parsed.eventDate === 'string') setEventDate(parsed.eventDate)
+      if (parsed.templateFieldValues && typeof parsed.templateFieldValues === 'object') {
+        setTemplateFieldValues(parsed.templateFieldValues)
+      }
+      if (parsed.templateTableCellValues && typeof parsed.templateTableCellValues === 'object') {
+        setTemplateTableCellValues(parsed.templateTableCellValues)
+      }
+    } catch {
+      // ignore invalid local state
+    }
+  }, [])
+
+  const loadEventProfiles = async () => {
+    const response = await fetch('/api/cmp/master-templates/events', { cache: 'no-store' })
+    if (!response.ok) return
+    const payload = await response.json().catch(() => ({}))
+    const profiles = Array.isArray(payload?.events) ? payload.events : []
+    setEventProfiles(profiles)
+  }
+
+  useEffect(() => {
+    loadEventProfiles().catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    const payload = JSON.stringify({
+      eventName,
+      eventDate,
+      templateFieldValues,
+      templateTableCellValues,
+    })
+    window.localStorage.setItem(PREFILL_STORAGE_KEY, payload)
+  }, [eventDate, eventName, templateFieldValues, templateTableCellValues])
+
   if (!activeTemplate) {
     return null
+  }
+
+  const updateActiveTemplateField = (label: string, value: string) => {
+    setTemplateFieldValues((previous) => ({
+      ...previous,
+      [activeTemplate.id]: {
+        ...(previous[activeTemplate.id] || {}),
+        [label]: value,
+      },
+    }))
+  }
+
+  const getPrefillPayloadForActiveTemplate = () => ({
+    eventName: eventName.trim(),
+    eventDate,
+    fields: activeTemplateFields,
+    tableCells: templateTableCellValues[activeTemplate.id] || {},
+  })
+
+  const getPrefillPayloadForLinks = () => ({
+    eventName: eventName.trim(),
+    eventDate,
+    fields: activeTemplateFields,
+  })
+
+  const updateActiveTemplateTableCell = (rowIndex: number, columnKey: string, value: string) => {
+    const cellKey = `${rowIndex}:${columnKey}`
+    setTemplateTableCellValues((previous) => ({
+      ...previous,
+      [activeTemplate.id]: {
+        ...(previous[activeTemplate.id] || {}),
+        [cellKey]: value,
+      },
+    }))
+  }
+
+  const buildTemplateHrefForTemplate = (basePath: string, templateId: string) => {
+    const params = new URLSearchParams({ templateId })
+    const prefillPayload = {
+      eventName: eventName.trim(),
+      eventDate,
+      fields: templateFieldValues[templateId] || {},
+    }
+    params.set('prefill', JSON.stringify(prefillPayload))
+
+    return `${basePath}?${params.toString()}`
+  }
+
+  const buildTemplateHref = (basePath: string) => buildTemplateHrefForTemplate(basePath, activeTemplate.id)
+
+  const toggleTemplateSelection = (templateId: string) => {
+    setSelectedTemplateIds((previous) =>
+      previous.includes(templateId) ? previous.filter((id) => id !== templateId) : [...previous, templateId]
+    )
+  }
+
+  const openBulkModal = () => {
+    setSelectedTemplateIds((previous) => (previous.length ? previous : [activeTemplate.id]))
+    setBulkModalOpen(true)
+  }
+
+  const selectAllTemplates = () => {
+    setSelectedTemplateIds(CMP_MASTER_TEMPLATES.map((template) => template.id))
+  }
+
+  const clearTemplateSelection = () => {
+    setSelectedTemplateIds([])
+  }
+
+  const openSelectedPrintViews = () => {
+    selectedTemplateIds.forEach((templateId) => {
+      window.open(buildTemplateHrefForTemplate('/print/cmp-master-template', templateId), '_blank', 'noopener,noreferrer')
+    })
+  }
+
+  const downloadSelectedPdfs = async () => {
+    if (!selectedTemplateIds.length || isBulkDownloading) return
+    setIsBulkDownloading(true)
+    try {
+      const response = await fetch('/api/cmp/master-templates/generate-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          templateIds: selectedTemplateIds,
+          prefill: {
+            eventName: eventName.trim(),
+            eventDate,
+            templateFieldValues,
+            templateTableCellValues,
+          },
+        }),
+      })
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}))
+        throw new Error(payload?.error || 'Failed to prepare selected PDFs for download')
+      }
+
+      const blob = await response.blob()
+      const contentDisposition = response.headers.get('Content-Disposition') || ''
+      const filenameMatch = contentDisposition.match(/filename="([^"]+)"/i)
+      const filename = filenameMatch?.[1] || 'cmp-master-templates.zip'
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = filename
+      document.body.appendChild(anchor)
+      anchor.click()
+      anchor.remove()
+      URL.revokeObjectURL(url)
+    } catch (error: any) {
+      window.alert(error?.message || 'Failed to prepare selected PDFs for download')
+    } finally {
+      setIsBulkDownloading(false)
+    }
+  }
+
+  const hasBulkSelection = selectedTemplateIds.length > 0
+
+  const applyEventProfile = (profileId: string) => {
+    setActiveEventProfileId(profileId)
+    const profile = eventProfiles.find((item) => item.id === profileId)
+    if (!profile) return
+    const prefill = profile.prefill_data || {}
+    setEventName(String(prefill.eventName || profile.event_name || ''))
+    setEventDate(String(prefill.eventDate || profile.event_date || ''))
+    if (prefill.templateFieldValues && typeof prefill.templateFieldValues === 'object') {
+      setTemplateFieldValues(prefill.templateFieldValues)
+    }
+    if (prefill.templateTableCellValues && typeof prefill.templateTableCellValues === 'object') {
+      setTemplateTableCellValues(prefill.templateTableCellValues)
+    }
+  }
+
+  const saveEventProfile = async () => {
+    const trimmedEventName = eventName.trim()
+    if (!trimmedEventName) {
+      window.alert('Please add an event name before saving.')
+      return
+    }
+
+    setIsSavingEventProfile(true)
+    try {
+      const response = await fetch('/api/cmp/master-templates/events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: activeEventProfileId || undefined,
+          eventName: trimmedEventName,
+          eventDate: eventDate || null,
+          prefillData: {
+            eventName: trimmedEventName,
+            eventDate,
+            templateFieldValues,
+            templateTableCellValues,
+          },
+        }),
+      })
+
+      const payload = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        throw new Error(payload?.error || 'Failed to save event profile')
+      }
+
+      setActiveEventProfileId(String(payload?.event?.id || ''))
+      await loadEventProfiles()
+    } catch (error: any) {
+      window.alert(error?.message || 'Failed to save event profile')
+    } finally {
+      setIsSavingEventProfile(false)
+    }
+  }
+
+  const deleteEventProfile = async () => {
+    if (!activeEventProfileId) return
+    if (!window.confirm('Delete this saved CMP event profile?')) return
+
+    try {
+      const response = await fetch(`/api/cmp/master-templates/events?id=${encodeURIComponent(activeEventProfileId)}`, {
+        method: 'DELETE',
+      })
+      const payload = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        throw new Error(payload?.error || 'Failed to delete event profile')
+      }
+      setActiveEventProfileId('')
+      await loadEventProfiles()
+    } catch (error: any) {
+      window.alert(error?.message || 'Failed to delete event profile')
+    }
   }
 
   return (
     <div className="space-y-6">
       <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-6">
-        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-          <div className="space-y-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-2xl font-bold tracking-tight text-slate-900">Master Templates</h1>
-              <Badge variant="outline">{CMP_MASTER_TEMPLATES.length} documents</Badge>
+        <div className="space-y-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-2xl font-bold tracking-tight text-slate-900">Master Templates</h1>
+                <Badge variant="outline">{CMP_MASTER_TEMPLATES.length} documents</Badge>
+              </div>
+              <p className="max-w-3xl text-sm text-slate-600">
+                Blank event-day plans, checklists, logs, and briefing sheets ready for live-event printing.
+              </p>
             </div>
-            <p className="max-w-3xl text-sm text-slate-600">
-              Blank event-day plans, checklists, logs, and briefing sheets ready for live-event printing.
-            </p>
+            <a
+              href={buildTemplateHref('/api/cmp/master-templates/generate-pdf')}
+              className={cn(buttonVariants({ variant: 'default' }), 'bg-emerald-700 hover:bg-emerald-800')}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Download Active PDF
+            </a>
+            <Button type="button" variant="outline" onClick={openBulkModal}>
+              <Printer className="mr-2 h-4 w-4" />
+              Select Documents
+            </Button>
           </div>
-          <a
-            href={`/api/cmp/master-templates/generate-pdf?templateId=${activeTemplate.id}`}
-            className={cn(buttonVariants({ variant: 'default' }), 'bg-emerald-700 hover:bg-emerald-800')}
-          >
-            <Download className="mr-2 h-4 w-4" />
-            Download Active PDF
-          </a>
+
+          <div className="grid gap-3 rounded-md border border-emerald-200 bg-white/80 p-3 md:grid-cols-2">
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="cmp-master-template-event-profile" className="text-xs uppercase tracking-[0.12em] text-slate-600">
+                Saved CMP Event Profile
+              </Label>
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  id="cmp-master-template-event-profile"
+                  value={activeEventProfileId}
+                  onChange={(event) => applyEventProfile(event.target.value)}
+                  className="h-10 min-w-[260px] rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900"
+                >
+                  <option value="">New event profile</option>
+                  {eventProfiles.map((profile) => (
+                    <option key={profile.id} value={profile.id}>
+                      {profile.event_name}
+                      {profile.event_date ? ` - ${profile.event_date}` : ''}
+                    </option>
+                  ))}
+                </select>
+                <Button type="button" variant="outline" onClick={saveEventProfile} disabled={isSavingEventProfile}>
+                  <Save className="mr-2 h-4 w-4" />
+                  {isSavingEventProfile ? 'Saving...' : 'Save Event'}
+                </Button>
+                <Button type="button" variant="outline" onClick={deleteEventProfile} disabled={!activeEventProfileId}>
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
+                </Button>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <Label htmlFor="cmp-master-template-event-name" className="text-xs uppercase tracking-[0.12em] text-slate-600">
+                Event Name
+              </Label>
+              <Input
+                id="cmp-master-template-event-name"
+                value={eventName}
+                onChange={(event) => {
+                  const value = event.target.value
+                  setEventName(value)
+                  const eventLikeLabels = uniqueTemplateInputLabels.filter((label) => label.toLowerCase().includes('event'))
+                  eventLikeLabels.forEach((label) => updateActiveTemplateField(label, value))
+                }}
+                placeholder="e.g. Footasylum Summer Event"
+                className="h-10 min-h-0 rounded-md bg-white"
+              />
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Label htmlFor="cmp-master-template-event-date" className="text-xs uppercase tracking-[0.12em] text-slate-600">
+                Date
+              </Label>
+              <Input
+                id="cmp-master-template-event-date"
+                type="date"
+                value={eventDate}
+                onChange={(event) => {
+                  const value = event.target.value
+                  setEventDate(value)
+                  const dateLikeLabels = uniqueTemplateInputLabels.filter((label) => label.toLowerCase().includes('date'))
+                  dateLikeLabels.forEach((label) => updateActiveTemplateField(label, value))
+                }}
+                className="h-10 min-h-0 rounded-md bg-white"
+              />
+            </div>
+          </div>
         </div>
       </div>
 
@@ -158,8 +509,12 @@ export function CmpMasterTemplatesClient() {
               </div>
 
               <div className="flex flex-wrap gap-2">
+                <Button type="button" variant="outline" onClick={() => setDetailsModalOpen(true)}>
+                  <Edit3 className="mr-2 h-4 w-4" />
+                  Edit Document Details
+                </Button>
                 <a
-                  href={`/print/cmp-master-template?templateId=${activeTemplate.id}`}
+                  href={buildTemplateHref('/print/cmp-master-template')}
                   target="_blank"
                   rel="noreferrer"
                   className={cn(buttonVariants({ variant: 'outline' }))}
@@ -168,7 +523,7 @@ export function CmpMasterTemplatesClient() {
                   Print / Save as PDF
                 </a>
                 <a
-                  href={`/api/cmp/master-templates/generate-pdf?templateId=${activeTemplate.id}`}
+                  href={buildTemplateHref('/api/cmp/master-templates/generate-pdf')}
                   className={cn(buttonVariants({ variant: 'default' }), 'bg-emerald-700 hover:bg-emerald-800')}
                 >
                   <Download className="mr-2 h-4 w-4" />
@@ -183,11 +538,161 @@ export function CmpMasterTemplatesClient() {
               Live Preview
             </div>
             <div className="overflow-auto bg-slate-200 p-4 md:p-6">
-              <CmpMasterTemplateDocument template={activeTemplate} />
+              <CmpMasterTemplateDocument
+                template={activeTemplate}
+                prefillValues={getPrefillPayloadForActiveTemplate()}
+              />
             </div>
           </section>
         </div>
       </div>
+
+      <Dialog open={detailsModalOpen} onOpenChange={setDetailsModalOpen}>
+        <DialogContent className="md:max-w-[96vw] md:w-[96vw] lg:max-w-[95vw] lg:w-[95vw] xl:max-w-[92vw] xl:w-[92vw]">
+          <DialogHeader>
+            <DialogTitle>Document Details</DialogTitle>
+            <DialogDescription>
+              Add template-specific details for {activeTemplate.title}. These values are saved locally and used in preview, print, and PDF.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-3 md:grid-cols-2">
+            {uniqueTemplateInputLabels.length ? (
+              uniqueTemplateInputLabels.map((label) => {
+                const inputId = `cmp-template-field-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`
+                const lowerLabel = label.toLowerCase()
+                const isDateField = lowerLabel.includes('date')
+                return (
+                  <div key={label} className="space-y-2">
+                    <Label htmlFor={inputId} className="text-xs uppercase tracking-[0.08em] text-slate-600">
+                      {label}
+                    </Label>
+                    <Input
+                      id={inputId}
+                      type={isDateField ? 'date' : 'text'}
+                      value={activeTemplateFields[label] || ''}
+                      onChange={(event) => {
+                        const value = event.target.value
+                        updateActiveTemplateField(label, value)
+                        if (lowerLabel.includes('event')) setEventName(value)
+                        if (isDateField) setEventDate(value)
+                      }}
+                      className="h-10 min-h-0 rounded-md bg-white"
+                    />
+                  </div>
+                )
+              })
+            ) : (
+              <p className="text-sm text-slate-600">No additional fields are defined for this template.</p>
+            )}
+          </div>
+
+          {activeTemplate.kind === 'table' ? (
+            <div className="space-y-3 rounded-md border border-slate-200 p-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-600">Table Cells (optional)</p>
+              <div className="max-h-[62vh] overflow-auto rounded-md border border-slate-200">
+                <table className="w-full min-w-[1400px] border-collapse text-xs">
+                  <thead className="bg-slate-50">
+                    <tr>
+                      <th className="sticky left-0 z-10 border-b border-r border-slate-200 bg-slate-50 px-2 py-2 text-left font-semibold text-slate-700">
+                        Row
+                      </th>
+                      {activeTemplate.columns.map((column) => (
+                        <th key={column.key} className="border-b border-slate-200 px-2 py-2 text-left font-semibold text-slate-700">
+                          {column.label}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Array.from({ length: activeTemplate.emptyRows }).map((_, rowIndex) => (
+                      <tr key={`modal-row-${rowIndex}`} className="align-top">
+                        <td className="sticky left-0 z-10 border-r border-slate-200 bg-white px-2 py-2 font-medium text-slate-600">
+                          {rowIndex + 1}
+                        </td>
+                        {activeTemplate.columns.map((column) => {
+                          const cellKey = `${rowIndex}:${column.key}`
+                          return (
+                            <td key={`modal-cell-${rowIndex}-${column.key}`} className="border-l border-slate-100 px-1 py-1">
+                              <Input
+                                value={(templateTableCellValues[activeTemplate.id] || {})[cellKey] || ''}
+                                onChange={(event) => updateActiveTemplateTableCell(rowIndex, column.key, event.target.value)}
+                                className="h-9 min-h-0 rounded-md bg-white text-xs"
+                              />
+                            </td>
+                          )
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : null}
+
+          <DialogFooter>
+            <Button type="button" onClick={() => setDetailsModalOpen(false)}>
+              Save Details
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={bulkModalOpen} onOpenChange={setBulkModalOpen}>
+        <DialogContent className="md:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Select Documents</DialogTitle>
+            <DialogDescription>
+              Choose the templates you want to print or download. Event details you entered are applied automatically.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Button type="button" variant="outline" size="sm" onClick={selectAllTemplates}>
+              Select all
+            </Button>
+            <Button type="button" variant="outline" size="sm" onClick={clearTemplateSelection}>
+              Clear
+            </Button>
+            <span className="text-sm text-slate-500">{selectedTemplateIds.length} selected</span>
+          </div>
+
+          <div className="max-h-[48vh] overflow-auto rounded-md border border-slate-200">
+            <div className="divide-y divide-slate-100">
+              {CMP_MASTER_TEMPLATES.map((template) => {
+                const checked = selectedTemplateIds.includes(template.id)
+                const checkboxId = `cmp-bulk-${template.id}`
+                return (
+                  <label key={template.id} htmlFor={checkboxId} className="flex cursor-pointer items-start gap-3 px-3 py-2.5 hover:bg-slate-50">
+                    <input
+                      id={checkboxId}
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleTemplateSelection(template.id)}
+                      className="mt-1 h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                    />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-slate-900">{template.title}</p>
+                      <p className="text-xs text-slate-500">{template.documentCode} - {template.filename}</p>
+                    </div>
+                  </label>
+                )
+              })}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={openSelectedPrintViews} disabled={!hasBulkSelection}>
+              <Printer className="mr-2 h-4 w-4" />
+              Print selected
+            </Button>
+            <Button type="button" onClick={downloadSelectedPdfs} disabled={!hasBulkSelection || isBulkDownloading}>
+              <Download className="mr-2 h-4 w-4" />
+              {isBulkDownloading ? 'Preparing download...' : 'Download selected PDFs'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

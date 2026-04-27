@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ChangeEvent } from 'react'
 import { ArrowLeft, Download, Loader2, Save, Sparkles, Upload } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -11,10 +11,16 @@ import { Textarea } from '@/components/ui/textarea'
 import { formatAppDateTime } from '@/lib/utils'
 import type { CmpEditorField, CmpPlanEditorData, CmpSourceDocumentSummary } from '@/lib/cmp/data'
 import {
+  buildInitialGuidedAnswers,
+  CMP_GUIDED_GROUPS,
+  generateCmpFieldValuesFromGuidedAnswers,
+  type CmpGuidedAnswerValue,
+} from '@/lib/cmp/guided-flow'
+import {
   CMP_ANNEX_DEFINITIONS,
   CMP_DOCUMENT_KIND_OPTIONS,
   CMP_MASTER_TEMPLATE_SECTIONS,
-  isCmpFieldVisible,
+  isCmpFieldVisibleInEditor,
 } from '@/lib/cmp/master-template'
 
 const CMP_SECTION_DESCRIPTION_MAP = new Map(
@@ -23,6 +29,28 @@ const CMP_SECTION_DESCRIPTION_MAP = new Map(
 const CMP_DOCUMENT_KIND_LABEL_MAP = new Map<string, string>(
   CMP_DOCUMENT_KIND_OPTIONS.map((option) => [option.value, option.label])
 )
+const CMP_ANNEX_GUIDED_ANSWER_KEYS: Record<string, string> = {
+  bar_operations: 'has_bars',
+  search_screening: 'has_search_screening',
+  front_of_stage_pit: 'has_front_of_stage',
+  traffic_pedestrian_routes: 'has_traffic_routes',
+  camping_security: 'has_camping',
+  vip_backstage_security: 'has_vip_backstage',
+  stewarding_deployment: 'has_stewarding_deployment',
+  emergency_action_cards: 'has_emergency_action_cards',
+}
+const CMP_GUIDED_ANSWER_ANNEX_KEYS = Object.fromEntries(
+  Object.entries(CMP_ANNEX_GUIDED_ANSWER_KEYS).map(([annexKey, answerKey]) => [answerKey, annexKey])
+) as Record<string, string>
+
+function initialFieldValues(data: CmpPlanEditorData) {
+  return Object.fromEntries(
+    data.fields.map((field) => {
+      const existing = data.values.find((valueRow) => valueRow.fieldKey === field.key)
+      return [field.key, existing?.valueText ?? field.defaultValueText ?? '']
+    })
+  )
+}
 
 type CmpSectionAttachmentConfig = {
   sectionKey: string
@@ -133,13 +161,9 @@ function formatDateTime(value: string) {
 
 export function CmpPlanEditor({ initialData }: { initialData: CmpPlanEditorData }) {
   const [editorData, setEditorData] = useState(initialData)
-  const [values, setValues] = useState<Record<string, string>>(() =>
-    Object.fromEntries(
-      initialData.fields.map((field) => {
-        const existing = initialData.values.find((valueRow) => valueRow.fieldKey === field.key)
-        return [field.key, existing?.valueText ?? field.defaultValueText ?? '']
-      })
-    )
+  const [values, setValues] = useState<Record<string, string>>(() => initialFieldValues(initialData))
+  const [guidedAnswers, setGuidedAnswers] = useState(() =>
+    buildInitialGuidedAnswers(initialFieldValues(initialData), initialData.plan.selectedAnnexes)
   )
   const [selectedAnnexes, setSelectedAnnexes] = useState<string[]>(initialData.plan.selectedAnnexes)
   const [includeKssProfileAppendix, setIncludeKssProfileAppendix] = useState(
@@ -152,6 +176,7 @@ export function CmpPlanEditor({ initialData }: { initialData: CmpPlanEditorData 
   const [uploadingKind, setUploadingKind] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [showAdvancedEditor, setShowAdvancedEditor] = useState(false)
   const uploading = Boolean(uploadingKind)
 
   const valueRowMap = useMemo(
@@ -165,28 +190,27 @@ export function CmpPlanEditor({ initialData }: { initialData: CmpPlanEditorData 
 
   const sections = useMemo(
     () =>
-      editorData.sections.map((section) => ({
-        ...section,
-        description: CMP_SECTION_DESCRIPTION_MAP.get(section.key) || '',
-        fields: editorData.fields.filter(
-          (field) => field.sectionId === section.id && isCmpFieldVisible(field.key, selectedAnnexes)
-        ),
-      })),
-    [editorData.fields, editorData.sections, selectedAnnexes]
+      editorData.sections
+        .map((section) => ({
+          ...section,
+          description: CMP_SECTION_DESCRIPTION_MAP.get(section.key) || '',
+          fields: editorData.fields.filter(
+            (field) =>
+              field.sectionId === section.id
+              && isCmpFieldVisibleInEditor(field.key, selectedAnnexes, showAdvancedEditor)
+          ),
+        }))
+        .filter((section) => section.fields.length > 0 || getSectionAttachmentConfigs(section.key).length > 0),
+    [editorData.fields, editorData.sections, selectedAnnexes, showAdvancedEditor]
   )
 
   const applyEditorData = (nextEditorData: CmpPlanEditorData) => {
     setEditorData(nextEditorData)
     setSelectedAnnexes(nextEditorData.plan.selectedAnnexes)
     setIncludeKssProfileAppendix(nextEditorData.plan.includeKssProfileAppendix)
-    setValues(
-      Object.fromEntries(
-        nextEditorData.fields.map((field) => {
-          const existing = nextEditorData.values.find((valueRow) => valueRow.fieldKey === field.key)
-          return [field.key, existing?.valueText ?? field.defaultValueText ?? '']
-        })
-      )
-    )
+    const nextValues = initialFieldValues(nextEditorData)
+    setValues(nextValues)
+    setGuidedAnswers(buildInitialGuidedAnswers(nextValues, nextEditorData.plan.selectedAnnexes))
   }
 
   const persist = async () => {
@@ -195,13 +219,22 @@ export function CmpPlanEditor({ initialData }: { initialData: CmpPlanEditorData 
     setNotice(null)
 
     try {
+      const generated = showAdvancedEditor
+        ? { values, selectedAnnexes }
+        : generateCmpFieldValuesFromGuidedAnswers(guidedAnswers, values)
+
+      if (!showAdvancedEditor) {
+        setValues(generated.values)
+        setSelectedAnnexes(generated.selectedAnnexes)
+      }
+
       const response = await fetch('/api/cmp/save-fields', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           planId: editorData.plan.id,
-          values,
-          selectedAnnexes,
+          values: generated.values,
+          selectedAnnexes: generated.selectedAnnexes,
           includeKssProfileAppendix,
         }),
       })
@@ -222,11 +255,16 @@ export function CmpPlanEditor({ initialData }: { initialData: CmpPlanEditorData 
     }
   }
 
-  const handleSaveAndPreview = async () => {
-    const saved = await persist()
-    if (saved) {
-    window.location.assign(`/admin/crowd-management-plans/${editorData.plan.id}/preview`)
+  const updateGuidedAnswer = (key: string, value: CmpGuidedAnswerValue) => {
+    setGuidedAnswers((current) => ({ ...current, [key]: value }))
   }
+
+  const generateGuidedWording = () => {
+    const generated = generateCmpFieldValuesFromGuidedAnswers(guidedAnswers, values)
+    setValues(generated.values)
+    setSelectedAnnexes(generated.selectedAnnexes)
+    setNotice('Guided plan wording updated. Review the preview or save the generated wording.')
+    setError(null)
   }
 
   const handleExtract = async () => {
@@ -338,6 +376,11 @@ export function CmpPlanEditor({ initialData }: { initialData: CmpPlanEditorData 
           <Badge variant="outline" className={sourceBadgeClass(valueRow?.valueSource)}>
             {sourceLabel(valueRow?.valueSource)}
           </Badge>
+          {field.editMode === 'generic_framework' ? (
+            <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-700">
+              Generic framework
+            </Badge>
+          ) : null}
         </div>
         {field.description ? <p className="text-xs text-slate-500">{field.description}</p> : null}
         {valueRow?.sourceExcerpt ? (
@@ -374,6 +417,76 @@ export function CmpPlanEditor({ initialData }: { initialData: CmpPlanEditorData 
             value={value}
             placeholder={field.placeholder || undefined}
             onChange={(event) => setValues((current) => ({ ...current, [field.key]: event.target.value }))}
+          />
+        )}
+      </div>
+    )
+  }
+
+  const renderGuidedQuestion = (question: (typeof CMP_GUIDED_GROUPS)[number]['questions'][number]) => {
+    const value = guidedAnswers[question.key]
+
+    if (question.type === 'checkbox') {
+      return (
+        <label key={question.key} className="flex gap-3 rounded-md border border-slate-200 bg-white px-4 py-3">
+          <input
+            type="checkbox"
+            className="mt-1"
+            checked={value === true}
+            onChange={(event) => {
+              updateGuidedAnswer(question.key, event.target.checked)
+              const annexKey = CMP_GUIDED_ANSWER_ANNEX_KEYS[question.key]
+              if (annexKey) {
+                setSelectedAnnexes((current) =>
+                  event.target.checked
+                    ? Array.from(new Set([...current, annexKey]))
+                    : current.filter((value) => value !== annexKey)
+                )
+              }
+            }}
+          />
+          <span>
+            <span className="block text-sm font-semibold text-slate-900">{question.label}</span>
+            {question.help ? <span className="mt-1 block text-xs text-slate-500">{question.help}</span> : null}
+          </span>
+        </label>
+      )
+    }
+
+    const commonProps = {
+      id: `guided-${question.key}`,
+      value: typeof value === 'string' ? value : '',
+      placeholder: question.placeholder || undefined,
+      onChange: (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+        updateGuidedAnswer(question.key, event.target.value),
+    }
+
+    return (
+      <div key={question.key} className="space-y-2 rounded-md border border-slate-200 bg-white p-4">
+        <Label htmlFor={`guided-${question.key}`} className="text-sm font-semibold text-slate-900">
+          {question.label}
+        </Label>
+        {question.help ? <p className="text-xs text-slate-500">{question.help}</p> : null}
+        {question.type === 'textarea' ? (
+          <Textarea {...commonProps} rows={4} />
+        ) : question.type === 'select' ? (
+          <select
+            id={`guided-${question.key}`}
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            value={typeof value === 'string' ? value : ''}
+            onChange={(event) => updateGuidedAnswer(question.key, event.target.value)}
+          >
+            <option value="">Select</option>
+            {(question.options || []).map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <Input
+            {...commonProps}
+            type={question.type === 'number' ? 'number' : question.type === 'date' ? 'date' : 'text'}
           />
         )}
       </div>
@@ -462,16 +575,54 @@ export function CmpPlanEditor({ initialData }: { initialData: CmpPlanEditorData 
               )}
               Extract From Sources
             </Button>
-            <Button onClick={handleSaveAndPreview}>
+            <a
+              href={`/admin/crowd-management-plans/${editorData.plan.id}/preview`}
+              className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow hover:bg-primary/90"
+            >
               Preview
               <Download className="ml-2 h-4 w-4" />
-            </Button>
+            </a>
           </div>
         </div>
 
         {notice ? <div className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{notice}</div> : null}
         {error ? <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
       </div>
+
+      <Card>
+        <CardHeader>
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <CardTitle>Guided CMP Builder</CardTitle>
+              <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-500">
+                Answer the short event-specific questions, then generate the plan wording. Generic KSS framework
+                text is added automatically and optional annexes stay off until selected here.
+              </p>
+            </div>
+            <Button type="button" onClick={generateGuidedWording}>
+              <Sparkles className="mr-2 h-4 w-4" />
+              Generate / Update Plan Wording
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          {CMP_GUIDED_GROUPS.map((group) => (
+            <details
+              key={group.key}
+              className="rounded-lg border border-slate-200 bg-slate-50 p-4"
+              open={group.key === 'event_identity'}
+            >
+              <summary className="cursor-pointer select-none">
+                <span className="block text-base font-semibold text-slate-900">{group.title}</span>
+                <span className="mt-1 block text-sm text-slate-500">{group.description}</span>
+              </summary>
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                {group.questions.map(renderGuidedQuestion)}
+              </div>
+            </details>
+          ))}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
@@ -536,19 +687,23 @@ export function CmpPlanEditor({ initialData }: { initialData: CmpPlanEditorData 
           <div className="grid gap-3 md:grid-cols-2">
             {CMP_ANNEX_DEFINITIONS.map((annex) => {
               const checked = selectedAnnexes.includes(annex.key)
+              const guidedAnswerKey = CMP_ANNEX_GUIDED_ANSWER_KEYS[annex.key]
               return (
                 <label key={annex.key} className="flex gap-3 rounded-md border border-slate-200 px-4 py-3">
                   <input
                     type="checkbox"
                     className="mt-1"
                     checked={checked}
-                    onChange={(event) =>
+                    onChange={(event) => {
                       setSelectedAnnexes((current) =>
                         event.target.checked
                           ? [...current, annex.key]
                           : current.filter((value) => value !== annex.key)
                       )
-                    }
+                      if (guidedAnswerKey) {
+                        updateGuidedAnswer(guidedAnswerKey, event.target.checked)
+                      }
+                    }}
                   />
                   <div>
                     <div className="font-medium text-slate-900">{annex.label}</div>
@@ -576,7 +731,29 @@ export function CmpPlanEditor({ initialData }: { initialData: CmpPlanEditorData 
         </CardContent>
       </Card>
 
-      {sections.map((section) => (
+      <Card>
+        <CardHeader>
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <CardTitle>Advanced Editor</CardTitle>
+              <p className="mt-1 text-sm text-slate-500">
+                {showAdvancedEditor
+                  ? 'Advanced mode is showing generated and generic wording. Manual edits here may be overwritten if you regenerate from the guided flow.'
+                  : 'The guided flow is the default editor. Open Advanced only when you need to manually override generated wording.'}
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant={showAdvancedEditor ? 'default' : 'outline'}
+              onClick={() => setShowAdvancedEditor((current) => !current)}
+            >
+              {showAdvancedEditor ? 'Hide Advanced Editor' : 'Advanced: Edit Generated Wording'}
+            </Button>
+          </div>
+        </CardHeader>
+      </Card>
+
+      {showAdvancedEditor ? sections.map((section) => (
         <Card key={section.id}>
           <CardHeader>
             <CardTitle>{section.title}</CardTitle>
@@ -650,7 +827,7 @@ export function CmpPlanEditor({ initialData }: { initialData: CmpPlanEditorData 
             {section.fields.map(renderField)}
           </CardContent>
         </Card>
-      ))}
+      )) : null}
     </div>
   )
 }

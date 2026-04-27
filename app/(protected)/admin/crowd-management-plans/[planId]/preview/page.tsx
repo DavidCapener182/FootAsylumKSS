@@ -8,6 +8,32 @@ import { cn } from '@/lib/utils'
 
 export const dynamic = 'force-dynamic'
 
+function isTransientNetworkError(error: unknown) {
+  const message = String((error as any)?.message || '').toLowerCase()
+  return (
+    message.includes('network error')
+    || message.includes('fetch failed')
+    || message.includes('econnreset')
+    || message.includes('socket hang up')
+    || message.includes('timeout')
+  )
+}
+
+async function loadPreviewDataWithRetry(planId: string) {
+  let lastError: unknown
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      return await getCmpPreviewData(planId)
+    } catch (error) {
+      lastError = error
+      if (!isTransientNetworkError(error) || attempt === 2) {
+        throw error
+      }
+    }
+  }
+  throw lastError
+}
+
 export default async function CrowdManagementPlanPreviewPage({
   params,
 }: {
@@ -16,7 +42,7 @@ export default async function CrowdManagementPlanPreviewPage({
   await requireCmpAccess()
 
   try {
-    const previewData = await getCmpPreviewData(params.planId)
+    const previewData = await loadPreviewDataWithRetry(params.planId)
 
     return (
       <div className="space-y-6">
@@ -62,6 +88,28 @@ export default async function CrowdManagementPlanPreviewPage({
       return <CmpSetupRequired details={error.message} />
     }
 
-    throw error
+    const errorMessage = String((error as any)?.message || 'Failed to load preview')
+    return (
+      <div className="space-y-4 rounded-lg border border-red-200 bg-red-50 p-6">
+        <h1 className="text-xl font-semibold text-red-900">Preview failed to load</h1>
+        <p className="text-sm text-red-700">
+          {errorMessage}
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <a
+            href={`/admin/crowd-management-plans/${params.planId}`}
+            className={cn(buttonVariants({ variant: 'outline' }))}
+          >
+            Back to editor
+          </a>
+          <a
+            href={`/admin/crowd-management-plans/${params.planId}/preview`}
+            className={cn(buttonVariants({ variant: 'default' }))}
+          >
+            Retry preview
+          </a>
+        </div>
+      </div>
+    )
   }
 }

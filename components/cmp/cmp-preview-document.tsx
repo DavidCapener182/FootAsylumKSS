@@ -982,6 +982,12 @@ function paginateCmpContent(
       const fitted = takeBlockChunk(currentBlock, availableUnits)
 
       if (!fitted.chunk) {
+        if (page.blocks.length === 0) {
+          page.blocks.push(currentBlock)
+          availableUnits = 0
+          break
+        }
+
         pages.push(page)
         page = createPage(pages.length, true)
         availableUnits =
@@ -1083,7 +1089,7 @@ function PageHeader({
 }) {
   return (
     <div className="cmp-page-header mb-6 flex items-center justify-between border-b border-slate-200 pb-4">
-      <img src="/kss-logo.png" alt="KSS NW LTD" className="h-8 w-auto object-contain" />
+      <img src="/kss-logo.png" alt="KSS NW LTD" className="cmp-kss-logo-header h-8 w-auto object-contain" />
       <div className="px-4 text-center">
         <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-500">
           Crowd Management and Security Operations Plan
@@ -1230,7 +1236,7 @@ export function CmpPreviewDocument({
       >
         <div className="cmp-front-page-body flex min-h-full flex-col">
           <div className="flex items-center justify-between">
-            <img src="/kss-logo.png" alt="KSS NW LTD" className="h-12 w-auto object-contain" />
+            <img src="/kss-logo.png" alt="KSS NW LTD" className="cmp-kss-logo-cover h-12 w-auto object-contain" />
             <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-700">
               Controlled Copy
             </div>

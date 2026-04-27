@@ -714,13 +714,16 @@ body.fra-print-preview .fra-preview-hide-toolbar {
 
   body.cmp-print-document .cmp-a4-page,
   body.cmp-print-document .cmp-print-page {
-    width: 100% !important;
-    min-height: 267mm !important;
-    height: 267mm !important;
-    margin: 0 !important;
+    width: 210mm !important;
+    min-width: 210mm !important;
+    max-width: 210mm !important;
+    min-height: 297mm !important;
+    height: 297mm !important;
+    max-height: 297mm !important;
+    margin: 0 auto !important;
     margin-bottom: 0 !important;
-    padding: 0 !important;
-    border: 0 !important;
+    padding: 18mm !important;
+    border: 1px solid #e2e8f0 !important;
     box-shadow: none !important;
     break-after: page !important;
     page-break-after: always !important;
@@ -736,7 +739,27 @@ body.fra-print-preview .fra-preview-hide-toolbar {
   }
 
   body.cmp-print-document .cmp-front-page .cmp-front-page-body {
-    min-height: 267mm !important;
+    min-height: 100% !important;
+  }
+
+  body.cmp-print-document .cmp-kss-logo-cover {
+    display: block !important;
+    height: 12mm !important;
+    max-height: 12mm !important;
+    width: auto !important;
+    max-width: 52mm !important;
+    object-fit: contain !important;
+    flex-shrink: 0 !important;
+  }
+
+  body.cmp-print-document .cmp-kss-logo-header {
+    display: block !important;
+    height: 8mm !important;
+    max-height: 8mm !important;
+    width: auto !important;
+    max-width: 34mm !important;
+    object-fit: contain !important;
+    flex-shrink: 0 !important;
   }
 
   body.cmp-print-document .cmp-page-header,
@@ -842,6 +865,52 @@ body.fra-print-preview .fra-preview-hide-toolbar {
     box-shadow: none !important;
     break-after: page !important;
     page-break-after: always !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+  }
+
+  .cmp-master-template-page-body {
+    display: flex !important;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .cmp-master-template-table-layout {
+    display: flex !important;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .cmp-master-template-table-shell {
+    display: block !important;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .cmp-master-template-table-head-cell {
+    padding-top: 5px !important;
+    padding-bottom: 5px !important;
+    font-size: 8px !important;
+    line-height: 1.15 !important;
+  }
+
+  .cmp-master-template-table-row {
+    height: 28px !important;
+  }
+
+  .cmp-master-template-table-cell {
+    padding-top: 3px !important;
+    padding-bottom: 3px !important;
+  }
+
+  .cmp-master-template-table-note,
+  .cmp-master-template-header,
+  .cmp-master-template-page > footer {
+    flex-shrink: 0 !important;
   }
 
   .cmp-master-template-page--portrait {

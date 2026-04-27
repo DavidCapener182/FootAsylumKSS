@@ -1,4 +1,4 @@
-import { ChevronRight, FileText } from 'lucide-react'
+import { FileText } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -6,8 +6,6 @@ import { CMP_DEMO_EVENT_NAME } from '@/lib/cmp/demo-plan'
 import type { CmpPlanSummary } from '@/lib/cmp/data'
 import { CMP_MASTER_TEMPLATES } from '@/lib/cmp/master-templates'
 import { cn, formatAppDateTime } from '@/lib/utils'
-import { CmpWorkspaceToolbarClient } from '@/components/cmp/cmp-workspace-toolbar-client'
-import { CmpDeletePlanButton } from '@/components/cmp/cmp-delete-plan-button'
 
 export function CmpWorkspace({ plans }: { plans: CmpPlanSummary[] }) {
   return (
@@ -20,7 +18,25 @@ export function CmpWorkspace({ plans }: { plans: CmpPlanSummary[] }) {
               Admin-only KSS workspace for crowd management and security operations plans.
             </p>
           </div>
-          <CmpWorkspaceToolbarClient />
+          <div className="flex flex-wrap gap-2">
+            <form method="post" action="/api/cmp/create" className="inline-flex">
+              <input type="hidden" name="kind" value="example" />
+              <input type="hidden" name="redirectTo" value="/admin/crowd-management-plans/:planId" />
+              <button type="submit" className={cn(buttonVariants({ variant: 'outline' }))}>
+                Create Example Event
+              </button>
+            </form>
+            <form method="post" action="/api/cmp/create" className="inline-flex">
+              <input type="hidden" name="kind" value="blank" />
+              <input type="hidden" name="redirectTo" value="/admin/crowd-management-plans/:planId" />
+              <button
+                type="submit"
+                className={cn(buttonVariants({ variant: 'default' }), 'bg-emerald-700 hover:bg-emerald-800')}
+              >
+                New CMP
+              </button>
+            </form>
+          </div>
         </div>
       </div>
 
@@ -95,22 +111,33 @@ export function CmpWorkspace({ plans }: { plans: CmpPlanSummary[] }) {
                   </div>
                 </div>
 
-                <div className="flex flex-wrap gap-2">
+                <div className="relative z-20 flex flex-wrap gap-2 pointer-events-auto">
                   <a
                     href={`/admin/crowd-management-plans/${plan.id}`}
-                    className={cn(buttonVariants({ variant: 'outline' }))}
+                    className={cn(buttonVariants({ variant: 'outline' }), 'pointer-events-auto')}
                   >
                     <FileText className="mr-2 h-4 w-4" />
                     Edit
                   </a>
                   <a
                     href={`/admin/crowd-management-plans/${plan.id}/preview`}
-                    className={cn(buttonVariants({ variant: 'default' }))}
+                    className={cn(buttonVariants({ variant: 'default' }), 'pointer-events-auto')}
                   >
                     Preview
-                    <ChevronRight className="ml-2 h-4 w-4" />
                   </a>
-                  <CmpDeletePlanButton planId={plan.id} planTitle={plan.title} />
+                  <form method="post" action="/api/cmp/delete" className="inline-flex">
+                    <input type="hidden" name="planId" value={plan.id} />
+                    <input type="hidden" name="redirectTo" value="/admin/crowd-management-plans" />
+                    <button
+                      type="submit"
+                      className={cn(
+                        buttonVariants({ variant: 'outline' }),
+                        'pointer-events-auto border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800'
+                      )}
+                    >
+                      Delete
+                    </button>
+                  </form>
                 </div>
               </div>
             ))

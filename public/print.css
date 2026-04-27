@@ -364,16 +364,18 @@ body.cmp-print-document .cmp-print-page-root {
 
 body.cmp-print-document .cmp-a4-page,
 body.cmp-print-document .cmp-print-page {
-  display: block !important;
-  width: 180mm !important;
-  min-width: 180mm !important;
-  max-width: 180mm !important;
-  height: 267mm !important;
-  min-height: 267mm !important;
-  max-height: 267mm !important;
+  display: flex !important;
+  flex-direction: column !important;
+  width: 210mm !important;
+  min-width: 210mm !important;
+  max-width: 210mm !important;
+  height: 297mm !important;
+  min-height: 297mm !important;
+  max-height: 297mm !important;
   overflow: hidden !important;
   margin: 0 auto !important;
-  padding: 0 !important;
+  padding: 18mm !important;
+  border: 1px solid #e2e8f0 !important;
   box-sizing: border-box !important;
   box-shadow: none !important;
   break-after: page !important;
@@ -387,8 +389,28 @@ body.cmp-print-document .cmp-print-page:last-child {
 }
 
 body.cmp-print-document .cmp-front-page .cmp-front-page-body {
-  min-height: 267mm !important;
-  max-height: 267mm !important;
+  min-height: 100% !important;
+  max-height: 100% !important;
+}
+
+body.cmp-print-document .cmp-kss-logo-cover {
+  display: block !important;
+  height: 12mm !important;
+  max-height: 12mm !important;
+  width: auto !important;
+  max-width: 52mm !important;
+  object-fit: contain !important;
+  flex-shrink: 0 !important;
+}
+
+body.cmp-print-document .cmp-kss-logo-header {
+  display: block !important;
+  height: 8mm !important;
+  max-height: 8mm !important;
+  width: auto !important;
+  max-width: 34mm !important;
+  object-fit: contain !important;
+  flex-shrink: 0 !important;
 }
 
 body.cmp-print-document .cmp-page-body,

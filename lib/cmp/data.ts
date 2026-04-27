@@ -18,6 +18,8 @@ import {
   CMP_MASTER_TEMPLATE_FIELDS,
   CMP_MASTER_TEMPLATE_SECTIONS,
   CMP_MASTER_TEMPLATE_TITLE,
+  getCmpFieldEditMode,
+  type CmpFieldEditMode,
   type CmpDocumentKind,
 } from '@/lib/cmp/master-template'
 import { buildCmpPreviewModel, resolveCmpFieldValueMap } from '@/lib/cmp/preview'
@@ -68,6 +70,7 @@ export type CmpEditorField = {
   isRequired: boolean
   options: string[]
   defaultValueText: string | null
+  editMode: CmpFieldEditMode
 }
 
 export type CmpEditorValueRow = {
@@ -370,6 +373,7 @@ async function loadTemplateGraph(
         isRequired: Boolean(field.is_required),
         options: Array.isArray(field.options) ? field.options : [],
         defaultValueText: field.default_value_text,
+        editMode: getCmpFieldEditMode(field.key),
       } satisfies CmpEditorField
     }),
   }
