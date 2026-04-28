@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { requirePermission } from '@/lib/permissions'
+import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,15 +27,35 @@ function resolveUploadMimeType(file: File): string {
   return declared
 }
 
-export async function POST(request: NextRequest) {
-  try {
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+function parseExistingFilePaths(value: FormDataEntryValue | null, expectedPrefix: string): string[] | null {
+  if (typeof value !== 'string' || !value.trim()) return null
 
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  try {
+    const parsed = JSON.parse(value)
+    if (!Array.isArray(parsed)) return null
+
+    return parsed
+      .map((item) => String(item || '').trim())
+      .filter((item) => item.startsWith(expectedPrefix) && !item.endsWith('/'))
+  } catch {
+    return null
+  }
+}
+
+export async function POST(request: NextRequest) {
+  let step = 'authorizing upload'
+  try {
+    step = 'checking FRA permissions'
+    const { supabase } = await requirePermission('manageFRA')
+    let storageClient = supabase
+    try {
+      step = 'creating storage admin client'
+      storageClient = createAdminSupabaseClient() as any
+    } catch (adminError) {
+      console.warn('upload-photo: service role client unavailable, falling back to user client', adminError)
     }
 
+    step = 'reading upload form data'
     const formData = await request.formData()
     const instanceId = formData.get('instanceId') as string
     const placeholderId = formData.get('placeholderId') as string
@@ -52,17 +73,24 @@ export async function POST(request: NextRequest) {
     }
 
     const placeholderPath = `fra/${instanceId}/photos/${placeholderId}`
-    const { data: existingFiles, error: listError } = await supabase.storage
-      .from('fa-attachments')
-      .list(placeholderPath, { limit: 200 })
+    const expectedPrefix = `${placeholderPath}/`
+    let existingFilePaths = parseExistingFilePaths(formData.get('existingFilePaths'), expectedPrefix)
 
-    if (listError) {
-      return NextResponse.json({ error: `Failed to inspect existing photos: ${listError.message}` }, { status: 500 })
+    if (existingFilePaths === null) {
+      step = 'inspecting existing FRA photos'
+      const { data: existingFiles, error: listError } = await storageClient.storage
+        .from('fa-attachments')
+        .list(placeholderPath, { limit: 200 })
+
+      if (listError) {
+        console.warn('Failed to inspect existing FRA photos before upload:', listError.message)
+        existingFilePaths = []
+      } else {
+        existingFilePaths = (existingFiles || [])
+          .filter((entry) => !!entry.name)
+          .map((entry) => `${placeholderPath}/${entry.name}`)
+      }
     }
-
-    const existingFilePaths = (existingFiles || [])
-      .filter((entry) => !!entry.name)
-      .map((entry) => `${placeholderPath}/${entry.name}`)
 
     if (!replace && existingFilePaths.length + files.length > maxFiles) {
       return NextResponse.json(
@@ -74,7 +102,8 @@ export async function POST(request: NextRequest) {
     }
 
     if (replace && existingFilePaths.length > 0) {
-      const { error: removeError } = await supabase.storage
+      step = 'removing existing FRA photos'
+      const { error: removeError } = await storageClient.storage
         .from('fa-attachments')
         .remove(existingFilePaths)
 
@@ -103,21 +132,26 @@ export async function POST(request: NextRequest) {
       const timestamp = Date.now()
       const fileName = `fra-${instanceId}-${placeholderId}-${timestamp}-${Math.random().toString(36).substring(7)}.${fileExt}`
       const filePath = `${placeholderPath}/${fileName}`
+      step = `buffering ${file.name || 'photo'}`
+      const fileBuffer = Buffer.from(await file.arrayBuffer())
 
       // Upload to storage
-      const { error: uploadError } = await supabase.storage
+      step = `uploading ${fileName}`
+      const { error: uploadError } = await storageClient.storage
         .from('fa-attachments')
-        .upload(filePath, file, {
+        .upload(filePath, fileBuffer, {
           contentType: detectedType,
           upsert: false
         })
 
       if (uploadError) {
+        console.error('FRA photo upload failed:', uploadError)
         return NextResponse.json({ error: `Failed to upload file: ${uploadError.message}` }, { status: 500 })
       }
 
       // Use signed URL so the image displays immediately (bucket may be private)
-      const { data: signed } = await supabase.storage
+      step = `signing ${fileName}`
+      const { data: signed } = await storageClient.storage
         .from('fa-attachments')
         .createSignedUrl(filePath, 60 * 60 * 24) // 24 hours
 
@@ -132,9 +166,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ files: uploadedFiles })
   } catch (error: any) {
-    console.error('Error uploading photos:', error)
+    console.error(`Error uploading photos while ${step}:`, error)
     return NextResponse.json(
-      { error: 'Failed to upload photos', details: error.message },
+      { error: 'Failed to upload photos', details: `${step}: ${error.message || 'Unknown error'}` },
       { status: 500 }
     )
   }

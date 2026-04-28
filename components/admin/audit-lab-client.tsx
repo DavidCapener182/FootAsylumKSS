@@ -111,9 +111,10 @@ const toTitleCase = (value: string): string =>
     .join(' ')
 
 const extractFraRiskRating = (audit: any): string | null =>
-  (typeof audit?.fra_overall_risk_rating === 'string' && audit.fra_overall_risk_rating.trim())
+  extractFraRiskRatingFromResponses(Array.isArray(audit?.fa_audit_responses) ? audit.fa_audit_responses : [])
+  || (typeof audit?.fra_overall_risk_rating === 'string' && audit.fra_overall_risk_rating.trim()
     ? audit.fra_overall_risk_rating
-    : extractFraRiskRatingFromResponses(Array.isArray(audit?.fa_audit_responses) ? audit.fa_audit_responses : [])
+    : null)
 
 const getFraRiskBadgeClass = (risk: string | null): string => {
   switch ((risk || '').toLowerCase()) {

@@ -13,7 +13,6 @@ import {
 } from '@/lib/fra/pdf-parser'
 import { buildFRARiskSummary, computeFRARiskRating, type FRARiskFindings } from '@/lib/fra/risk-rating'
 import { requirePermission } from '@/lib/permissions'
-import { getAuditInstance } from './safehub'
 
 type ParsedYesNoQuestion = {
   answer: 'yes' | 'no' | 'na' | null
@@ -531,11 +530,40 @@ export async function getLatestHSAuditForStore(storeId: string, fraInstanceId?: 
 /**
  * Map H&S audit data to FRA report structure
  */
-export async function mapHSAuditToFRAData(fraInstanceId: string) {
-  const { supabase, userId } = await requirePermission('manageFRA')
+export async function mapHSAuditToFRAData(
+  fraInstanceId: string,
+  context?: { supabase: ReturnType<typeof createClient>; userId: string }
+) {
+  const { supabase, userId } = context ?? await requirePermission('manageFRA')
 
   // Get the FRA audit instance
-  const fraInstance = await getAuditInstance(fraInstanceId)
+  const { data: fraInstance, error: fraInstanceError } = await supabase
+    .from('fa_audit_instances')
+    .select(`
+      *,
+      fa_audit_templates (
+        id,
+        title,
+        category
+      ),
+      fa_stores (
+        id,
+        store_name,
+        store_code,
+        address_line_1,
+        city,
+        postcode,
+        region,
+        latitude,
+        longitude
+      )
+    `)
+    .eq('id', fraInstanceId)
+    .single()
+
+  if (fraInstanceError || !fraInstance) {
+    throw new Error('Audit instance not found')
+  }
   
   if (!fraInstance || (fraInstance.fa_audit_templates as any)?.category !== 'fire_risk_assessment') {
     throw new Error('Invalid FRA audit instance')

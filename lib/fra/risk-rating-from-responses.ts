@@ -191,17 +191,22 @@ export function buildFraRiskFindingsFromResponses(responses: FRAResponseLike[]):
       panelFaultText
     ) && !/\b(no faults?|fault[\s-]*free|free of faults|normal)\b/i.test(panelFaultText)
 
+  const hasNegatedPanelFaultText =
+    /\b(no faults?|without faults?|fault[\s-]*free|free of faults|free from faults|normal)\b/i.test(panelFaultText)
+
   const extractedFirePanelIssue =
-    textIncludesAny(extractedData.firePanelFaults, [
-      /\bfaults?\b/i,
-      /\berror\b/i,
-      /\btrouble\b/i,
-      /\bwarning\b/i,
-      /\bpanel fault\b/i,
-    ])
-    || textIncludesAny(extractedData.firePanelFaults, [/\bnot\b[\s\S]{0,8}\bfree of faults\b/i])
-    || textIncludesAny(extractedData.firePanelLocation, [/\bobstructed\b/i, /\bblocked\b/i, /\binaccessible\b/i])
-    || hasPanelFaultCondition
+    !hasNegatedPanelFaultText
+    && (
+      hasPanelFaultCondition
+      || textIncludesAny(extractedData.firePanelFaults, [
+        /\berror\b/i,
+        /\btrouble\b/i,
+        /\bwarning\b/i,
+        /\bpanel fault\b/i,
+        /\bnot\b[\s\S]{0,8}\bfree (?:of|from) faults\b/i,
+      ])
+      || textIncludesAny(extractedData.firePanelLocation, [/\bobstructed\b/i, /\bblocked\b/i, /\binaccessible\b/i])
+    )
 
   const combustibleRouteSignal = hasNarrativeSignal(
     combustibleStorage.narrative,
@@ -263,6 +268,13 @@ export function extractFraRiskRatingFromResponses(responses: FRAResponseLike[]):
 
   // Prefer evidence-based calculation. Do not trust fra_custom_data / fra_extracted_data rating
   // fields here — they are often stale caches written by older saves and would override findings.
+  const findings = buildFraRiskFindingsFromResponses(responses)
+  return computeFRARiskRating(findings).overall
+}
+
+export function extractStoredFraRiskRatingFromResponses(responses: FRAResponseLike[]): FRAOverallRisk | null {
+  if (!responses.length) return null
+
   for (const response of responses) {
     const responseJson = getResponseJson(response)
     const questionText = getResponseQuestionText(response)
@@ -286,6 +298,5 @@ export function extractFraRiskRatingFromResponses(responses: FRAResponseLike[]):
     }
   }
 
-  const findings = buildFraRiskFindingsFromResponses(responses)
-  return computeFRARiskRating(findings).overall
+  return null
 }

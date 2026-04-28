@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { mapHSAuditToFRAData } from '@/app/actions/fra-reports'
 
 export const dynamic = 'force-dynamic'
@@ -21,7 +22,14 @@ async function loadPlaceholderPhotos(
   const transformWidth = forPdf ? 900 : 1600
   const transformHeight = forPdf ? 900 : 1600
   const transformQuality = forPdf ? 45 : 70
-  const { data: placeholders, error: listError } = await supabase.storage
+  let storageClient = supabase
+  try {
+    storageClient = createAdminSupabaseClient() as any
+  } catch (adminError) {
+    console.warn('view FRA photos: service role client unavailable, falling back to user client', adminError)
+  }
+
+  const { data: placeholders, error: listError } = await storageClient.storage
     .from('fa-attachments')
     .list(prefix, { limit: 50 })
 
@@ -48,7 +56,7 @@ async function loadPlaceholderPhotos(
       if (!placeholderId || placeholderId.includes('/')) return null
 
       const folderPath = `${prefix}/${placeholderId}`
-      const { data: files, error: filesError } = await supabase.storage
+      const { data: files, error: filesError } = await storageClient.storage
         .from('fa-attachments')
         .list(folderPath, { limit: 20 })
 
@@ -59,7 +67,7 @@ async function loadPlaceholderPhotos(
           if (!f.name) return null
 
           const filePath = `${folderPath}/${f.name}`
-          const { data: transformed, error: transformedError } = await supabase.storage
+          const { data: transformed, error: transformedError } = await storageClient.storage
             .from('fa-attachments')
             .createSignedUrl(filePath, 120, {
               transform: {
@@ -83,7 +91,7 @@ async function loadPlaceholderPhotos(
             console.warn('Signed URL transform fallback:', transformedError.message)
           }
 
-          const { data: signed } = await supabase.storage
+          const { data: signed } = await storageClient.storage
             .from('fa-attachments')
             .createSignedUrl(filePath, 120)
 
@@ -128,8 +136,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'instanceId is required' }, { status: 400 })
     }
 
-    // Map H&S audit data to FRA structure
-    const fraData = await mapHSAuditToFRAData(instanceId)
+    // Map H&S audit data to FRA structure using this authenticated request.
+    // Viewing an already-generated FRA should not fail because a nested write
+    // permission lookup could not re-read the user's profile.
+    const fraData = await mapHSAuditToFRAData(instanceId, { supabase, userId: user.id })
 
     // Load uploaded placeholder photos from storage so they appear after refresh and in PDF
     const placeholderPhotos = await loadPlaceholderPhotos(supabase, instanceId, { forPdf })

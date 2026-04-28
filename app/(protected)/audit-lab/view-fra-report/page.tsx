@@ -97,6 +97,17 @@ const isManualSource = (sources: Record<string, string> | undefined, fieldName: 
   return source === 'CUSTOM' || source === 'REVIEW'
 }
 
+async function readJsonOrThrow(response: Response, fallbackMessage: string) {
+  const contentType = response.headers.get('content-type') || ''
+  if (contentType.includes('application/json')) {
+    return response.json()
+  }
+
+  const text = await response.text().catch(() => '')
+  const title = text.match(/<title>(.*?)<\/title>/i)?.[1]
+  throw new Error(title || fallbackMessage)
+}
+
 export default function FRAReportViewPage({
   searchParams,
 }: {
@@ -146,17 +157,24 @@ export default function FRAReportViewPage({
       setNeedsSetup(false)
       const response = await fetch(`/api/fra-reports/view?instanceId=${instanceId}`)
       if (!response.ok) {
-        const errorData = await response.json()
-        const message = errorData.error || 'Failed to load FRA report'
-        // If the report isn't ready yet, prompt the user to continue the setup flow.
-        if (message.toLowerCase().includes('failed to generate fra report')) {
+        const errorData = await readJsonOrThrow(response, `Failed to load FRA report (${response.status})`)
+        const message = errorData.details || errorData.error || 'Failed to load FRA report'
+        const normalizedMessage = message.toLowerCase()
+        // Only show setup when source extraction is genuinely missing.
+        // Permission/session/server failures should surface as errors, not as
+        // "not ready", because completed FRAs may already have generated data.
+        if (
+          normalizedMessage.includes('no parsed pdf text')
+          || normalizedMessage.includes('no pdf text')
+          || normalizedMessage.includes('extract and review')
+        ) {
           setNeedsSetup(true)
           setError(null)
           return
         }
         throw new Error(message)
       }
-      let data = await response.json()
+      let data = await readJsonOrThrow(response, 'Failed to load FRA report')
 
       data.storeOpeningTimes = normalizeOpeningTimesValue(data.storeOpeningTimes) ?? data.storeOpeningTimes
       data.operatingHours = normalizeOpeningTimesValue(data.operatingHours) ?? data.operatingHours
@@ -166,7 +184,7 @@ export default function FRAReportViewPage({
         try {
           const storeInfoResponse = await fetch(`/api/fra-reports/store-info?storeId=${data.store.id}`)
           if (storeInfoResponse.ok) {
-            const storeInfo = await storeInfoResponse.json()
+            const storeInfo = await readJsonOrThrow(storeInfoResponse, 'Failed to load store info')
             const storeBuildDate = normalizeFieldText(storeInfo.store.build_date)
             const storeOpeningTimes = normalizeOpeningTimesValue(storeInfo.store.opening_times)
 
@@ -195,7 +213,7 @@ export default function FRAReportViewPage({
                   }),
                 })
                 if (searchResponse.ok) {
-                  const searchData = await searchResponse.json()
+                  const searchData = await readJsonOrThrow(searchResponse, 'Failed to search store data')
                   if (searchData.buildDate && !hasBuildDate) {
                     data.buildDate = searchData.buildDate
                     data._sources = { ...data._sources, buildDate: 'WEB_SEARCH' }
@@ -258,7 +276,7 @@ export default function FRAReportViewPage({
               }),
             })
             if (descResponse.ok) {
-              const descData = await descResponse.json()
+              const descData = await readJsonOrThrow(descResponse, 'Failed to generate access description')
               data.accessDescription = descData.description
             }
           } catch (err) {

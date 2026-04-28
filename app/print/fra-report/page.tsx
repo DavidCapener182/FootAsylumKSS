@@ -96,6 +96,17 @@ const isManualSource = (sources: Record<string, string> | undefined, fieldName: 
   return source === 'CUSTOM' || source === 'REVIEW'
 }
 
+async function readJsonOrThrow(response: Response, fallbackMessage: string) {
+  const contentType = response.headers.get('content-type') || ''
+  if (contentType.includes('application/json')) {
+    return response.json()
+  }
+
+  const text = await response.text().catch(() => '')
+  const title = text.match(/<title>(.*?)<\/title>/i)?.[1]
+  throw new Error(title || fallbackMessage)
+}
+
 /**
  * Standalone print view for FRA report – no sidebar/layout wrapper.
  * Used for print preview and PDF generation so content can flow across A4 pages.
@@ -125,17 +136,17 @@ export default function FRAPrintReportPage({
       setLoading(true)
       const response = await fetch(`/api/fra-reports/view?instanceId=${instanceId}${forPdf ? '&forPdf=1' : ''}`)
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to load FRA report')
+        const errorData = await readJsonOrThrow(response, `Failed to load FRA report (${response.status})`)
+        throw new Error(errorData.details || errorData.error || 'Failed to load FRA report')
       }
-      let data = await response.json()
+      let data = await readJsonOrThrow(response, 'Failed to load FRA report')
       data.storeOpeningTimes = normalizeOpeningTimesValue(data.storeOpeningTimes) ?? data.storeOpeningTimes
       data.operatingHours = normalizeOpeningTimesValue(data.operatingHours) ?? data.operatingHours
       if (data.store?.id) {
         try {
           const storeInfoResponse = await fetch(`/api/fra-reports/store-info?storeId=${data.store.id}`)
           if (storeInfoResponse.ok) {
-            const storeInfo = await storeInfoResponse.json()
+            const storeInfo = await readJsonOrThrow(storeInfoResponse, 'Failed to load store info')
             const storeBuildDate = normalizeFieldText(storeInfo.store.build_date)
             const storeOpeningTimes = normalizeOpeningTimesValue(storeInfo.store.opening_times)
 
@@ -164,7 +175,7 @@ export default function FRAPrintReportPage({
                   }),
                 })
                 if (searchResponse.ok) {
-                  const searchData = await searchResponse.json()
+                  const searchData = await readJsonOrThrow(searchResponse, 'Failed to search store data')
                   if (searchData.buildDate && !hasBuildDate) {
                     data.buildDate = searchData.buildDate
                     data._sources = { ...data._sources, buildDate: 'WEB_SEARCH' }
@@ -219,7 +230,7 @@ export default function FRAPrintReportPage({
               }),
             })
             if (descResponse.ok) {
-              const descData = await descResponse.json()
+              const descData = await readJsonOrThrow(descResponse, 'Failed to generate access description')
               data.accessDescription = descData.description
             }
           } catch (_) {}
@@ -308,7 +319,7 @@ export default function FRAPrintReportPage({
       )}
       <div className="no-print flex items-center justify-center gap-4 bg-slate-200 py-2 px-4 border-b border-slate-300 shrink-0">
         <span className="text-sm text-slate-600">
-          Use <strong>Print</strong> (or Cmd+P / Ctrl+P) to print multiple A4 pages. Use <strong>Download PDF</strong> to export. This toolbar will not appear on the printed document.
+          Print preview is read-only, so photo delete buttons and comment boxes are hidden. Use <strong>Back to editable report</strong> to manage photos, or <strong>Download PDF</strong> to export.
         </span>
         <Button variant="default" size="sm" onClick={handleDownloadPDF} disabled={generatingPdf} className="bg-indigo-600 hover:bg-indigo-500">
           {generatingPdf ? (<><FRALoadingGlyph className="mr-2 h-4 w-4 text-white" />Generating...</>) : (<><Download className="h-4 w-4 mr-2" />Download PDF</>)}
@@ -317,7 +328,7 @@ export default function FRAPrintReportPage({
           <Printer className="h-4 w-4 mr-2" />Print
         </Button>
         <Button variant="ghost" size="sm" onClick={handleClosePreview} className="text-slate-600 hover:text-slate-900">
-          <X className="h-4 w-4 mr-2" />Close preview
+          <X className="h-4 w-4 mr-2" />Back to editable report
         </Button>
       </div>
       <div className="fra-print-page-content flex-1 min-h-0 overflow-auto bg-white">

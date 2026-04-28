@@ -640,6 +640,10 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
       formData.append('instanceId', data.fraInstance.id)
       formData.append('placeholderId', placeholderId)
       formData.append('replace', mode === 'replace' ? 'true' : 'false')
+      formData.append(
+        'existingFilePaths',
+        JSON.stringify((placeholderPhotos[placeholderId] || []).map((photo) => photo.file_path).filter(Boolean))
+      )
       optimizedFiles.forEach(file => {
         formData.append('files', file)
       })
@@ -651,7 +655,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
 
       const result = await response.json().catch(() => ({}))
       if (!response.ok) {
-        const message = (result?.error ?? result?.details ?? 'Failed to upload photos') as string
+        const message = (result?.details ?? result?.error ?? 'Failed to upload photos') as string
         throw new Error(message)
       }
 
@@ -700,7 +704,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
       })
       const result = await response.json().catch(() => ({}))
       if (!response.ok) {
-        throw new Error((result?.error ?? result?.details ?? 'Failed to delete photo') as string)
+        throw new Error((result?.details ?? result?.error ?? 'Failed to delete photo') as string)
       }
       setPlaceholderPhotos(prev => ({
         ...prev,

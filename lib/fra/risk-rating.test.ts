@@ -42,7 +42,7 @@ describe('computeFRARiskRating', () => {
     })
   })
 
-  it('bolton-like findings map to high likelihood, moderate harm and substantial risk', () => {
+  it('multiple operational findings without critical assurance failures map to moderate risk', () => {
     const findings = makeFindings({
       escape_routes_obstructed: true,
       fire_exits_obstructed: true,
@@ -54,9 +54,9 @@ describe('computeFRARiskRating', () => {
     })
     const result = computeFRARiskRating(findings)
     expect(result).toMatchObject({
-      likelihood: 'High',
+      likelihood: 'Normal',
       consequence: 'Moderate Harm',
-      overall: 'Substantial',
+      overall: 'Moderate',
     })
   })
 
@@ -92,7 +92,7 @@ describe('computeFRARiskRating', () => {
     })
   })
 
-  it('doors held open only maps to high likelihood, moderate harm and substantial risk', () => {
+  it('doors held open only maps to normal likelihood, moderate harm and moderate risk', () => {
     const result = computeFRARiskRating(
       makeFindings({
         fire_doors_held_open: true,
@@ -100,16 +100,63 @@ describe('computeFRARiskRating', () => {
     )
 
     expect(result).toMatchObject({
-      likelihood: 'High',
+      likelihood: 'Normal',
       consequence: 'Moderate Harm',
-      overall: 'Substantial',
+      overall: 'Moderate',
     })
   })
 
-  it('routes obstructed only maps to high likelihood, moderate harm and substantial risk', () => {
+  it('routes obstructed only maps to normal likelihood, moderate harm and moderate risk', () => {
     const result = computeFRARiskRating(
       makeFindings({
         escape_routes_obstructed: true,
+      })
+    )
+
+    expect(result).toMatchObject({
+      likelihood: 'Normal',
+      consequence: 'Moderate Harm',
+      overall: 'Moderate',
+    })
+  })
+
+  it('two combined material findings still map to normal likelihood and moderate risk', () => {
+    const result = computeFRARiskRating(
+      makeFindings({
+        escape_routes_obstructed: true,
+        fire_doors_held_open: true,
+      })
+    )
+
+    expect(result).toMatchObject({
+      likelihood: 'Normal',
+      consequence: 'Moderate Harm',
+      overall: 'Moderate',
+    })
+  })
+
+  it('three combined material findings without assurance failures still map to moderate risk', () => {
+    const result = computeFRARiskRating(
+      makeFindings({
+        escape_routes_obstructed: true,
+        fire_doors_held_open: true,
+        combustibles_in_escape_routes: true,
+      })
+    )
+
+    expect(result).toMatchObject({
+      likelihood: 'Normal',
+      consequence: 'Moderate Harm',
+      overall: 'Moderate',
+    })
+  })
+
+  it('material findings plus multiple failed assurance checks map to substantial risk', () => {
+    const result = computeFRARiskRating(
+      makeFindings({
+        escape_routes_obstructed: true,
+        fire_alarm_tests_current: false,
+        extinguishers_serviced_current: false,
       })
     )
 
@@ -160,8 +207,8 @@ describe('computeFRARiskRating', () => {
     const summary = buildFRARiskSummary(findings, result)
 
     expect(summary).toContain('obstructed escape routes/back-of-house circulation routes')
-    expect(summary).toContain('Likelihood is assessed as High')
-    expect(summary).toContain('overall fire risk as Substantial')
+    expect(summary).toContain('Likelihood is assessed as Normal')
+    expect(summary).toContain('overall fire risk as Moderate')
   })
 })
 

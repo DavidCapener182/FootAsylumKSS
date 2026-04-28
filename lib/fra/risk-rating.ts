@@ -59,18 +59,6 @@ export const FRA_RISK_MATRIX: Record<FRARiskLikelihood, Record<FRARiskConsequenc
 export const FRA_RISK_LIKELIHOOD_ORDER: FRARiskLikelihood[] = ['High', 'Normal', 'Low']
 export const FRA_RISK_CONSEQUENCE_ORDER: FRARiskConsequence[] = ['Slight Harm', 'Moderate Harm', 'Extreme Harm']
 
-function hasHighLikelihoodTriggers(findings: FRARiskFindings): boolean {
-  return (
-    findings.escape_routes_obstructed
-    || findings.fire_exits_obstructed
-    || findings.combustibles_in_escape_routes
-    || findings.fire_doors_held_open
-    || findings.fire_doors_blocked
-    || findings.fire_door_integrity_issues
-    || findings.fire_panel_access_obstructed
-  )
-}
-
 function hasExtremeConsequenceTriggers(findings: FRARiskFindings): boolean {
   const routeCompromise = findings.escape_routes_obstructed || findings.fire_exits_obstructed
   const fireDoorCompromise = findings.fire_doors_held_open || findings.fire_doors_blocked
@@ -88,13 +76,46 @@ function hasExtremeConsequenceTriggers(findings: FRARiskFindings): boolean {
   return routeCompromise && fireDoorCompromise && criticalLifeSafetyFailures >= 2
 }
 
+function hasHighLikelihoodTriggers(findings: FRARiskFindings): boolean {
+  if (hasExtremeConsequenceTriggers(findings)) return true
+
+  const routeCompromise = findings.escape_routes_obstructed || findings.fire_exits_obstructed
+  const fireDoorCompromise = findings.fire_doors_held_open || findings.fire_doors_blocked
+  const materialIssueGroups = [
+    routeCompromise,
+    fireDoorCompromise,
+    findings.combustibles_in_escape_routes,
+    findings.fire_door_integrity_issues,
+    findings.fire_panel_access_obstructed,
+  ].filter(Boolean).length
+  const criticalAssuranceFailures = [
+    findings.fire_alarm_tests_current === false,
+    findings.emergency_lighting_tests_current === false,
+    findings.extinguishers_serviced_current === false,
+  ].filter(Boolean).length
+
+  return materialIssueGroups >= 1 && criticalAssuranceFailures >= 2
+}
+
 export function computeFRARiskRating(findings: FRARiskFindings): FRARiskRatingResult {
   const highLikelihoodTriggers = hasHighLikelihoodTriggers(findings)
+  const materialLikelihoodTriggers =
+    findings.escape_routes_obstructed
+    || findings.fire_exits_obstructed
+    || findings.combustibles_in_escape_routes
+    || findings.fire_doors_held_open
+    || findings.fire_doors_blocked
+    || findings.fire_door_integrity_issues
+    || findings.fire_panel_access_obstructed
 
   let likelihood: FRARiskLikelihood = 'Normal'
   if (highLikelihoodTriggers) {
     likelihood = 'High'
-  } else if (findings.combustibles_poorly_stored || findings.housekeeping_poor_back_of_house) {
+  } else if (
+    materialLikelihoodTriggers
+    || findings.combustibles_poorly_stored
+    || findings.housekeeping_poor_back_of_house
+  ) {
     likelihood = 'Normal'
   } else if (findings.housekeeping_good) {
     likelihood = 'Low'

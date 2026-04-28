@@ -60,6 +60,25 @@ describe('buildFraRiskFindingsFromResponses', () => {
     expect(overall).not.toBe('Tolerable')
   })
 
+  it('does not flag fire panel text that says the panel is free from faults', () => {
+    const responses = [
+      {
+        response_value: null,
+        response_json: {
+          fra_extracted_data: {
+            firePanelFaults: 'The fire panel was free from faults.',
+            firePanelLocation: 'The fire panel is located in the electrical cupboard and accessible.',
+          },
+        },
+        fa_audit_template_questions: { question_text: 'Metadata' },
+      },
+    ]
+
+    const findings = buildFraRiskFindingsFromResponses(responses as any)
+    expect(findings.fire_panel_access_obstructed).toBe(false)
+    expect(extractFraRiskRatingFromResponses(responses as any)).toBe('Tolerable')
+  })
+
   it('treats combustible storage "No" without route obstruction text as poor storage, not route compromise', () => {
     const responses = [
       {
