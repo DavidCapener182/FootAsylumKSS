@@ -2,7 +2,6 @@ import 'server-only'
 
 import { createClient } from '@/lib/supabase/server'
 import { getCmpUserContext } from '@/lib/cmp/access'
-import { extractTextFromSourceFile } from '@/lib/cmp/document-text'
 import {
   deriveCmpFieldCandidates,
   type CmpSourceDocumentForExtraction,
@@ -775,6 +774,7 @@ export async function uploadCmpSourceDocument(input: {
       .filter(Boolean)
   }
 
+  const { extractTextFromSourceFile } = await import('@/lib/cmp/document-text')
   const extractedText = await extractTextFromSourceFile(input.file)
   const fileExt = input.file.name.split('.').pop()?.toLowerCase() || 'bin'
   const filePath = `${input.planId}/${Date.now()}-${sanitizeFileName(input.file.name || `source.${fileExt}`)}`
