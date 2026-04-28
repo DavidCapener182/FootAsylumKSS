@@ -1058,6 +1058,7 @@ function TemplatesLibraryView({
   const [seeding, setSeeding] = useState(false)
   const [creatingFRA, setCreatingFRA] = useState(false)
   const hasFRATemplate = templates.some((template) => template.category === 'fire_risk_assessment')
+  const visibleTemplates = templates.filter((template) => template.category !== 'footasylum_audit')
 
   const handleSeedFootAsylumTemplate = async () => {
     if (!confirm('This will create the FootAsylum SafeHub template with all sections and questions. Continue?')) {
@@ -1169,7 +1170,7 @@ function TemplatesLibraryView({
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
         </div>
-      ) : templates.length === 0 ? (
+      ) : visibleTemplates.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
             <FileText className="h-12 w-12 mx-auto text-slate-300 mb-4" />
@@ -1182,7 +1183,7 @@ function TemplatesLibraryView({
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {templates.map((template) => {
+          {visibleTemplates.map((template) => {
             const theme = getTemplateTheme(template.category)
             return (
             <Card 

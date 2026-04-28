@@ -31,6 +31,7 @@ export const navItems: NavItem[] = [
   { href: '/activity', label: 'Recent Activity', icon: Activity, section: 'Overview', clientHidden: true },
   { href: '/audit-tracker', label: 'Compliance Audits', icon: ClipboardList, section: 'Compliance Management' },
   { href: '/fire-risk-assessment', label: 'Fire Risk Assessments', icon: Flame, section: 'Compliance Management' },
+  { href: '/audit-lab', label: 'SafeHub', icon: ShieldCheck, section: 'Compliance Management', allowedRoles: ['admin', 'ops'] },
   { href: '/incidents', label: 'Incidents', icon: AlertTriangle, section: 'Compliance Management' },
   { href: '/actions', label: 'Actions', icon: CheckSquare, section: 'Compliance Management' },
   { href: '/stores', label: 'Store Directory', icon: Store, section: 'Stores' },
