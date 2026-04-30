@@ -11,6 +11,7 @@ import { StoreSearch } from '@/components/layout/store-search'
 import { createClient } from '@/lib/supabase/client'
 import type { UserRole } from '@/lib/auth'
 import { getCmpPageTitle, isCmpSectionPath } from './cmp-chrome'
+import { getEmpPageTitle, isEmpSectionPath } from './emp-chrome'
 import {
   Dialog,
   DialogContent,
@@ -323,6 +324,8 @@ export function HeaderClient({ signOut, currentUser }: HeaderClientProps) {
   const { isOpen, setIsOpen } = useSidebar()
   const pathname = usePathname()
   const isCmpSection = isCmpSectionPath(pathname)
+  const isEmpSection = isEmpSectionPath(pathname)
+  const isKssPlanSection = isCmpSection || isEmpSection
   const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([
     { id: currentUser.id, name: currentUser.name, page: pathname || '/', lastSeen: null },
   ])
@@ -423,7 +426,7 @@ export function HeaderClient({ signOut, currentUser }: HeaderClientProps) {
   }
 
   useEffect(() => {
-    if (isCmpSection) {
+    if (isKssPlanSection) {
       presenceChannelRef.current = null
       setOnlineUsers([{ id: currentUser.id, name: currentUser.name, page: pathname || '/', lastSeen: null }])
       return
@@ -499,10 +502,10 @@ export function HeaderClient({ signOut, currentUser }: HeaderClientProps) {
       void channel.untrack()
       void supabase.removeChannel(channel)
     }
-  }, [currentUser.id, currentUser.name, isCmpSection, pathname, presenceKey])
+  }, [currentUser.id, currentUser.name, isKssPlanSection, pathname, presenceKey])
 
   useEffect(() => {
-    if (isCmpSection) return
+    if (isKssPlanSection) return
 
     const channel = presenceChannelRef.current
     if (!channel) return
@@ -512,10 +515,10 @@ export function HeaderClient({ signOut, currentUser }: HeaderClientProps) {
       page: pathname || '/',
       lastSeen: new Date().toISOString(),
     })
-  }, [pathname, currentUser.name, isCmpSection])
+  }, [pathname, currentUser.name, isKssPlanSection])
 
   useEffect(() => {
-    if (isCmpSection) {
+    if (isKssPlanSection) {
       setLatestActivityByUser({})
       return
     }
@@ -558,15 +561,16 @@ export function HeaderClient({ signOut, currentUser }: HeaderClientProps) {
     return () => {
       window.clearInterval(interval)
     }
-  }, [currentUser.role, onlineUsers, isCmpSection])
+  }, [currentUser.role, onlineUsers, isKssPlanSection])
 
   const visibleUsers = onlineUsers.slice(0, 5)
   const mobileVisibleUsers = visibleUsers.slice(0, 2)
   const overflowCount = Math.max(onlineUsers.length - visibleUsers.length, 0)
   const mobileOverflowCount = Math.max(onlineUsers.length - mobileVisibleUsers.length, 0)
   const isAdmin = currentUser.role === 'admin'
-  const cmpPageTitle = getCmpPageTitle(pathname)
-  const mobilePageTitle = isCmpSection ? cmpPageTitle : getMobilePageTitle(pathname || '/')
+  const planPageTitle = isEmpSection ? getEmpPageTitle(pathname) : getCmpPageTitle(pathname)
+  const planBrand = isEmpSection ? 'KSS Event Management' : 'KSS Crowd Management'
+  const mobilePageTitle = isKssPlanSection ? planPageTitle : getMobilePageTitle(pathname || '/')
 
   return (
     <header
@@ -590,13 +594,13 @@ export function HeaderClient({ signOut, currentUser }: HeaderClientProps) {
 
           <div className="min-w-0 flex-1">
             <p className="text-[10px] font-semibold tracking-[0.16em] text-white/45">
-              {isCmpSection ? 'KSS Crowd Management' : 'KSS x Footasylum'}
+              {isKssPlanSection ? planBrand : 'KSS x Footasylum'}
             </p>
             <h1 className="truncate text-[1.08rem] font-semibold tracking-[-0.01em] text-white">{mobilePageTitle}</h1>
           </div>
 
           <div className="flex items-center gap-2">
-            {isCmpSection ? null : (
+            {isKssPlanSection ? null : (
               <div className="flex items-center gap-1.5" aria-label="Currently online users">
                 {mobileVisibleUsers.map((user) => (
                   <div key={user.id} title={user.name} className="relative">
@@ -625,7 +629,7 @@ export function HeaderClient({ signOut, currentUser }: HeaderClientProps) {
           </div>
         </div>
 
-        {isCmpSection ? null : (
+        {isKssPlanSection ? null : (
           <div className="md:hidden">
             <StoreSearch />
           </div>
@@ -644,13 +648,13 @@ export function HeaderClient({ signOut, currentUser }: HeaderClientProps) {
           >
             <Menu className="h-6 w-6 text-white pointer-events-none" />
           </button>
-          {isCmpSection ? (
+          {isKssPlanSection ? (
             <div className="min-w-0">
               <p className="text-[11px] font-semibold tracking-[0.18em] text-white/45">
-                KSS Crowd Management
+                {planBrand}
               </p>
               <p className="truncate text-sm font-semibold text-white">
-                {cmpPageTitle}
+                {planPageTitle}
               </p>
             </div>
           ) : (
@@ -659,7 +663,7 @@ export function HeaderClient({ signOut, currentUser }: HeaderClientProps) {
         </div>
 
         <div className="hidden items-center gap-2 md:flex md:gap-4">
-          {isCmpSection ? null : (
+          {isKssPlanSection ? null : (
             <div className="flex items-center gap-2" aria-label="Currently online users">
             {visibleUsers.map((user) => (
               <div

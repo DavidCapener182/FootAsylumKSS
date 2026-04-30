@@ -647,7 +647,8 @@ body.fra-print-preview .fra-preview-hide-toolbar {
 
 /* ---------- CMP REPORT PRINT / A4 ---------- */
 
-.cmp-a4-page {
+.cmp-a4-page,
+.emp-a4-page {
   width: 210mm;
   height: 297mm;
   min-height: 297mm;
@@ -663,35 +664,42 @@ body.fra-print-preview .fra-preview-hide-toolbar {
   overflow: hidden;
 }
 
-.cmp-report-preview {
+.cmp-report-preview,
+.emp-report-preview {
   padding-bottom: 12px;
 }
 
-.cmp-report-print-content {
+.cmp-report-print-content,
+.emp-report-print-content {
   width: 210mm;
   max-width: 100%;
   margin: 0 auto;
 }
 
 .cmp-block-table th,
-.cmp-block-table td {
+.cmp-block-table td,
+.emp-block-table th,
+.emp-block-table td {
   vertical-align: top;
 }
 
-.cmp-page-body {
+.cmp-page-body,
+.emp-page-body {
   flex: 1 1 auto;
   min-height: 0;
 }
 
 @media (max-width: 767px) {
-  .cmp-a4-page {
+  .cmp-a4-page,
+  .emp-a4-page {
     width: 100%;
     height: auto;
     min-height: auto;
     padding: 5mm;
   }
 
-  .cmp-report-print-content {
+  .cmp-report-print-content,
+  .emp-report-print-content {
     width: 100%;
   }
 }
@@ -700,7 +708,11 @@ body.fra-print-preview .fra-preview-hide-toolbar {
   body.cmp-print-document .cmp-print-page-root,
   body.cmp-print-document .cmp-report-print-wrapper,
   body.cmp-print-document .cmp-report-print-content,
-  body.cmp-print-document #print-root {
+  body.cmp-print-document #print-root,
+  body.emp-print-document .emp-print-page-root,
+  body.emp-print-document .emp-report-print-wrapper,
+  body.emp-print-document .emp-report-print-content,
+  body.emp-print-document #print-root {
     display: block !important;
     width: 100% !important;
     height: auto !important;
@@ -713,7 +725,9 @@ body.fra-print-preview .fra-preview-hide-toolbar {
   }
 
   body.cmp-print-document .cmp-a4-page,
-  body.cmp-print-document .cmp-print-page {
+  body.cmp-print-document .cmp-print-page,
+  body.emp-print-document .emp-a4-page,
+  body.emp-print-document .emp-print-page {
     width: 210mm !important;
     min-width: 210mm !important;
     max-width: 210mm !important;
@@ -733,16 +747,20 @@ body.fra-print-preview .fra-preview-hide-toolbar {
   }
 
   body.cmp-print-document .cmp-a4-page:last-child,
-  body.cmp-print-document .cmp-print-page:last-child {
+  body.cmp-print-document .cmp-print-page:last-child,
+  body.emp-print-document .emp-a4-page:last-child,
+  body.emp-print-document .emp-print-page:last-child {
     break-after: auto !important;
     page-break-after: auto !important;
   }
 
-  body.cmp-print-document .cmp-front-page .cmp-front-page-body {
+  body.cmp-print-document .cmp-front-page .cmp-front-page-body,
+  body.emp-print-document .emp-front-page .emp-front-page-body {
     min-height: 100% !important;
   }
 
-  body.cmp-print-document .cmp-kss-logo-cover {
+  body.cmp-print-document .cmp-kss-logo-cover,
+  body.emp-print-document .emp-kss-logo-cover {
     display: block !important;
     height: 12mm !important;
     max-height: 12mm !important;
@@ -752,7 +770,8 @@ body.fra-print-preview .fra-preview-hide-toolbar {
     flex-shrink: 0 !important;
   }
 
-  body.cmp-print-document .cmp-kss-logo-header {
+  body.cmp-print-document .cmp-kss-logo-header,
+  body.emp-print-document .emp-kss-logo-header {
     display: block !important;
     height: 8mm !important;
     max-height: 8mm !important;
@@ -766,7 +785,12 @@ body.fra-print-preview .fra-preview-hide-toolbar {
   body.cmp-print-document .cmp-page-footer,
   body.cmp-print-document .cmp-block-table tr,
   body.cmp-print-document .cmp-block-table th,
-  body.cmp-print-document .cmp-block-table td {
+  body.cmp-print-document .cmp-block-table td,
+  body.emp-print-document .emp-page-header,
+  body.emp-print-document .emp-page-footer,
+  body.emp-print-document .emp-block-table tr,
+  body.emp-print-document .emp-block-table th,
+  body.emp-print-document .emp-block-table td {
     break-inside: avoid !important;
     page-break-inside: avoid !important;
   }
@@ -774,19 +798,22 @@ body.fra-print-preview .fra-preview-hide-toolbar {
 
 /* ---------- CMP MASTER TEMPLATE PRINT / A4 ---------- */
 
-.cmp-master-template-content {
+.cmp-master-template-content,
+.emp-master-template-content {
   width: fit-content;
   max-width: 100%;
   margin: 0 auto;
 }
 
-.cmp-master-template-print-stage {
+.cmp-master-template-print-stage,
+.emp-master-template-print-stage {
   display: flex;
   justify-content: center;
   align-items: flex-start;
 }
 
-.cmp-master-template-page {
+.cmp-master-template-page,
+.emp-master-template-page {
   box-sizing: border-box;
   background: #fff;
   margin: 0 auto;
@@ -797,14 +824,16 @@ body.fra-print-preview .fra-preview-hide-toolbar {
   box-shadow: 0 20px 44px rgba(15, 23, 42, 0.12);
 }
 
-.cmp-master-template-page--portrait {
+.cmp-master-template-page--portrait,
+.emp-master-template-page--portrait {
   width: 210mm;
   height: 297mm;
   min-height: 297mm;
   padding: 14mm;
 }
 
-.cmp-master-template-page--landscape {
+.cmp-master-template-page--landscape,
+.emp-master-template-page--landscape {
   width: 297mm;
   height: 210mm;
   min-height: 210mm;
@@ -813,7 +842,9 @@ body.fra-print-preview .fra-preview-hide-toolbar {
 
 @media (max-width: 767px) {
   .cmp-master-template-page--portrait,
-  .cmp-master-template-page--landscape {
+  .cmp-master-template-page--landscape,
+  .emp-master-template-page--portrait,
+  .emp-master-template-page--landscape {
     width: 100%;
     height: auto;
     min-height: auto;
@@ -821,7 +852,8 @@ body.fra-print-preview .fra-preview-hide-toolbar {
     box-shadow: none;
   }
 
-  .cmp-master-template-content {
+  .cmp-master-template-content,
+  .emp-master-template-content {
     width: 100%;
   }
 }
@@ -832,7 +864,8 @@ body.fra-print-preview .fra-preview-hide-toolbar {
     overflow: visible !important;
   }
 
-  .cmp-master-template-print-stage {
+  .cmp-master-template-print-stage,
+  .emp-master-template-print-stage {
     display: block !important;
     padding: 0 !important;
     margin: 0 !important;
@@ -846,6 +879,9 @@ body.fra-print-preview .fra-preview-hide-toolbar {
   .cmp-master-template-print-root,
   .cmp-master-template-root,
   .cmp-master-template-content,
+  .emp-master-template-print-root,
+  .emp-master-template-root,
+  .emp-master-template-content,
   #print-root {
     display: block !important;
     width: 100% !important;
@@ -859,7 +895,8 @@ body.fra-print-preview .fra-preview-hide-toolbar {
     background: #fff !important;
   }
 
-  .cmp-master-template-page {
+  .cmp-master-template-page,
+  .emp-master-template-page {
     margin: 0 auto !important;
     border: 0 !important;
     box-shadow: none !important;
@@ -870,50 +907,60 @@ body.fra-print-preview .fra-preview-hide-toolbar {
     overflow: hidden !important;
   }
 
-  .cmp-master-template-page-body {
+  .cmp-master-template-page-body,
+  .emp-master-template-page-body {
     display: flex !important;
     flex: 1 1 auto !important;
     min-height: 0 !important;
     overflow: hidden !important;
   }
 
-  .cmp-master-template-table-layout {
+  .cmp-master-template-table-layout,
+  .emp-master-template-table-layout {
     display: flex !important;
     flex: 1 1 auto !important;
     min-height: 0 !important;
     overflow: hidden !important;
   }
 
-  .cmp-master-template-table-shell {
+  .cmp-master-template-table-shell,
+  .emp-master-template-table-shell {
     display: block !important;
     flex: 1 1 auto !important;
     min-height: 0 !important;
     overflow: hidden !important;
   }
 
-  .cmp-master-template-table-head-cell {
+  .cmp-master-template-table-head-cell,
+  .emp-master-template-table-head-cell {
     padding-top: 5px !important;
     padding-bottom: 5px !important;
     font-size: 8px !important;
     line-height: 1.15 !important;
   }
 
-  .cmp-master-template-table-row {
+  .cmp-master-template-table-row,
+  .emp-master-template-table-row {
     height: 28px !important;
   }
 
-  .cmp-master-template-table-cell {
+  .cmp-master-template-table-cell,
+  .emp-master-template-table-cell {
     padding-top: 3px !important;
     padding-bottom: 3px !important;
   }
 
   .cmp-master-template-table-note,
   .cmp-master-template-header,
-  .cmp-master-template-page > footer {
+  .cmp-master-template-page > footer,
+  .emp-master-template-table-note,
+  .emp-master-template-header,
+  .emp-master-template-page > footer {
     flex-shrink: 0 !important;
   }
 
-  .cmp-master-template-page--portrait {
+  .cmp-master-template-page--portrait,
+  .emp-master-template-page--portrait {
     width: 210mm !important;
     min-width: 210mm !important;
     max-width: 210mm !important;
@@ -922,7 +969,8 @@ body.fra-print-preview .fra-preview-hide-toolbar {
     padding: 14mm !important;
   }
 
-  .cmp-master-template-page--landscape {
+  .cmp-master-template-page--landscape,
+  .emp-master-template-page--landscape {
     width: 297mm !important;
     min-width: 297mm !important;
     max-width: 297mm !important;
@@ -931,7 +979,8 @@ body.fra-print-preview .fra-preview-hide-toolbar {
     padding: 12mm 14mm !important;
   }
 
-  .cmp-master-template-page:last-child {
+  .cmp-master-template-page:last-child,
+  .emp-master-template-page:last-child {
     break-after: auto !important;
     page-break-after: auto !important;
   }

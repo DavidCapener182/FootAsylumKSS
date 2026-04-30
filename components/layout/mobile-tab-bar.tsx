@@ -8,11 +8,13 @@ import type { UserRole } from '@/lib/auth'
 
 import { cn } from '@/lib/utils'
 import { isCmpSectionPath } from './cmp-chrome'
+import { isEmpSectionPath } from './emp-chrome'
 import { getMobileMoreItems, getMobileTabItems, isPrimaryMobilePath, matchesMobilePath } from './mobile-nav-config'
 
 export function MobileTabBar({ userRole }: { userRole?: UserRole | null }) {
   const pathname = usePathname() || '/'
   const isCmpSection = isCmpSectionPath(pathname)
+  const isEmpSection = isEmpSectionPath(pathname)
   const tabItems = getMobileTabItems(userRole)
   const moreItems = getMobileMoreItems(userRole)
   const moreActive = !isPrimaryMobilePath(pathname, userRole)
@@ -40,7 +42,7 @@ export function MobileTabBar({ userRole }: { userRole?: UserRole | null }) {
     }
   }, [moreOpen])
 
-  if (isCmpSection) {
+  if (isCmpSection || isEmpSection) {
     return null
   }
 

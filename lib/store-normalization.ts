@@ -2,6 +2,7 @@ export type StoreNormalizationInput = {
   id?: string | null
   store_name?: string | null
   store_code?: string | null
+  is_active?: boolean | null
   address_line_1?: string | null
   city?: string | null
   postcode?: string | null
@@ -38,6 +39,10 @@ const UNKNOWN_IMPORTED_STORE_NAMES = new Set([
 const CLOSED_STORE_NAMES = new Set([
   'romford',
   'bristol',
+  'croydon',
+  'manchester womans',
+  'manchester womens',
+  "manchester women's",
 ])
 
 const ALWAYS_INCLUDE_STORE_CODE_MATCHERS = [
@@ -180,6 +185,7 @@ export function applyStoreCoordinateOverride<T extends StoreNormalizationInput>(
 
 export function shouldHideStore(store: StoreNormalizationInput): boolean {
   if (shouldAlwaysIncludeStore(store)) return false
+  if (store.is_active === false) return true
   if (isExtStoreCode(store.store_code)) return true
   if (isUnknownImportedStore(store.store_name)) return true
   if (isClosedStoreName(store.store_name)) return true

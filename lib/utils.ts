@@ -210,3 +210,25 @@ export function getCmpReportFilename(
   }
   return `cmp-report.${extension}`
 }
+
+export function getEmpReportFilename(
+  eventName: string | null | undefined,
+  showDates: string | null | undefined,
+  extension: 'pdf' | 'docx' = 'pdf',
+  venueName?: string | null
+): string {
+  const sanitizedEvent = sanitizeForFilename(eventName || '')
+  const sanitizedVenue = sanitizeForFilename(venueName || '')
+  const datePart = formatDateForFilename(showDates)
+
+  if (sanitizedEvent && sanitizedVenue) {
+    return `${sanitizedEvent} - ${sanitizedVenue}, ${datePart} - EMP.${extension}`
+  }
+  if (sanitizedEvent) {
+    return `${sanitizedEvent}, ${datePart} - EMP.${extension}`
+  }
+  if (sanitizedVenue) {
+    return `${sanitizedVenue}, ${datePart} - EMP.${extension}`
+  }
+  return `emp-report.${extension}`
+}

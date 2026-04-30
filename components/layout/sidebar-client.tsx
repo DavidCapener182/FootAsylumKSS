@@ -16,6 +16,12 @@ import {
   isCmpNavItemActive,
   isCmpSectionPath,
 } from './cmp-chrome'
+import {
+  getEmpNavItems,
+  getEmpPageTitle,
+  isEmpNavItemActive,
+  isEmpSectionPath,
+} from './emp-chrome'
 
 const sectionOrder: NonNullable<NavItem['section']>[] = [
   'Overview',
@@ -38,8 +44,11 @@ export function SidebarClient({ userRole, userProfile }: SidebarClientProps) {
   const { isOpen, setIsOpen } = useSidebar()
   const [feedbackOpen, setFeedbackOpen] = useState(false)
   const isCmpSection = isCmpSectionPath(pathname)
-  const cmpNavItems = getCmpNavItems(pathname)
-  const cmpPageTitle = getCmpPageTitle(pathname)
+  const isEmpSection = isEmpSectionPath(pathname)
+  const isKssPlanSection = isCmpSection || isEmpSection
+  const planNavItems = isEmpSection ? getEmpNavItems(pathname) : getCmpNavItems(pathname)
+  const planPageTitle = isEmpSection ? getEmpPageTitle(pathname) : getCmpPageTitle(pathname)
+  const planBrand = isEmpSection ? 'KSS Event Management' : 'KSS Crowd Management'
 
   const filteredItems = (() => {
     if (userRole === 'admin') {
@@ -84,23 +93,23 @@ export function SidebarClient({ userRole, userProfile }: SidebarClientProps) {
         <div className="flex items-center gap-3">
           <div className="relative h-12 w-24 md:h-20 md:w-48">
             <Image
-              src={isCmpSection ? '/kss-logo.png' : '/fa-logo.png'}
-              alt={isCmpSection ? 'KSS Crowd Management' : 'KSS x Footasylum'}
+              src={isKssPlanSection ? '/kss-logo.png' : '/fa-logo.png'}
+              alt={isKssPlanSection ? planBrand : 'KSS x Footasylum'}
               fill
               sizes="192px"
               className="object-contain"
-              style={isCmpSection ? undefined : { top: 4, left: 10 }}
+              style={isKssPlanSection ? undefined : { top: 4, left: 10 }}
             />
           </div>
           <div className="min-w-0 md:hidden">
             <p className="text-[11px] font-semibold tracking-[0.16em] text-slate-500">
-              {isCmpSection ? 'KSS Crowd Management' : 'KSS x Footasylum'}
+              {isKssPlanSection ? planBrand : 'KSS x Footasylum'}
             </p>
             <p className="text-sm font-semibold text-slate-900">
-              {isCmpSection ? cmpPageTitle : 'Navigation'}
+              {isKssPlanSection ? planPageTitle : 'Navigation'}
             </p>
           </div>
-          <span className="sr-only">{isCmpSection ? 'KSS Crowd Management' : 'KSS x Footasylum'}</span>
+          <span className="sr-only">{isKssPlanSection ? planBrand : 'KSS x Footasylum'}</span>
         </div>
         <button
           onClick={() => setIsOpen(false)}
@@ -112,11 +121,11 @@ export function SidebarClient({ userRole, userProfile }: SidebarClientProps) {
       </div>
       <nav className="flex-1 overflow-y-auto px-4 pb-4">
         <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white/85 shadow-[0_16px_30px_rgba(15,23,42,0.08)] md:space-y-4 md:rounded-none md:border-0 md:bg-transparent md:shadow-none">
-          {(isCmpSection ? [{ section: null, items: cmpNavItems }] : sectionOrder.map((section) => ({
+          {(isKssPlanSection ? [{ section: null, items: planNavItems }] : sectionOrder.map((section) => ({
             section,
             items: filteredItems.filter((item) => (item.section || 'Overview') === section),
           })).filter((group) => group.items.length > 0)).map((group) => (
-            <div key={group.section || 'cmp'}>
+            <div key={group.section || 'kss-plan'}>
               {group.section ? (
                 <p className="px-4 pb-1 pt-4 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500 md:px-3 md:pt-0 md:text-white/40">
                   {group.section}
@@ -126,8 +135,8 @@ export function SidebarClient({ userRole, userProfile }: SidebarClientProps) {
           {group.items.map((item) => {
             const Icon = item.icon
             const isActive = !item.action && (
-              isCmpSection
-                ? isCmpNavItemActive(pathname, item.href)
+              isKssPlanSection
+                ? (isEmpSection ? isEmpNavItemActive(pathname, item.href) : isCmpNavItemActive(pathname, item.href))
                 : pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href))
             )
 
@@ -147,7 +156,7 @@ export function SidebarClient({ userRole, userProfile }: SidebarClientProps) {
 
             return (
               <li key={item.href} className="border-t border-slate-100 first:border-t-0 md:border-t-0">
-                {isCmpSection ? (
+                {isKssPlanSection ? (
                   <a
                     href={item.href}
                     onClick={() => setIsOpen(false)}

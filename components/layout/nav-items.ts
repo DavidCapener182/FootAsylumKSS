@@ -39,6 +39,7 @@ export const navItems: NavItem[] = [
   { href: '/calendar', label: 'Calendar', icon: Calendar, section: 'Planning' },
   { href: '/reports', label: 'Reports & Exports', icon: FileText, section: 'Reporting' },
   { href: '/help', label: 'GDPR & Data Protection', icon: ShieldCheck, section: 'Reporting' },
+  { href: '/admin/event-management-plans', label: 'Event Management Plans', icon: FileText, section: 'Administration', adminOnly: true },
   { href: '/admin', label: 'Admin', icon: Settings, section: 'Administration', adminOnly: true },
   { href: '#feedback', label: 'Report a Bug', icon: Bug, section: 'Administration', action: 'feedback' },
 ]
