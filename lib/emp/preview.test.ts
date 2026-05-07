@@ -58,6 +58,181 @@ describe('buildEmpPreviewModel', () => {
     expect(annexText).toContain('Roles and duties')
   })
 
+  it('uses event-specific queue diagram labels for non-Radio One EMPs', () => {
+    const model = buildEmpPreviewModel({
+      fieldValues: {
+        ...fieldValues,
+        event_name: { key: 'event_name', label: 'Event name', valueText: 'City Park Live', source: 'manual' },
+        ingress_routes_holding_areas: {
+          key: 'ingress_routes_holding_areas',
+          label: 'Queue areas',
+          valueText: 'North Bar and East Bar queue lanes',
+          source: 'manual',
+        },
+      },
+      selectedAnnexes: ['bar_operations'],
+      includeKssProfileAppendix: false,
+    })
+    const html = renderToStaticMarkup(createElement(EmpPreviewDocument, { mode: 'preview', model }))
+
+    expect(html).toContain('North Bar and East Bar queue lanes - Queue Management Plan')
+    expect(html).toContain('/emp-assets/bar-queue-flow-template.png')
+    expect(html).not.toContain('Radio 1 Bar - Queue Management Plan')
+    expect(html).not.toContain('/emp-assets/bar-queue-flow.png')
+  })
+
+  it('uses the saved document status on Radio One EMP cover rows', () => {
+    const model = buildEmpPreviewModel({
+      fieldValues: {
+        ...fieldValues,
+        plan_title: {
+          key: 'plan_title',
+          label: 'Plan title',
+          valueText: 'KSS NW LTD Bar Security Operations Plan - BBC Radio 1 Big Weekend Sunderland 2026',
+          source: 'manual',
+        },
+        event_name: {
+          key: 'event_name',
+          label: 'Event name',
+          valueText: 'BBC Radio 1 Big Weekend Sunderland 2026',
+          source: 'manual',
+        },
+        document_status: {
+          key: 'document_status',
+          label: 'Document status',
+          valueText: 'Final',
+          source: 'manual',
+        },
+        document_version: {
+          key: 'document_version',
+          label: 'Document version',
+          valueText: 'V1',
+          source: 'manual',
+        },
+      },
+      selectedAnnexes: ['bar_operations'],
+      includeKssProfileAppendix: false,
+    })
+
+    expect(model.coverRows).toContainEqual({ label: 'Status', value: 'Final' })
+    expect(model.coverRows).toContainEqual({ label: 'Approver', value: 'Floyd Allen' })
+    const documentControl = model.sections.find((section) => section.key === 'document_control')
+    const documentControlTable = documentControl?.blocks.find((block) => block.type === 'table')
+    const versionHistory = documentControl?.blocks.find((block) => block.type === 'multi_table')
+
+    expect(documentControlTable).toMatchObject({
+      rows: expect.arrayContaining([
+        { label: 'Status', value: 'Final' },
+        { label: 'Approver', value: 'Floyd Allen' },
+      ]),
+    })
+    expect(versionHistory).toMatchObject({
+      rows: expect.arrayContaining([
+        ['V1', expect.any(String), expect.any(String), expect.any(String), 'Final'],
+      ]),
+    })
+    expect(versionHistory).toMatchObject({ rows: expect.not.arrayContaining([
+      expect.arrayContaining(['V0.6']),
+    ]) })
+    expect(model.coverRows).not.toContainEqual({
+      label: 'Status',
+      value: 'Draft - final confirmations required',
+    })
+    expect(model.riskAssessment).toMatchObject({
+      eventName: 'BBC Radio 1 Big Weekend Sunderland 2026',
+      activity: 'BBC Radio 1 Big Weekend Sunderland 2026 - Operational Risk Assessment',
+      location: 'Test Venue',
+      assessmentDate: expect.any(String),
+      rows: expect.arrayContaining([
+        expect.objectContaining({ hazard: 'High-volume queuing and congestion' }),
+        expect.objectContaining({ hazard: 'Underage or proxy alcohol service' }),
+        expect.objectContaining({ hazard: 'Intoxication, disorder or assault near bars' }),
+        expect.objectContaining({ hazard: 'Emergency route obstruction by bar queues' }),
+        expect.objectContaining({ hazard: 'Bar close-down and final egress pressure' }),
+      ]),
+    })
+  })
+
+  it('treats version-like Radio One approval text as final for submission', () => {
+    const model = buildEmpPreviewModel({
+      fieldValues: {
+        ...fieldValues,
+        plan_title: {
+          key: 'plan_title',
+          label: 'Plan title',
+          valueText: 'KSS NW LTD Bar Security Operations Plan - BBC Radio 1 Big Weekend Sunderland 2026',
+          source: 'manual',
+        },
+        event_name: {
+          key: 'event_name',
+          label: 'Event name',
+          valueText: 'BBC Radio 1 Big Weekend Sunderland 2026',
+          source: 'manual',
+        },
+        document_version: {
+          key: 'document_version',
+          label: 'Document version',
+          valueText: 'V1',
+          source: 'manual',
+        },
+        document_status: {
+          key: 'document_status',
+          label: 'Document status',
+          valueText: 'V1',
+          source: 'manual',
+        },
+      },
+      selectedAnnexes: ['bar_operations'],
+      includeKssProfileAppendix: false,
+    })
+    const documentControl = model.sections.find((section) => section.key === 'document_control')
+    const versionHistory = documentControl?.blocks.find((block) => block.type === 'multi_table')
+
+    expect(versionHistory).toMatchObject({
+      rows: expect.arrayContaining([
+        ['V1', expect.any(String), expect.any(String), expect.any(String), 'Final'],
+      ]),
+    })
+    expect(model.coverRows).toContainEqual({ label: 'Status', value: 'Final' })
+  })
+
+  it('does not show Radio One data for a generic bar security plan', () => {
+    const model = buildEmpPreviewModel({
+      fieldValues: {
+        ...fieldValues,
+        plan_title: {
+          key: 'plan_title',
+          label: 'Plan title',
+          valueText: 'KSS NW LTD Bar Security Operations Plan',
+          source: 'manual',
+        },
+        event_name: { key: 'event_name', label: 'Event name', valueText: 'City Park Live', source: 'manual' },
+        licensed_capacity: { key: 'licensed_capacity', label: 'Licensed capacity', valueText: '12,500', source: 'manual' },
+        expected_attendance: { key: 'expected_attendance', label: 'Expected attendance', valueText: '10,000 expected attendees', source: 'manual' },
+        excluded_areas: { key: 'excluded_areas', label: 'Excluded areas', valueText: 'Main stage and traffic routes', source: 'manual' },
+        density_assumptions: { key: 'density_assumptions', label: 'Density assumptions', valueText: 'Medium bar queue demand with live supervisor monitoring.', source: 'manual' },
+      },
+      selectedAnnexes: ['bar_operations'],
+      includeKssProfileAppendix: false,
+    })
+    const html = renderToStaticMarkup(createElement(EmpPreviewDocument, { mode: 'preview', model }))
+
+    expect(html).toContain('12,500')
+    expect(html).toContain('10,000 expected attendees')
+    expect(html).toContain('Queue Planning Factor')
+    expect(html).toContain('Queue capacity status')
+    expect(html).not.toContain('39,999')
+    expect(html).not.toContain('BBC Radio 1')
+    expect(html).not.toContain('CSMP references')
+    expect(html).not.toContain('Showsec')
+    expect(html).not.toContain('Peppermint')
+    expect(html).not.toContain('Annex: Queue Layouts and Queue Types')
+    expect(model.riskAssessment).toMatchObject({
+      eventName: 'City Park Live',
+      location: 'Test Venue',
+    })
+  })
+
   it('renders stewarding deployment as structured tables when staffing rows are supplied', () => {
     const model = buildEmpPreviewModel({
       fieldValues: {
@@ -246,9 +421,15 @@ describe('buildEmpPreviewModel', () => {
     expect(html).not.toContain('Annex: Stewarding / Queue Marshal Deployment')
     expect(html).not.toContain('Annex: Emergency Action Cards')
     expect(html).toContain('Annex: Queue Layouts and Queue Types')
+    expect(html).toContain('/emp-assets/bar-queue-flow.png')
+    expect(html).not.toContain('/emp-assets/bar-queue-flow-template.png')
     expect(html).toContain('Annex: Bar Emergency Action Cards')
     expect(html).toContain('Annex: Staff Briefing and Sign-Off Record')
     expect(html).toContain('Event Director Gold')
+    expect(html).toContain('Jess Shields')
+    expect(html).toContain('Jack May')
+    expect(html).toContain('Philly Proctor')
+    expect(html).toContain('Sarah Tschentscher')
     expect(html).toContain('Bar 1 Supervisor')
     expect(html).toContain('Rating')
     expect(html).toContain('Bar 1')

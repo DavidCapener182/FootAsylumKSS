@@ -1,6 +1,7 @@
-import { ArrowLeft, Download, FileText } from 'lucide-react'
+import { ArrowLeft, FileText, Printer } from 'lucide-react'
 import type { Metadata } from 'next'
 import { EmpDocumentTitle } from '@/components/emp/emp-document-title'
+import { EmpPdfDownloadButton } from '@/components/emp/emp-pdf-download-button'
 import { EmpPreviewDocument } from '@/components/emp/emp-preview-document'
 import { EmpSetupRequired } from '@/components/emp/emp-setup-required'
 import { buttonVariants } from '@/components/ui/button'
@@ -82,12 +83,15 @@ export default async function CrowdManagementPlanPreviewPage({
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
+              <EmpPdfDownloadButton planId={params.planId} />
               <a
-                href={`/api/emp/generate-pdf?planId=${params.planId}`}
-                className={cn(buttonVariants({ variant: 'default' }))}
+                href={`/print/emp-report?planId=${params.planId}`}
+                target="_blank"
+                rel="noreferrer"
+                className={cn(buttonVariants({ variant: 'outline' }))}
               >
-                <Download className="mr-2 h-4 w-4" />
-                Download PDF
+                <Printer className="mr-2 h-4 w-4" />
+                Print
               </a>
               <a
                 href={`/api/emp/generate-docx?planId=${params.planId}`}

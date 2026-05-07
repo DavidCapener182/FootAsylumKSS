@@ -40,7 +40,10 @@ const mobilePageTitles: Array<{ href: string; title: string }> = [
 ]
 
 export function matchesMobilePath(pathname: string, href: string): boolean {
-  return pathname === href || pathname.startsWith(`${href}/`)
+  const normalizedPathname = pathname.split(/[?#]/)[0].replace(/\/+$/, '') || '/'
+  const normalizedHref = href.split(/[?#]/)[0].replace(/\/+$/, '') || '/'
+
+  return normalizedPathname === normalizedHref || normalizedPathname.startsWith(`${normalizedHref}/`)
 }
 
 export function getMobileTabItems(userRole?: UserRole | null): MobileTabItem[] {
@@ -54,6 +57,7 @@ export function getMobileMoreItems(userRole?: UserRole | null): MobileTabItem[] 
     .filter((item) => {
       if (item.action) return false
       if (primaryHrefs.has(item.href)) return false
+      if (item.adminOnly || item.section === 'Administration') return false
       if (userRole === 'admin') return !item.allowedRoles || item.allowedRoles.includes('admin')
       if (userRole === 'client') return !item.adminOnly && !item.clientHidden && (!item.allowedRoles || item.allowedRoles.includes('client'))
       if (userRole === 'ops') return !item.adminOnly && (!item.allowedRoles || item.allowedRoles.includes('ops'))

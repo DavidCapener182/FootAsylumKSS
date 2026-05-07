@@ -487,14 +487,14 @@ export function AuditLabClient() {
   }
 
   return (
-    <div className="space-y-4 md:space-y-6">
+    <div className="max-w-full space-y-4 overflow-x-hidden md:space-y-6">
       {/* Breadcrumb */}
-      <nav className="flex items-center gap-2 text-xs md:text-sm text-muted-foreground mb-3 md:mb-4 overflow-x-auto">
-        <Link 
-          href="/admin" 
+      <nav className="flex max-w-full items-center gap-2 overflow-x-auto text-xs text-muted-foreground md:mb-4 md:text-sm">
+        <Link
+          href="/audit-lab"
           className="hover:text-foreground transition-colors whitespace-nowrap"
         >
-          Admin
+          Compliance
         </Link>
         <ChevronRight className="h-3 w-3 md:h-4 md:w-4 flex-shrink-0" />
         <span className="text-foreground font-medium truncate">SafeHub</span>
@@ -510,42 +510,42 @@ export function AuditLabClient() {
 
       {/* Main Navigation Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <div className="overflow-x-auto pb-1">
-          <TabsList className="inline-flex w-max min-w-full bg-slate-100 p-1 min-h-[44px] md:grid md:w-full md:max-w-[820px] md:grid-cols-5">
+        <div className="-mx-1 max-w-[calc(100vw-2rem)] overflow-x-auto px-1 pb-2 md:max-w-full">
+          <TabsList className="inline-flex w-max min-w-full max-w-none bg-slate-100 p-1 min-h-[44px] md:grid md:w-full md:max-w-[820px] md:grid-cols-5">
           <TabsTrigger 
             value="templates"
-            className="whitespace-nowrap px-3 text-xs sm:text-sm md:min-w-0 data-[state=active]:bg-white data-[state=active]:text-indigo-700 data-[state=active]:shadow-sm transition-all"
+            className="whitespace-nowrap px-2.5 text-xs sm:text-sm md:min-w-0 md:px-3 data-[state=active]:bg-white data-[state=active]:text-indigo-700 data-[state=active]:shadow-sm transition-all"
           >
             Templates
           </TabsTrigger>
           <TabsTrigger 
             value="active-audits"
-            className="whitespace-nowrap px-3 text-xs sm:text-sm md:min-w-0 data-[state=active]:bg-white data-[state=active]:text-indigo-700 data-[state=active]:shadow-sm transition-all"
+            className="whitespace-nowrap px-2.5 text-xs sm:text-sm md:min-w-0 md:px-3 data-[state=active]:bg-white data-[state=active]:text-indigo-700 data-[state=active]:shadow-sm transition-all"
           >
             Active Audits
           </TabsTrigger>
           <TabsTrigger 
             value="history"
-            className="whitespace-nowrap px-3 text-xs sm:text-sm md:min-w-0 data-[state=active]:bg-white data-[state=active]:text-indigo-700 data-[state=active]:shadow-sm transition-all"
+            className="whitespace-nowrap px-2.5 text-xs sm:text-sm md:min-w-0 md:px-3 data-[state=active]:bg-white data-[state=active]:text-indigo-700 data-[state=active]:shadow-sm transition-all"
           >
             History
           </TabsTrigger>
           <TabsTrigger
             value="dashboard"
-            className="whitespace-nowrap px-3 text-xs sm:text-sm md:min-w-0 data-[state=active]:bg-white data-[state=active]:text-indigo-700 data-[state=active]:shadow-sm transition-all"
+            className="whitespace-nowrap px-2.5 text-xs sm:text-sm md:min-w-0 md:px-3 data-[state=active]:bg-white data-[state=active]:text-indigo-700 data-[state=active]:shadow-sm transition-all"
           >
             Dashboard
           </TabsTrigger>
           <TabsTrigger
             value="import"
-            className="whitespace-nowrap px-3 text-xs sm:text-sm md:min-w-0 data-[state=active]:bg-white data-[state=active]:text-indigo-700 data-[state=active]:shadow-sm transition-all"
+            className="whitespace-nowrap px-2.5 text-xs sm:text-sm md:min-w-0 md:px-3 data-[state=active]:bg-white data-[state=active]:text-indigo-700 data-[state=active]:shadow-sm transition-all"
           >
             Import Audit
           </TabsTrigger>
           </TabsList>
         </div>
 
-        <TabsContent value="templates" className="mt-6">
+        <TabsContent value="templates" className="mt-6 max-w-full overflow-x-hidden">
           {view === 'templates' && (
             <TemplatesLibraryView 
               templates={templates}
@@ -1122,10 +1122,10 @@ function TemplatesLibraryView({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-full space-y-6 overflow-x-hidden">
       {/* Actions */}
-      <div className="flex gap-3 flex-wrap">
-        <Button onClick={onCreateNew} className="bg-indigo-600 hover:bg-indigo-700">
+      <div className="flex max-w-full flex-wrap gap-3">
+        <Button onClick={onCreateNew} className="w-full justify-center bg-indigo-600 hover:bg-indigo-700 sm:w-auto">
           <Plus className="h-4 w-4 mr-2" />
           Create New Template
         </Button>
@@ -1134,7 +1134,7 @@ function TemplatesLibraryView({
             onClick={handleCreateFRATemplate}
             disabled={creatingFRA}
             variant="outline"
-            className="border-orange-600 text-orange-600 hover:bg-orange-50"
+            className="w-full justify-center border-orange-600 text-orange-600 hover:bg-orange-50 sm:w-auto"
           >
             {creatingFRA ? (
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -1149,7 +1149,7 @@ function TemplatesLibraryView({
             onClick={handleSeedFootAsylumTemplate} 
             disabled={seeding}
             variant="outline"
-            className="border-indigo-600 text-indigo-600 hover:bg-indigo-50"
+            className="w-full justify-center border-indigo-600 text-indigo-600 hover:bg-indigo-50 sm:w-auto"
           >
             {seeding ? (
               <>
@@ -1183,32 +1183,32 @@ function TemplatesLibraryView({
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid max-w-full grid-cols-1 gap-4 md:grid-cols-2 md:gap-6 lg:grid-cols-3">
           {visibleTemplates.map((template) => {
             const theme = getTemplateTheme(template.category)
             return (
             <Card 
               key={template.id}
-              className={cn('hover:shadow-lg transition-shadow cursor-pointer', theme.card)}
+              className={cn('w-full min-w-0 max-w-full overflow-hidden hover:shadow-lg transition-shadow cursor-pointer', theme.card)}
               onClick={() => onTemplateClick(template.id)}
             >
-              <CardHeader className={cn('rounded-t-lg', theme.header)}>
-                <div className="flex items-start justify-between">
-                  <CardTitle className="text-xl font-extrabold tracking-tight text-slate-900">
+              <CardHeader className={cn('rounded-t-lg p-4 md:p-6', theme.header)}>
+                <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <CardTitle className="min-w-0 break-words text-lg font-extrabold tracking-tight text-slate-900 sm:text-xl">
                     {getTemplateDisplayTitle(template)}
                   </CardTitle>
-                  <Badge variant="outline" className={cn('shrink-0 ml-2', theme.badge)}>
+                  <Badge variant="outline" className={cn('w-fit max-w-full shrink whitespace-normal break-words text-left sm:ml-2 sm:shrink-0', theme.badge)}>
                     {template.category.replace('_', ' ')}
                   </Badge>
                 </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-4 pt-0 md:p-6 md:pt-0">
                 {getTemplateDisplayDescription(template) && (
-                  <p className="text-sm text-slate-600 mb-4">{getTemplateDisplayDescription(template)}</p>
+                  <p className="mb-4 text-sm text-slate-600">{getTemplateDisplayDescription(template)}</p>
                 )}
-                <div className="flex items-center justify-between text-xs text-slate-500">
+                <div className="flex flex-col gap-3 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between">
                   <span>Created {formatAppDate(template.created_at)}</span>
-                  <Button variant="ghost" size="sm" className={theme.action}>
+                  <Button variant="ghost" size="sm" className={cn('w-full min-w-0 justify-center sm:w-auto', theme.action)}>
                     Start Audit <ChevronRight className="h-3 w-3 ml-1" />
                   </Button>
                 </div>

@@ -218,6 +218,7 @@ export default async function StoresPage() {
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
             <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Total Stores</p>
             <p className="mt-1 text-2xl font-bold text-slate-950">{totalStores}</p>
+            <p className="mt-1 text-[11px] text-slate-500">Visible canonical stores</p>
           </div>
           <div className="rounded-2xl border border-emerald-100 bg-emerald-50/50 p-4">
             <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">Active</p>

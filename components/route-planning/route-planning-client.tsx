@@ -35,7 +35,7 @@ import { format } from 'date-fns'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { RouteDirectionsModal } from './route-directions-modal'
 import { getInternalAreaDisplayName, MULTI_AREA_REGION } from '@/lib/areas'
-import { getDisplayStoreCode } from '@/lib/utils'
+import { cn, getDisplayStoreCode } from '@/lib/utils'
 
 // Dynamically import the map component to avoid SSR issues
 const MapComponent = dynamic(() => import('./map-component'), { ssr: false })
@@ -126,6 +126,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
   const [requireHomeStart, setRequireHomeStart] = useState(true)
   const [requireHomeEnd, setRequireHomeEnd] = useState(true)
   const [optimizationSummary, setOptimizationSummary] = useState<string | null>(null)
+  const [routeValidationHint, setRouteValidationHint] = useState<string | null>(null)
   const [isCreatingRoute, setIsCreatingRoute] = useState(false)
   const [isOptimizing, setIsOptimizing] = useState(false)
   const [editingRouteGroup, setEditingRouteGroup] = useState<string | null>(null)
@@ -273,6 +274,13 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
       return a.store_name.localeCompare(b.store_name)
     })
   }, [routeArea, storesWithLocations])
+
+  const routeSelectedStoreList = useMemo(() => {
+    const byId = new Map(storesInRouteArea.map((store) => [store.id, store]))
+    return Array.from(routeSelectedStores)
+      .map((storeId) => byId.get(storeId))
+      .filter((store): store is Store => Boolean(store))
+  }, [routeSelectedStores, storesInRouteArea])
 
   // Get stores with planned dates, grouped by manager + planned date.
   const plannedRoutes = useMemo(() => {
@@ -576,6 +584,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
     setRouteArea(area)
     setRouteSelectedStores(new Set()) // Clear selections when area changes
     setOptimizationSummary(null)
+    setRouteValidationHint(null)
   }
 
   const handleRouteStoreToggle = (storeId: string) => {
@@ -584,20 +593,26 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
       newSelected.delete(storeId)
     } else {
       if (newSelected.size >= routeStopLimit) {
-        alert(`Maximum ${routeStopLimit} stores per route. Please deselect a store first.`)
+        setRouteValidationHint(`Maximum ${routeStopLimit} stores per route. Deselect a store before adding another.`)
         return
       }
       newSelected.add(storeId)
     }
     setRouteSelectedStores(newSelected)
     setOptimizationSummary(null)
+    setRouteValidationHint(null)
   }
 
   const handleOptimizeRoute = async () => {
     const targetStopCount = Math.min(routeStopLimit, storesInRouteAreaWithLocations.length)
 
-    if (!routeManager || storesInRouteAreaWithLocations.length < 2) {
-      alert('Please select a manager and ensure at least 2 stores are available for optimization.')
+    if (!routeManager) {
+      setRouteValidationHint('Select a manager before requesting an optimal route.')
+      return
+    }
+
+    if (storesInRouteAreaWithLocations.length < 2) {
+      setRouteValidationHint('At least 2 stores with map coordinates are required for optimization.')
       return
     }
 
@@ -605,7 +620,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
     try {
       const manager = profiles.find(p => p.id === routeManager)
       if (!manager) {
-        alert('Manager not found.')
+        setRouteValidationHint('Selected manager was not found. Choose a different manager.')
         setIsOptimizing(false)
         return
       }
@@ -713,19 +728,19 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
 
   const handleCreateRoute = async () => {
     if (!routeManager) {
-      alert('Please select a manager for the route.')
+      setRouteValidationHint('Select a manager before creating the route.')
       return
     }
     if (!routeDate) {
-      alert('Please select a date for the route.')
+      setRouteValidationHint('Select a route date before creating the route.')
       return
     }
     if (routeSelectedStores.size === 0) {
-      alert('Please select at least one store for the route.')
+      setRouteValidationHint('Select at least one store before creating the route.')
       return
     }
     if (routeSelectedStores.size > routeStopLimit) {
-      alert(`Maximum ${routeStopLimit} stores per day. Please select ${routeStopLimit} or fewer stores.`)
+      setRouteValidationHint(`Maximum ${routeStopLimit} stores per day. Deselect stores before creating the route.`)
       return
     }
 
@@ -766,6 +781,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
       setRouteArea(null)
       setRouteSelectedStores(new Set())
       setOptimizationSummary(null)
+      setRouteValidationHint(null)
       
       // Refresh the page data in the background to ensure consistency
       router.refresh()
@@ -844,6 +860,8 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
   const plannedStoreCount = plannedRoutes.reduce((total, route) => total + route.stores.length, 0)
   const managerCount = profiles.length
   const storesInRouteAreaMissingCoordsCount = storesInRouteArea.length - storesInRouteAreaWithLocations.length
+  const canOptimizeRoute = Boolean(routeManager) && storesInRouteAreaWithLocations.length >= 2 && !isOptimizing
+  const canCreateRoute = Boolean(routeManager && routeDate && routeSelectedStores.size > 0 && routeSelectedStores.size <= routeStopLimit && !isCreatingRoute)
 
   return (
     <div className="space-y-6">
@@ -872,6 +890,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
                 <span className="text-[10px] font-bold uppercase md:text-xs">Available Stores</span>
               </div>
               <p className="text-2xl font-bold text-blue-700 md:text-3xl">{availableStoreCount}</p>
+              <p className="mt-1 text-[11px] text-blue-700/70">Unplanned stores eligible for audit routing</p>
             </div>
 
             <div className="flex flex-col justify-between rounded-2xl border border-emerald-100 bg-emerald-50/50 p-4">
@@ -880,6 +899,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
                 <span className="text-[10px] font-bold uppercase md:text-xs">Planned Routes</span>
               </div>
               <p className="text-2xl font-bold text-emerald-700 md:text-3xl">{plannedRouteCount}</p>
+              <p className="mt-1 text-[11px] text-emerald-700/70">Date and manager route groups</p>
             </div>
 
             <div className="flex flex-col justify-between rounded-2xl border border-teal-100 bg-teal-50/50 p-4">
@@ -888,6 +908,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
                 <span className="text-[10px] font-bold uppercase md:text-xs">Planned Stores</span>
               </div>
               <p className="text-2xl font-bold text-teal-700 md:text-3xl">{plannedStoreCount}</p>
+              <p className="mt-1 text-[11px] text-teal-700/70">Stores already assigned to routes</p>
             </div>
 
             <div className="flex flex-col justify-between rounded-2xl border border-amber-100 bg-amber-50/50 p-4">
@@ -917,7 +938,13 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
                 <Home className="h-4 w-4" />
                 Manager
               </label>
-              <Select value={routeManager} onValueChange={setRouteManager}>
+              <Select
+                value={routeManager}
+                onValueChange={(value) => {
+                  setRouteManager(value)
+                  setRouteValidationHint(null)
+                }}
+              >
                 <SelectTrigger className="rounded-xl border-slate-200 bg-slate-50 font-medium text-slate-700">
                   <SelectValue placeholder="Select manager..." />
                 </SelectTrigger>
@@ -929,6 +956,9 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
                   ))}
                 </SelectContent>
               </Select>
+              {!routeManager && routeValidationHint ? (
+                <p className="text-xs font-medium text-rose-600">{routeValidationHint}</p>
+              ) : null}
             </div>
             <div className="space-y-2">
               <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-slate-500">
@@ -1202,9 +1232,9 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
                       variant="default"
                       size="sm"
                       onClick={handleOptimizeRoute}
-                      disabled={isOptimizing}
+                      disabled={!canOptimizeRoute}
                       className="min-h-[44px] w-full rounded-2xl bg-blue-600 text-white shadow-sm shadow-blue-200 hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:rounded-md"
-                      title={`Suggest an optimal ${Math.min(routeStopLimit, storesInRouteAreaWithLocations.length)}-stop route`}
+                      title={routeManager ? `Suggest an optimal ${Math.min(routeStopLimit, storesInRouteAreaWithLocations.length)}-stop route` : 'Select a manager first'}
                     >
                       {isOptimizing ? (
                         <>
@@ -1219,6 +1249,11 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
                       )}
                     </Button>
                   )}
+                  {!routeManager && storesInRouteAreaWithLocations.length >= 2 ? (
+                    <p className="text-xs font-medium text-rose-600 sm:max-w-[220px]">
+                      Select a manager to enable route suggestions.
+                    </p>
+                  ) : null}
                   <Button
                     variant="outline"
                     size="sm"
@@ -1233,6 +1268,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
                         setRouteSelectedStores(new Set(storesInRouteArea.slice(0, maxStores).map(s => s.id)))
                       }
                       setOptimizationSummary(null)
+                      setRouteValidationHint(null)
                     }}
                     className="min-h-[44px] w-full rounded-2xl border-slate-200 bg-white hover:bg-slate-50 sm:w-auto sm:rounded-md"
                   >
@@ -1306,27 +1342,32 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
                   )
                 })}
               </div>
-              <div className="mt-3 pt-3 border-t border-slate-200">
-                <div className="mb-2 flex items-center justify-between">
-                  <span className="text-sm font-medium text-slate-500">
-                    {routeSelectedStores.size > 0 
-                      ? `${routeSelectedStores.size} store${routeSelectedStores.size > 1 ? 's' : ''} selected`
+              <div className="sticky bottom-3 z-20 mt-3 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-lg shadow-slate-200/70 backdrop-blur">
+                <div className="mb-2 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                  <span className="text-sm font-semibold text-slate-800">
+                    {routeSelectedStores.size > 0
+                      ? `${routeSelectedStores.size} of ${routeStopLimit} stops selected`
                       : 'No stores selected'}
                   </span>
-                      {routeSelectedStores.size > 0 && routeSelectedStores.size < routeStopLimit && (
-                        <span className="text-xs text-blue-600">
-                          Tip: You can select up to {routeStopLimit} stores for this route
-                        </span>
-                      )}
-                      {routeSelectedStores.size > routeStopLimit && (
-                        <span className="text-xs text-red-600">
-                          Maximum {routeStopLimit} stores per day. Please deselect some stores.
-                        </span>
-                      )}
+                  <span className={cn('text-xs font-medium', canCreateRoute ? 'text-emerald-700' : 'text-slate-500')}>
+                    {canCreateRoute ? 'Ready to create route' : 'Manager, date and at least one store required'}
+                  </span>
                 </div>
+                {routeSelectedStoreList.length > 0 ? (
+                  <ol className="mb-3 flex flex-wrap gap-1.5">
+                    {routeSelectedStoreList.map((store, index) => (
+                      <li key={store.id} className="rounded-full border border-blue-100 bg-blue-50 px-2 py-1 text-[11px] font-semibold text-blue-800">
+                        {index + 1}. {store.store_name}
+                      </li>
+                    ))}
+                  </ol>
+                ) : null}
+                {routeValidationHint && routeManager ? (
+                  <p className="mb-2 text-xs font-medium text-rose-600">{routeValidationHint}</p>
+                ) : null}
                     <Button
                       onClick={handleCreateRoute}
-                      disabled={isCreatingRoute || routeSelectedStores.size === 0 || routeSelectedStores.size > routeStopLimit}
+                      disabled={!canCreateRoute}
                       className="w-full rounded-xl bg-emerald-500 text-sm font-bold text-white shadow-lg shadow-emerald-200 hover:bg-emerald-600 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none"
                     >
                       {isCreatingRoute ? 'Creating Route...' : `Create Route with ${routeSelectedStores.size} Store${routeSelectedStores.size > 1 ? 's' : ''}`}

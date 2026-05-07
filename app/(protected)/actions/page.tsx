@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Input } from '@/components/ui/input'
 import { ActionsTableRow } from '@/components/shared/actions-table-row'
 import { ActionMobileCard } from '@/components/shared/action-mobile-card'
+import { DateFilterInput } from '@/components/shared/date-filter-input'
 import { Search, CheckSquare2, FileText, Clock, AlertCircle, SlidersHorizontal, CalendarClock, TimerReset } from 'lucide-react'
 import Link from 'next/link'
 import { getInternalAreaDisplayName } from '@/lib/areas'
@@ -26,6 +27,7 @@ type ActionFilters = {
   q?: string
   date_from?: string
   date_to?: string
+  view?: string
 }
 
 type UnifiedAction = {
@@ -37,6 +39,8 @@ type UnifiedAction = {
   priority: string
   due_date: string
   status: string
+  created_at?: string | null
+  updated_at?: string | null
   incident_id: string | null
   incident: { reference_no: string } | null
   assigned_to: { id: string; full_name: string | null } | null
@@ -47,6 +51,8 @@ type UnifiedAction = {
     store_name: string
     store_code: string | null
     region: string | null
+    compliance_audit_1_overall_pct?: number | null
+    compliance_audit_2_overall_pct?: number | null
     compliance_audit_2_assigned_manager_user_id: string | null
   } | null
 }
@@ -491,7 +497,7 @@ async function getActions(filters?: ActionFilters): Promise<{ actions: UnifiedAc
     .from('fa_store_actions')
     .select(`
       *,
-      store:fa_stores!fa_store_actions_store_id_fkey(id, store_name, store_code, region, compliance_audit_2_assigned_manager_user_id)
+      store:fa_stores!fa_store_actions_store_id_fkey(id, store_name, store_code, region, compliance_audit_1_overall_pct, compliance_audit_2_overall_pct, compliance_audit_2_assigned_manager_user_id)
     `)
     .order('due_date', { ascending: true })
 
@@ -637,6 +643,7 @@ export default async function ActionsPage({
     q?: string
     date_from?: string
     date_to?: string
+    view?: string
   }
 }) {
   const { profile } = await requireRole(['admin', 'ops', 'client', 'readonly'])
@@ -653,6 +660,7 @@ export default async function ActionsPage({
     q: searchParams.q?.trim() || undefined,
     date_from: searchParams.date_from || undefined,
     date_to: searchParams.date_to || undefined,
+    view: searchParams.view || undefined,
   }
   const { actions, storeQuestionOptions } = await getActions(filters)
 
@@ -704,8 +712,20 @@ export default async function ActionsPage({
     filters.date_from,
     filters.date_to,
   ].filter(Boolean).length
+  const dateFilterSummary =
+    filters.date_from || filters.date_to
+      ? `Date filter active${filters.date_from ? ` from ${filters.date_from}` : ''}${filters.date_to ? ` to ${filters.date_to}` : ''}`
+      : 'Date filter inactive'
 
   const storeSummaryByActionId = await buildStoreActionSummaryMap(actions)
+
+  const getLatestStoreScore = (action: UnifiedAction): number | null => {
+    const scores = [
+      action.store?.compliance_audit_2_overall_pct,
+      action.store?.compliance_audit_1_overall_pct,
+    ].filter((score): score is number => typeof score === 'number' && Number.isFinite(score))
+    return scores.length > 0 ? scores[0] : null
+  }
 
   const groupedActions = Array.from(
     actions.reduce((groups, action) => {
@@ -735,8 +755,87 @@ export default async function ActionsPage({
     .map(([, value]) => ({
       ...value,
       summaryBullets: value.isStoreGroup ? buildStoreSummaryBullets(value.actions, storeSummaryByActionId) : [],
+      activeCount: value.actions.filter((action) => !['complete', 'cancelled'].includes(action.status)).length,
+      highPriorityCount: value.actions.filter((action) => ['urgent', 'high'].includes(String(action.priority).toLowerCase())).length,
+      nextDueTime: Math.min(
+        ...value.actions
+          .map((action) => new Date(action.due_date).getTime())
+          .filter((time) => Number.isFinite(time))
+      ),
+      lowestComplianceScore: Math.min(
+        ...value.actions
+          .map(getLatestStoreScore)
+          .filter((score): score is number => typeof score === 'number')
+      ),
     }))
-    .sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: 'base' }))
+    .sort((a, b) => {
+      if (filters.view === 'most_actions') {
+        return b.activeCount - a.activeCount || a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: 'base' })
+      }
+      if (filters.view === 'lowest_compliance') {
+        const aScore = Number.isFinite(a.lowestComplianceScore) ? a.lowestComplianceScore : Number.MAX_SAFE_INTEGER
+        const bScore = Number.isFinite(b.lowestComplianceScore) ? b.lowestComplianceScore : Number.MAX_SAFE_INTEGER
+        return aScore - bScore || b.activeCount - a.activeCount
+      }
+      if (filters.view === 'high_priority') {
+        return b.highPriorityCount - a.highPriorityCount || a.nextDueTime - b.nextDueTime
+      }
+      if (filters.view === 'due_soon') {
+        return a.nextDueTime - b.nextDueTime || b.activeCount - a.activeCount
+      }
+      if (filters.view === 'recently_updated') {
+        const latestA = Math.max(
+          ...a.actions
+            .map((action) => new Date(action.updated_at || action.created_at || action.due_date).getTime())
+            .filter((time) => Number.isFinite(time))
+        )
+        const latestB = Math.max(
+          ...b.actions
+            .map((action) => new Date(action.updated_at || action.created_at || action.due_date).getTime())
+            .filter((time) => Number.isFinite(time))
+        )
+        return latestB - latestA || a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: 'base' })
+      }
+      return a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: 'base' })
+    })
+
+  const quickViews = [
+    {
+      id: 'high_priority',
+      title: 'High Priority',
+      count: actions.filter((action) => ['urgent', 'high'].includes(String(action.priority).toLowerCase()) && !['complete', 'cancelled'].includes(action.status)).length,
+      href: '/actions?view=high_priority',
+      detail: 'High and urgent work first',
+    },
+    {
+      id: 'due_soon',
+      title: 'Due Soon',
+      count: dueSoonCount + dueTodayCount,
+      href: `/actions?view=due_soon&date_from=${today.toISOString().split('T')[0]}&date_to=${nextWeek.toISOString().split('T')[0]}`,
+      detail: 'Due today through next 7 days',
+    },
+    {
+      id: 'most_actions',
+      title: 'Most Actions',
+      count: groupedActions.filter((group) => group.activeCount > 0).length,
+      href: '/actions?view=most_actions',
+      detail: 'Stores with the largest active workload',
+    },
+    {
+      id: 'lowest_compliance',
+      title: 'Lowest Compliance',
+      count: groupedActions.filter((group) => Number.isFinite(group.lowestComplianceScore)).length,
+      href: '/actions?view=lowest_compliance',
+      detail: 'Action groups sorted by latest audit score',
+    },
+    {
+      id: 'recently_updated',
+      title: 'Recently Updated',
+      count: groupedActions.length,
+      href: '/actions?view=recently_updated',
+      detail: 'Newest action changes first',
+    },
+  ]
 
   return (
     <div className="flex min-h-screen flex-col gap-6 bg-slate-50 px-4 py-5 sm:px-6 lg:px-8">
@@ -816,6 +915,31 @@ export default async function ActionsPage({
         </Card>
       </div>
 
+      <div className="grid gap-2 md:grid-cols-5">
+        {quickViews.map((view) => {
+          const isActive = filters.view === view.id
+          return (
+            <Link
+              key={view.id}
+              href={view.href}
+              className={`rounded-2xl border p-4 transition ${
+                isActive
+                  ? 'border-slate-900 bg-slate-900 text-white shadow-sm'
+                  : 'border-slate-200 bg-white text-slate-800 hover:border-slate-300 hover:bg-slate-50'
+              }`}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-bold">{view.title}</p>
+                <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${isActive ? 'bg-white/15 text-white' : 'bg-slate-100 text-slate-700'}`}>
+                  {view.count}
+                </span>
+              </div>
+              <p className={`mt-1 text-xs ${isActive ? 'text-white/70' : 'text-slate-500'}`}>{view.detail}</p>
+            </Link>
+          )
+        })}
+      </div>
+
       {/* Main Table Card */}
       <Card className="shadow-sm border-slate-200 bg-white overflow-hidden">
         <CardHeader className="border-b bg-slate-50/40 px-4 py-4 md:px-6">
@@ -829,8 +953,15 @@ export default async function ActionsPage({
               ) : null}
             </div>
             <p className="text-xs text-slate-500">
-              Grouped by store/reference. Click a group to open tasks for that store.
+              Grouped by store/reference. Blank date fields mean no date filter is active.
             </p>
+            <div className={`inline-flex w-fit rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+              filters.date_from || filters.date_to
+                ? 'bg-blue-50 text-blue-700 ring-1 ring-blue-200'
+                : 'bg-slate-100 text-slate-500'
+            }`}>
+              {dateFilterSummary}
+            </div>
 
             <form method="get" className="space-y-3 md:hidden">
               <div className="relative">
@@ -893,16 +1024,18 @@ export default async function ActionsPage({
                   </select>
 
                   <div className="grid grid-cols-2 gap-2">
-                    <Input
-                      type="date"
+                    <DateFilterInput
                       name="date_from"
                       defaultValue={searchParams.date_from || ''}
+                      placeholder="From date"
+                      ariaLabel="From date"
                       className="bg-white"
                     />
-                    <Input
-                      type="date"
+                    <DateFilterInput
                       name="date_to"
                       defaultValue={searchParams.date_to || ''}
+                      placeholder="To date"
+                      ariaLabel="To date"
                       className="bg-white"
                     />
                   </div>
@@ -977,16 +1110,18 @@ export default async function ActionsPage({
                 <option value="low">Low</option>
               </select>
 
-              <Input
-                type="date"
+              <DateFilterInput
                 name="date_from"
                 defaultValue={searchParams.date_from || ''}
+                placeholder="From date"
+                ariaLabel="From date"
                 className="bg-white"
               />
-              <Input
-                type="date"
+              <DateFilterInput
                 name="date_to"
                 defaultValue={searchParams.date_to || ''}
+                placeholder="To date"
+                ariaLabel="To date"
                 className="bg-white"
               />
 

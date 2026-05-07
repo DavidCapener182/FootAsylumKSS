@@ -60,6 +60,8 @@ export async function GET(request: NextRequest) {
     }
 
     const planId = String(request.nextUrl.searchParams.get('planId') || '').trim()
+    const documentType = String(request.nextUrl.searchParams.get('document') || '').trim()
+    const isRiskAssessmentPdf = documentType === 'risk-assessment'
 
     if (!planId) {
       return NextResponse.json({ error: 'planId is required' }, { status: 400 })
@@ -68,7 +70,7 @@ export async function GET(request: NextRequest) {
     const protocol = request.headers.get('x-forwarded-proto') || 'http'
     const host = request.headers.get('host') || 'localhost:3000'
     const baseUrl = `${protocol}://${host}`
-    const reportUrl = `${baseUrl}/print/emp-report?planId=${encodeURIComponent(planId)}`
+    const reportUrl = `${baseUrl}/print/emp-report?planId=${encodeURIComponent(planId)}${isRiskAssessmentPdf ? '&document=risk-assessment' : ''}`
     const rawCookieHeader = request.headers.get('cookie')
 
     browser = await launchPuppeteerBrowser()
@@ -139,7 +141,7 @@ export async function GET(request: NextRequest) {
       existingPageStyle?.remove()
       const pageStyle = document.createElement('style')
       pageStyle.id = 'emp-pdf-page-style'
-      pageStyle.textContent = '@page { size: A4; margin: 0; }'
+      pageStyle.textContent = '@page { size: A4; margin: 0; } @page emp-ra-landscape { size: A4 landscape; margin: 0; }'
       document.head.appendChild(pageStyle)
       window.dispatchEvent(new Event('resize'))
     })
@@ -190,7 +192,9 @@ export async function GET(request: NextRequest) {
     await browser.close()
     browser = null
 
-    const filename = /Bar Security Operations Plan/i.test(metadata.title)
+    const filename = isRiskAssessmentPdf
+      ? `${metadata.eventName || metadata.title} - Operational Risk Assessment.pdf`
+      : /Bar Security Operations Plan/i.test(metadata.title)
       ? `${metadata.title}.pdf`
       : getEmpReportFilename(
           metadata.eventName || metadata.title,

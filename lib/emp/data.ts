@@ -13,6 +13,10 @@ import {
   EMP_DEMO_SELECTED_ANNEXES,
 } from '@/lib/emp/demo-plan'
 import {
+  EMP_BUSINESS_TEMPLATE_VALUES,
+  getEmpBusinessTemplatePlanMetadata,
+} from '@/lib/emp/business-template'
+import {
   EMP_MASTER_TEMPLATE_DESCRIPTION,
   EMP_MASTER_TEMPLATE_FIELDS,
   EMP_MASTER_TEMPLATE_SECTIONS,
@@ -526,6 +530,68 @@ export async function createEmpPlan() {
 
   return data.id as string
 }
+
+export async function createEmpPlanFromBusinessTemplate() {
+  const { supabase, profile } = await getEmpUserContext()
+  const template = await ensureEmpTemplateSeededForContext(supabase, profile.id)
+  const metadata = getEmpBusinessTemplatePlanMetadata()
+
+  const nowIso = new Date().toISOString()
+  const { data: createdPlan, error: createPlanError } = await supabase
+    .from('emp_plans')
+    .insert({
+      template_id: template.id,
+      title: metadata.title,
+      event_name: metadata.eventName,
+      status: metadata.status,
+      created_by_user_id: profile.id,
+      updated_by_user_id: profile.id,
+      updated_at: nowIso,
+      document_status: metadata.documentStatus,
+      selected_annexes: metadata.selectedAnnexes,
+      include_kss_profile_appendix: metadata.includeKssProfileAppendix,
+    })
+    .select('id')
+    .single()
+
+  if (createPlanError || !createdPlan) {
+    throwEmpOperationError('Failed to create EMP from business template', createPlanError)
+  }
+
+  const templateGraph = await loadTemplateGraph(supabase, template.id)
+  const upserts = templateGraph.fields
+    .map((field) => {
+      const valueText = clean(EMP_BUSINESS_TEMPLATE_VALUES[field.key])
+      if (!valueText) return null
+
+      return {
+        plan_id: createdPlan.id,
+        field_id: field.id,
+        value_text: valueText,
+        value_source: 'manual',
+        source_document_id: null,
+        source_excerpt: null,
+        updated_by_user_id: profile.id,
+        updated_at: nowIso,
+      }
+    })
+    .filter(Boolean) as Array<Record<string, unknown>>
+
+  if (upserts.length > 0) {
+    const { error: upsertError } = await supabase
+      .from('emp_plan_field_values')
+      .upsert(upserts, { onConflict: 'plan_id,field_id' })
+
+    if (upsertError) {
+      await supabase.from('emp_plans').delete().eq('id', createdPlan.id)
+      throwEmpOperationError('Failed to seed business-template EMP values', upsertError)
+    }
+  }
+
+  return createdPlan.id as string
+}
+
+export const createEmpPlanFromRadioOneTemplate = createEmpPlanFromBusinessTemplate
 
 export async function createEmpDemoPlan() {
   const { supabase, profile } = await getEmpUserContext()

@@ -291,9 +291,9 @@ export default async function GdprPage() {
       <section className="hidden overflow-hidden rounded-2xl border border-slate-200 bg-white md:block">
         <div className="overflow-x-auto">
           <table className="min-w-[1380px] w-full text-left text-sm">
-            <thead className="bg-slate-50">
+            <thead className="sticky top-0 z-20 bg-slate-50 shadow-sm">
               <tr className="border-b border-slate-200 text-xs uppercase tracking-wider text-slate-500">
-                <th className="px-4 py-3 font-semibold">Data Point</th>
+                <th className="sticky left-0 z-30 bg-slate-50 px-4 py-3 font-semibold shadow-[1px_0_0_rgba(148,163,184,0.25)]">Data Point</th>
                 <th className="px-4 py-3 font-semibold">Fields</th>
                 <th className="px-4 py-3 font-semibold">Pages/Features</th>
                 <th className="px-4 py-3 font-semibold">Purpose</th>
@@ -306,7 +306,7 @@ export default async function GdprPage() {
             <tbody>
               {POLICY_ROWS.map((row) => (
                 <tr key={row.dataPoint} className="align-top border-b border-slate-100">
-                  <td className="px-4 py-3 font-semibold text-slate-900">{row.dataPoint}</td>
+                  <td className="sticky left-0 z-10 bg-white px-4 py-3 font-semibold text-slate-900 shadow-[1px_0_0_rgba(148,163,184,0.18)]">{row.dataPoint}</td>
                   <td className="px-4 py-3 text-slate-700">{row.fields}</td>
                   <td className="px-4 py-3 text-slate-700">{row.pages}</td>
                   <td className="px-4 py-3 text-slate-700">{row.purpose}</td>

@@ -12,6 +12,7 @@ import { NewIncidentButton } from '@/components/incidents/new-incident-button'
 import { IncidentMobileCard } from '@/components/incidents/incident-mobile-card'
 import { ClosedIncidentMobileCard } from '@/components/incidents/closed-incident-mobile-card'
 import { LazyIncidentsAnalyticsCharts } from '@/components/incidents/lazy-incidents-analytics-charts'
+import { DateFilterInput } from '@/components/shared/date-filter-input'
 import Link from 'next/link'
 import { Search, AlertTriangle, FileText, Eye, CheckCircle2, SlidersHorizontal, XCircle } from 'lucide-react'
 import { format } from 'date-fns'
@@ -135,6 +136,20 @@ function safeFormat(value: string | null | undefined, pattern: string) {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return '—'
   return format(date, pattern)
+}
+
+function isOpenStatus(value: string | null | undefined) {
+  const status = String(value || '').toLowerCase()
+  return status === 'open' || status === 'under_investigation' || status === 'actions_in_progress'
+}
+
+function isClaimOverdue(claim: any, now = new Date()) {
+  if (!isOpenStatus(claim?.status)) return false
+  if (!claim?.due_date) return false
+  const dueDate = new Date(claim.due_date)
+  if (Number.isNaN(dueDate.getTime())) return false
+  dueDate.setHours(23, 59, 59, 999)
+  return dueDate < now
 }
 
 function parseFilterYear(value?: string) {
@@ -325,7 +340,15 @@ async function getClosedIncidents(filters?: IncidentFilters) {
       return bDate - aDate
     })
 
-  return enriched
+  return enriched.sort((a: any, b: any) => {
+    const aOverdue = isClaimOverdue(a) ? 1 : 0
+    const bOverdue = isClaimOverdue(b) ? 1 : 0
+    if (aOverdue !== bOverdue) return bOverdue - aOverdue
+    const aDue = a?.due_date ? new Date(a.due_date).getTime() : Number.MAX_SAFE_INTEGER
+    const bDue = b?.due_date ? new Date(b.due_date).getTime() : Number.MAX_SAFE_INTEGER
+    if (Number.isFinite(aDue) && Number.isFinite(bDue) && aDue !== bDue) return aDue - bDue
+    return new Date(b.received_date || 0).getTime() - new Date(a.received_date || 0).getTime()
+  })
 }
 
 async function getAvailableIncidentYears() {
@@ -548,7 +571,12 @@ export default async function IncidentsPage({
   const allIncidents = [...incidents, ...closedIncidents]
   const riddorIncidents = [...incidents, ...closedIncidents]
     .filter((incident: any) => incident.riddor_reportable)
-    .sort((a: any, b: any) => new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime())
+    .sort((a: any, b: any) => {
+      const aNeedsAttention = isOpenStatus(a.status) || !investigationMap.get(a.id)?.status ? 1 : 0
+      const bNeedsAttention = isOpenStatus(b.status) || !investigationMap.get(b.id)?.status ? 1 : 0
+      if (aNeedsAttention !== bNeedsAttention) return bNeedsAttention - aNeedsAttention
+      return new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime()
+    })
 
   // Calculate stats
   const totalIncidents = allIncidents.length
@@ -563,6 +591,10 @@ export default async function IncidentsPage({
     filters.date_from,
     filters.date_to,
   ].filter(Boolean).length
+  const dateFilterSummary =
+    filters.date_from || filters.date_to
+      ? `Date filter active${filters.date_from ? ` from ${filters.date_from}` : ''}${filters.date_to ? ` to ${filters.date_to}` : ''}`
+      : 'Date filter inactive'
 
   const getValidDate = (value: string | null | undefined) => {
     if (!value) return null
@@ -734,6 +766,10 @@ export default async function IncidentsPage({
   const monthKeysWithIncidents = new Set(incidentRows.map((entry) => toMonthKey(entry.date)))
   const monthlyAverage = monthKeysWithIncidents.size > 0 ? Number((totalIncidents / monthKeysWithIncidents.size).toFixed(1)) : 0
   const openClaimsCount = claims.filter((claim: any) => String(claim.status || '').toLowerCase() === 'open').length
+  const overdueClaimsCount = claims.filter((claim: any) => isClaimOverdue(claim, now)).length
+  const riddorNeedsAttentionCount = riddorIncidents.filter((incident: any) => {
+    return isOpenStatus(incident.status) || !investigationMap.get(incident.id)?.status
+  }).length
 
   const topRootCauseSummary = rootCauseData.length > 0
     ? rootCauseData.slice(0, 3).map((item) => `${item.name} (${item.value})`).join(', ')
@@ -824,19 +860,22 @@ export default async function IncidentsPage({
                 </select>
 
                 <div className="grid grid-cols-2 gap-2">
-                  <Input
-                    type="date"
+                  <DateFilterInput
                     name="date_from"
                     defaultValue={searchParams.date_from || ''}
+                    placeholder="From date"
+                    ariaLabel="From date"
                     className="bg-white"
                   />
-                  <Input
-                    type="date"
+                  <DateFilterInput
                     name="date_to"
                     defaultValue={searchParams.date_to || ''}
+                    placeholder="To date"
+                    ariaLabel="To date"
                     className="bg-white"
                   />
                 </div>
+                <p className="text-xs text-slate-500">Blank date fields mean no date filter is active.</p>
 
                 <div className="grid grid-cols-2 gap-2">
                   <Button type="submit" className="w-full">
@@ -897,16 +936,18 @@ export default async function IncidentsPage({
               ))}
             </select>
 
-            <Input
-              type="date"
+            <DateFilterInput
               name="date_from"
               defaultValue={searchParams.date_from || ''}
+              placeholder="From date"
+              ariaLabel="From date"
               className="bg-white"
             />
-            <Input
-              type="date"
+            <DateFilterInput
               name="date_to"
               defaultValue={searchParams.date_to || ''}
+              placeholder="To date"
+              ariaLabel="To date"
               className="bg-white"
             />
 
@@ -919,6 +960,13 @@ export default async function IncidentsPage({
               </Button>
             </div>
           </form>
+          <div className={`mt-3 inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+            filters.date_from || filters.date_to
+              ? 'bg-blue-50 text-blue-700 ring-1 ring-blue-200'
+              : 'bg-slate-100 text-slate-500'
+          }`}>
+            {dateFilterSummary}
+          </div>
         </CardContent>
       </Card>
 
@@ -927,28 +975,28 @@ export default async function IncidentsPage({
           <CardContent className="p-3 md:p-4">
             <p className="text-xs text-slate-500">Accidents (Month)</p>
             <p className="text-2xl font-bold text-slate-900 mt-2">{accidentsMonth}</p>
-            <p className="text-xs text-slate-500 mt-1">{formatDelta(accidentsMonthDelta)} vs previous month</p>
+            <p className="text-xs text-slate-500 mt-1">Current calendar month; {formatDelta(accidentsMonthDelta)} vs previous month</p>
           </CardContent>
         </Card>
         <Card className="rounded-2xl border-slate-200 border-l-4 border-l-amber-500 shadow-sm">
           <CardContent className="p-3 md:p-4">
             <p className="text-xs text-slate-500">Accidents (YTD)</p>
             <p className="text-2xl font-bold text-slate-900 mt-2">{accidentsYtd}</p>
-            <p className="text-xs text-slate-500 mt-1">{formatDelta(accidentsYtdDelta)} vs prior YTD</p>
+            <p className="text-xs text-slate-500 mt-1">Current financial year; {formatDelta(accidentsYtdDelta)} vs prior YTD</p>
           </CardContent>
         </Card>
         <Card className="rounded-2xl border-slate-200 border-l-4 border-l-red-500 shadow-sm">
           <CardContent className="p-3 md:p-4">
             <p className="text-xs text-slate-500">RIDDOR (Month)</p>
             <p className="text-2xl font-bold text-slate-900 mt-2">{riddorMonth}</p>
-            <p className="text-xs text-slate-500 mt-1">Reportable this month</p>
+            <p className="text-xs text-slate-500 mt-1">Reportable in current month</p>
           </CardContent>
         </Card>
         <Card className="rounded-2xl border-slate-200 border-l-4 border-l-teal-600 shadow-sm">
           <CardContent className="p-3 md:p-4">
             <p className="text-xs text-slate-500">RIDDOR (YTD)</p>
             <p className="text-2xl font-bold text-slate-900 mt-2">{riddorYtd}</p>
-            <p className="text-xs text-slate-500 mt-1">Total reportable</p>
+            <p className="text-xs text-slate-500 mt-1">Reportable in current financial year</p>
           </CardContent>
         </Card>
         <Card className="rounded-2xl border-slate-200 border-l-4 border-l-emerald-600 shadow-sm">
@@ -1425,11 +1473,18 @@ export default async function IncidentsPage({
       {/* RIDDOR Register */}
       <Card className="overflow-hidden rounded-2xl border-red-100 bg-white shadow-sm">
         <CardHeader className="border-b border-red-100 bg-red-50/50 px-6 py-4">
-          <div className="flex items-center justify-between gap-4">
-            <CardTitle className="text-base font-semibold text-red-800">RIDDOR Incidents</CardTitle>
-            <Badge variant="destructive" className="font-semibold">
-              {riddorIncidents.length} Total
-            </Badge>
+            <div className="flex items-center justify-between gap-4">
+              <CardTitle className="text-base font-semibold text-red-800">RIDDOR Incidents</CardTitle>
+            <div className="flex items-center gap-2">
+              {riddorNeedsAttentionCount > 0 ? (
+                <Badge variant="destructive" className="font-semibold">
+                  {riddorNeedsAttentionCount} need attention
+                </Badge>
+              ) : null}
+              <Badge variant="outline" className="font-semibold">
+                {riddorIncidents.length} total
+              </Badge>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="p-0">
@@ -1454,8 +1509,10 @@ export default async function IncidentsPage({
                     </TableCell>
                   </TableRow>
                 ) : (
-                  riddorIncidents.map((incident: any) => (
-                    <TableRow key={`riddor-${incident.id}`} className="bg-red-50/20">
+                  riddorIncidents.map((incident: any) => {
+                    const needsAttention = isOpenStatus(incident.status) || !investigationMap.get(incident.id)?.status
+                    return (
+                    <TableRow key={`riddor-${incident.id}`} className={needsAttention ? 'bg-red-50/40' : 'bg-red-50/20'}>
                       <TableCell className="text-sm text-slate-700">
                         {safeFormat(incident.occurred_at, 'dd MMM yyyy')}
                       </TableCell>
@@ -1481,7 +1538,7 @@ export default async function IncidentsPage({
                         {investigationMap.get(incident.id)?.status ? (
                           <StatusBadge status={investigationMap.get(incident.id)?.status as any} type="investigation" />
                         ) : (
-                          <span className="text-xs text-slate-400">Not started</span>
+                          <Badge variant="destructive" className="text-[10px]">Not started</Badge>
                         )}
                       </TableCell>
                       <TableCell className="max-w-[280px]">
@@ -1490,7 +1547,8 @@ export default async function IncidentsPage({
                         </span>
                       </TableCell>
                     </TableRow>
-                  ))
+                    )
+                  })
                 )}
               </TableBody>
             </Table>
@@ -1533,6 +1591,11 @@ export default async function IncidentsPage({
           <div className="flex items-center justify-between gap-3">
             <CardTitle className="text-base font-semibold text-slate-800">Insurance Claims Register</CardTitle>
             <div className="flex items-center gap-2">
+              {overdueClaimsCount > 0 ? (
+                <Badge variant="destructive">
+                  {overdueClaimsCount} Overdue
+                </Badge>
+              ) : null}
               <Badge variant="default" className="bg-blue-50 text-blue-700">
                 {claims.filter((claim: any) => String(claim.status || '').toLowerCase() === 'open').length} Open
               </Badge>
@@ -1568,8 +1631,9 @@ export default async function IncidentsPage({
                 ) : (
                   claims.map((claim: any) => {
                     const evidence = countClaimEvidenceItems(claim)
+                    const overdue = isClaimOverdue(claim, now)
                     return (
-                      <TableRow key={claim.id}>
+                      <TableRow key={claim.id} className={overdue ? 'bg-rose-50/60' : undefined}>
                         <TableCell className="text-sm text-slate-700">
                           {safeFormat(claim.received_date, 'dd MMM yyyy')}
                         </TableCell>
@@ -1592,10 +1656,10 @@ export default async function IncidentsPage({
                         </TableCell>
                         <TableCell>
                           <Badge
-                            variant={String(claim.status || '').toLowerCase() === 'open' ? 'default' : 'secondary'}
-                            className={String(claim.status || '').toLowerCase() === 'open' ? 'bg-blue-50 text-blue-700' : undefined}
+                            variant={overdue ? 'destructive' : String(claim.status || '').toLowerCase() === 'open' ? 'default' : 'secondary'}
+                            className={!overdue && String(claim.status || '').toLowerCase() === 'open' ? 'bg-blue-50 text-blue-700' : undefined}
                           >
-                            {claim.status || 'Unknown'}
+                            {overdue ? 'Overdue' : claim.status || 'Unknown'}
                           </Badge>
                         </TableCell>
                         <TableCell>
@@ -1620,7 +1684,7 @@ export default async function IncidentsPage({
                         <TableCell className="max-w-[220px]">
                           <span className="truncate block text-sm text-slate-700">{claim.next_action || '—'}</span>
                         </TableCell>
-                        <TableCell className="text-sm text-slate-700">
+                        <TableCell className={overdue ? 'text-sm font-bold text-rose-700' : 'text-sm text-slate-700'}>
                           {safeFormat(claim.due_date, 'dd MMM yyyy')}
                         </TableCell>
                       </TableRow>
@@ -1637,8 +1701,9 @@ export default async function IncidentsPage({
             ) : (
               claims.map((claim: any) => {
                 const evidence = countClaimEvidenceItems(claim)
+                const overdue = isClaimOverdue(claim, now)
                 return (
-                  <Card key={`claim-mobile-${claim.id}`} className="border-slate-200">
+                  <Card key={`claim-mobile-${claim.id}`} className={overdue ? 'border-rose-200 bg-rose-50/60' : 'border-slate-200'}>
                     <CardContent className="p-3 space-y-2">
                       <div className="flex items-start justify-between gap-2">
                         <div>
@@ -1647,8 +1712,8 @@ export default async function IncidentsPage({
                             <p className="text-[11px] text-slate-500">Incident: {claim.incident_reference}</p>
                           ) : null}
                         </div>
-                        <Badge variant={String(claim.status || '').toLowerCase() === 'open' ? 'default' : 'secondary'}>
-                          {claim.status || 'Unknown'}
+                        <Badge variant={overdue ? 'destructive' : String(claim.status || '').toLowerCase() === 'open' ? 'default' : 'secondary'}>
+                          {overdue ? 'Overdue' : claim.status || 'Unknown'}
                         </Badge>
                       </div>
                       <p className="text-sm font-medium text-slate-900">{claim.fa_stores?.store_name || 'Unknown Store'}</p>
@@ -1657,7 +1722,7 @@ export default async function IncidentsPage({
                         <Badge variant="outline" className="text-[10px]">{claim.claimant_type || 'Unknown'}</Badge>
                         <span className="text-[11px] text-slate-500">Evidence {evidence.percent}%</span>
                       </div>
-                      <div className="text-[11px] text-slate-500">
+                      <div className={overdue ? 'text-[11px] font-bold text-rose-700' : 'text-[11px] text-slate-500'}>
                         Due {safeFormat(claim.due_date, 'dd MMM yyyy')}
                       </div>
                     </CardContent>

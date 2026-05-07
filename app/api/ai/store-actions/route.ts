@@ -18,7 +18,7 @@ interface ParsedFlaggedItem {
   context: string
 }
 
-const REVIEW_MONTH_OFFSET = 6
+const REVIEW_MONTH_OFFSET = 3
 const NON_ACTIONABLE_STORE_QUESTIONS = new Set<string>([
   'Young persons?',
   'Expectant mothers?',

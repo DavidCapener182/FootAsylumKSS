@@ -16,11 +16,11 @@ export function KpiGrid({ data }: { data: DashboardData }) {
 
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-      <KpiCard title="Stores Audited" value={`${firstAuditsComplete} / ${totalStores}`} subtitle={`${firstAuditPercentage}% of stores audited`} icon={Store} tone="success" progress={firstAuditPercentage} />
-      <KpiCard title="Second Audits Required" value={secondAuditsRequired} subtitle={`${percent(secondAuditsRequired, totalStores)}% of stores`} icon={ShieldCheck} tone="info" />
-      <KpiCard title="FRA In-Date Coverage" value={`${fraCoverage}%`} subtitle="Target: 90%" icon={Clock} tone="teal" progress={fraCoverage} />
-      <KpiCard title="Overdue Actions" value={overdueActions} subtitle="Requires attention" icon={AlertCircle} tone="danger" />
-      <KpiCard title="Planned Visits" value={plannedVisits} subtitle="This month" icon={CalendarDays} tone="info" />
+      <KpiCard title="Stores Audited" value={`${firstAuditsComplete} / ${totalStores}`} subtitle="Active stores counted in the audit tracker" icon={Store} tone="success" progress={firstAuditPercentage} />
+      <KpiCard title="Second Audits Required" value={secondAuditsRequired} subtitle={`${percent(secondAuditsRequired, totalStores)}% of active stores`} icon={ShieldCheck} tone="info" />
+      <KpiCard title="FRA In-Date Coverage" value={`${fraCoverage}%`} subtitle="Stores requiring FRA; target 90%" icon={Clock} tone="teal" progress={fraCoverage} />
+      <KpiCard title="Overdue Actions" value={overdueActions} subtitle="Open actions past due date" icon={AlertCircle} tone="danger" />
+      <KpiCard title="Planned Visits" value={plannedVisits} subtitle="Route groups planned this month" icon={CalendarDays} tone="info" />
     </div>
   )
 }

@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { User, X } from 'lucide-react'
@@ -171,9 +170,8 @@ export function SidebarClient({ userRole, userProfile }: SidebarClientProps) {
                     {item.label}
                   </a>
                 ) : (
-                  <Link
+                  <a
                     href={item.href}
-                    prefetch={false}
                     onClick={() => setIsOpen(false)}
                     className={cn(
                       'flex min-h-[52px] items-center gap-3 px-4 py-3 text-[15px] font-medium transition-all md:min-h-[48px] md:rounded-2xl md:text-sm',
@@ -184,7 +182,7 @@ export function SidebarClient({ userRole, userProfile }: SidebarClientProps) {
                   >
                     <Icon className={cn('h-5 w-5 flex-shrink-0', isActive ? 'text-slate-900 md:text-slate-900' : 'text-slate-400 md:text-white/70')} />
                     {item.label}
-                  </Link>
+                  </a>
                 )}
               </li>
             )

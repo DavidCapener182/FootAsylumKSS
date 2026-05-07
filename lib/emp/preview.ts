@@ -41,6 +41,8 @@ export type EmpPreviewBlock =
   | {
       type: 'diagram'
       variant: 'bar_queue_flow'
+      title?: string
+      imageUrl?: string
       lanes: string[]
       controls: string[]
     }
@@ -87,12 +89,36 @@ export interface EmpPreviewAnnex {
 const RADIO_ONE_PLAN_TITLE = 'KSS NW LTD Bar Security Operations Plan - BBC Radio 1 Big Weekend Sunderland 2026'
 const RADIO_ONE_TBC = 'TBC - final Peppermint/KSS deployment required before issue'
 
+export interface EmpRiskAssessmentRow {
+  hazard: string
+  location: string
+  severity: '1' | '2' | '3'
+  personsAffected: string
+  controlMeasures: string
+  likelihood: '1' | '2' | '3'
+  rpn: '1' | '2' | '3' | '4' | '6' | '9'
+  rating: 'Low (Green)' | 'Medium (Amber)' | 'High (Red)'
+}
+
+export interface EmpRiskAssessmentModel {
+  activity: string
+  eventName: string
+  referenceNo: string
+  location: string
+  assessmentDate: string
+  assessors: string
+  reviewDate: string
+  footerTitle: string
+  rows: EmpRiskAssessmentRow[]
+}
+
 export interface EmpPreviewModel {
   title: string
   subtitle: string
   coverRows: Array<{ label: string; value: string }>
   sections: EmpPreviewSection[]
   annexes: EmpPreviewAnnex[]
+  riskAssessment?: EmpRiskAssessmentModel
 }
 
 const FIXED_OBJECTIVES = [
@@ -135,6 +161,10 @@ function isRadioOneBarPlan(fieldValues: Record<string, EmpResolvedFieldValue>, s
   return selectedAnnexes.includes('bar_operations') && /Radio 1|Big Weekend|R1BW/i.test(eventAndTitle)
 }
 
+function isRadioOneEvent(fieldValues: Record<string, EmpResolvedFieldValue>) {
+  return /Radio 1|Big Weekend|R1BW/i.test(`${getValue(fieldValues, 'event_name')} ${getValue(fieldValues, 'plan_title')}`)
+}
+
 function getEffectiveSelectedAnnexes(fieldValues: Record<string, EmpResolvedFieldValue>, selectedAnnexes: string[]) {
   if (!isRadioOneBarPlan(fieldValues, selectedAnnexes)) return selectedAnnexes
   return selectedAnnexes.filter((annexKey) => !RADIO_ONE_EXCLUDED_ANNEXES.has(annexKey as EmpAnnexKey))
@@ -156,6 +186,53 @@ function splitLines(value: string | null | undefined) {
     .split('\n')
     .map((item) => item.trim())
     .filter(Boolean)
+}
+
+function formatLongDate(value: string) {
+  const cleaned = clean(value)
+  if (!cleaned) return ''
+
+  const date = new Date(`${cleaned}T00:00:00`)
+  if (Number.isNaN(date.getTime())) return cleaned
+
+  return new Intl.DateTimeFormat('en-GB', {
+    weekday: 'long',
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+  }).format(date)
+}
+
+function formatDateOneYearLater(value: string) {
+  const cleaned = clean(value)
+  if (!cleaned) return ''
+
+  const date = new Date(`${cleaned}T00:00:00`)
+  if (Number.isNaN(date.getTime())) return ''
+
+  date.setFullYear(date.getFullYear() + 1)
+  return new Intl.DateTimeFormat('en-GB', {
+    weekday: 'long',
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+  }).format(date)
+}
+
+function compactReferencePart(value: string) {
+  return clean(value)
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '')
+    .slice(0, 18)
+}
+
+function buildRiskAssessmentReference(fieldValues: Record<string, EmpResolvedFieldValue>) {
+  const explicitReference = compactReferencePart(getValue(fieldValues, 'venue_reference'))
+  if (explicitReference && explicitReference.length >= 6) return `KSSFERA-${explicitReference}`
+
+  const eventPart = compactReferencePart(getValue(fieldValues, 'event_name')) || 'EVENT'
+  const datePart = clean(getValue(fieldValues, 'issue_date')).replace(/[^0-9]/g, '')
+  return `KSSFERA-${eventPart}${datePart ? `-${datePart}` : ''}`
 }
 
 function splitDashParts(line: string) {
@@ -400,46 +477,104 @@ function buildEventSiteMapBlocks(fieldValues: Record<string, EmpResolvedFieldVal
   }]
 }
 
+function queueManagementDiagramTitle(fieldValues: Record<string, EmpResolvedFieldValue>) {
+  const areaLabel = clean(getValue(fieldValues, 'ingress_routes_holding_areas'))
+    || clean(getValue(fieldValues, 'venue_name'))
+    || clean(getValue(fieldValues, 'event_name'))
+    || 'Event / area'
+
+  if (isRadioOnePlan(fieldValues)) return 'Radio 1 Bar - Queue Management Plan'
+  return `${summarizeText(areaLabel, 54)} - Queue Management Plan`
+}
+
 function radioOneCommandRows() {
   return [
     ['KSS Operational Lead', 'Floyd Allen', 'Overall KSS operational lead, strategic liaison, deployment sign-off and serious incident escalation.'],
     ['KSS Operational Support', 'David Capener', 'Operational support, documentation, supervisor support and liaison with Peppermint/FAB where directed.'],
-    ['KSS Event Control / Logger', 'TBC', 'KSS log, refusals, incidents, welfare, ejections and close-down status.'],
-    ['KSS Response Supervisor', 'TBC', 'Response team coordination for bars.'],
-    ['Bar Supervisors', 'TBC', 'Bar-level queue, staff and escalation control.'],
+    ['KSS Event Control / Logger', 'David Capener', 'KSS log, refusals, incidents, welfare, ejections and close-down status.'],
+    ['KSS Response Supervisor', 'Floyd Allen / David Capener', 'Response team coordination for bars.'],
+    ['Bar Supervisors', 'Named KSS bar supervisors', 'Bar-level queue, staff and escalation control.'],
   ]
 }
 
-function radioOneContactRows() {
+function normalizeContactRole(value: string) {
+  return clean(value).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+}
+
+function buildContactLookup(fieldValues: Record<string, EmpResolvedFieldValue>) {
+  const lookup = new Map<string, string>()
+  const sourceRows = [
+    ...parseThreeColumnLines(getValue(fieldValues, 'key_contacts_directory')),
+    ...parseThreeColumnLines(getValue(fieldValues, 'contact_directory')),
+    ...parseThreeColumnLines(getValue(fieldValues, 'named_command_roles')),
+  ]
+
+  sourceRows.forEach(([role, name]) => {
+    const normalizedRole = normalizeContactRole(role)
+    const normalizedName = clean(name)
+    if (!normalizedRole || !normalizedName || /^name$/i.test(normalizedName)) return
+    lookup.set(normalizedRole, normalizedName)
+  })
+
+  return lookup
+}
+
+function contactName(
+  lookup: Map<string, string>,
+  aliases: string[],
+  fallback: string
+) {
+  const normalizedAliases = aliases.map(normalizeContactRole)
+  for (const [role, name] of lookup) {
+    if (normalizedAliases.some((alias) => role.includes(alias) || alias.includes(role))) {
+      return name
+    }
+  }
+  return fallback
+}
+
+function radioOneContactRows(fieldValues: Record<string, EmpResolvedFieldValue>) {
+  const contacts = buildContactLookup(fieldValues)
+  const dpsName = clean(getValue(fieldValues, 'dps_name')) || 'Jon Reid'
+
   return [
-    ['Event Director Gold', 'TBC', 'Strategic event command route.'],
-    ['Event Director Silver', 'TBC', 'Tactical event command route.'],
-    ['Event Manager', 'TBC', 'Event Bronze / event management interface.'],
-    ['Event Control Manager', 'TBC', 'Event Control coordination and escalation route.'],
+    ['Event Director Gold', contactName(contacts, ['Event Director Gold', 'Event Director/Event Gold'], 'Jess Shields'), 'Strategic event command route.'],
+    ['Event Director Silver', contactName(contacts, ['Event Director Silver', 'Event Director/Event Silver'], 'Jack May'), 'Tactical event command route.'],
+    ['Event Manager', contactName(contacts, ['Event Manager', 'Event Manager/Event Bronze'], 'Philly Proctor'), 'Event Bronze / event management interface.'],
+    ['Event Control Manager', contactName(contacts, ['Event Control Manager', 'Event Controller', 'Control Manager'], 'Event Control'), 'Event Control coordination and escalation route.'],
     ['Event Control phone', '0203 475 0711', 'Primary Event Control contact.'],
     ['KSS Operational Lead', 'Floyd Allen', 'Overall KSS operational lead.'],
     ['KSS Operational Support', 'David Capener', 'Operational support and documentation.'],
-    ['KSS Event Control / Logger', 'TBC', 'KSS log, refusals, incidents, welfare, ejections and close-down.'],
-    ['KSS Response Supervisor', 'TBC', 'Response team coordination.'],
-    ['Bar Supervisors', 'TBC', 'Bar-level queue, staff and escalation control.'],
+    ['KSS Event Control / Logger', contactName(contacts, ['KSS Event Control', 'Event Controller / Loggist', 'Loggist'], 'David Capener'), 'KSS log, refusals, incidents, welfare, ejections and close-down.'],
+    ['KSS Response Supervisor', contactName(contacts, ['KSS Response Supervisor', 'Response Supervisor'], 'Floyd Allen / David Capener'), 'Response team coordination.'],
+    ['Bar Supervisors', contactName(contacts, ['Bar Supervisors', 'Bar Supervisor'], 'Named KSS bar supervisors'), 'Bar-level queue, staff and escalation control.'],
     ['Bar operator', 'Peppermint Bars', 'Bar operation and alcohol service management.'],
-    ['DPS', 'Jon Reid', 'Designated premises supervisor.'],
-    ['Security Manager', 'Mark Logan - FAB', 'Event security management interface.'],
-    ['Assistant Security Manager', 'Dan Perry - Showsec', 'Security support interface.'],
-    ['Licensing Manager', 'Sarah Tschentscher - FAB', 'Licensing interface.'],
-    ['Medical provider lead', 'TBC', 'Medical escalation route via Event Control.'],
-    ['Welfare lead', 'TBC', 'Welfare escalation route via Event Control.'],
-    ['Accessibility lead', 'TBC', 'Accessibility support route via Event Control.'],
-    ['Peppermint Bars duty manager', 'TBC', 'Live bar operations duty lead.'],
-    ['Police liaison', 'TBC', 'Police route if confirmed by the event.'],
+    ['DPS', dpsName, 'Designated premises supervisor.'],
+    ['Security Manager', contactName(contacts, ['Security Manager'], 'Mark Logan - FAB'), 'Event security management interface.'],
+    ['Assistant Security Manager', contactName(contacts, ['Assistant Security Manager'], 'Dan Perry - Showsec'), 'Security support interface.'],
+    ['Licensing Manager', contactName(contacts, ['Licensing Manager', 'Licensing Manager / Event Bronze'], 'Sarah Tschentscher - FAB'), 'Licensing interface.'],
+    ['Medical provider lead', contactName(contacts, ['Medical provider lead', 'Medical lead'], 'Via Event Control'), 'Medical escalation route via Event Control.'],
+    ['Welfare lead', contactName(contacts, ['Welfare lead', 'Safeguarding lead'], 'Via Event Control'), 'Welfare escalation route via Event Control.'],
+    ['Accessibility lead', contactName(contacts, ['Accessibility lead'], 'Via Event Control'), 'Accessibility support route via Event Control.'],
+    ['Peppermint Bars duty manager', contactName(contacts, ['Peppermint Bars duty manager', 'Bar operator'], 'Peppermint Bars'), 'Live bar operations duty lead.'],
+    ['Police liaison', contactName(contacts, ['Police liaison'], 'Via Event Control'), 'Police route if confirmed by the event.'],
   ]
 }
 
-function radioOneVersionRows() {
+function radioOneVersionRows(fieldValues: Record<string, EmpResolvedFieldValue>) {
+  const currentVersion = clean(getValue(fieldValues, 'document_version')) || 'V1'
+  const currentDate = clean(getValue(fieldValues, 'issue_date')) || '30/04/2026'
+  const currentAuthor = clean(getValue(fieldValues, 'author_name')) || 'David Capener'
+  const currentApproval = getRadioOneIssueStatus(fieldValues)
+
   return [
-    ['V0.6', '30/04/2026', 'David Capener', 'Bar-security scope update, staffing table, Challenge 25 and R1BW alignment.', 'Draft'],
-    ['V0.7', 'TBC', 'David Capener / Floyd Allen', 'Add Alcohol Management Plan, final deployment, call signs and final queue drawings.', 'Pending'],
+    [currentVersion, currentDate, currentAuthor, 'Issued version for submission, including final bar-security scope, staffing table, Challenge 25 and R1BW alignment.', currentApproval],
   ]
+}
+
+function getRadioOneIssueStatus(fieldValues: Record<string, EmpResolvedFieldValue>) {
+  const currentStatus = clean(getValue(fieldValues, 'document_status'))
+  return currentStatus && !/^v\d+(?:\.\d+)?$/i.test(currentStatus) ? currentStatus : 'Final'
 }
 
 function radioOneIncludedExcludedRows() {
@@ -652,6 +787,88 @@ function radioOneBriefingSignOffRows() {
   ]
 }
 
+function riskRow(
+  hazard: string,
+  location: string,
+  severity: EmpRiskAssessmentRow['severity'],
+  personsAffected: string,
+  controlMeasures: string,
+  likelihood: EmpRiskAssessmentRow['likelihood'],
+  rating: EmpRiskAssessmentRow['rating']
+): EmpRiskAssessmentRow {
+  return {
+    hazard,
+    location,
+    severity,
+    personsAffected,
+    controlMeasures,
+    likelihood,
+    rpn: String(Number(severity) * Number(likelihood)) as EmpRiskAssessmentRow['rpn'],
+    rating,
+  }
+}
+
+function buildEmpOperationalRiskAssessment(fieldValues: Record<string, EmpResolvedFieldValue>): EmpRiskAssessmentModel {
+  const eventName = clean(getValue(fieldValues, 'event_name')) || 'Event'
+  const venueName = clean(getValue(fieldValues, 'venue_name')) || 'Event site'
+  const barAreas = summarizeText(clean(getValue(fieldValues, 'controlled_areas')) || 'Allocated bars and bar queue areas', 95)
+  const queueAreas = summarizeText(clean(getValue(fieldValues, 'ingress_routes_holding_areas')) || 'Bar queues and public crossflow zones', 95)
+  const externalAreas = clean(getValue(fieldValues, 'venue_address')) || venueName
+  const issueDate = clean(getValue(fieldValues, 'issue_date'))
+  const assessmentDate = formatLongDate(issueDate) || issueDate || 'TBC'
+  const formattedReviewDate = formatDateOneYearLater(issueDate) || 'TBC'
+  const author = clean(getValue(fieldValues, 'author_name')) || 'David Capener'
+  const assessors = /Radio 1|Big Weekend|R1BW/i.test(eventName) ? 'Floyd Allen' : author
+  const year = (issueDate.match(/\b(20\d{2})\b/) || eventName.match(/\b(20\d{2})\b/) || [])[1] || ''
+
+  return {
+    activity: `${eventName} - Operational Risk Assessment`,
+    eventName,
+    referenceNo: buildRiskAssessmentReference(fieldValues),
+    location: venueName,
+    assessmentDate,
+    assessors,
+    reviewDate: formattedReviewDate,
+    footerTitle: `KSS NW LTD | ${eventName} - Operational Risk Assessment${year ? ` ${year}` : ''}`,
+    rows: [
+      riskRow('High-volume queuing and congestion', queueAreas, '3', 'Patrons, KSS, bar staff', 'Managed lanes, queue marshals, wait-time communication, event-control coordination and continuous KSS supervisor monitoring.', '2', 'Medium (Amber)'),
+      riskRow('Aggression following refusal of service', 'Allocated bars, service points and bar compounds', '3', 'KSS officers, bar staff', 'Challenge 25 refusals logged, de-escalation training, paired officer cover, radio escalation to Event Control and evidence capture where available.', '3', 'High (Red)'),
+      riskRow('Surge pressure during act changeover', 'Arena crossflow zones and bar approaches', '3', 'Patrons, KSS, event security', 'Queue barriers, patrol dispersal, signage rerouting and intelligence-led staffing reinforcement at peak demand periods.', '2', 'Medium (Amber)'),
+      riskRow('Pedestrian / vehicle conflict', 'PUDO zones, crossings, car parks and service routes', '3', 'Patrons, traffic teams, KSS', 'Traffic holds, static crossing officers, barriered lanes, service-route control and escalation to Event Control.', '2', 'Medium (Amber)'),
+      riskRow('Suspicious item or hostile reconnaissance', 'Bar fronts, queue lanes, compounds and external crossings', '3', 'Patrons, KSS, event staff', 'SCaN-trained officers, cordon and report procedure, do-not-touch policy, JESIP escalation route and event log entry.', '2', 'Medium (Amber)'),
+      riskRow('Officer fatigue or dehydration', 'All external posts', '2', 'KSS officers', 'Mandated breaks, shaded rest where available, drinking water, weather briefing and supervisor welfare checks.', '2', 'Medium (Amber)'),
+      riskRow('Lost children or vulnerable patrons', `${venueName}, car parks and external routes`, '3', 'Patrons, safeguarding team', 'Safeguarding protocol, welfare referral, quiet holding areas, Event Control log and escalation to the event safeguarding lead.', '1', 'Low (Green)'),
+      riskRow('Slip, trip or fall incidents', `${externalAreas}, egress lanes and queue routes`, '2', 'Patrons, staff', 'Lighting checks, head torches where required, hazard tape, route inspections and near-miss reporting to Event Control.', '2', 'Medium (Amber)'),
+      riskRow('Prohibited item, alcohol or drugs', 'Bar queues and compounds', '2', 'Patrons, staff', 'Search interface, signage, confiscation logs, ingress search support and escalation to Event Control where required.', '3', 'Medium (Amber)'),
+      riskRow('Underage or proxy alcohol service', 'Licensed bar service points', '3', 'Patrons, bar staff, KSS officers', 'Challenge 25 support, refusal log, supervisor escalation, bar operator liaison and removal of persistent proxy-purchase attempts from the queue area.', '2', 'Medium (Amber)'),
+      riskRow('Intoxication, disorder or assault near bars', 'Bar fronts, queue tails and refusal points', '3', 'Patrons, KSS officers, bar staff', 'Early intervention, paired officer response, de-escalation, evidence preservation, welfare assessment and Event Control or police escalation where required.', '3', 'High (Red)'),
+      riskRow('Queue barrier failure or lane collapse', 'Managed queue lanes and barrier lines', '3', 'Patrons, KSS, bar staff', 'Pre-opening barrier inspection, supervisor monitoring, spare barrier access, immediate lane hold and controlled re-forming of queue lines.', '2', 'Medium (Amber)'),
+      riskRow('Emergency route obstruction by bar queues', 'Emergency routes beside bar queues and service lanes', '3', 'Patrons, emergency services, KSS', 'Queue limits, route checks, barrier adjustment, queue shortening and immediate escalation if emergency access is reduced.', '2', 'Medium (Amber)'),
+      riskRow('Stock or service route conflict', 'Bar back-of-house, stock routes and service gates', '2', 'Bar staff, contractors, KSS, patrons', 'Separate public queues from stock routes, hold public movement during deliveries, maintain supervisor liaison with bar operator and log repeated conflicts.', '2', 'Medium (Amber)'),
+      riskRow('Manual handling or stock movement injury', 'Bar compounds and stock holding areas', '2', 'Bar staff, contractors, KSS', 'Keep KSS staff clear of manual handling unless specifically tasked, protect route integrity, report unsafe loads and escalate unsafe contractor movement.', '2', 'Medium (Amber)'),
+      riskRow('Cash, stock or asset theft', 'Bar compounds, till points and stock storage', '2', 'Bar operator, KSS, contractors', 'Access checks, patrol visibility, close-down handover, incident logging and escalation for suspicious behaviour or unauthorised access.', '2', 'Medium (Amber)'),
+      riskRow('Glass, sharps or broken-item injury', 'Bar fronts, compounds and waste points', '2', 'Patrons, bar staff, KSS', 'Report and isolate broken glass or sharps, request clean-up, prevent public access to affected area and log repeated waste-management issues.', '2', 'Medium (Amber)'),
+      riskRow('Drink spiking, vulnerability or welfare disclosure', 'Bars, queues and refusal/ejection routes', '3', 'Patrons, welfare team, KSS', 'Ask for Angela awareness, preserve privacy, welfare or medical referral, no unmanaged ejection of vulnerable persons and Event Control safeguarding log.', '1', 'Low (Green)'),
+      riskRow('Unauthorised entry to compounds', 'Bar and arena compounds', '3', 'Staff, vendors, contractors', 'Pass checks, three-step challenge, CCTV or patrol support, access logs and escalation for repeated attempts.', '2', 'Medium (Amber)'),
+      riskRow('Heat exhaustion or dehydration', 'Queues and external walk routes', '2', 'Patrons', 'Hydration messaging, welfare referral, first-aid awareness and queue observation during hot weather.', '2', 'Medium (Amber)'),
+      riskRow('Patron distress in queues', 'Managed queue zones', '2', 'Patrons', 'Quick exit lane, calm response, welfare escalation and supervisor intervention when queues become pressured.', '2', 'Medium (Amber)'),
+      riskRow('Inadequate lighting in compound walkways', 'Sponsor, bar or service compounds', '2', 'KSS overnight teams, contractors', 'Portable lighting, patrol torches and lighting inspection checklist for routes used during darkness.', '2', 'Medium (Amber)'),
+      riskRow('Power loss or till / EPOS outage', 'Bar service points', '2', 'Patrons, bar staff, KSS', 'Bar operator fallback process, queue hold or close decision, customer communication, supervisor monitoring and Event Control logging.', '2', 'Medium (Amber)'),
+      riskRow('Adverse weather affecting bar queues', 'External bar queues and exposed routes', '2', 'Patrons, KSS, bar staff', 'Weather monitoring, queue shortening, welfare observation, route-surface checks and escalation for high wind, lightning, heat or heavy rain.', '2', 'Medium (Amber)'),
+      riskRow('Marauding terrorist attack (MTA)', 'Arena externals, bar queues and crossflow zones', '3', 'Patrons, KSS, staff', 'ACT awareness, Run Hide Tell protocol, lockdown or invacuation briefing, Bronze-Silver-Gold escalation and JESIP coordination.', '1', 'Low (Green)'),
+      riskRow('Hostile vehicle threat (VAW)', 'Crossings, PUDO zones and access roads', '3', 'Patrons, KSS, traffic teams', 'Vehicle barrier strategy, static officer vigilance, suspicious vehicle reporting and police liaison through Event Control.', '2', 'Medium (Amber)'),
+      riskRow('Hostile reconnaissance / surveillance', 'External perimeters, bar compounds and ingress points', '3', 'Patrons, staff, contractors', 'SCaN behavioural detection, photo log and escalation, proactive patrols and CTSA engagement where available.', '2', 'Medium (Amber)'),
+      riskRow('Drone incursion', 'Arena footprint and bar compounds', '2', 'Patrons, staff', 'Observation and reporting, Event Control escalation, police drone-unit liaison and service pause if overhead threat is identified.', '2', 'Medium (Amber)'),
+      riskRow('Fire as a weapon', 'Bar compounds, waste storage and external queue areas', '3', 'Patrons, staff', 'Fire watch patrols, extinguishers positioned, waste removal schedule, rapid cordon and fire liaison through Event Control.', '1', 'Low (Green)'),
+      riskRow('Chemical / biological hazard', 'Bars, externals and arena queues', '3', 'Patrons, staff', 'Staff awareness of symptoms, welfare and medical integration, rapid escalation through command and isolation cordons.', '1', 'Low (Green)'),
+      riskRow('Insider threat / contractor infiltration', 'Backstage and compounds', '3', 'Staff, patrons, contractors', 'Accreditation checks, three-step challenge policy, patrol logs, contractor verification and Event Control escalation.', '1', 'Low (Green)'),
+      riskRow('Cyber disruption to EPOS / tills', 'Bar service points', '2', 'Patrons, staff', 'Local till backup, offline service protocols, bar-operator IT support, Event Control escalation and incident logging.', '2', 'Medium (Amber)'),
+      riskRow('Communication failure', 'All licensed zones', '3', 'Supervisors, Event Control, emergency services', 'Printed comms tree, fallback emergency channel, supervisor check-ins and embedded KSS control-room reporting route.', '1', 'Low (Green)'),
+      riskRow('Bar close-down and final egress pressure', 'Bar fronts, close-down routes and dispersal interfaces', '3', 'Patrons, KSS, bar staff', 'Controlled last-orders support, queue closure, refusal/ejection management, route protection, stock handover and stand-down only when clear.', '2', 'Medium (Amber)'),
+    ],
+  }
+}
+
 function parseColonRows(value: string | null | undefined) {
   return splitLines(value)
     .map((line) => {
@@ -700,6 +917,7 @@ function buildOperationalRiskRows(
   selectedAnnexes: string[]
 ) {
   const isBarFocused = selectedAnnexes.includes('bar_operations') || /bar/i.test(getValue(fieldValues, 'plan_title'))
+  const radioOne = isRadioOneEvent(fieldValues)
 
   if (isBarFocused) {
     const rows = [
@@ -742,7 +960,12 @@ function buildOperationalRiskRows(
         'Stock, compound and assets',
         'Unauthorised access, theft, stock conflict or service route clash.',
         'Bar teams, contractors, KSS staff, asset holders.',
-        compactControl(getValue(fieldValues, 'asset_security_demobilisation'), 'Protect allocated assets only; handover/stand-down as directed by Peppermint/FAB.'),
+        compactControl(
+          getValue(fieldValues, 'asset_security_demobilisation'),
+          radioOne
+            ? 'Protect allocated assets only; handover/stand-down as directed by Peppermint/FAB.'
+            : 'Protect allocated assets only; handover and stand-down as directed by the client or Event Control.'
+        ),
         'Medium'
       ),
       buildRiskRow(
@@ -770,7 +993,9 @@ function buildOperationalRiskRows(
         'Stock/manual handling interface',
         'Stock movement, manual handling or vehicle interface during public hours.',
         'Bar staff, contractors, public, KSS teams.',
-        'Keep queue lanes off stock/service routes and escalate conflicts to Peppermint/Event Control.',
+        radioOne
+          ? 'Keep queue lanes off stock/service routes and escalate conflicts to Peppermint/Event Control.'
+          : 'Keep queue lanes off stock/service routes and escalate conflicts to the bar operator, client, or Event Control.',
         'Medium'
       ),
       buildRiskRow(
@@ -1035,13 +1260,75 @@ function buildOperationalRiskRows(
   return rows
 }
 
+function capacitySentence(value: string) {
+  const cleaned = clean(value)
+  if (!cleaned) return ''
+  return /capacity|attendee|guest|staff|crew|including|expected/i.test(cleaned)
+    ? cleaned
+    : `Event capacity is ${cleaned}.`
+}
+
+function buildGenericQueuePlanningRows(fieldValues: Record<string, EmpResolvedFieldValue>) {
+  const emergencyAndWeather = [
+    getValue(fieldValues, 'emergency_clearance_assumptions'),
+    getValue(fieldValues, 'degraded_route_weather_assumptions'),
+  ].map(clean).filter(Boolean).join(' ')
+
+  return [
+    [
+      'Licensed capacity',
+      capacitySentence(getValue(fieldValues, 'licensed_capacity')) ||
+        'Licensed capacity should be confirmed with the client, venue, licence holder, or SAG before issue.',
+    ],
+    [
+      'Expected attendance',
+      getValue(fieldValues, 'expected_attendance') ||
+        'Expected attendance should be confirmed and reviewed against the operating schedule before issue.',
+    ],
+    [
+      'Queue capacity status',
+      getValue(fieldValues, 'zone_capacities') ||
+        'Individual queue capacities remain subject to final layout, barrier lines, service positions, and queue drawings.',
+    ],
+    [
+      'Queue / bar references',
+      getValue(fieldValues, 'ingress_routes_holding_areas') ||
+        getValue(fieldValues, 'controlled_areas') ||
+        'Queue areas, bar references, and service access points should be confirmed on the current site plan.',
+    ],
+    [
+      'Excluded areas',
+      getValue(fieldValues, 'excluded_areas') ||
+        'Excluded areas should include structures, stock routes, service lanes, emergency routes, accessible routes, and unusable space.',
+    ],
+    [
+      'Density assumptions',
+      getValue(fieldValues, 'density_assumptions') ||
+        'Density assumptions should reflect the event profile, queue behaviour, route width, accessibility needs, and local constraints.',
+    ],
+    [
+      'Ingress interface',
+      getValue(fieldValues, 'ingress_flow_assumptions') ||
+        'Ingress interface controls should confirm how KSS-allocated areas connect with admission, search, ticketing, and public approach routes.',
+    ],
+    [
+      'Egress interface',
+      getValue(fieldValues, 'egress_flow_assumptions') ||
+        'Egress interface controls should confirm how bar close-down, stock movement, and queue clear-down support event dispersal.',
+    ],
+    [
+      'Emergency and weather',
+      emergencyAndWeather ||
+        'Emergency and weather assumptions should confirm route release, barrier changes, degraded-route controls, and escalation through Event Control.',
+    ],
+  ]
+}
+
 function buildSelectedAnnexRoleRows(
   fieldValues: Record<string, EmpResolvedFieldValue>,
   selectedAnnexes: string[]
 ) {
-  const isRadioOneBarPlan = /Radio 1|Big Weekend|KSS NW LTD Bar Security/i.test(
-    `${getValue(fieldValues, 'event_name')} ${getValue(fieldValues, 'plan_title')}`
-  )
+  const isRadioOneBarPlan = isRadioOneEvent(fieldValues)
   const compactRadioOneRoles: Partial<Record<EmpAnnexKey, string>> = {
     bar_operations:
       'Visible bar security: queue supervision, Challenge 25/refusal support, intoxication/disorder monitoring, welfare/ejection escalation, close-down and stock/service protection where allocated.',
@@ -1079,16 +1366,18 @@ function buildSectionBlocks(
 
   switch (sectionKey) {
     case 'document_control':
+      const documentStatus = radioOne ? getRadioOneIssueStatus(fieldValues) : getValue(fieldValues, 'document_status')
+      const approver = radioOne ? 'Floyd Allen' : getValue(fieldValues, 'approver_name')
       return maybeTable([
         { label: 'Plan title', value: getValue(fieldValues, 'plan_title') },
         { label: 'Version', value: getValue(fieldValues, 'document_version') },
-        { label: 'Status', value: getValue(fieldValues, 'document_status') },
+        { label: 'Status', value: documentStatus },
         { label: 'Author', value: getValue(fieldValues, 'author_name') },
-        { label: 'Approver', value: getValue(fieldValues, 'approver_name') },
+        { label: 'Approver', value: approver },
         { label: 'Issue date', value: getValue(fieldValues, 'issue_date') },
         { label: 'Review date', value: getValue(fieldValues, 'review_date') },
       ])
-        .concat(radioOne ? maybeMultiTable(['Version', 'Date', 'Author', 'Changes', 'Approval'], radioOneVersionRows(), { compact: true }) : [])
+        .concat(radioOne ? maybeMultiTable(['Version', 'Date', 'Author', 'Changes', 'Approval'], radioOneVersionRows(fieldValues), { compact: true }) : [])
         .concat(maybeBullets(getValue(fieldValues, 'distribution_list')))
 
     case 'purpose_scope':
@@ -1141,7 +1430,7 @@ function buildSectionBlocks(
         .concat(maybeBullets(getValue(fieldValues, 'client_objectives')))
 
     case 'crowd_profile':
-      if (selectedAnnexes.includes('bar_operations') || /bar/i.test(getValue(fieldValues, 'plan_title'))) {
+      if (radioOne) {
         return maybeMultiTable(
           ['Scope Factor', 'Operational Summary'],
           [
@@ -1311,7 +1600,7 @@ function buildSectionBlocks(
         ))
 
     case 'capacity_flow':
-      if (/Radio 1|Big Weekend|KSS NW LTD Bar Security/i.test(`${getValue(fieldValues, 'event_name')} ${getValue(fieldValues, 'plan_title')}`)) {
+      if (radioOne) {
         return maybeMultiTable(
           ['Queue Planning Factor', 'Operational Summary'],
           [
@@ -1329,12 +1618,14 @@ function buildSectionBlocks(
           .concat(maybeMultiTable(['Queue type', 'Where used', 'Description', 'KSS controls'], radioOneQueueTypeRows(), { compact: true, keepTogether: true, startOnNewPage: true }))
       }
 
-      return maybeMetricGrid([
-        { label: 'Licensed capacity', value: getValue(fieldValues, 'licensed_capacity') },
-        { label: 'Expected attendance', value: getValue(fieldValues, 'expected_attendance') },
-        { label: 'Gross area', value: getValue(fieldValues, 'gross_area') },
-        { label: 'Net area', value: getValue(fieldValues, 'net_area') },
-      ])
+      return maybeMultiTable(
+        ['Queue Planning Factor', 'Operational Summary'],
+        buildGenericQueuePlanningRows(fieldValues)
+      )
+        .concat(maybeMetricGrid([
+          { label: 'Gross area', value: getValue(fieldValues, 'gross_area') },
+          { label: 'Net area', value: getValue(fieldValues, 'net_area') },
+        ]))
         .concat(labeledParagraph('Excluded areas', getValue(fieldValues, 'excluded_areas')))
         .concat(labeledParagraph('Density assumptions', getValue(fieldValues, 'density_assumptions')))
         .concat(
@@ -1358,7 +1649,7 @@ function buildSectionBlocks(
           )
           .concat(labeledParagraph('Reporting lines', getValue(fieldValues, 'reporting_lines')))
           .concat(maybeBullets(getValue(fieldValues, 'external_interfaces')))
-          .concat(maybeMultiTable(['Role', 'Name', 'Contact / Function'], radioOneContactRows(), { startOnNewPage: true, avoidRowSplit: true, rowUnitScale: 0.7 }))
+          .concat(maybeMultiTable(['Role', 'Name', 'Contact / Function'], radioOneContactRows(fieldValues), { startOnNewPage: true, avoidRowSplit: true, rowUnitScale: 0.7 }))
           .concat(labeledParagraph('Control room structure', getValue(fieldValues, 'control_room_structure')))
           .concat(labeledParagraph('Briefings, inductions and live observation', 'KSS bar staff complete site induction and bar-specific briefing covering Site Overview V5, mapped bar references, Challenge 25, Peppermint procedures, Event Control escalation, ejection/welfare process, emergency route integrity, medical/welfare locations and staff welfare. Live monitoring uses supervisor observation, queue length, bar operator feedback, Event Control updates and incident/refusal/ejection logs.'))
       }
@@ -1400,13 +1691,8 @@ function buildSectionBlocks(
         )
         .concat(labeledParagraph('Control room structure', getValue(fieldValues, 'control_room_structure')))
         .concat(
-          selectedAnnexes.includes('bar_operations') || /bar/i.test(getValue(fieldValues, 'plan_title'))
-            ? labeledParagraph(
-                'Briefings, inductions and live observation',
-                'KSS bar staff complete site induction and bar-specific briefing covering Site Overview V5, bar grid references, Challenge 25, Peppermint procedures, Event Control escalation, ejection/welfare process, emergency route integrity, medical/welfare locations and staff welfare. Live monitoring uses supervisor observation, queue length, bar operator feedback, Event Control updates and incident/refusal/ejection logs.'
-              )
-            : labeledParagraph('Briefings and inductions', getValue(fieldValues, 'briefing_and_induction'))
-                .concat(labeledParagraph('Monitoring technology and live observation', getValue(fieldValues, 'monitoring_and_density_tools')))
+          labeledParagraph('Briefings and inductions', getValue(fieldValues, 'briefing_and_induction'))
+            .concat(labeledParagraph('Monitoring technology and live observation', getValue(fieldValues, 'monitoring_and_density_tools')))
         )
 
     case 'deployment_strategy':
@@ -1433,7 +1719,7 @@ function buildSectionBlocks(
             : labeledParagraph('Response teams', getValue(fieldValues, 'response_teams'))
         )
         .concat(
-          /Radio 1|Big Weekend|KSS NW LTD Bar Security/i.test(`${getValue(fieldValues, 'event_name')} ${getValue(fieldValues, 'plan_title')}`)
+          radioOne
             ? labeledParagraph(
                 'Relief, contingency and escalation',
                 'Relief cover protects fixed bar posts and queue lanes during breaks. Escalate for queue obstruction, repeated refusals, intoxication, welfare/ejection demand, reduced queue capacity or Event Control/Peppermint requests.'
@@ -1446,6 +1732,8 @@ function buildSectionBlocks(
       return ([{
         type: 'diagram',
         variant: 'bar_queue_flow',
+        title: queueManagementDiagramTitle(fieldValues),
+        imageUrl: radioOne ? '/emp-assets/bar-queue-flow.png' : '/emp-assets/bar-queue-flow-template.png',
         lanes: [
           'Accessible / priority lane',
           'Managed feeder lane A',
@@ -1719,7 +2007,7 @@ function buildSectionBlocks(
       return (radioOne ? maybeMultiTable(['Appendix', 'Title', 'Purpose'], radioOneAppendixRows()) : [])
         .concat(labeledParagraph('Site maps and route diagrams', getValue(fieldValues, 'site_maps_and_route_diagrams')))
         .concat(maybeBullets(getValue(fieldValues, 'appendix_notes')))
-        .concat(radioOne ? maybeMultiTable(['Role', 'Name', 'Contact / Function'], radioOneContactRows()) : labeledParagraph('Contact directory', getValue(fieldValues, 'contact_directory')))
+        .concat(radioOne ? maybeMultiTable(['Role', 'Name', 'Contact / Function'], radioOneContactRows(fieldValues)) : labeledParagraph('Contact directory', getValue(fieldValues, 'contact_directory')))
 
     default:
       return []
@@ -1731,6 +2019,7 @@ function buildAnnexBlocks(
   fieldValues: Record<string, EmpResolvedFieldValue>,
   documents: EmpPreviewSourceDocument[]
 ): EmpPreviewBlock[] {
+  const radioOne = isRadioOneEvent(fieldValues)
   const roleFieldKey = EMP_ANNEX_ROLE_FIELD_KEYS[annexKey]
   const roleBlocks = roleFieldKey
     ? labeledParagraph('Roles and duties', getValue(fieldValues, roleFieldKey))
@@ -1788,7 +2077,7 @@ function buildAnnexBlocks(
             : labeledParagraph('Response teams', getValue(fieldValues, 'response_teams'))
         )
         .concat(
-          /Radio 1|Big Weekend|KSS NW LTD Bar Security/i.test(`${getValue(fieldValues, 'event_name')} ${getValue(fieldValues, 'plan_title')}`)
+          radioOne
             ? labeledParagraph(
                 'Relief, contingency and escalation',
                 'Relief cover protects fixed bar posts and queue lanes during breaks. Escalate for queue obstruction, repeated refusals, intoxication, welfare/ejection demand, reduced queue capacity or Event Control/Peppermint requests.'
@@ -1821,6 +2110,8 @@ function buildRadioOneCustomAnnexes(fieldValues: Record<string, EmpResolvedField
       blocks: ([{
         type: 'diagram',
         variant: 'bar_queue_flow',
+        title: 'Radio 1 Bar - Queue Management Plan',
+        imageUrl: '/emp-assets/bar-queue-flow.png',
         lanes: [
           'Accessible / priority service route',
           'Entry marshal point',
@@ -1866,7 +2157,7 @@ function buildRadioOneCustomAnnexes(fieldValues: Record<string, EmpResolvedField
       key: 'radio_one_contact_callsigns',
       title: 'Contact Directory and Call Signs',
       description: 'Live contacts and call signs to be completed before issue.',
-      blocks: maybeMultiTable(['Role', 'Name', 'Contact / Function'], radioOneContactRows())
+      blocks: maybeMultiTable(['Role', 'Name', 'Contact / Function'], radioOneContactRows(fieldValues))
         .concat(maybeMultiTable(
           ['Function', 'Call sign', 'Channel'],
           parseTwoColumnLines(getValue(fieldValues, 'radio_channels_callsigns')).length
@@ -2021,6 +2312,17 @@ function blockToHtml(block: EmpPreviewBlock) {
   }
 }
 
+function riskAssessmentToHtml(riskAssessment: EmpRiskAssessmentModel) {
+  const rowHtml = riskAssessment.rows
+    .map(
+      (row) =>
+        `<tr><td>${escapeHtml(row.hazard)}</td><td>${escapeHtml(row.location)}</td><td>${escapeHtml(row.severity)}</td><td>${escapeHtml(row.personsAffected)}</td><td>${escapeHtml(row.controlMeasures)}</td><td>${escapeHtml(row.likelihood)}</td><td>${escapeHtml(row.rpn)}</td><td>${escapeHtml(row.rating)}</td></tr>`
+    )
+    .join('')
+
+  return `<section class="emp-ra-html-section"><h2>Operational Risk Assessment</h2><table class="emp-key-value-table"><tbody><tr><th>Activity</th><td>${escapeHtml(riskAssessment.activity)}</td><th>Reference No:</th><td>${escapeHtml(riskAssessment.referenceNo)}</td></tr><tr><th>Location</th><td>${escapeHtml(riskAssessment.location)}</td><th>Date</th><td>${escapeHtml(riskAssessment.assessmentDate)}</td></tr><tr><th>Assessor(s)</th><td>${escapeHtml(riskAssessment.assessors)}</td><th>Review Date</th><td>${escapeHtml(riskAssessment.reviewDate)}</td></tr></tbody></table><table class="emp-ra-html-table"><thead><tr><th>Hazard / Activity</th><th>Location</th><th>Severity</th><th>Persons Affected</th><th>Control Measures</th><th>Likelihood</th><th>RPN</th><th>Risk Rating</th></tr></thead><tbody>${rowHtml}</tbody></table><h2>Risk Assessment Scoring</h2><p>Risk Priority Number (RPN) = Severity (S) x Likelihood (L). Low RPN 1 or 2: no further action required. Moderate RPN 3 or 4: take action within 3 - 6 months. Substantial RPN 6: take action within 1 month. Intolerable RPN 9: stop activity until action reduces risk.</p></section>`
+}
+
 export function buildEmpPreviewModel(input: {
   fieldValues: Record<string, EmpResolvedFieldValue>
   selectedAnnexes: string[]
@@ -2039,6 +2341,9 @@ export function buildEmpPreviewModel(input: {
     clean(getValue(input.fieldValues, 'venue_name')),
     clean(getValue(input.fieldValues, 'show_dates')),
   ].filter(Boolean)
+  const documentStatus = isRadioOneInput
+    ? getRadioOneIssueStatus(input.fieldValues)
+    : clean(getValue(input.fieldValues, 'document_status'))
 
   const coverRows = [
     { label: 'Event', value: getValue(input.fieldValues, 'event_name') },
@@ -2047,12 +2352,12 @@ export function buildEmpPreviewModel(input: {
     { label: 'Version', value: getValue(input.fieldValues, 'document_version') },
     {
       label: 'Status',
-      value: isRadioOneInput ? 'Draft - final confirmations required' : getValue(input.fieldValues, 'document_status'),
+      value: documentStatus,
     },
     { label: 'Issue date', value: getValue(input.fieldValues, 'issue_date') },
     { label: 'Review date', value: getValue(input.fieldValues, 'review_date') },
     { label: 'Author', value: getValue(input.fieldValues, 'author_name') },
-    { label: 'Approver', value: isRadioOneInput ? 'TBC before issue' : getValue(input.fieldValues, 'approver_name') },
+    { label: 'Approver', value: isRadioOneInput ? 'Floyd Allen' : getValue(input.fieldValues, 'approver_name') },
     { label: 'Organiser', value: getValue(input.fieldValues, 'organiser_name') },
     ...(isRadioOneInput ? [] : [{ label: 'Client', value: getValue(input.fieldValues, 'client_name') }]),
   ].filter((row) => clean(row.value))
@@ -2145,6 +2450,7 @@ export function buildEmpPreviewModel(input: {
     coverRows,
     sections,
     annexes,
+    riskAssessment: buildEmpOperationalRiskAssessment(input.fieldValues),
   } satisfies EmpPreviewModel
 }
 
@@ -2167,6 +2473,7 @@ export function renderEmpPreviewHtml(model: EmpPreviewModel) {
         )
         .join('')
     : ''
+  const riskAssessmentHtml = model.riskAssessment ? riskAssessmentToHtml(model.riskAssessment) : ''
 
   return `<!doctype html>
 <html>
@@ -2199,6 +2506,9 @@ export function renderEmpPreviewHtml(model: EmpPreviewModel) {
       .emp-toc-page { font-weight: 700; color: #475569; }
       .emp-key-value-table tbody th { width: 32%; }
       .emp-matrix-table thead th { font-weight: 700; }
+      .emp-ra-html-section { page-break-before: always; }
+      .emp-ra-html-table thead th { background: #000; color: #fff; font-size: 10px; }
+      .emp-ra-html-table td { font-size: 10px; }
       section { page-break-inside: avoid; }
     </style>
   </head>
@@ -2216,6 +2526,7 @@ export function renderEmpPreviewHtml(model: EmpPreviewModel) {
     }
     ${sectionsHtml}
     ${annexesHtml}
+    ${riskAssessmentHtml}
   </body>
 </html>`
 }

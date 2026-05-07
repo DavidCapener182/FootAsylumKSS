@@ -474,7 +474,7 @@ export function FRATable({
         </div>
         <div className="flex items-center gap-3 lg:border-l lg:border-slate-200 lg:pl-4">
           <div className="text-sm text-slate-500">
-            Showing {filtered.length} of {localRows.length} stores
+            Showing {filtered.length} of {localRows.length} stores with FRA-relevant audit history
           </div>
         </div>
       </div>

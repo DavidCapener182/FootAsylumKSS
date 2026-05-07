@@ -8,8 +8,8 @@ export default async function AuditLabPage() {
   if (!profile) redirect('/')
 
   return (
-    <div className="min-h-[calc(100dvh-var(--mobile-header-height,0px))] bg-slate-50 md:min-h-screen">
-      <div className="flex flex-col gap-4 border-b border-slate-200 bg-white px-6 py-4 lg:flex-row lg:items-center lg:justify-between">
+    <div className="min-h-[calc(100dvh-var(--mobile-header-height,0px))] max-w-full overflow-x-hidden bg-slate-50 md:min-h-screen">
+      <div className="flex flex-col gap-4 border-b border-slate-200 bg-white px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0 flex-1 space-y-1">
           <div className="flex items-center gap-2 text-slate-900">
             <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-700">
@@ -23,7 +23,7 @@ export default async function AuditLabPage() {
         </div>
       </div>
 
-      <div className="px-4 py-5 sm:px-6 lg:px-8">
+      <div className="max-w-full overflow-x-hidden px-4 py-5 sm:px-6 lg:px-8">
         <AuditLabClient />
       </div>
     </div>

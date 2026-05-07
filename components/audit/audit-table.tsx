@@ -24,7 +24,10 @@ import {
   boolBadge, 
   formatDate, 
   getLatestPct, 
-  getLatestPctForSort 
+  getCompletedAuditCount,
+  getLatestPctForSort,
+  hasCompletedAudit,
+  isWarehouseAuditRow
 } from './audit-table-helpers'
 
 // Re-export for backward compatibility
@@ -53,7 +56,7 @@ interface DeleteAuditPdfState {
   auditNumber: 1 | 2
 }
 
-const HS_AUDIT_INTERVAL_MONTHS = 6
+const HS_AUDIT_INTERVAL_MONTHS = 3
 const PREVISIT_ACTION_FLAG_DAYS = 14
 
 // Temporary debug preview to show how the pre-visit flag will look in advance.
@@ -215,9 +218,7 @@ export function AuditTable({
   // Helper to check if a store has any completed audit.
   // "Hide Completed" should surface stores with no completed audits yet.
   const hasAnyCompletedAudit = (row: AuditRow): boolean => {
-    const audit1Complete = !!(row.compliance_audit_1_date && row.compliance_audit_1_overall_pct !== null)
-    const audit2Complete = !!(row.compliance_audit_2_date && row.compliance_audit_2_overall_pct !== null)
-    return audit1Complete || audit2Complete
+    return hasCompletedAudit(row, 1) || hasCompletedAudit(row, 2)
   }
 
   const filtered = useMemo(() => {
@@ -323,15 +324,16 @@ export function AuditTable({
   }, [storeActionCounts, debugPreviewStoreIds])
 
   const getNextAuditNumber = (row: AuditRow): 1 | 2 | null => {
-    // Check if audit 1 has been completed (has both date and percentage)
-    const audit1Complete = !!(row.compliance_audit_1_date && row.compliance_audit_1_overall_pct !== null)
-    
-    // Check if audit 2 has been completed (has both date and percentage)
-    const audit2Complete = !!(row.compliance_audit_2_date && row.compliance_audit_2_overall_pct !== null)
+    const audit1Complete = hasCompletedAudit(row, 1)
+    const audit2Complete = hasCompletedAudit(row, 2)
     
     // If audit 1 hasn't been done yet, add audit 1
     if (!audit1Complete) {
       return 1
+    }
+
+    if (isWarehouseAuditRow(row)) {
+      return null
     }
     
     // If audit 1 is complete but audit 2 hasn't been done, add audit 2
@@ -341,13 +343,6 @@ export function AuditTable({
     
     // Both audits are complete
     return null
-  }
-
-  const getCompletedAuditCount = (row: AuditRow): number => {
-    let count = 0
-    if (row.compliance_audit_1_date && row.compliance_audit_1_overall_pct !== null) count++
-    if (row.compliance_audit_2_date && row.compliance_audit_2_overall_pct !== null) count++
-    return count
   }
 
   const hasActiveFilters = search.trim().length > 0 || area !== 'all' || hideCompleted
@@ -373,9 +368,9 @@ export function AuditTable({
       const audit1Date = row.compliance_audit_1_date
 
       if (typeof audit1Score === 'number') {
-        if (audit1Score > 80 && isWithinMonths(audit1Date, 5)) {
+        if (audit1Score > 80 && isWithinMonths(audit1Date, HS_AUDIT_INTERVAL_MONTHS)) {
           const confirmed = window.confirm(
-            `${row.store_name} scored ${audit1Score.toFixed(1)}% on Audit 1 within the last 5 months.\n\nConfirm this is an actual second audit.`
+            `${row.store_name} scored ${audit1Score.toFixed(1)}% on Audit 1 within the last ${HS_AUDIT_INTERVAL_MONTHS} months.\n\nConfirm this is an actual second audit.`
           )
           if (!confirmed) return
         } else if (audit1Score < 80 && isWithinMonths(audit1Date, 2)) {
@@ -467,8 +462,8 @@ export function AuditTable({
         date,
         percentage: pctNum,
         pdfPath,
-        currentAudit1Complete: Boolean(row?.compliance_audit_1_date && row.compliance_audit_1_overall_pct !== null),
-        currentAudit2Complete: Boolean(row?.compliance_audit_2_date && row.compliance_audit_2_overall_pct !== null),
+        currentAudit1Complete: row ? hasCompletedAudit(row, 1) : false,
+        currentAudit2Complete: row ? hasCompletedAudit(row, 2) : false,
       })
 
       // Update local state with the returned data
@@ -548,8 +543,8 @@ export function AuditTable({
       setSelectedAuditForUpload(auditNumber)
     } else {
       // Otherwise, auto-select if only one audit exists
-      const hasAudit1 = !!(row.compliance_audit_1_date && row.compliance_audit_1_overall_pct !== null)
-      const hasAudit2 = !!(row.compliance_audit_2_date && row.compliance_audit_2_overall_pct !== null)
+      const hasAudit1 = hasCompletedAudit(row, 1)
+      const hasAudit2 = hasCompletedAudit(row, 2)
       
       if (hasAudit1 && !hasAudit2) {
         setSelectedAuditForUpload(1)
@@ -775,10 +770,9 @@ export function AuditTable({
     void loadStoreActionCounts()
   }
 
-  const renderDateCell = (date: string | null, pct: number | null, auditNum: 1 | 2) => {
-    // Only show date if percentage is also present (audit is complete)
-    // For audit 2, don't show date unless the audit is actually complete
-    if (auditNum === 2 && pct === null) {
+  const renderDateCell = (row: AuditRow, date: string | null, pct: number | null, auditNum: 1 | 2) => {
+    // Warehouses can have completed audits without a percentage score.
+    if (auditNum === 2 && pct === null && !isWarehouseAuditRow(row)) {
       return <span className="text-sm text-muted-foreground">—</span>
     }
     
@@ -786,11 +780,7 @@ export function AuditTable({
   }
 
   const renderActionPlanCell = (value: boolean | null, row: AuditRow, auditNum: 1 | 2) => {
-    const isAuditComplete = auditNum === 1
-      ? !!(row.compliance_audit_1_date && row.compliance_audit_1_overall_pct !== null)
-      : !!(row.compliance_audit_2_date && row.compliance_audit_2_overall_pct !== null)
-
-    if (!isAuditComplete) {
+    if (!hasCompletedAudit(row, auditNum)) {
       return <span className="text-sm text-muted-foreground">—</span>
     }
     
@@ -965,7 +955,7 @@ export function AuditTable({
         </div>
         <div className="flex items-center gap-3 lg:border-l lg:border-slate-200 lg:pl-4">
           <div className="text-sm text-slate-500">
-            Showing {filtered.length} of {localRows.length} stores
+            Showing {filtered.length} of {localRows.length} active audit-tracker stores
           </div>
         </div>
       </div>
@@ -1091,12 +1081,11 @@ export function AuditTable({
                             </Button>
                           ) : null}
 
-                          {(row.compliance_audit_1_date && row.compliance_audit_1_overall_pct !== null) ||
-                          (row.compliance_audit_2_date && row.compliance_audit_2_overall_pct !== null) ? (
+                          {hasCompletedAudit(row, 1) || hasCompletedAudit(row, 2) ? (
                             <div className="space-y-1">
                               <div className="text-[10px] uppercase tracking-wide text-slate-500">Audit PDFs</div>
                               <div className="flex flex-wrap items-center gap-2">
-                                {row.compliance_audit_1_date && row.compliance_audit_1_overall_pct !== null ? (
+                                {hasCompletedAudit(row, 1) ? (
                                   row.compliance_audit_1_pdf_path ? (
                                     <>
                                       <Button
@@ -1117,7 +1106,7 @@ export function AuditTable({
                                   ) : null
                                 ) : null}
 
-                                {row.compliance_audit_2_date && row.compliance_audit_2_overall_pct !== null ? (
+                                {hasCompletedAudit(row, 2) ? (
                                   row.compliance_audit_2_pdf_path ? (
                                     <>
                                       <Button
@@ -1154,12 +1143,12 @@ export function AuditTable({
       {/* Desktop Table Container */}
       <div className="hidden md:flex rounded-2xl border desktop-table-shell shadow-sm overflow-hidden flex-col">
         <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
-          <div className="min-w-[1000px]">
+          <div className="min-w-[1180px]">
             <Table className={cn('w-full border-separate border-spacing-0', desktopTableDensityClass)} style={{ tableLayout: 'fixed' }}>
               <colgroup>
-                <col style={{ width: '74px' }} />
+                <col style={{ width: '164px' }} />
                 <col style={{ width: '88px' }} />
-                <col style={{ width: '132px' }} />
+                <col style={{ width: '136px' }} />
                 <col style={{ width: '92px' }} />
                 <col style={{ width: '72px' }} />
                 <col style={{ width: '60px' }} />
@@ -1173,9 +1162,9 @@ export function AuditTable({
               </colgroup>
               <TableHeader className="desktop-table-head border-b border-slate-200">
                 <TableRow className="hover:bg-transparent">
-                  <TableHead className="bg-transparent text-[11px] font-semibold uppercase tracking-wide text-slate-500">Store Code</TableHead>
+                  <TableHead className="audit-table-sticky-left audit-table-sticky-head bg-white text-[11px] font-semibold uppercase tracking-wide text-slate-500">Store</TableHead>
                   <TableHead className="bg-transparent text-[11px] font-semibold uppercase tracking-wide text-slate-500">Area</TableHead>
-                  <TableHead className="bg-transparent text-[11px] font-semibold uppercase tracking-wide text-slate-500">Store Name</TableHead>
+                  <TableHead className="bg-transparent text-[11px] font-semibold uppercase tracking-wide text-slate-500">Status</TableHead>
                   <TableHead className="bg-transparent text-[11px] font-semibold uppercase tracking-wide text-slate-500">Audit 1 Date</TableHead>
                   <TableHead className="bg-transparent text-[11px] font-semibold uppercase tracking-wide text-slate-500">Action Plan 1</TableHead>
                   <TableHead className="bg-transparent text-[11px] font-semibold uppercase tracking-wide text-slate-500">Audit 1 %</TableHead>
@@ -1185,16 +1174,16 @@ export function AuditTable({
                   <TableHead className="bg-transparent text-[11px] font-semibold uppercase tracking-wide text-slate-500">Audit 2 %</TableHead>
                   <TableHead className="bg-transparent text-center text-[11px] font-semibold uppercase tracking-wide text-slate-500">PDF</TableHead>
                   <TableHead className="text-right pr-4 bg-transparent text-[11px] font-semibold uppercase tracking-wide text-slate-500">Total Audits</TableHead>
-                  <TableHead className="bg-transparent text-[11px] font-semibold uppercase tracking-wide text-slate-500">Actions</TableHead>
+                  <TableHead className="audit-table-sticky-right audit-table-sticky-head bg-white text-[11px] font-semibold uppercase tracking-wide text-slate-500">Actions</TableHead>
                 </TableRow>
               </TableHeader>
             </Table>
             <div className="h-[70vh] overflow-y-auto">
               <Table className={cn('w-full border-separate border-spacing-0', desktopTableDensityClass)} style={{ tableLayout: 'fixed' }}>
                 <colgroup>
-                  <col style={{ width: '74px' }} />
-                  <col style={{ width: '88px' }} />
-                  <col style={{ width: '132px' }} />
+                <col style={{ width: '164px' }} />
+                <col style={{ width: '88px' }} />
+                <col style={{ width: '136px' }} />
                   <col style={{ width: '92px' }} />
                   <col style={{ width: '72px' }} />
                   <col style={{ width: '60px' }} />
@@ -1260,22 +1249,26 @@ export function AuditTable({
                           key={row.id}
                           className="group transition-colors hover:bg-slate-50/70"
                         >
-                          <TableCell className="font-mono text-xs font-medium border-b bg-white group-hover:bg-slate-50">
-                            {getDisplayStoreCode(row.store_code) || '—'}
+                          <TableCell className="audit-table-sticky-left font-semibold text-sm border-b bg-white group-hover:bg-slate-50">
+                            <div className="flex flex-col items-start gap-1">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenStoreActionsModal(row)}
+                                className="max-w-[120px] truncate text-left text-sm font-semibold text-slate-900 underline-offset-2 hover:text-blue-700 hover:underline"
+                                title="Open store actions"
+                              >
+                                {row.store_name}
+                              </button>
+                              <span className="font-mono text-xs font-medium text-slate-500">
+                                {getDisplayStoreCode(row.store_code) || '—'}
+                              </span>
+                            </div>
                           </TableCell>
                           <TableCell className="text-xs text-muted-foreground border-b bg-white group-hover:bg-slate-50">
                             {getInternalAreaDisplayName(row.region, { fallback: '—' })}
                           </TableCell>
                           <TableCell className="font-semibold text-sm border-b bg-white group-hover:bg-slate-50">
                             <div className="flex flex-col items-start gap-1">
-                              <button
-                                type="button"
-                                onClick={() => handleOpenStoreActionsModal(row)}
-                                className="text-left text-sm font-semibold text-slate-900 underline-offset-2 hover:text-blue-700 hover:underline"
-                                title="Open store actions"
-                              >
-                                {row.store_name}
-                              </button>
                               {upcomingActionFlag ? (
                                 <button
                                   type="button"
@@ -1296,7 +1289,7 @@ export function AuditTable({
                             </div>
                           </TableCell>
                           
-                          <TableCell className="border-b bg-white group-hover:bg-slate-50">{renderDateCell(row.compliance_audit_1_date, row.compliance_audit_1_overall_pct, 1)}</TableCell>
+                          <TableCell className="border-b bg-white group-hover:bg-slate-50">{renderDateCell(row, row.compliance_audit_1_date, row.compliance_audit_1_overall_pct, 1)}</TableCell>
                           <TableCell className="border-b bg-white group-hover:bg-slate-50">{renderActionPlanCell(row.action_plan_1_sent, row, 1)}</TableCell>
                           <TableCell className="border-b bg-white group-hover:bg-slate-50">{renderPercentageCell(row.compliance_audit_1_overall_pct, row.id, 1)}</TableCell>
                           <TableCell className="border-b bg-white group-hover:bg-slate-50 text-center">
@@ -1313,7 +1306,7 @@ export function AuditTable({
                                     <File className="h-4 w-4 text-slate-700" />
                                   </Button>
                                 </>
-                              ) : canManageAudits && row.compliance_audit_1_date && row.compliance_audit_1_overall_pct !== null ? (
+                              ) : canManageAudits && hasCompletedAudit(row, 1) ? (
                                 <Button
                                   size="sm"
                                   variant="ghost"
@@ -1329,7 +1322,7 @@ export function AuditTable({
                             </div>
                           </TableCell>
                           
-                          <TableCell className="border-b bg-white group-hover:bg-slate-50">{renderDateCell(row.compliance_audit_2_date, row.compliance_audit_2_overall_pct, 2)}</TableCell>
+                          <TableCell className="border-b bg-white group-hover:bg-slate-50">{renderDateCell(row, row.compliance_audit_2_date, row.compliance_audit_2_overall_pct, 2)}</TableCell>
                           <TableCell className="border-b bg-white group-hover:bg-slate-50">{renderActionPlanCell(row.action_plan_2_sent, row, 2)}</TableCell>
                           <TableCell className="border-b bg-white group-hover:bg-slate-50">{renderPercentageCell(row.compliance_audit_2_overall_pct, row.id, 2)}</TableCell>
                           <TableCell className="border-b bg-white group-hover:bg-slate-50 text-center">
@@ -1346,7 +1339,7 @@ export function AuditTable({
                                     <File className="h-4 w-4 text-slate-700" />
                                   </Button>
                                 </>
-                              ) : canManageAudits && row.compliance_audit_2_date && row.compliance_audit_2_overall_pct !== null ? (
+                              ) : canManageAudits && hasCompletedAudit(row, 2) ? (
                                 <Button
                                   size="sm"
                                   variant="ghost"
@@ -1366,7 +1359,7 @@ export function AuditTable({
                             {getCompletedAuditCount(row)}
                           </TableCell>
                           
-                          <TableCell className="border-b bg-white group-hover:bg-slate-50">
+                          <TableCell className="audit-table-sticky-right border-b bg-white group-hover:bg-slate-50">
                             <div className="flex flex-col gap-1.5 min-w-[180px]">
                               {upcomingActionFlag ? (
                                 <Button
@@ -1543,9 +1536,7 @@ export function AuditTable({
           
           <div className="space-y-4 py-4">
             {/* Select Audit Number - only show if both audits exist */}
-            {pdfUploadRow && 
-             (pdfUploadRow.compliance_audit_1_date && pdfUploadRow.compliance_audit_1_overall_pct !== null) &&
-             (pdfUploadRow.compliance_audit_2_date && pdfUploadRow.compliance_audit_2_overall_pct !== null) ? (
+            {pdfUploadRow && hasCompletedAudit(pdfUploadRow, 1) && hasCompletedAudit(pdfUploadRow, 2) ? (
               <div className="space-y-2">
                 <label className="text-sm font-medium">Select Audit</label>
                 <Select

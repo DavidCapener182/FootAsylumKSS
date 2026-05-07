@@ -108,7 +108,7 @@ export function StoreDirectory({ stores }: StoreDirectoryProps) {
             </div>
             <div className="mt-2 ml-2 inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
               <ShieldCheck className="h-3 w-3" />
-              {attentionCount} need attention
+              {attentionCount} visible stores need attention
             </div>
           </div>
 

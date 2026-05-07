@@ -10,6 +10,7 @@ export function UpcomingVisitsPanel({ routes }: { routes: Array<Record<string, u
 
   return (
     <Panel title="Upcoming Visits" icon={CalendarDays} actionHref="/calendar" actionLabel="View calendar">
+      <p className="mb-3 text-xs text-slate-500">Future planned route groups only; past planned dates are excluded.</p>
       {visits.length === 0 ? (
         <EmptyState icon={CalendarDays} title="No upcoming visits planned" description="Plan compliance visits from route planning." />
       ) : (

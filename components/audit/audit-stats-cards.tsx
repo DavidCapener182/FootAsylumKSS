@@ -4,7 +4,7 @@ import { useMemo } from 'react'
 import { ClipboardCheck, Store, TrendingUp } from 'lucide-react'
 import { getInternalAreaDisplayName } from '@/lib/areas'
 import { formatPercent } from '@/lib/utils'
-import { AuditRow, getLatestPct } from './audit-table-helpers'
+import { AuditRow, getCompletedAuditCount, getLatestPct } from './audit-table-helpers'
 
 interface AuditStatsCardsProps {
   stores: AuditRow[]
@@ -34,12 +34,9 @@ export function AuditStatsCards({ stores, selectedArea }: AuditStatsCardsProps) 
       ? scores.reduce((a: number, b: number) => a + b, 0) / scores.length 
       : 0
 
-    // Only count COMPLETED audits (both date AND percentage)
+    // Warehouses can have completed audits without a percentage score.
     const auditsCompleted = filteredStores.reduce((acc, store) => {
-      let count = 0
-      if (store.compliance_audit_1_date && store.compliance_audit_1_overall_pct !== null) count++
-      if (store.compliance_audit_2_date && store.compliance_audit_2_overall_pct !== null) count++
-      return acc + count
+      return acc + getCompletedAuditCount(store)
     }, 0)
 
     return { avgScore, activeStores, auditsCompleted }

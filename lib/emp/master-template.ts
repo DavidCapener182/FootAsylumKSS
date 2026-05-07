@@ -536,11 +536,17 @@ export const EMP_MASTER_TEMPLATE_FIELDS: EmpMasterTemplateField[] = [
   }),
   field('command_control', 'named_command_roles', 'Named command roles', 1, 'textarea', {
     defaultValueText: lines(
-      'Operational lead - Name - Responsibility',
-      'Event controller / loggist - Name - Responsibility',
-      'Zone supervisors - Name - Area of responsibility'
+      'Event Director Gold - Name - Overall strategic lead for the event and final authority for event-wide decisions.',
+      'Event Director Silver - Name - Tactical event lead responsible for live delivery and senior coordination.',
+      'Event Manager Bronze - Name - Operational delivery lead and event-management interface.',
+      'Licensing Manager Bronze - Name - Licensing conditions, DPS route, local authority liaison and licensing compliance.',
+      'Security Manager Bronze - Name - Security-management interface, deployment coordination and incident escalation.',
+      'KSS Operational Lead - Name - Overall KSS operational lead, deployment sign-off and serious incident escalation.',
+      'KSS Event Control / Logger - Name - Maintains KSS log, refusals, incidents, welfare, ejections and close-down status.',
+      'KSS Response Supervisor - Name - Coordinates response support for bars, refusals, ejections and welfare calls.',
+      'Bar Supervisors - Name - Bar-level queue, staff, Challenge 25 support and escalation control.'
     ),
-    placeholder: 'Head of Security - Name - Responsibility\nEvent Controller / Loggist - Name - Responsibility',
+    placeholder: 'Event Director Gold - Name - Responsibility\nEvent Director Silver - Name - Responsibility\nEvent Manager Bronze - Name - Responsibility',
   }),
   field('command_control', 'radio_channels_callsigns', 'Radio channels and call signs', 2, 'textarea', {
     defaultValueText:
@@ -564,14 +570,21 @@ export const EMP_MASTER_TEMPLATE_FIELDS: EmpMasterTemplateField[] = [
   field('command_control', 'key_contacts_directory', 'Key contacts directory', 5, 'textarea', {
     description: 'Useful for the live plan and appendices where named operational contacts need to be briefed or printed.',
     defaultValueText: lines(
-      'Operational lead - Name - Contact',
-      'Event control / loggist - Name - Contact',
-      'Client representative - Name - Contact',
+      'Event Director Gold - Name - Contact / command route',
+      'Event Director Silver - Name - Contact / command route',
+      'Event Manager Bronze - Name - Contact / command route',
+      'Licensing Manager Bronze - Name - Contact / command route',
+      'Security Manager Bronze - Name - Contact / command route',
+      'KSS Operational Lead - Name - Contact / radio call sign',
+      'KSS Event Control / Logger - Name - Contact / radio call sign',
+      'KSS Response Supervisor - Name - Contact / radio call sign',
+      'Bar Supervisors - Name - Contact / radio call sign',
+      'DPS / licence holder - Name - Contact',
       'Medical lead - Name - Contact',
       'Welfare lead - Name - Contact',
       'Traffic lead - Name - Contact'
     ),
-    placeholder: 'Operational lead - Name - Contact\nMedical lead - Name - Contact',
+    placeholder: 'Event Director Gold - Name - Contact\nEvent Director Silver - Name - Contact\nEvent Manager Bronze - Name - Contact',
   }),
   field('command_control', 'control_room_structure', 'Control room structure and functions', 6, 'textarea', {
     defaultValueText:

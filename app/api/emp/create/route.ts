@@ -4,6 +4,7 @@ import {
   EmpSetupRequiredError,
   createEmpDemoPlan,
   createEmpPlan,
+  createEmpPlanFromBusinessTemplate,
 } from '@/lib/emp/data'
 
 export const dynamic = 'force-dynamic'
@@ -27,7 +28,9 @@ export async function POST(request: NextRequest) {
     const planId =
       kind === 'example'
         ? await createEmpDemoPlan()
-        : await createEmpPlan()
+        : kind === 'business_template' || kind === 'radio_one_template'
+          ? await createEmpPlanFromBusinessTemplate()
+          : await createEmpPlan()
 
     if (redirectTo) {
       const redirectUrl = new URL(redirectTo.replace(':planId', planId), request.url)

@@ -480,7 +480,7 @@ export function StoreActionsModal({
             {!hasExistingActions && generationSource ? (
               <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
                 {generationSource === 'parsed'
-                  ? `Questions mapped directly into actions.${defaultReviewDate ? ` Review date defaulted to ${new Date(defaultReviewDate).toLocaleDateString('en-GB')} (audit date + 6 months).` : ''}`
+                  ? `Questions mapped directly into actions.${defaultReviewDate ? ` Review date defaulted to ${new Date(defaultReviewDate).toLocaleDateString('en-GB')} (audit date + 3 months).` : ''}`
                   : ''}
               </div>
             ) : null}

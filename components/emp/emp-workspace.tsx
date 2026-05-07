@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { EMP_DEMO_EVENT_NAME } from '@/lib/emp/demo-plan'
+import { EMP_BUSINESS_TEMPLATE_DESCRIPTION } from '@/lib/emp/business-template'
 import type { EmpPlanSummary } from '@/lib/emp/data'
 import { EMP_MASTER_TEMPLATES } from '@/lib/emp/master-templates'
 import { cn, formatAppDateTime } from '@/lib/utils'
@@ -20,6 +21,16 @@ export function EmpWorkspace({ plans }: { plans: EmpPlanSummary[] }) {
           </div>
           <div className="flex flex-wrap gap-2">
             <form method="post" action="/api/emp/create" className="inline-flex">
+              <input type="hidden" name="kind" value="business_template" />
+              <input type="hidden" name="redirectTo" value="/admin/event-management-plans/:planId" />
+              <button
+                type="submit"
+                className={cn(buttonVariants({ variant: 'default' }), 'bg-emerald-700 hover:bg-emerald-800')}
+              >
+                Create from EMP Template
+              </button>
+            </form>
+            <form method="post" action="/api/emp/create" className="inline-flex">
               <input type="hidden" name="kind" value="example" />
               <input type="hidden" name="redirectTo" value="/admin/event-management-plans/:planId" />
               <button type="submit" className={cn(buttonVariants({ variant: 'outline' }))}>
@@ -31,7 +42,7 @@ export function EmpWorkspace({ plans }: { plans: EmpPlanSummary[] }) {
               <input type="hidden" name="redirectTo" value="/admin/event-management-plans/:planId" />
               <button
                 type="submit"
-                className={cn(buttonVariants({ variant: 'default' }), 'bg-emerald-700 hover:bg-emerald-800')}
+                className={cn(buttonVariants({ variant: 'outline' }))}
               >
                 New EMP
               </button>
@@ -39,6 +50,27 @@ export function EmpWorkspace({ plans }: { plans: EmpPlanSummary[] }) {
           </div>
         </div>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Reusable EMP Template</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="space-y-2">
+            <p className="text-sm leading-6 text-slate-600">{EMP_BUSINESS_TEMPLATE_DESCRIPTION}</p>
+            <p className="text-sm text-slate-500">
+              Use the guided helper to answer event-specific questions, generate wording, edit the full EMP, then preview, print, or export.
+            </p>
+          </div>
+          <form method="post" action="/api/emp/create" className="inline-flex">
+            <input type="hidden" name="kind" value="business_template" />
+            <input type="hidden" name="redirectTo" value="/admin/event-management-plans/:planId" />
+            <button type="submit" className={cn(buttonVariants({ variant: 'default' }), 'bg-emerald-700 hover:bg-emerald-800')}>
+              Create from EMP Template
+            </button>
+          </form>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

@@ -1,15 +1,15 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Loader2, Plus, Sparkles } from 'lucide-react'
+import { FileText, Loader2, Plus, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 export function EmpWorkspaceToolbarClient() {
   const [isPending, startTransition] = useTransition()
-  const [pendingAction, setPendingAction] = useState<'new' | 'example' | null>(null)
+  const [pendingAction, setPendingAction] = useState<'new' | 'example' | 'template' | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
 
-  const createPlan = async (kind: 'blank' | 'example') => {
+  const createPlan = async (kind: 'blank' | 'example' | 'business_template') => {
     const response = await fetch('/api/emp/create', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -29,11 +29,11 @@ export function EmpWorkspaceToolbarClient() {
     return planId
   }
 
-  const handleCreate = (kind: 'blank' | 'example') => {
+  const handleCreate = (kind: 'blank' | 'example' | 'business_template') => {
     startTransition(async () => {
       try {
         setActionError(null)
-        setPendingAction(kind === 'example' ? 'example' : 'new')
+        setPendingAction(kind === 'example' ? 'example' : kind === 'business_template' ? 'template' : 'new')
         const planId = await createPlan(kind)
         window.location.assign(`/admin/event-management-plans/${planId}`)
       } catch (error: any) {
@@ -47,6 +47,14 @@ export function EmpWorkspaceToolbarClient() {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2">
+        <Button type="button" onClick={() => handleCreate('business_template')} disabled={isPending} className="bg-emerald-700 hover:bg-emerald-800">
+          {isPending && pendingAction === 'template' ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <FileText className="mr-2 h-4 w-4" />
+          )}
+          Create from EMP Template
+        </Button>
         <Button type="button" onClick={() => handleCreate('example')} disabled={isPending} variant="outline">
           {isPending && pendingAction === 'example' ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -55,7 +63,7 @@ export function EmpWorkspaceToolbarClient() {
           )}
           Create Example Event
         </Button>
-        <Button type="button" onClick={() => handleCreate('blank')} disabled={isPending} className="bg-emerald-700 hover:bg-emerald-800">
+        <Button type="button" onClick={() => handleCreate('blank')} disabled={isPending} variant="outline">
           {isPending && pendingAction === 'new' ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           ) : (

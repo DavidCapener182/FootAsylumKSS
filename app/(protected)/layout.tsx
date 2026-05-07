@@ -80,7 +80,7 @@ export default async function ProtectedLayout({
         <Sidebar />
         <div className="flex min-h-[100dvh] flex-1 flex-col bg-[#0e1925] md:ml-64 md:min-h-0 md:overflow-hidden">
           <Header />
-          <main className="flex-1 overflow-x-hidden bg-[#edf2f7] px-3.5 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-[calc(var(--mobile-header-height,0px)+1rem)] sm:px-4 sm:pt-[calc(var(--mobile-header-height,0px)+1rem)] md:min-h-0 md:overflow-y-auto md:bg-[#0e1925] md:p-0 md:[-webkit-overflow-scrolling:touch]">
+          <main className="flex-1 overflow-x-hidden bg-[#edf2f7] px-3.5 pb-[calc(12rem+env(safe-area-inset-bottom))] pt-[calc(var(--mobile-header-height,0px)+1rem)] sm:px-4 sm:pt-[calc(var(--mobile-header-height,0px)+1rem)] md:min-h-0 md:overflow-y-auto md:bg-[#0e1925] md:p-0 md:[-webkit-overflow-scrolling:touch]">
             <div className="max-w-full overflow-x-hidden bg-transparent p-0 md:min-h-full main-content-wrapper">
               {children}
             </div>

@@ -14,6 +14,8 @@ import {
   buildInitialGuidedAnswers,
   EMP_GUIDED_GROUPS,
   generateEmpFieldValuesFromGuidedAnswers,
+  getGuidedAutoFillTargetKeys,
+  getGuidedAutoFillUpdates,
   type EmpGuidedAnswerValue,
 } from '@/lib/emp/guided-flow'
 import {
@@ -165,6 +167,7 @@ export function EmpPlanEditor({ initialData }: { initialData: EmpPlanEditorData 
   const [guidedAnswers, setGuidedAnswers] = useState(() =>
     buildInitialGuidedAnswers(initialFieldValues(initialData), initialData.plan.selectedAnnexes)
   )
+  const [manuallyEditedGuidedKeys, setManuallyEditedGuidedKeys] = useState<Set<string>>(() => new Set())
   const [selectedAnnexes, setSelectedAnnexes] = useState<string[]>(initialData.plan.selectedAnnexes)
   const [includeKssProfileAppendix, setIncludeKssProfileAppendix] = useState(
     initialData.plan.includeKssProfileAppendix
@@ -176,7 +179,7 @@ export function EmpPlanEditor({ initialData }: { initialData: EmpPlanEditorData 
   const [uploadingKind, setUploadingKind] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [showAdvancedEditor, setShowAdvancedEditor] = useState(false)
+  const [showAdvancedEditor, setShowAdvancedEditor] = useState(true)
   const uploading = Boolean(uploadingKind)
 
   const valueRowMap = useMemo(
@@ -211,6 +214,7 @@ export function EmpPlanEditor({ initialData }: { initialData: EmpPlanEditorData 
     const nextValues = initialFieldValues(nextEditorData)
     setValues(nextValues)
     setGuidedAnswers(buildInitialGuidedAnswers(nextValues, nextEditorData.plan.selectedAnnexes))
+    setManuallyEditedGuidedKeys(new Set())
   }
 
   const persist = async () => {
@@ -255,8 +259,34 @@ export function EmpPlanEditor({ initialData }: { initialData: EmpPlanEditorData 
     }
   }
 
-  const updateGuidedAnswer = (key: string, value: EmpGuidedAnswerValue) => {
+  const updateGuidedAnswer = (key: string, value: EmpGuidedAnswerValue, options: { manual?: boolean } = {}) => {
+    if (options.manual) {
+      setManuallyEditedGuidedKeys((current) => new Set(current).add(key))
+    }
     setGuidedAnswers((current) => ({ ...current, [key]: value }))
+  }
+
+  const updateGuidedAnswerWithAutofill = (key: string, value: EmpGuidedAnswerValue) => {
+    const forceTargetKeys = getGuidedAutoFillTargetKeys(key).filter(
+      (targetKey) => !manuallyEditedGuidedKeys.has(targetKey)
+    )
+    const nextUpdates = getGuidedAutoFillUpdates(key, value, guidedAnswers, forceTargetKeys)
+    setGuidedAnswers((current) => ({
+      ...current,
+      [key]: value,
+      ...nextUpdates,
+    }))
+    Object.entries(nextUpdates)
+      .filter(([, updatedValue]) => typeof updatedValue === 'boolean')
+      .forEach(([updatedKey, updatedValue]) => {
+        const annexKey = EMP_GUIDED_ANSWER_ANNEX_KEYS[updatedKey]
+        if (!annexKey) return
+        setSelectedAnnexes((current) =>
+          updatedValue
+            ? Array.from(new Set([...current, annexKey]))
+            : current.filter((value) => value !== annexKey)
+        )
+      })
   }
 
   const generateGuidedWording = () => {
@@ -425,6 +455,10 @@ export function EmpPlanEditor({ initialData }: { initialData: EmpPlanEditorData 
 
   const renderGuidedQuestion = (question: (typeof EMP_GUIDED_GROUPS)[number]['questions'][number]) => {
     const value = guidedAnswers[question.key]
+    const selectedOptionHelp =
+      typeof value === 'string' && value
+        ? question.optionHelp?.[value]
+        : null
 
     if (question.type === 'checkbox') {
       return (
@@ -458,7 +492,7 @@ export function EmpPlanEditor({ initialData }: { initialData: EmpPlanEditorData 
       value: typeof value === 'string' ? value : '',
       placeholder: question.placeholder || undefined,
       onChange: (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-        updateGuidedAnswer(question.key, event.target.value),
+        updateGuidedAnswer(question.key, event.target.value, { manual: true }),
     }
 
     return (
@@ -470,19 +504,26 @@ export function EmpPlanEditor({ initialData }: { initialData: EmpPlanEditorData 
         {question.type === 'textarea' ? (
           <Textarea {...commonProps} rows={4} />
         ) : question.type === 'select' ? (
-          <select
-            id={`guided-${question.key}`}
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-            value={typeof value === 'string' ? value : ''}
-            onChange={(event) => updateGuidedAnswer(question.key, event.target.value)}
-          >
-            <option value="">Select</option>
-            {(question.options || []).map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+          <>
+            <select
+              id={`guided-${question.key}`}
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              value={typeof value === 'string' ? value : ''}
+              onChange={(event) => updateGuidedAnswerWithAutofill(question.key, event.target.value)}
+            >
+              <option value="">Select</option>
+              {(question.options || []).map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            {selectedOptionHelp ? (
+              <p className="rounded-md border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs leading-5 text-emerald-800">
+                {selectedOptionHelp}
+              </p>
+            ) : null}
+          </>
         ) : (
           <Input
             {...commonProps}
@@ -491,6 +532,33 @@ export function EmpPlanEditor({ initialData }: { initialData: EmpPlanEditorData 
         )}
       </div>
     )
+  }
+
+  const renderGuidedQuestions = (group: (typeof EMP_GUIDED_GROUPS)[number]) => {
+    const questionMap = new Map(group.questions.map((question) => [question.key, question]))
+    const pairedQuestionKeys = new Set<string>()
+
+    return group.questions.map((question) => {
+      if (pairedQuestionKeys.has(question.key)) return null
+
+      const autoFillTargetQuestion = question.type === 'select'
+        ? getGuidedAutoFillTargetKeys(question.key)
+          .map((targetKey) => questionMap.get(targetKey))
+          .find((targetQuestion) => targetQuestion?.type === 'textarea')
+        : null
+
+      if (autoFillTargetQuestion) {
+        pairedQuestionKeys.add(autoFillTargetQuestion.key)
+        return (
+          <div key={`${question.key}-${autoFillTargetQuestion.key}`} className="grid gap-3 md:col-span-2 md:grid-cols-2">
+            {renderGuidedQuestion(question)}
+            {renderGuidedQuestion(autoFillTargetQuestion)}
+          </div>
+        )
+      }
+
+      return renderGuidedQuestion(question)
+    })
   }
 
   const renderDocumentCard = (
@@ -582,6 +650,14 @@ export function EmpPlanEditor({ initialData }: { initialData: EmpPlanEditorData 
               Preview
               <Download className="ml-2 h-4 w-4" />
             </a>
+            <a
+              href={`/print/emp-report?planId=${editorData.plan.id}`}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex h-10 items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm hover:bg-accent hover:text-accent-foreground"
+            >
+              Print
+            </a>
           </div>
         </div>
 
@@ -617,7 +693,7 @@ export function EmpPlanEditor({ initialData }: { initialData: EmpPlanEditorData 
                 <span className="mt-1 block text-sm text-slate-500">{group.description}</span>
               </summary>
               <div className="mt-4 grid gap-3 md:grid-cols-2">
-                {group.questions.map(renderGuidedQuestion)}
+                {renderGuidedQuestions(group)}
               </div>
             </details>
           ))}
@@ -735,11 +811,11 @@ export function EmpPlanEditor({ initialData }: { initialData: EmpPlanEditorData 
         <CardHeader>
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
-              <CardTitle>Advanced Editor</CardTitle>
+              <CardTitle>Edit Full EMP Wording</CardTitle>
               <p className="mt-1 text-sm text-slate-500">
                 {showAdvancedEditor
-                  ? 'Advanced mode is showing generated and generic wording. Manual edits here may be overwritten if you regenerate from the guided flow.'
-                  : 'The guided flow is the default editor. Open Advanced only when you need to manually override generated wording.'}
+                  ? 'Generated and generic wording is editable section by section. Regenerating from the guided helper can overwrite matching generated fields.'
+                  : 'Open the full wording editor when you need to amend generated or generic EMP text before preview and export.'}
               </p>
             </div>
             <Button
@@ -747,7 +823,7 @@ export function EmpPlanEditor({ initialData }: { initialData: EmpPlanEditorData 
               variant={showAdvancedEditor ? 'default' : 'outline'}
               onClick={() => setShowAdvancedEditor((current) => !current)}
             >
-              {showAdvancedEditor ? 'Hide Advanced Editor' : 'Advanced: Edit Generated Wording'}
+              {showAdvancedEditor ? 'Hide Full EMP Wording' : 'Edit Full EMP Wording'}
             </Button>
           </div>
         </CardHeader>

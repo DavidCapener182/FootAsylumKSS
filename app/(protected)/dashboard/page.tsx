@@ -330,7 +330,15 @@ async function getDashboardData(): Promise<DashboardData> {
     })) || []
 
   // Process planned routes - group by manager, area, and date
-  const plannedRoutes = (plannedRoutesRaw || []).filter((store: any) => !shouldHideStore(store)).reduce((acc: any[], store: any) => {
+  const plannedRoutes = (plannedRoutesRaw || [])
+    .filter((store: any) => {
+      if (shouldHideStore(store)) return false
+      if (!store.compliance_audit_2_planned_date) return false
+      const plannedDate = new Date(store.compliance_audit_2_planned_date)
+      plannedDate.setHours(0, 0, 0, 0)
+      return !Number.isNaN(plannedDate.getTime()) && plannedDate >= todayDate
+    })
+    .reduce((acc: any[], store: any) => {
     const managerId = store.compliance_audit_2_assigned_manager_user_id
     const region = store.region
     const plannedDate = store.compliance_audit_2_planned_date

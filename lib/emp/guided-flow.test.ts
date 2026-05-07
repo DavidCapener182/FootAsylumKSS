@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   generateEmpFieldValuesFromGuidedAnswers,
+  getGuidedAutoFillTargetKeys,
+  getGuidedAutoFillUpdates,
   getGuidedSelectedAnnexes,
   type EmpGuidedAnswers,
 } from '@/lib/emp/guided-flow'
@@ -55,5 +57,60 @@ describe('EMP guided flow', () => {
     expect(generated.values.degraded_route_weather_assumptions).toContain('assessed as high')
     expect(generated.values.communications_plan).toContain('4 radio channels')
     expect(generated.values.sitrep_decision_logging).toContain('30 minutes')
+  })
+
+  it('autofills related guided notes from dropdown selections without overwriting custom notes', () => {
+    expect(getGuidedAutoFillUpdates('family_vulnerability_level', 'high', {})).toEqual({
+      family_presence_notes: expect.stringContaining('Supervisors will confirm active welfare presence'),
+    })
+
+    const firstUpdate = getGuidedAutoFillUpdates('family_vulnerability_level', 'high', {})
+    expect(
+      getGuidedAutoFillUpdates('family_vulnerability_level', 'medium', {
+        family_presence_notes: firstUpdate.family_presence_notes,
+      })
+    ).toEqual({
+      family_presence_notes: expect.stringContaining('Supervisors will confirm welfare handover routes'),
+    })
+
+    expect(
+      getGuidedAutoFillUpdates('family_vulnerability_level', 'low', {
+        family_presence_notes: 'Manual note about the specific safe space.',
+      })
+    ).toEqual({})
+  })
+
+  it('can force dropdown autofill over seeded wording until the target is manually edited', () => {
+    const targetKeys = getGuidedAutoFillTargetKeys('admission_search_posture')
+
+    expect(targetKeys).toContain('search_policy')
+    expect(
+      getGuidedAutoFillUpdates(
+        'admission_search_posture',
+        'bar_only',
+        {
+          search_policy: 'KSS will apply standard event search controls with supervisor-led lane checks.',
+        },
+        ['search_policy']
+      ).search_policy
+    ).toContain('Main event search is not within the bar security scope')
+  })
+
+  it('keeps bar-only search wording out of the full search annex flow', () => {
+    const updates = getGuidedAutoFillUpdates('admission_search_posture', 'bar_only', {
+      has_search_screening: true,
+    })
+
+    expect(updates.has_search_screening).toBe(false)
+    expect(updates.search_policy).toContain('Main event search is not within the bar security scope')
+
+    const generated = generateEmpFieldValuesFromGuidedAnswers({
+      admission_search_posture: 'bar_only',
+      search_policy: String(updates.search_policy),
+      has_search_screening: false,
+    })
+
+    expect(generated.selectedAnnexes).not.toContain('search_screening')
+    expect(generated.values.search_policy).toContain('may request or conduct further search at bars')
   })
 })

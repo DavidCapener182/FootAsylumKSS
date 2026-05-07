@@ -957,6 +957,7 @@ export default function ReportsPage() {
   const [newsletterAiByArea, setNewsletterAiByArea] = useState<Record<string, NewsletterAIPromptPack>>({})
   const [newsletterAiBulkLoading, setNewsletterAiBulkLoading] = useState(false)
   const [newsletterAiLoadingArea, setNewsletterAiLoadingArea] = useState<string | null>(null)
+  const reportTimestamp = format(new Date(), 'dd MMM yyyy HH:mm')
 
   const buildNewsletterPayload = () => ({
     month: newsletterMonth,
@@ -1155,13 +1156,16 @@ export default function ReportsPage() {
             </div>
             <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">Reports & Exports</h1>
             <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
-              Build client-ready audit, FRA, action and area compliance outputs with clear export controls.
+              Build client-ready compliance outputs with clear export controls.
+            </p>
+            <p className="mt-2 text-xs text-slate-500 md:block">
+              Page loaded: {reportTimestamp}. Export cards show scope before download.
             </p>
           </div>
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-4 md:gap-3">
         {[
           { label: 'Audit Progress', value: 'PDF / CSV', icon: BarChart3, className: 'border-blue-200 bg-blue-50 text-blue-700' },
           { label: 'FRA Status', value: 'Client-ready', icon: Shield, className: 'border-orange-200 bg-orange-50 text-orange-700' },
@@ -1170,13 +1174,13 @@ export default function ReportsPage() {
         ].map((item) => {
           const Icon = item.icon
           return (
-            <div key={item.label} className={`rounded-2xl border px-4 py-3 ${item.className}`}>
+            <div key={item.label} className={`rounded-2xl border px-3 py-2.5 md:px-4 md:py-3 ${item.className}`}>
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-wide opacity-80">{item.label}</p>
-                  <p className="mt-1 text-sm font-black">{item.value}</p>
+                  <p className="mt-1 text-xs font-black md:text-sm">{item.value}</p>
                 </div>
-                <Icon className="h-5 w-5 opacity-80" />
+                <Icon className="h-4 w-4 opacity-80 md:h-5 md:w-5" />
               </div>
             </div>
           )
@@ -1389,6 +1393,7 @@ export default function ReportsPage() {
               Full export of all reported incidents, including status, severity, and resolution
               details.
             </CardDescription>
+            <p className="mt-2 text-xs text-slate-500">Scope preview: all incident rows available to your role at export time.</p>
           </CardHeader>
           <CardContent>
             <form action="/api/reports/incidents" method="GET">
@@ -1420,6 +1425,7 @@ export default function ReportsPage() {
               Comprehensive list of corrective actions, assigned owners, due dates, and completion
               status.
             </CardDescription>
+            <p className="mt-2 text-xs text-slate-500">Scope preview: open, overdue, complete and cancelled action records.</p>
           </CardHeader>
           <CardContent>
             <form action="/api/reports/actions" method="GET">
@@ -1450,6 +1456,7 @@ export default function ReportsPage() {
             <CardDescription className="text-slate-500">
               High-level summary of audit scores across all regions for the current fiscal quarter.
             </CardDescription>
+            <p className="mt-2 text-xs text-slate-500">Scope preview: current audit scores and region-level summary metrics.</p>
           </CardHeader>
           <CardContent>
             <form action="/api/reports/audit-summary" method="GET">

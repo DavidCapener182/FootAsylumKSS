@@ -82,3 +82,28 @@ export function getLatestPctForSort(row: AuditRow): number {
   const val = getLatestPct(row)
   return val === null ? -1 : val
 }
+
+export function isWarehouseAuditRow(row: Pick<AuditRow, 'store_code' | 'store_name'>): boolean {
+  const code = String(row.store_code || '').trim().toUpperCase()
+  const name = String(row.store_name || '').trim().toLowerCase()
+
+  return (
+    ['WH003', 'WH004', 'M3', 'POINT 62', 'POINT62', 'P62'].includes(code) ||
+    ['heywood', 'middleton', 'point 62', 'point62'].includes(name)
+  )
+}
+
+export function hasCompletedAudit(row: AuditRow, auditNumber: 1 | 2): boolean {
+  const date = auditNumber === 1 ? row.compliance_audit_1_date : row.compliance_audit_2_date
+  const pct = auditNumber === 1 ? row.compliance_audit_1_overall_pct : row.compliance_audit_2_overall_pct
+
+  if (!date) return false
+  return pct !== null || isWarehouseAuditRow(row)
+}
+
+export function getCompletedAuditCount(row: AuditRow): number {
+  let count = 0
+  if (hasCompletedAudit(row, 1)) count++
+  if (hasCompletedAudit(row, 2)) count++
+  return count
+}

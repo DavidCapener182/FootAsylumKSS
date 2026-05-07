@@ -3,6 +3,8 @@ import { cn } from '@/lib/utils'
 import type {
   EmpPreviewBlock,
   EmpPreviewModel,
+  EmpRiskAssessmentModel,
+  EmpRiskAssessmentRow,
 } from '@/lib/emp/preview'
 
 interface EmpContentPage {
@@ -326,6 +328,8 @@ function CrowdFlowDiagram({
 }
 
 function BarQueueFlowDiagram({
+  title,
+  imageUrl,
   lanes,
   controls,
 }: Extract<EmpPreviewBlock, { type: 'diagram'; variant: 'bar_queue_flow' }>) {
@@ -338,12 +342,12 @@ function BarQueueFlowDiagram({
 
   return (
     <DiagramShell
-      title="Radio 1 Bar - Queue Management Plan"
+      title={title || 'Event / Area - Queue Management Plan'}
       subtitle="Customer flow, queue dividers, crowd-control barriers, accessible service area, staff access and managed exits."
     >
       <img
-        src="/emp-assets/bar-queue-flow.png"
-        alt="Radio 1 Bar queue management plan showing customer flow, crowd-control barriers, queue divider, accessible service area and exits"
+        src={imageUrl || '/emp-assets/bar-queue-flow-template.png'}
+        alt={`${title || 'Event queue management plan'} showing customer flow, crowd-control barriers, queue divider, accessible service area and exits`}
         className="block h-auto w-full"
       />
       <div className="grid grid-cols-2 gap-3 text-[9px] leading-snug text-slate-700">
@@ -1450,13 +1454,293 @@ function AnnexPage({
   )
 }
 
+function RiskAssessmentRatingCell({ rating }: { rating: EmpRiskAssessmentRow['rating'] }) {
+  const className = rating.includes('Red')
+    ? 'emp-ra-rating emp-ra-rating--red'
+    : rating.includes('Amber')
+      ? 'emp-ra-rating emp-ra-rating--amber'
+      : 'emp-ra-rating emp-ra-rating--green'
+
+  return <td className={className}>{rating}</td>
+}
+
+function RiskAssessmentSeverityCell({ value }: { value: EmpRiskAssessmentRow['severity'] }) {
+  return <td className={cn('emp-ra-score', value === '3' ? 'emp-ra-score--high' : value === '2' ? 'emp-ra-score--medium' : 'emp-ra-score--low')}>{value}</td>
+}
+
+function RiskAssessmentRowsTable({ rows }: { rows: EmpRiskAssessmentRow[] }) {
+  return (
+    <table className="emp-ra-table emp-ra-hazard-table">
+      <thead>
+        <tr>
+          <th>Hazard / Activity</th>
+          <th>Location</th>
+          <th>Severity</th>
+          <th>Persons Affected</th>
+          <th>Control Measures</th>
+          <th>Likelihood</th>
+          <th>RPN</th>
+          <th>Risk Rating</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((row, index) => (
+          <tr key={`${row.hazard}-${index}`}>
+            <td>{row.hazard}</td>
+            <td>{row.location}</td>
+            <RiskAssessmentSeverityCell value={row.severity} />
+            <td>{row.personsAffected}</td>
+            <td>{row.controlMeasures}</td>
+            <td className="emp-ra-number">{row.likelihood}</td>
+            <td className="emp-ra-number">{row.rpn}</td>
+            <RiskAssessmentRatingCell rating={row.rating} />
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )
+}
+
+function RiskAssessmentFooter({
+  riskAssessment,
+  pageNumber,
+}: {
+  riskAssessment: EmpRiskAssessmentModel
+  pageNumber: number
+}) {
+  return (
+    <div className="emp-ra-footer">
+      <span>{riskAssessment.footerTitle}</span>
+      <span>{pageNumber}</span>
+    </div>
+  )
+}
+
+function RiskAssessmentMeta({ riskAssessment }: { riskAssessment: EmpRiskAssessmentModel }) {
+  return (
+    <table className="emp-ra-table emp-ra-meta-table">
+      <tbody>
+        <tr>
+          <th>Activity</th>
+          <td>{riskAssessment.activity}</td>
+          <th>Reference No:</th>
+          <td>{riskAssessment.referenceNo}</td>
+        </tr>
+        <tr>
+          <th>Location</th>
+          <td>{riskAssessment.location}</td>
+          <th>Date</th>
+          <td>{riskAssessment.assessmentDate}</td>
+        </tr>
+        <tr>
+          <th>Assessor(s)</th>
+          <td>{riskAssessment.assessors}</td>
+          <th>Review Date (12 months from assessment date)</th>
+          <td>{riskAssessment.reviewDate}</td>
+        </tr>
+      </tbody>
+    </table>
+  )
+}
+
+function RiskAssessmentScoringSummary() {
+  return (
+    <div className="emp-ra-scoring-summary">
+      <div className="emp-ra-scoring-title">Risk Assessment Scoring</div>
+      <table className="emp-ra-table emp-ra-score-table">
+        <tbody>
+          <tr>
+            <td>S x L = RPN</td>
+            <td>S - Severity of hazard</td>
+            <td>L - Likelihood of Occurrence</td>
+            <td>RPN - Risk Priority Number</td>
+          </tr>
+          <tr>
+            <td>3 High - extremely harmful consequences</td>
+            <td>3 High - Daily or weekly opportunities</td>
+            <td>3</td>
+            <td>6</td>
+            <td>9</td>
+          </tr>
+          <tr>
+            <td>2 Medium - harmful consequences</td>
+            <td>2 Medium - Opportunities in next 6-12 months</td>
+            <td>2</td>
+            <td>4</td>
+            <td>6</td>
+          </tr>
+          <tr>
+            <td>1 Low - slightly harmful consequences</td>
+            <td>1 Low - not expected in the next 12-month period</td>
+            <td>1</td>
+            <td>2</td>
+            <td>3</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function RiskAssessmentScoringPage({
+  riskAssessment,
+  mode,
+  pageNumber,
+}: {
+  riskAssessment: EmpRiskAssessmentModel
+  mode: 'preview' | 'print'
+  pageNumber: number
+}) {
+  return (
+    <section
+      className={cn(
+        'emp-a4-page emp-print-page emp-ra-page emp-ra-page--portrait bg-white',
+        mode === 'preview' && 'shadow-sm'
+      )}
+      aria-label="Risk assessment scoring"
+    >
+      <table className="emp-ra-table emp-ra-scoring-full">
+        <tbody>
+          <tr><th colSpan={4} className="emp-ra-scoring-main-title">RISK ASSESSMENT SCORING</th></tr>
+          <tr><th colSpan={4} className="emp-ra-band-red">Severity Score Table</th></tr>
+          <tr>
+            <td className="emp-ra-score-index">3</td>
+            <td colSpan={3}><strong>High Hazard - extremely harmful consequences</strong><br />Major notifiable RIDDOR injury or fatality. Permanent disability. Severe life threatening reportable diseases and illnesses. Extensive loss of plant or major damage to equipment, property or the environment. Would attract a prohibition notice from the HSE.</td>
+          </tr>
+          <tr>
+            <td className="emp-ra-score-index">2</td>
+            <td colSpan={3}><strong>Medium Hazard - harmful consequences</strong><br />RIDDOR reportable lost time incident. Temporary disability, lacerations, serious cuts and bruises, burns, concussion, serious sprains and strains or minor fractures. Serious damage disrupting normal activities. Would attract an improvement notice from the HSE.</td>
+          </tr>
+          <tr>
+            <td className="emp-ra-score-index">1</td>
+            <td colSpan={3}><strong>Low Hazard Severity - slightly harmful consequences</strong><br />Minor injuries and ill health including minor sprains and strains, cuts and bruises, eye irritation or nuisance. Minor damage to equipment, property or the environment.</td>
+          </tr>
+          <tr><th colSpan={4} className="emp-ra-band-blue">Likelihood of Occurrence Table</th></tr>
+          <tr><td className="emp-ra-score-index">3</td><td><strong>High (highly likely)</strong></td><td colSpan={2}>Daily or weekly opportunities for the hazard to be realised. Continuous or almost continuous presence of the hazard.</td></tr>
+          <tr><td className="emp-ra-score-index">2</td><td><strong>Medium (likely)</strong></td><td colSpan={2}>Opportunities for hazard to be realised are possible within the next 6-12 month period.</td></tr>
+          <tr><td className="emp-ra-score-index">1</td><td><strong>Low (unlikely)</strong></td><td colSpan={2}>Opportunities for hazard to be realised are infrequent and possible, but not expected in the next 12-month period.</td></tr>
+          <tr><th colSpan={4} className="emp-ra-scoring-main-title">RISK ASSESSMENT MATRIX TABLE</th></tr>
+          <tr>
+            <td colSpan={2}>
+              <table className="emp-ra-table emp-ra-mini-matrix">
+                <tbody>
+                  <tr><th colSpan={4}>RISK PRIORITY NUMBER</th></tr>
+                  <tr><td>3</td><td className="emp-ra-cell-yellow">3</td><td className="emp-ra-cell-amber">6</td><td className="emp-ra-cell-red">9</td></tr>
+                  <tr><td>2</td><td className="emp-ra-cell-green">2</td><td className="emp-ra-cell-yellow">4</td><td className="emp-ra-cell-amber">6</td></tr>
+                  <tr><td>1</td><td className="emp-ra-cell-green">1</td><td className="emp-ra-cell-green">2</td><td className="emp-ra-cell-yellow">3</td></tr>
+                  <tr><td></td><td>1</td><td>2</td><td>3</td></tr>
+                  <tr><th colSpan={4}>Likelihood (L)</th></tr>
+                </tbody>
+              </table>
+            </td>
+            <td>
+              <table className="emp-ra-table emp-ra-mini-table">
+                <tbody>
+                  <tr><th colSpan={2}>SEVERITY</th></tr>
+                  <tr><td>3</td><td>High</td></tr>
+                  <tr><td>2</td><td>Medium</td></tr>
+                  <tr><td>1</td><td>Low</td></tr>
+                </tbody>
+              </table>
+            </td>
+            <td>
+              <table className="emp-ra-table emp-ra-mini-table">
+                <tbody>
+                  <tr><th colSpan={2}>LIKELIHOOD</th></tr>
+                  <tr><td>3</td><td>High</td></tr>
+                  <tr><td>2</td><td>Medium</td></tr>
+                  <tr><td>1</td><td>Low</td></tr>
+                </tbody>
+              </table>
+            </td>
+          </tr>
+          <tr><th colSpan={4}>Risk Priority Number (RPN) = Severity (S) x Likelihood (L)</th></tr>
+          <tr><th>Risk Priority Number</th><th colSpan={3}>Action and Timescale</th></tr>
+          <tr><td className="emp-ra-cell-green"><strong>Trivial / Low:<br />RPN = 1 or 2</strong></td><td colSpan={3}>No further action required.</td></tr>
+          <tr><td className="emp-ra-cell-yellow"><strong>Moderate:<br />RPN = 3 or 4</strong></td><td colSpan={3}>Take action to reduce the risk level within 3 - 6 months. Think reasonably practicable - risk vs. cost. Use severity and consequences as a guide when making decisions about benefit.</td></tr>
+          <tr><td className="emp-ra-cell-amber"><strong>Substantial:<br />RPN = 6</strong></td><td colSpan={3}>Take action to reduce the risk level within 1 month. Enforcement risk - possible HSE Improvement Notice.</td></tr>
+          <tr><td className="emp-ra-cell-red"><strong>Intolerable:<br />RPN = 9</strong></td><td colSpan={3}>Stop activity immediately or do not start until action has been taken to reduce the level of risk. Enforcement risk - possible HSE Prohibition Notice.</td></tr>
+        </tbody>
+      </table>
+      <RiskAssessmentFooter riskAssessment={riskAssessment} pageNumber={pageNumber} />
+    </section>
+  )
+}
+
+function RiskAssessmentPages({
+  riskAssessment,
+  mode,
+}: {
+  riskAssessment: EmpRiskAssessmentModel
+  mode: 'preview' | 'print'
+}) {
+  const firstPageRows = riskAssessment.rows.slice(0, 9)
+  const remainingRowChunks = chunkItems(riskAssessment.rows.slice(9), 13)
+
+  return (
+    <>
+      <section
+        className={cn(
+          'emp-a4-page emp-print-page emp-ra-page emp-ra-page--landscape bg-white',
+          mode === 'preview' && 'shadow-sm'
+        )}
+        aria-label="Operational risk assessment"
+      >
+        <RiskAssessmentScoringSummary />
+        <RiskAssessmentMeta riskAssessment={riskAssessment} />
+        <RiskAssessmentRowsTable rows={firstPageRows} />
+        <RiskAssessmentFooter riskAssessment={riskAssessment} pageNumber={1} />
+      </section>
+      {remainingRowChunks.map((rows, index) => (
+        <section
+          key={`risk-assessment-continued-${index}`}
+          className={cn(
+            'emp-a4-page emp-print-page emp-ra-page emp-ra-page--landscape bg-white',
+            mode === 'preview' && 'shadow-sm'
+          )}
+          aria-label="Operational risk assessment continued"
+        >
+          <table className="emp-ra-table emp-ra-compact-meta">
+            <tbody>
+              <tr>
+                <th>Activity</th>
+                <td>{riskAssessment.activity}</td>
+                <th>Reference No:</th>
+                <td>{riskAssessment.referenceNo}</td>
+              </tr>
+            </tbody>
+          </table>
+          <RiskAssessmentRowsTable rows={rows} />
+          <RiskAssessmentFooter riskAssessment={riskAssessment} pageNumber={index + 2} />
+        </section>
+      ))}
+      <RiskAssessmentScoringPage
+        riskAssessment={riskAssessment}
+        mode={mode}
+        pageNumber={remainingRowChunks.length + 2}
+      />
+    </>
+  )
+}
+
+function displayModelRiskAssessment(
+  model: EmpPreviewModel,
+  output: 'full' | 'risk-assessment'
+) {
+  if (output === 'risk-assessment') return model.riskAssessment
+  return model.riskAssessment
+}
+
 export function EmpPreviewDocument({
   model,
   mode = 'preview',
+  output = 'full',
 }: {
   model: EmpPreviewModel
   mode?: 'preview' | 'print'
+  output?: 'full' | 'risk-assessment'
 }) {
+  const renderEmpPages = output === 'full'
   const initialSectionPages = model.sections.flatMap((section) =>
     paginateEmpContent(section.key, section.title, section.description, section.blocks)
   )
@@ -1470,8 +1754,15 @@ export function EmpPreviewDocument({
   const annexPages = displayModel.annexes.flatMap((annex) =>
     paginateEmpContent(`annex-${annex.key}`, annex.title, annex.description, annex.blocks)
   )
-  const totalPages = 1 + sectionPages.length + annexPages.length
+  const riskAssessment = displayModelRiskAssessment(displayModel, output)
+  const riskAssessmentPageCount = riskAssessment
+    ? 2 + Math.ceil(Math.max(0, riskAssessment.rows.length - 9) / 13)
+    : 0
+  const totalPages = (renderEmpPages ? 1 + sectionPages.length + annexPages.length : 0) + riskAssessmentPageCount
   const coverRowPairs = chunkItems(displayModel.coverRows, 2)
+  const pdfTitle = output === 'risk-assessment'
+    ? `${displayModel.coverRows.find((row) => row.label === 'Event')?.value || displayModel.title} - Operational Risk Assessment`
+    : displayModel.title
 
   return (
     <div
@@ -1482,12 +1773,12 @@ export function EmpPreviewDocument({
           ? 'emp-report-preview mx-auto flex flex-col items-center gap-6'
           : 'emp-report-print-content'
       )}
-      data-pdf-title={displayModel.title}
+      data-pdf-title={pdfTitle}
       data-pdf-event={displayModel.coverRows.find((row) => row.label === 'Event')?.value || ''}
       data-pdf-date={displayModel.coverRows.find((row) => row.label === 'Show dates')?.value || ''}
       data-pdf-venue={displayModel.coverRows.find((row) => row.label === 'Venue')?.value || ''}
     >
-      <section
+      {renderEmpPages ? <section
         className={cn(
           'emp-a4-page emp-print-page emp-front-page bg-white',
           mode === 'preview' && 'w-[180mm] min-h-[267mm]',
@@ -1561,9 +1852,9 @@ export function EmpPreviewDocument({
             <PageFooter pageNumber={1} totalPages={totalPages} />
           </div>
         </div>
-      </section>
+      </section> : null}
 
-      {sectionPages.map((page, index) => (
+      {renderEmpPages ? sectionPages.map((page, index) => (
         <SectionPage
           key={page.key}
           page={page}
@@ -1571,9 +1862,9 @@ export function EmpPreviewDocument({
           pageNumber={index + 2}
           totalPages={totalPages}
         />
-      ))}
+      )) : null}
 
-      {annexPages.map((page, index) => (
+      {renderEmpPages ? annexPages.map((page, index) => (
         <AnnexPage
           key={page.key}
           page={page}
@@ -1581,7 +1872,11 @@ export function EmpPreviewDocument({
           pageNumber={sectionPages.length + index + 2}
           totalPages={totalPages}
         />
-      ))}
+      )) : null}
+
+      {riskAssessment ? (
+        <RiskAssessmentPages riskAssessment={riskAssessment} mode={mode} />
+      ) : null}
     </div>
   )
 }

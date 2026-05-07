@@ -13,12 +13,12 @@ import { getMobileMoreItems, getMobileTabItems, isPrimaryMobilePath, matchesMobi
 
 export function MobileTabBar({ userRole }: { userRole?: UserRole | null }) {
   const pathname = usePathname() || '/'
+  const normalizedPathname = pathname.split(/[?#]/)[0].replace(/\/+$/, '') || '/'
   const isCmpSection = isCmpSectionPath(pathname)
   const isEmpSection = isEmpSectionPath(pathname)
   const tabItems = getMobileTabItems(userRole)
   const moreItems = getMobileMoreItems(userRole)
-  const moreActive = !isPrimaryMobilePath(pathname, userRole)
-  const featuredHref = userRole === 'admin' || userRole === 'ops' ? '/audit-tracker' : null
+  const moreActive = !isPrimaryMobilePath(normalizedPathname, userRole)
   const [moreOpen, setMoreOpen] = useState(false)
   const morePanelRef = useRef<HTMLDivElement | null>(null)
 
@@ -62,7 +62,7 @@ export function MobileTabBar({ userRole }: { userRole?: UserRole | null }) {
           <div className="grid grid-cols-3 gap-2">
             {moreItems.map((item) => {
               const Icon = item.icon
-              const isActive = matchesMobilePath(pathname, item.href)
+              const isActive = matchesMobilePath(normalizedPathname, item.href)
 
               return (
                 <Link
@@ -87,8 +87,7 @@ export function MobileTabBar({ userRole }: { userRole?: UserRole | null }) {
         <div className="grid grid-cols-5 gap-1 rounded-[32px] border border-slate-200/85 bg-[rgba(248,250,252,0.94)] p-1.5 shadow-[0_16px_34px_rgba(15,23,42,0.14)] backdrop-blur-2xl supports-[backdrop-filter]:bg-[rgba(248,250,252,0.88)]">
           {tabItems.map((item) => {
             const Icon = item.icon
-            const isActive = matchesMobilePath(pathname, item.href)
-            const isFeatured = item.href === featuredHref
+            const isActive = matchesMobilePath(normalizedPathname, item.href)
 
             return (
               <Link
@@ -96,18 +95,16 @@ export function MobileTabBar({ userRole }: { userRole?: UserRole | null }) {
                 href={item.href}
                 className={cn(
                   'flex min-h-[58px] flex-col items-center justify-center gap-1 rounded-[20px] px-1 py-2.5 text-[10px] font-semibold tracking-[0.01em] transition-[background-color,color,box-shadow]',
-                  isFeatured
-                    ? 'bg-[#143457] text-white shadow-[0_12px_24px_rgba(20,52,87,0.22)]'
-                    : isActive
-                      ? 'bg-white text-slate-900 shadow-[inset_0_0_0_1px_rgba(148,163,184,0.16)]'
-                      : 'text-slate-500 active:bg-white'
+                  isActive
+                    ? 'bg-[#0e1925] text-white shadow-[0_8px_20px_rgba(14,25,37,0.22)]'
+                    : 'text-slate-500 active:bg-white'
                 )}
               >
                 <Icon
                   strokeWidth={1.9}
                   className={cn(
                     'h-[18px] w-[18px]',
-                    isFeatured ? 'text-white' : isActive ? 'text-slate-900' : 'text-slate-500'
+                    isActive ? 'text-white' : 'text-slate-500'
                   )}
                 />
                 <span>{item.label}</span>
@@ -120,7 +117,9 @@ export function MobileTabBar({ userRole }: { userRole?: UserRole | null }) {
             onClick={() => setMoreOpen((prev) => !prev)}
             className={cn(
               'flex min-h-[58px] flex-col items-center justify-center gap-1 rounded-[20px] px-1 py-2.5 text-[10px] font-semibold tracking-[0.01em] transition-[background-color,color,box-shadow]',
-              moreActive || moreOpen
+              moreActive
+                ? 'bg-[#0e1925] text-white shadow-[0_8px_20px_rgba(14,25,37,0.22)]'
+                : moreOpen
                 ? 'bg-white text-slate-900 shadow-[inset_0_0_0_1px_rgba(148,163,184,0.16)]'
                 : 'text-slate-500 active:bg-white'
             )}
@@ -128,9 +127,9 @@ export function MobileTabBar({ userRole }: { userRole?: UserRole | null }) {
             aria-expanded={moreOpen}
           >
             {moreOpen ? (
-              <X strokeWidth={1.9} className={cn('h-[18px] w-[18px]', moreActive || moreOpen ? 'text-slate-900' : 'text-slate-500')} />
+              <X strokeWidth={1.9} className={cn('h-[18px] w-[18px]', moreActive ? 'text-white' : moreOpen ? 'text-slate-900' : 'text-slate-500')} />
             ) : (
-              <Menu strokeWidth={1.9} className={cn('h-[18px] w-[18px]', moreActive || moreOpen ? 'text-slate-900' : 'text-slate-500')} />
+              <Menu strokeWidth={1.9} className={cn('h-[18px] w-[18px]', moreActive ? 'text-white' : moreOpen ? 'text-slate-900' : 'text-slate-500')} />
             )}
             <span>More</span>
           </button>
