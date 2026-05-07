@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { EMP_DEMO_EVENT_NAME } from '@/lib/emp/demo-plan'
+import { EMP_DOWNLOAD_EVENT_NAME } from '@/lib/emp/download-plan'
 import { EMP_BUSINESS_TEMPLATE_DESCRIPTION } from '@/lib/emp/business-template'
 import type { EmpPlanSummary } from '@/lib/emp/data'
 import { EMP_MASTER_TEMPLATES } from '@/lib/emp/master-templates'
@@ -28,6 +29,13 @@ export function EmpWorkspace({ plans }: { plans: EmpPlanSummary[] }) {
                 className={cn(buttonVariants({ variant: 'default' }), 'bg-emerald-700 hover:bg-emerald-800')}
               >
                 Create from EMP Template
+              </button>
+            </form>
+            <form method="post" action="/api/emp/create" className="inline-flex">
+              <input type="hidden" name="kind" value="download" />
+              <input type="hidden" name="redirectTo" value="/admin/event-management-plans/:planId" />
+              <button type="submit" className={cn(buttonVariants({ variant: 'outline' }))}>
+                Create Download EMP
               </button>
             </form>
             <form method="post" action="/api/emp/create" className="inline-flex">
@@ -117,6 +125,9 @@ export function EmpWorkspace({ plans }: { plans: EmpPlanSummary[] }) {
                     <Badge variant="outline">{plan.documentStatus || 'Draft'}</Badge>
                     {plan.eventName === EMP_DEMO_EVENT_NAME ? (
                       <Badge variant="secondary">Example</Badge>
+                    ) : null}
+                    {plan.eventName === EMP_DOWNLOAD_EVENT_NAME ? (
+                      <Badge variant="secondary">Download</Badge>
                     ) : null}
                     {plan.selectedAnnexes.length > 0 ? (
                       <Badge variant="secondary">{plan.selectedAnnexes.length} annexes</Badge>

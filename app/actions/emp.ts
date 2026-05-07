@@ -2,6 +2,7 @@
 
 import {
   createEmpDemoPlan,
+  createEmpDownloadPlan,
   createEmpPlan,
   deleteEmpPlan,
   ensureEmpTemplateSeeded,
@@ -12,6 +13,7 @@ import {
 
 export {
   createEmpDemoPlan,
+  createEmpDownloadPlan,
   createEmpPlan,
   deleteEmpPlan,
   ensureEmpTemplateSeeded,

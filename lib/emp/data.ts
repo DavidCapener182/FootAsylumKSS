@@ -13,6 +13,12 @@ import {
   EMP_DEMO_SELECTED_ANNEXES,
 } from '@/lib/emp/demo-plan'
 import {
+  EMP_DOWNLOAD_EVENT_NAME,
+  EMP_DOWNLOAD_PLAN_TITLE,
+  EMP_DOWNLOAD_PLAN_VALUES,
+  EMP_DOWNLOAD_SELECTED_ANNEXES,
+} from '@/lib/emp/download-plan'
+import {
   EMP_BUSINESS_TEMPLATE_VALUES,
   getEmpBusinessTemplatePlanMetadata,
 } from '@/lib/emp/business-template'
@@ -490,6 +496,7 @@ export async function ensureEmpTemplateSeeded() {
 export async function listEmpPlans() {
   const { supabase, profile } = await getEmpUserContext()
   await ensureEmpTemplateSeededForContext(supabase, profile.id)
+  await createEmpDownloadPlan()
 
   const { data, error } = await supabase
     .from('emp_plans')
@@ -592,6 +599,112 @@ export async function createEmpPlanFromBusinessTemplate() {
 }
 
 export const createEmpPlanFromRadioOneTemplate = createEmpPlanFromBusinessTemplate
+
+export async function createEmpDownloadPlan() {
+  const { supabase, profile } = await getEmpUserContext()
+  const template = await ensureEmpTemplateSeededForContext(supabase, profile.id)
+
+  async function syncDownloadPlanValues(planId: string, nowIso: string, mode: 'all' | 'stale-only' = 'all') {
+    const templateGraph = await loadTemplateGraph(supabase, template.id)
+    const currentRows = mode === 'stale-only'
+      ? await loadPlanValueRows(supabase, planId, templateGraph.fields)
+      : []
+    const currentValueByKey = new Map(currentRows.map((row) => [row.fieldKey, clean(row.valueText)]))
+    const staleCoOpPattern = /Co-Op-style|Co-Op and other sponsor activation|Co-Op-style activation/i
+    const shouldSyncAll = mode === 'all' || (mode === 'stale-only' && currentRows.length === 0)
+
+    const upserts = templateGraph.fields
+      .map((field) => {
+        const valueText = clean(EMP_DOWNLOAD_PLAN_VALUES[field.key])
+        if (!valueText) return null
+        const currentValue = currentValueByKey.get(field.key) || ''
+        const shouldSyncField = shouldSyncAll || staleCoOpPattern.test(currentValue)
+        if (!shouldSyncField) return null
+
+        return {
+          plan_id: planId,
+          field_id: field.id,
+          value_text: valueText,
+          value_source: 'manual',
+          source_document_id: null,
+          source_excerpt: null,
+          updated_by_user_id: profile.id,
+          updated_at: nowIso,
+        }
+      })
+      .filter(Boolean) as Array<Record<string, unknown>>
+
+    if (mode === 'stale-only' && upserts.length === 0) {
+      return
+    }
+
+    if (upserts.length > 0) {
+      const { error: upsertError } = await supabase
+        .from('emp_plan_field_values')
+        .upsert(upserts, { onConflict: 'plan_id,field_id' })
+
+      if (upsertError) {
+        throwEmpOperationError('Failed to seed Download EMP plan values', upsertError)
+      }
+    }
+
+    await syncPlanSummaryFromValues({
+      supabase,
+      planId,
+      updatedByUserId: profile.id,
+      values: EMP_DOWNLOAD_PLAN_VALUES,
+      selectedAnnexes: EMP_DOWNLOAD_SELECTED_ANNEXES,
+      includeKssProfileAppendix: false,
+    })
+  }
+
+  const { data: existingPlan, error: existingPlanError } = await supabase
+    .from('emp_plans')
+    .select('id')
+    .eq('template_id', template.id)
+    .eq('title', EMP_DOWNLOAD_PLAN_TITLE)
+    .maybeSingle()
+
+  if (existingPlanError) {
+    throwEmpOperationError('Failed to load Download EMP plan', existingPlanError)
+  }
+
+  if (existingPlan?.id) {
+    await syncDownloadPlanValues(existingPlan.id as string, new Date().toISOString(), 'stale-only')
+    return existingPlan.id as string
+  }
+
+  const nowIso = new Date().toISOString()
+  const { data: createdPlan, error: createPlanError } = await supabase
+    .from('emp_plans')
+    .insert({
+      template_id: template.id,
+      title: EMP_DOWNLOAD_PLAN_TITLE,
+      event_name: EMP_DOWNLOAD_EVENT_NAME,
+      status: 'draft',
+      created_by_user_id: profile.id,
+      updated_by_user_id: profile.id,
+      updated_at: nowIso,
+      document_status: 'Draft',
+      selected_annexes: EMP_DOWNLOAD_SELECTED_ANNEXES,
+      include_kss_profile_appendix: false,
+    })
+    .select('id')
+    .single()
+
+  if (createPlanError || !createdPlan) {
+    throwEmpOperationError('Failed to create Download EMP plan', createPlanError)
+  }
+
+  try {
+    await syncDownloadPlanValues(createdPlan.id as string, nowIso, 'all')
+  } catch (error) {
+    await supabase.from('emp_plans').delete().eq('id', createdPlan.id)
+    throw error
+  }
+
+  return createdPlan.id as string
+}
 
 export async function createEmpDemoPlan() {
   const { supabase, profile } = await getEmpUserContext()

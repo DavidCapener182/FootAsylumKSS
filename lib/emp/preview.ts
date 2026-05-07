@@ -116,6 +116,7 @@ export interface EmpPreviewModel {
   title: string
   subtitle: string
   coverRows: Array<{ label: string; value: string }>
+  coverSummary: string
   sections: EmpPreviewSection[]
   annexes: EmpPreviewAnnex[]
   riskAssessment?: EmpRiskAssessmentModel
@@ -163,6 +164,55 @@ function isRadioOneBarPlan(fieldValues: Record<string, EmpResolvedFieldValue>, s
 
 function isRadioOneEvent(fieldValues: Record<string, EmpResolvedFieldValue>) {
   return /Radio 1|Big Weekend|R1BW/i.test(`${getValue(fieldValues, 'event_name')} ${getValue(fieldValues, 'plan_title')}`)
+}
+
+function isDownloadEvent(fieldValues: Record<string, EmpResolvedFieldValue>) {
+  return /Download Festival|DLF26|Donington Park/i.test(`${getValue(fieldValues, 'event_name')} ${getValue(fieldValues, 'plan_title')} ${getValue(fieldValues, 'venue_name')}`)
+}
+
+function getAnnexPresentation(
+  annex: (typeof EMP_ANNEX_DEFINITIONS)[number],
+  fieldValues: Record<string, EmpResolvedFieldValue>
+) {
+  if (!isDownloadEvent(fieldValues)) {
+    return {
+      title: annex.label,
+      description: annex.description,
+    }
+  }
+
+  const downloadOverrides: Partial<Record<EmpAnnexKey, { title: string; description: string }>> = {
+    search_screening: {
+      title: 'Search and Screening - Accessibility Campsite',
+      description:
+        'Consent-based search, prohibited-items controls, dignity, privacy, and accessibility campsite escalation arrangements.',
+    },
+    front_of_stage_pit: {
+      title: 'Co-Op Shop and Sponsor Activation Security',
+      description:
+        'Co-Op shop ingress, egress, queue, perimeter and asset controls, plus other sponsor activation welfare handover and surge response.',
+    },
+    traffic_pedestrian_routes: {
+      title: 'Pedestrian, Service Route and Paddock Interface',
+      description:
+        'Service route, stock movement, Paddock, crossing point, accessible route, and pedestrian interface controls.',
+    },
+    camping_security: {
+      title: 'Accessibility Campsite Security',
+      description:
+        'Accessible Campsite A4 and Accessible Campsite D patrols, welfare-linked checks, search support, and safeguarding escalation.',
+    },
+    stewarding_deployment: {
+      title: 'KSS Stewarding and Queue Marshal Deployment',
+      description:
+        'Queue marshal matrix, accessibility support, shift structure, and zone-by-zone deployment detail for KSS areas.',
+    },
+  }
+
+  return downloadOverrides[annex.key] || {
+    title: annex.label,
+    description: annex.description,
+  }
 }
 
 function getEffectiveSelectedAnnexes(fieldValues: Record<string, EmpResolvedFieldValue>, selectedAnnexes: string[]) {
@@ -1161,11 +1211,16 @@ function buildOperationalRiskRows(
   }
 
   if (selectedAnnexes.includes('front_of_stage_pit')) {
+    const download = isDownloadEvent(fieldValues)
     rows.push(
       buildRiskRow(
-        'High-demand bar queue area',
-        'Queue surge, barrier line compression, extraction demand, welfare demand, and poor communication during peak bar demand.',
-        'Attendees, queue teams, welfare responders, and adjacent response staff.',
+        download ? 'Co-Op shop, sponsor activation queue and asset area' : 'High-demand bar queue area',
+        download
+          ? 'Queue surge, barrier line compression, Co-Op shop ingress or egress obstruction, welfare demand, route obstruction and asset intrusion at shop or sponsor activation areas.'
+          : 'Queue surge, barrier line compression, extraction demand, welfare demand, and poor communication during peak bar demand.',
+        download
+          ? 'Co-Op customers, activation customers, disabled guests, queue teams, sponsor staff, welfare responders and adjacent response staff.'
+          : 'Attendees, queue teams, welfare responders, and adjacent response staff.',
         joinRiskControls(
           getValue(fieldValues, 'front_of_stage_roles'),
           getValue(fieldValues, 'high_density_controls'),
@@ -1195,11 +1250,16 @@ function buildOperationalRiskRows(
   }
 
   if (selectedAnnexes.includes('camping_security')) {
+    const download = isDownloadEvent(fieldValues)
     rows.push(
       buildRiskRow(
-        'Overnight bar asset protection',
-        'Late-night welfare demand, noise or antisocial behaviour, perimeter breaches, small fires, unauthorised access, or delayed response in darkness.',
-        'Staff, overnight patrols, welfare teams, asset holders, and adjacent perimeter staff.',
+        download ? 'Accessibility campsite security and safeguarding' : 'Overnight bar asset protection',
+        download
+          ? 'Late-night welfare demand, accessibility route obstruction, unauthorised access, safeguarding concern, search escalation, or delayed response in darkness.'
+          : 'Late-night welfare demand, noise or antisocial behaviour, perimeter breaches, small fires, unauthorised access, or delayed response in darkness.',
+        download
+          ? 'Disabled guests, companions, children, vulnerable adults, overnight patrols, welfare teams and campsite staff.'
+          : 'Staff, overnight patrols, welfare teams, asset holders, and adjacent perimeter staff.',
         joinRiskControls(
           getValue(fieldValues, 'camping_security_roles'),
           getValue(fieldValues, 'camping_profile'),
@@ -1351,7 +1411,7 @@ function buildSelectedAnnexRoleRows(
       if (!value) return null
 
       const annex = EMP_ANNEX_DEFINITIONS.find((item) => item.key === annexKey)
-      return annex ? [annex.label, value] : null
+      return annex ? [getAnnexPresentation(annex, fieldValues).title, value] : null
     })
     .filter(Boolean) as string[][]
 }
@@ -1703,7 +1763,8 @@ function buildSectionBlocks(
         .concat(
           maybeMultiTable(
             ['Selected Annex', 'Roles and Duties'],
-            buildSelectedAnnexRoleRows(fieldValues, selectedAnnexes)
+            buildSelectedAnnexRoleRows(fieldValues, selectedAnnexes),
+            { compact: true, avoidRowSplit: true, rowUnitScale: 0.75 }
           )
         )
         .concat(buildDeploymentScheduleBlocks(getValue(fieldValues, 'staffing_by_zone_and_time'), radioOne))
@@ -2040,8 +2101,14 @@ function buildAnnexBlocks(
         .concat(labeledParagraph('Overspill and queue controls', getValue(fieldValues, 'overspill_controls')))
 
     case 'front_of_stage_pit':
+      if (!isDownloadEvent(fieldValues)) {
+        return roleBlocks
+          .concat(labeledParagraph('High-demand bar controls', getValue(fieldValues, 'high_density_controls')))
+          .concat(labeledParagraph('Response teams', getValue(fieldValues, 'response_teams')))
+          .concat(labeledParagraph('Emergency escalation', getValue(fieldValues, 'command_escalation')))
+      }
       return roleBlocks
-        .concat(labeledParagraph('High-demand bar controls', getValue(fieldValues, 'high_density_controls')))
+        .concat(labeledParagraph('Co-Op shop and sponsor activation controls', getValue(fieldValues, 'high_density_controls')))
         .concat(labeledParagraph('Response teams', getValue(fieldValues, 'response_teams')))
         .concat(labeledParagraph('Emergency escalation', getValue(fieldValues, 'command_escalation')))
 
@@ -2054,7 +2121,7 @@ function buildAnnexBlocks(
 
     case 'camping_security':
       return roleBlocks
-        .concat(labeledParagraph('Overnight asset profile', getValue(fieldValues, 'camping_profile')))
+        .concat(labeledParagraph(isDownloadEvent(fieldValues) ? 'Accessibility campsite profile' : 'Overnight asset profile', getValue(fieldValues, 'camping_profile')))
         .concat(labeledParagraph('Staffing by zone and time', getValue(fieldValues, 'staffing_by_zone_and_time')))
         .concat(labeledParagraph('Safeguarding process', getValue(fieldValues, 'safeguarding_process')))
 
@@ -2087,6 +2154,14 @@ function buildAnnexBlocks(
         )
 
     case 'emergency_action_cards':
+      if (isDownloadEvent(fieldValues)) {
+        return labeledParagraph('Emergency procedures', getValue(fieldValues, 'emergency_procedures'))
+          .concat(labeledParagraph('Part evacuation', getValue(fieldValues, 'partial_evacuation_procedure')))
+          .concat(labeledParagraph('Full evacuation', getValue(fieldValues, 'full_evacuation_procedure')))
+          .concat(labeledParagraph('Invacuation / lockdown', getValue(fieldValues, 'lockdown_invacuation_procedure')))
+          .concat(labeledParagraph('Shelter', getValue(fieldValues, 'shelter_procedure')))
+          .concat(labeledParagraph('Counter-terrorism procedures', getValue(fieldValues, 'ct_procedures')))
+      }
       return labeledParagraph('Emergency procedures', getValue(fieldValues, 'emergency_procedures'))
         .concat(labeledParagraph('Part evacuation', getValue(fieldValues, 'partial_evacuation_procedure')))
         .concat(labeledParagraph('Full evacuation', getValue(fieldValues, 'full_evacuation_procedure')))
@@ -2361,6 +2436,11 @@ export function buildEmpPreviewModel(input: {
     { label: 'Organiser', value: getValue(input.fieldValues, 'organiser_name') },
     ...(isRadioOneInput ? [] : [{ label: 'Client', value: getValue(input.fieldValues, 'client_name') }]),
   ].filter((row) => clean(row.value))
+  const coverSummary = isDownloadEvent(input.fieldValues)
+    ? 'This document records the KSS security operations arrangements for Download Festival 2026, including bars, the Co-Op shop, sponsor activations, Paddock, accessibility campsite search and accessible campsite security. It is intended to be read alongside the Download Festival Event Management Plan, Crowd and Security Management Plan, Safeguarding and Welfare Plan, FAB Safeguarding Policy, risk assessments, emergency procedures, licensing documentation, deployment schedules, and current site plans.'
+    : isRadioOneInput
+      ? 'This document records the KSS bar security operations arrangements for BBC Radio 1 Big Weekend. It is intended to be read alongside the BBC/FAB Event Management Plan, risk assessments, emergency procedures, licensing documentation, deployment schedules, and current site plans.'
+      : 'This document records the KSS security operations arrangements for the named event. It is intended to be read alongside the event management plan, risk assessments, emergency procedures, licensing documentation, deployment schedules, and current site plans.'
 
   const documents = input.documents || []
   const selectedAnnexes = getEffectiveSelectedAnnexes(input.fieldValues, input.selectedAnnexes)
@@ -2398,12 +2478,15 @@ export function buildEmpPreviewModel(input: {
 
   const annexes: EmpPreviewAnnex[] = EMP_ANNEX_DEFINITIONS
     .filter((annex) => selectedAnnexes.includes(annex.key))
-    .map((annex) => ({
-      key: annex.key,
-      title: annex.label,
-      description: annex.description,
-      blocks: buildAnnexBlocks(annex.key, input.fieldValues, documents),
-    }))
+    .map((annex) => {
+      const presentation = getAnnexPresentation(annex, input.fieldValues)
+      return {
+        key: annex.key,
+        title: presentation.title,
+        description: presentation.description,
+        blocks: buildAnnexBlocks(annex.key, input.fieldValues, documents),
+      }
+    })
     .filter((annex) => annex.blocks.length > 0 || clean(annex.description))
 
   if (isRadioOneInput) {
@@ -2448,6 +2531,7 @@ export function buildEmpPreviewModel(input: {
     title,
     subtitle: subtitleParts.join(' | '),
     coverRows,
+    coverSummary,
     sections,
     annexes,
     riskAssessment: buildEmpOperationalRiskAssessment(input.fieldValues),

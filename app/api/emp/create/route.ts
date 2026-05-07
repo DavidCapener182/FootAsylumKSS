@@ -3,6 +3,7 @@ import { EmpAccessError } from '@/lib/emp/access'
 import {
   EmpSetupRequiredError,
   createEmpDemoPlan,
+  createEmpDownloadPlan,
   createEmpPlan,
   createEmpPlanFromBusinessTemplate,
 } from '@/lib/emp/data'
@@ -28,6 +29,8 @@ export async function POST(request: NextRequest) {
     const planId =
       kind === 'example'
         ? await createEmpDemoPlan()
+        : kind === 'download'
+          ? await createEmpDownloadPlan()
         : kind === 'business_template' || kind === 'radio_one_template'
           ? await createEmpPlanFromBusinessTemplate()
           : await createEmpPlan()

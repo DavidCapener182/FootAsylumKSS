@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { EmpPreviewDocument } from '@/components/emp/emp-preview-document'
 import { describe, expect, it } from 'vitest'
 import { EMP_DEMO_PLAN_VALUES, EMP_DEMO_SELECTED_ANNEXES } from '@/lib/emp/demo-plan'
+import { EMP_DOWNLOAD_PLAN_VALUES, EMP_DOWNLOAD_SELECTED_ANNEXES } from '@/lib/emp/download-plan'
 import { EMP_MASTER_TEMPLATE_FIELDS } from '@/lib/emp/master-template'
 import { buildEmpPreviewModel, resolveEmpFieldValueMap } from '@/lib/emp/preview'
 
@@ -56,6 +57,28 @@ describe('buildEmpPreviewModel', () => {
     expect(annexText).toContain('Search policy')
     expect(annexText).toContain('Prohibited items')
     expect(annexText).toContain('Roles and duties')
+  })
+
+  it('uses Download-specific annex labels without changing the generic bar labels', () => {
+    const downloadFieldValues = resolveEmpFieldValueMap(
+      EMP_MASTER_TEMPLATE_FIELDS,
+      Object.entries(EMP_DOWNLOAD_PLAN_VALUES).map(([fieldKey, valueText]) => ({
+        fieldKey,
+        valueText,
+        source: 'manual',
+      }))
+    )
+    const model = buildEmpPreviewModel({
+      fieldValues: downloadFieldValues,
+      selectedAnnexes: EMP_DOWNLOAD_SELECTED_ANNEXES,
+      includeKssProfileAppendix: false,
+    })
+
+    expect(model.annexes.map((annex) => annex.title)).toContain('Co-Op Shop and Sponsor Activation Security')
+    expect(model.annexes.map((annex) => annex.title)).toContain('Accessibility Campsite Security')
+    expect(model.annexes.map((annex) => annex.title)).toContain('Search and Screening - Accessibility Campsite')
+    expect(model.annexes.map((annex) => annex.title)).not.toContain('High-Demand Bar Queue Area')
+    expect(model.annexes.map((annex) => annex.title)).not.toContain('Overnight Bar Asset Protection')
   })
 
   it('uses event-specific queue diagram labels for non-Radio One EMPs', () => {
@@ -332,6 +355,7 @@ describe('buildEmpPreviewModel', () => {
           title: 'Test EMP',
           subtitle: '',
           coverRows: [],
+          coverSummary: 'Test cover summary.',
           sections: [
             {
               key: 'incident_management',
@@ -362,6 +386,7 @@ describe('buildEmpPreviewModel', () => {
           title: 'Table Pagination EMP',
           subtitle: '',
           coverRows: [],
+          coverSummary: 'Test cover summary.',
           sections: [
             {
               key: 'ingress_operations',

@@ -16,7 +16,7 @@ interface EmpContentPage {
   blocks: EmpPreviewBlock[]
 }
 
-const EMP_PAGE_CAPACITY_UNITS = 39
+const EMP_PAGE_CAPACITY_UNITS = 43
 const EMP_BLOCK_GAP_UNITS = 1
 const EMP_KEY_VALUE_HEADER_UNITS = 1.5
 const EMP_MULTI_TABLE_HEADER_UNITS = 1.5
@@ -1804,10 +1804,7 @@ export function EmpPreviewDocument({
               <p className="mt-4 max-w-4xl text-[15px] leading-7 text-slate-600">{displayModel.subtitle}</p>
             ) : null}
             <p className="mt-4 max-w-3xl text-[13px] leading-6 text-slate-700">
-              This document records the bar security operations arrangements for the
-              named event. It is intended to be read alongside the BBC/FAB Event Management Plan, risk
-              assessments, emergency procedures, licensing documentation, deployment schedules, and
-              current site plans.
+              {displayModel.coverSummary}
             </p>
           </div>
 
