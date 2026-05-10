@@ -600,6 +600,37 @@ export async function createEmpPlanFromBusinessTemplate() {
 
 export const createEmpPlanFromRadioOneTemplate = createEmpPlanFromBusinessTemplate
 
+const DOWNLOAD_STALE_DEPLOYMENT_FIELD_PATTERNS: Record<string, RegExp> = {
+  named_command_roles: /KSS Co-Op Supervisor - TBC|KSS Accessibility Campsite Supervisor - TBC|KSS Operational Support - David Capener/,
+  radio_channels_callsigns: /^TBC\. Radio channels and call signs will be inserted/,
+  reporting_lines: /^KSS staff report to their KSS supervisor\. KSS supervisors escalate to the KSS Operational Lead and Event Control\./,
+  specialist_teams_and_assets: /^Specialist KSS assets include SIA search-capable staff, bar support officers, queue marshals, sponsor activation support,/,
+  staffing_by_zone_and_time: /^(Campsite ingress - Accessibility campsite search support,|Draft deployment source - supplied FAB \/ Live Nation security schedule screenshots\.|Monday 8 June\|Sponsorship Supervisor\|Day x1)/,
+  response_teams: /^KSS response pair\/team - Support refusals, sponsor activation pressure,/,
+  service_delivery_scope: /^KSS service delivery covers allocated bars, the Co-Op shop, Paddock, Accessible Campsite A4, Accessible Campsite D,/,
+  escalation_staffing: /^Escalation staffing is requested where bar queues or Co-Op shop queues block routes,/,
+  front_of_stage_roles: /^For sponsor activations, KSS roles include queue layout,/,
+  camping_security_roles: /^KSS camping roles focus on Accessible Campsite A4 and Accessible Campsite D,/,
+  circulation_controls: /^KSS protects circulation around bars, Co-Op shop, Paddock and accessibility campsites through fixed observation,/,
+  egress_operations: /^Egress operations include bar wind-down, queue clear-down, Co-Op shop closure,/,
+  emergency_procedures: /^Emergency procedures are directed by the wider Download EMP and Event Control\./,
+  partial_evacuation_procedure: /^For partial evacuation of a bar, Co-Op shop, Paddock or accessibility campsite area, KSS stops entry,/,
+  full_evacuation_procedure: /^For full evacuation, KSS follows Event Control instructions,/,
+  lockdown_invacuation_procedure: /^For lockdown or invacuation, KSS moves customers away from exposed areas where safe,/,
+  rendezvous_points: /^RVPs are controlled by Event Control\. Offsite RVP1 is MOTO Donington Park;/,
+  command_escalation: /^Emergency escalation goes from KSS staff to KSS supervisor, KSS Operational Lead and Event Control\./,
+  ct_procedures: /^KSS staff are briefed on ACT, SCaN, hostile reconnaissance,/,
+  suspicious_item_protocol: /^Do not touch or move suspicious items\. Use HOT assessment,/,
+  hostile_recon_indicators: /^Indicators include repeated filming of search lanes,/,
+  key_contacts_directory: /phone TBC|KSS Operational Support - David Capener/,
+  contact_directory: /phone TBC|KSS Operational Support - David Capener/,
+}
+
+const DOWNLOAD_SYNC_IF_MISSING_FIELD_KEYS = new Set([
+  'operational_assumptions_dependencies',
+  'dynamic_escalation_triggers',
+])
+
 export async function createEmpDownloadPlan() {
   const { supabase, profile } = await getEmpUserContext()
   const template = await ensureEmpTemplateSeededForContext(supabase, profile.id)
@@ -618,7 +649,12 @@ export async function createEmpDownloadPlan() {
         const valueText = clean(EMP_DOWNLOAD_PLAN_VALUES[field.key])
         if (!valueText) return null
         const currentValue = currentValueByKey.get(field.key) || ''
-        const shouldSyncField = shouldSyncAll || staleCoOpPattern.test(currentValue)
+        const staleDeploymentPattern = DOWNLOAD_STALE_DEPLOYMENT_FIELD_PATTERNS[field.key]
+        const shouldSyncField =
+          shouldSyncAll ||
+          (!currentValue && DOWNLOAD_SYNC_IF_MISSING_FIELD_KEYS.has(field.key)) ||
+          staleCoOpPattern.test(currentValue) ||
+          Boolean(staleDeploymentPattern?.test(currentValue))
         if (!shouldSyncField) return null
 
         return {

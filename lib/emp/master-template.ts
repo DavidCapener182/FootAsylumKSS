@@ -349,6 +349,16 @@ export const EMP_MASTER_TEMPLATE_FIELDS: EmpMasterTemplateField[] = [
     defaultValueText:
       'BBC/FAB Event Management Plan\nKSS operational risk assessment\nEmergency procedures\nSite maps and allocated-area plans\nLicensing schedule\nDeployment matrix\nContact directory',
   }),
+  field('purpose_scope', 'operational_assumptions_dependencies', 'Operational assumptions and dependencies', 2, 'textarea', {
+    defaultValueText: lines(
+      'Deployment numbers remain subject to final client confirmation and live deployment sheet issue.',
+      'KSS operates under Event Control direction and within the wider organiser event management framework.',
+      'Site plans, queue layouts, bar footprints, search lanes and route arrangements may be revised before or during the event.',
+      'Emergency procedures, evacuation decisions and public messaging are governed by the event command structure.',
+      'Weather, ground condition, welfare demand or security intelligence may alter deployment or route use.',
+      'Search policy, eviction authority and ejection decision routes remain controlled by the client and event management structure.'
+    ),
+  }),
 
   field('event_overview', 'event_name', 'Event name', 0, 'text', { required: true }),
   field('event_overview', 'event_type', 'Event type', 1, 'text', {
@@ -627,43 +637,54 @@ export const EMP_MASTER_TEMPLATE_FIELDS: EmpMasterTemplateField[] = [
     defaultValueText:
       'Escalation triggers should identify when additional staff are deployed, redeployed, or requested, including thresholds linked to density, queue length, incident frequency, route loss, or adverse weather.',
   }),
-  field('deployment_strategy', 'bar_operations_roles', 'Bar Operations roles and duties', 7, 'textarea', {
+  field('deployment_strategy', 'dynamic_escalation_triggers', 'Dynamic escalation triggers', 7, 'textarea', {
+    defaultValueText: lines(
+      'Queue tail reaches or obstructs an emergency route, accessible route, stock route or main public circulation route.',
+      'Sustained stop-start movement, visible compression, barrier pressure or customer distress develops in a queue.',
+      'Repeated refusal conflict, intoxication, proxy-purchase attempts or disorder requires response support.',
+      'Accessibility route width, buggy movement, search privacy or accessible campsite welfare support is compromised.',
+      'Welfare, medical, safeguarding or lost/found person demand exceeds local supervisor capability.',
+      'Severe weather, ground deterioration, lighting loss or route loss reduces safe circulation assumptions.',
+      'Crowd density, shop demand or bar demand exceeds the planned queue footprint or safe local holding capacity.'
+    ),
+  }),
+  field('deployment_strategy', 'bar_operations_roles', 'Bar Operations roles and duties', 8, 'textarea', {
     annexKeys: ['bar_operations'],
     description: 'Shown only when the Bar Operations annex is selected.',
     defaultValueText:
       'Set out bar supervisors, bar queue teams, refusals support, stock or delivery gate controls, service area protection, and any roaming response linked to licensed activity.',
   }),
-  field('deployment_strategy', 'search_screening_roles', 'Search and Screening roles and duties', 8, 'textarea', {
+  field('deployment_strategy', 'search_screening_roles', 'Search and Screening roles and duties', 9, 'textarea', {
     annexKeys: ['search_screening'],
     description: 'Shown only when the Search and Screening annex is selected.',
     defaultValueText:
       'Set out lane supervisors, ticket-resolution interface, primary and secondary search teams, prohibited-items surrender points, and escalation roles for refusals, finds, or suspected supply.',
   }),
-  field('deployment_strategy', 'front_of_stage_roles', 'High-demand area roles and duties', 9, 'textarea', {
+  field('deployment_strategy', 'front_of_stage_roles', 'High-demand area roles and duties', 10, 'textarea', {
     annexKeys: ['front_of_stage_pit'],
     description: 'Shown only when the High-Demand Bar Queue Area annex is selected.',
     defaultValueText:
       'Set out any high-demand queue-area supervisors, barrier teams, extraction points, welfare handover routes, and the reporting route to control during peak demand.',
   }),
-  field('deployment_strategy', 'traffic_pedestrian_roles', 'Traffic / Pedestrian Route roles and duties', 10, 'textarea', {
+  field('deployment_strategy', 'traffic_pedestrian_roles', 'Traffic / Pedestrian Route roles and duties', 11, 'textarea', {
     annexKeys: ['traffic_pedestrian_routes'],
     description: 'Shown only when the Traffic / Pedestrian Routes annex is selected.',
     defaultValueText:
       'Set out route stewards, crossing-point staff, transport-hub marshals, car-park interface staff, taxi and coach loading support, and the link with the traffic management contractor.',
   }),
-  field('deployment_strategy', 'camping_security_roles', 'Overnight asset protection roles and duties', 11, 'textarea', {
+  field('deployment_strategy', 'camping_security_roles', 'Overnight asset protection roles and duties', 12, 'textarea', {
     annexKeys: ['camping_security'],
     description: 'Shown only when the Overnight Bar Asset Protection annex is selected.',
     defaultValueText:
       'Set out overnight patrols, welfare-linked patrols, perimeter protection, and unauthorised access arrangements where overnight bar asset protection is allocated to KSS.',
   }),
-  field('deployment_strategy', 'vip_backstage_roles', 'Restricted Compound Security roles and duties', 12, 'textarea', {
+  field('deployment_strategy', 'vip_backstage_roles', 'Restricted Compound Security roles and duties', 13, 'textarea', {
     annexKeys: ['vip_backstage_security'],
     description: 'Shown only when the Restricted Compound Security annex is selected.',
     defaultValueText:
       'Set out accreditation control, compound gate staff, client escorts, service-route protection, sterile-area checks, and response arrangements for unauthorised access.',
   }),
-  field('deployment_strategy', 'stewarding_roles', 'Stewarding Deployment roles and duties', 13, 'textarea', {
+  field('deployment_strategy', 'stewarding_roles', 'Stewarding Deployment roles and duties', 14, 'textarea', {
     annexKeys: ['stewarding_deployment'],
     description: 'Shown only when the Stewarding Deployment annex is selected.',
     defaultValueText:

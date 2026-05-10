@@ -141,7 +141,7 @@ export async function GET(request: NextRequest) {
       existingPageStyle?.remove()
       const pageStyle = document.createElement('style')
       pageStyle.id = 'emp-pdf-page-style'
-      pageStyle.textContent = '@page { size: A4; margin: 0; } @page emp-ra-landscape { size: A4 landscape; margin: 0; }'
+      pageStyle.textContent = '@page { size: A4; margin: 0; } @page emp-ra-landscape { size: A4 landscape; margin: 0; } @page emp-landscape { size: A4 landscape; margin: 0; }'
       document.head.appendChild(pageStyle)
       window.dispatchEvent(new Event('resize'))
     })

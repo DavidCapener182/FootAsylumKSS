@@ -700,6 +700,97 @@ body.fra-print-preview .fra-preview-hide-toolbar {
   min-height: 210mm;
 }
 
+.emp-page--landscape {
+  width: 297mm;
+  height: 210mm;
+  min-height: 210mm;
+  padding: 10mm;
+}
+
+.emp-image-panel--landscape .bg-slate-50 {
+  padding: 2mm !important;
+}
+
+.emp-image-panel--site-plan img {
+  max-height: none !important;
+}
+
+.emp-deployment-schedule-table {
+  table-layout: fixed;
+}
+
+.emp-deployment-schedule-table thead,
+.emp-deployment-schedule-table thead tr,
+.emp-deployment-schedule-table thead th {
+  height: auto !important;
+  min-height: 0 !important;
+}
+
+.emp-deployment-schedule-table thead tr {
+  height: 16px !important;
+}
+
+.emp-deployment-schedule-table thead th {
+  padding-top: 2px !important;
+  padding-bottom: 2px !important;
+  vertical-align: middle;
+  white-space: normal;
+}
+
+.emp-deployment-schedule-table th,
+.emp-deployment-schedule-table td {
+  padding: 2px 4px !important;
+  font-size: 7.5px !important;
+  line-height: 1.12 !important;
+}
+
+.emp-deployment-schedule-table td {
+  vertical-align: middle !important;
+}
+
+.emp-deployment-schedule-table th:nth-child(1),
+.emp-deployment-schedule-table td:nth-child(1) {
+  width: 19%;
+}
+
+.emp-deployment-schedule-table th:nth-child(2),
+.emp-deployment-schedule-table td:nth-child(2) {
+  width: 31%;
+}
+
+.emp-deployment-schedule-table th:nth-child(3),
+.emp-deployment-schedule-table td:nth-child(3) {
+  width: 7%;
+}
+
+.emp-deployment-schedule-table th:nth-child(4),
+.emp-deployment-schedule-table td:nth-child(4) {
+  width: 7%;
+  text-align: center;
+}
+
+.emp-deployment-schedule-table th:nth-child(5),
+.emp-deployment-schedule-table td:nth-child(5),
+.emp-deployment-schedule-table th:nth-child(6),
+.emp-deployment-schedule-table td:nth-child(6) {
+  width: 8%;
+  text-align: center;
+}
+
+.emp-deployment-schedule-table th:nth-child(7),
+.emp-deployment-schedule-table td:nth-child(7) {
+  width: 8%;
+  text-align: center;
+}
+
+.emp-deployment-schedule-table th:nth-child(8),
+.emp-deployment-schedule-table td:nth-child(8),
+.emp-deployment-schedule-table th:nth-child(9),
+.emp-deployment-schedule-table td:nth-child(9) {
+  width: 9%;
+  text-align: center;
+}
+
 .emp-ra-page {
   color: #000;
   font-family: Arial, Helvetica, sans-serif;
@@ -907,6 +998,14 @@ body.fra-print-preview .fra-preview-hide-toolbar {
   vertical-align: top;
 }
 
+.emp-report-print-content,
+.emp-report-print-content * {
+  hyphens: none;
+  -webkit-hyphens: none;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
 .cmp-page-body,
 .emp-page-body {
   flex: 1 1 auto;
@@ -930,6 +1029,11 @@ body.fra-print-preview .fra-preview-hide-toolbar {
 
 @media print {
   @page emp-ra-landscape {
+    size: A4 landscape;
+    margin: 0;
+  }
+
+  @page emp-landscape {
     size: A4 landscape;
     margin: 0;
   }
@@ -998,6 +1102,17 @@ body.fra-print-preview .fra-preview-hide-toolbar {
     height: 210mm !important;
     min-height: 210mm !important;
     max-height: 210mm !important;
+  }
+
+  body.emp-print-document .emp-page--landscape {
+    page: emp-landscape;
+    width: 297mm !important;
+    min-width: 297mm !important;
+    max-width: 297mm !important;
+    height: 210mm !important;
+    min-height: 210mm !important;
+    max-height: 210mm !important;
+    padding: 10mm 10mm 9mm !important;
   }
 
   body.cmp-print-document .cmp-front-page .cmp-front-page-body,

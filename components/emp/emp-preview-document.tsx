@@ -13,13 +13,27 @@ interface EmpContentPage {
   description?: string
   continuation: boolean
   showHeading: boolean
+  orientation: 'portrait' | 'landscape'
   blocks: EmpPreviewBlock[]
 }
 
 const EMP_PAGE_CAPACITY_UNITS = 43
+const EMP_LANDSCAPE_PAGE_CAPACITY_UNITS = 46
 const EMP_BLOCK_GAP_UNITS = 1
 const EMP_KEY_VALUE_HEADER_UNITS = 1.5
 const EMP_MULTI_TABLE_HEADER_UNITS = 1.5
+const EMP_DEPLOYMENT_MAX_ROWS_PER_TABLE = 40
+
+function getPageCapacityUnits(orientation: EmpContentPage['orientation']) {
+  return orientation === 'landscape' ? EMP_LANDSCAPE_PAGE_CAPACITY_UNITS : EMP_PAGE_CAPACITY_UNITS
+}
+
+function countDeploymentRows(blocks: EmpPreviewBlock[]) {
+  return blocks.reduce((sum, block) => {
+    if (block.type !== 'multi_table' || !block.deploymentSchedule) return sum
+    return sum + block.rows.length
+  }, 0)
+}
 
 function chunkItems<T>(items: T[], chunkSize: number) {
   const chunks: T[][] = []
@@ -156,61 +170,106 @@ function TocColumns({
 }
 
 function MultiTable({
+  title,
   headers,
   rows,
   compact,
+  deploymentSchedule,
   blockIndex,
 }: {
+  title?: string
   headers: string[]
   rows: string[][]
   compact?: boolean
+  deploymentSchedule?: boolean
   blockIndex: number
 }) {
   const isRiskTable = headers.includes('Controls in this EMP')
   const isDeploymentMatrix = headers.includes('Friday Time') && headers.includes('Sunday Time')
-  const isCompactTable = compact || isRiskTable || isDeploymentMatrix
+  const isDetailedDeployment = deploymentSchedule || (headers.includes('Area') && headers.includes('Position') && headers.includes('Late'))
+  const isCompactTable = compact || isRiskTable || isDeploymentMatrix || isDetailedDeployment
+  const renderedHeaders = isDetailedDeployment
+    ? ['Area', 'Position', 'Roles', 'Day staff', 'Day start', 'Day end', 'Night staff', 'Night start', 'Night end']
+    : headers
+  const renderedRows = isDetailedDeployment
+    ? rows.map((row) => row.slice(0, renderedHeaders.length))
+    : rows
+  const isCoOpDeploymentRow = (row: string[] | undefined) => /^Coop\b/i.test(row?.[1] || '')
+  const isBarsDeploymentRow = (row: string[] | undefined) => /^BARS$/i.test(row?.[0] || '')
+  const isDeploymentGroupStart = (row: string[] | undefined, previousRow: string[] | undefined) =>
+    (isBarsDeploymentRow(row) && !isBarsDeploymentRow(previousRow))
+    || (isCoOpDeploymentRow(row) && !isCoOpDeploymentRow(previousRow))
 
   return (
-    <div key={blockIndex} className="overflow-hidden rounded-md border border-slate-200">
-      <table
-        className={cn(
-          'emp-block-table w-full border-collapse',
-          isCompactTable ? 'text-[12px]' : 'text-[13px]'
-        )}
-      >
-        <thead className="bg-slate-50">
-          <tr>
-            {headers.map((header) => (
-              <th
-                key={`${blockIndex}-${header}`}
-                className={cn(
-                  'border-b border-slate-200 text-left font-semibold text-slate-700',
-                  isCompactTable ? 'px-2 py-1.5 leading-[1.25]' : 'px-3 py-2'
-                )}
-              >
-                {header}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, rowIndex) => (
-            <tr key={`${blockIndex}-${rowIndex}`} className="border-t border-slate-200 first:border-t-0">
-              {row.map((cell, cellIndex) => (
-                <td
-                  key={`${blockIndex}-${rowIndex}-${cellIndex}`}
+    <div key={blockIndex} className={cn('overflow-hidden', title && 'space-y-2')}>
+      {title ? (
+        <h3
+          className={cn(
+            'text-[14px] font-semibold uppercase tracking-[0.18em] text-slate-500',
+            isDetailedDeployment && 'text-[13px] tracking-[0.16em]'
+          )}
+        >
+          {title}
+        </h3>
+      ) : null}
+      <div className="overflow-hidden rounded-md border border-slate-200">
+        <table
+          key={isDetailedDeployment ? `deployment-schedule-${blockIndex}` : `multi-table-${blockIndex}`}
+          className={cn(
+            'emp-block-table w-full border-collapse',
+            isDetailedDeployment && 'emp-deployment-schedule-table table-fixed',
+            isCompactTable ? 'text-[12px]' : 'text-[13px]'
+          )}
+        >
+          <thead className="bg-slate-50">
+            <tr>
+              {renderedHeaders.map((header, headerIndex) => (
+                <th
+                  key={`${blockIndex}-${headerIndex}-${header}`}
                   className={cn(
-                    'whitespace-pre-wrap text-slate-700',
-                    isCompactTable ? 'px-2 py-1.5 leading-[1.25]' : 'px-3 py-2'
+                    'border-b border-slate-200 text-left font-semibold text-slate-700',
+                    isDetailedDeployment && 'bg-slate-100 text-center align-middle text-[7.5px] uppercase leading-none',
+                    isDetailedDeployment && headerIndex > 0 && 'border-l border-l-slate-200',
+                    isDetailedDeployment && headerIndex === 6 && 'border-l-2 border-l-slate-400',
+                    isDetailedDeployment ? 'px-1 py-1' : isCompactTable ? 'px-2 py-1.5 leading-[1.25]' : 'px-3 py-2'
                   )}
                 >
-                  {cell}
-                </td>
+                  {header}
+                </th>
               ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {renderedRows.map((row, rowIndex) => (
+              <tr
+                key={`${blockIndex}-${rowIndex}`}
+                className={cn(
+                  'border-t border-slate-200 first:border-t-0',
+                  isDetailedDeployment
+                    && isDeploymentGroupStart(row, renderedRows[rowIndex - 1])
+                    && 'border-t-2 border-t-black'
+                )}
+              >
+                {row.map((cell, cellIndex) => (
+                  <td
+                    key={`${blockIndex}-${rowIndex}-${cellIndex}`}
+                    className={cn(
+                      'whitespace-pre-wrap text-slate-700',
+                      isDetailedDeployment && 'align-top text-[8.5px] leading-[1.1]',
+                      isDetailedDeployment && cellIndex > 0 && 'border-l border-l-slate-200',
+                      isDetailedDeployment && cellIndex >= 5 && 'text-center',
+                      isDetailedDeployment && cellIndex === 6 && 'border-l-2 border-l-slate-400',
+                      isDetailedDeployment ? 'px-1 py-1' : isCompactTable ? 'px-2 py-1.5 leading-[1.25]' : 'px-3 py-2'
+                    )}
+                  >
+                    {cell}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }
@@ -239,10 +298,10 @@ function RampDiagram({
   items,
 }: Extract<EmpPreviewBlock, { type: 'diagram'; variant: 'ramp' }>) {
   const cards = [
-    { x: 24, y: 24, fill: '#ecfeff', stroke: '#67e8f9', ...items[0] },
-    { x: 380, y: 24, fill: '#f0fdf4', stroke: '#86efac', ...items[1] },
-    { x: 24, y: 188, fill: '#fff7ed', stroke: '#fdba74', ...items[2] },
-    { x: 380, y: 188, fill: '#fefce8', stroke: '#fde047', ...items[3] },
+    { x: 24, y: 18, fill: '#ecfeff', stroke: '#67e8f9', ...items[0] },
+    { x: 380, y: 18, fill: '#f0fdf4', stroke: '#86efac', ...items[1] },
+    { x: 24, y: 130, fill: '#fff7ed', stroke: '#fdba74', ...items[2] },
+    { x: 380, y: 130, fill: '#fefce8', stroke: '#fde047', ...items[3] },
   ]
 
   return (
@@ -250,29 +309,26 @@ function RampDiagram({
       title="RAMP Analysis"
       subtitle="Routes, arrival, movement, and profile are shown as a single operational planning view."
     >
-      <svg viewBox="0 0 720 344" className="h-auto w-full">
+      <svg viewBox="0 0 720 240" className="h-auto w-full">
         {cards.map((card, index) => (
           <g key={`${card.title}-${index}`}>
-            <rect x={card.x} y={card.y} width="316" height="132" rx="14" fill={card.fill} stroke={card.stroke} />
+            <rect x={card.x} y={card.y} width="316" height="94" rx="12" fill={card.fill} stroke={card.stroke} />
             <text x={card.x + 18} y={card.y + 30} style={{ fontSize: 12, fill: '#0f172a', fontWeight: 700 }}>
               {card.title}
             </text>
-            <SvgParagraph x={card.x + 18} y={card.y + 56} text={card.value} maxChars={35} maxLines={5} />
+            <SvgParagraph x={card.x + 18} y={card.y + 54} text={card.value} maxChars={37} maxLines={3} lineHeight={13} />
           </g>
         ))}
 
-        <line x1="340" y1="90" x2="360" y2="90" stroke="#94a3b8" strokeWidth="2" />
-        <line x1="360" y1="90" x2="380" y2="90" stroke="#94a3b8" strokeWidth="2" />
-        <line x1="340" y1="254" x2="360" y2="254" stroke="#94a3b8" strokeWidth="2" />
-        <line x1="360" y1="254" x2="380" y2="254" stroke="#94a3b8" strokeWidth="2" />
-        <line x1="182" y1="156" x2="182" y2="188" stroke="#94a3b8" strokeWidth="2" />
-        <line x1="538" y1="156" x2="538" y2="188" stroke="#94a3b8" strokeWidth="2" />
-        <circle cx="360" cy="172" r="48" fill="#ffffff" stroke="#cbd5e1" strokeWidth="2" />
-        <text x="360" y="167" textAnchor="middle" style={{ fontSize: 18, fill: '#0f172a', fontWeight: 800 }}>
+        <line x1="340" y1="65" x2="360" y2="65" stroke="#94a3b8" strokeWidth="2" />
+        <line x1="360" y1="65" x2="380" y2="65" stroke="#94a3b8" strokeWidth="2" />
+        <line x1="340" y1="177" x2="360" y2="177" stroke="#94a3b8" strokeWidth="2" />
+        <line x1="360" y1="177" x2="380" y2="177" stroke="#94a3b8" strokeWidth="2" />
+        <line x1="182" y1="112" x2="182" y2="130" stroke="#94a3b8" strokeWidth="2" />
+        <line x1="538" y1="112" x2="538" y2="130" stroke="#94a3b8" strokeWidth="2" />
+        <circle cx="360" cy="121" r="38" fill="#ffffff" stroke="#cbd5e1" strokeWidth="2" />
+        <text x="360" y="126" textAnchor="middle" style={{ fontSize: 18, fill: '#0f172a', fontWeight: 800 }}>
           RAMP
-        </text>
-        <text x="360" y="190" textAnchor="middle" style={{ fontSize: 10, fill: '#64748b', fontWeight: 700 }}>
-          CROWD REVIEW
         </text>
       </svg>
     </DiagramShell>
@@ -463,15 +519,30 @@ function ImageAttachment({
   caption,
   imageUrl,
   alt,
+  landscape,
 }: Extract<EmpPreviewBlock, { type: 'image' }>) {
+  const isSitePlan = /site-plan|site[-_ ]?overview|map/i.test(imageUrl)
+
   return (
-    <div className="emp-image-panel overflow-hidden rounded-lg border border-slate-200 bg-white">
+    <div className={cn(
+      'emp-image-panel overflow-hidden rounded-lg border border-slate-200 bg-white',
+      landscape && 'emp-image-panel--landscape',
+      isSitePlan && 'emp-image-panel--site-plan'
+    )}>
       <div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
         <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">{title}</div>
         {caption ? <div className="mt-1 text-[13px] leading-6 text-slate-600">{caption}</div> : null}
       </div>
       <div className="bg-slate-50 p-3">
-        <img src={imageUrl} alt={alt} className="max-h-[390px] w-full rounded-md border border-slate-200 bg-white object-contain" />
+        <img
+          src={imageUrl}
+          alt={alt}
+          className={cn(
+            'w-full rounded-md border border-slate-200 bg-white object-contain',
+            landscape ? 'max-h-[88mm]' : 'max-h-[390px]',
+            isSitePlan && 'h-[460px] max-h-[460px]'
+          )}
+        />
       </div>
     </div>
   )
@@ -707,6 +778,16 @@ function estimatePageIntroUnits(showHeading: boolean, description?: string) {
 
 function getMultiTableColumnBudgets(columnCount: number) {
   switch (columnCount) {
+    case 9:
+      return [19, 31, 7, 7, 8, 8, 8, 9, 9]
+    case 8:
+      return [20, 32, 7, 11, 8, 8, 9, 9]
+    case 6:
+      return [22, 38, 8, 10, 11, 11]
+    case 11:
+      return [18, 36, 7, 5, 6, 6, 4, 5, 6, 6, 4]
+    case 13:
+      return [13, 30, 12, 12, 7, 5, 6, 6, 4, 5, 6, 6, 4]
     case 2:
       return [24, 72]
     case 3:
@@ -737,6 +818,8 @@ function estimateMultiTableRowUnits(row: string[], compact = false, rowUnitScale
     ...row.map((cell, index) => estimateTextUnits(cell, budgets[index] || budgets[budgets.length - 1] || 20))
   )
 
+  if (compact && row.length === 9) return scaleRowUnits(Math.max(0.42, maxCellUnits * 0.38), rowUnitScale)
+  if (compact && (row.length === 6 || row.length === 8 || row.length === 11 || row.length === 13)) return scaleRowUnits(Math.max(1.05, maxCellUnits + 0.05), rowUnitScale)
   if (row.length === 5 && /^\d{2}:\d{2}-\d{2}:\d{2}$/.test(row[2] || '')) return scaleRowUnits(Math.max(1.2, maxCellUnits - 0.2), rowUnitScale)
   if (compact && row.length >= 5) return scaleRowUnits(Math.max(1.2, maxCellUnits + 0.1), rowUnitScale)
   if (compact && row.length === 3) return scaleRowUnits(Math.max(1.2, maxCellUnits + 0.65), rowUnitScale)
@@ -783,13 +866,14 @@ function estimateBlockUnits(block: EmpPreviewBlock) {
         || (block.headers.includes('Friday Time') && block.headers.includes('Sunday Time'))
       return block.rows.reduce(
         (sum, row) => sum + estimateMultiTableRowUnits(row, isCompactTable, block.rowUnitScale),
-        EMP_MULTI_TABLE_HEADER_UNITS
+        EMP_MULTI_TABLE_HEADER_UNITS + (block.title ? 1.8 : 0)
       )
     case 'metric_grid':
       return estimateMetricGridUnits(block.items)
     case 'toc_columns':
       return Math.ceil(block.items.length / 2) * 1.25 + 2
     case 'image':
+      if (block.landscape) return 22
       if (block.imageUrl.includes('r1bw26-site-overview-map')) return 14
       return 22
     case 'image_grid':
@@ -797,7 +881,7 @@ function estimateBlockUnits(block: EmpPreviewBlock) {
     case 'diagram':
       switch (block.variant) {
         case 'ramp':
-          return 18
+          return 13
         case 'crowd_flow':
           return 14
         case 'bar_queue_flow':
@@ -934,7 +1018,7 @@ function takeMultiTableChunk(
   availableUnits: number
 ) {
   const blockUnits = estimateBlockUnits(block)
-  if (blockUnits <= availableUnits) {
+  if (blockUnits <= availableUnits && (!block.deploymentSchedule || block.rows.length <= EMP_DEPLOYMENT_MAX_ROWS_PER_TABLE)) {
     return { chunk: block, remainder: null }
   }
 
@@ -944,11 +1028,15 @@ function takeMultiTableChunk(
     block.compact
     || block.headers.includes('Controls in this EMP')
     || (block.headers.includes('Friday Time') && block.headers.includes('Sunday Time'))
-  let usedUnits = EMP_MULTI_TABLE_HEADER_UNITS
+  let usedUnits = EMP_MULTI_TABLE_HEADER_UNITS + (block.title ? 1.8 : 0)
   const rows: string[][] = []
   const remainingRows = [...block.rows]
 
   while (remainingRows.length) {
+    if (block.deploymentSchedule && rows.length >= EMP_DEPLOYMENT_MAX_ROWS_PER_TABLE) {
+      break
+    }
+
     const row = remainingRows[0]
     const rowUnits = estimateMultiTableRowUnits(row, isCompactTable, block.rowUnitScale)
 
@@ -1006,6 +1094,7 @@ function takeMultiTableChunk(
   return {
       chunk: {
         type: 'multi_table',
+        title: block.title,
         headers: block.headers,
         rows,
         keepTogether: block.keepTogether,
@@ -1013,10 +1102,13 @@ function takeMultiTableChunk(
         startOnNewPage: block.startOnNewPage,
         avoidRowSplit: block.avoidRowSplit,
         rowUnitScale: block.rowUnitScale,
+        landscape: block.landscape,
+        deploymentSchedule: block.deploymentSchedule,
       } satisfies EmpPreviewBlock,
     remainder: remainingRows.length
       ? ({
           type: 'multi_table',
+          title: block.title,
           headers: block.headers,
           rows: remainingRows,
           keepTogether: block.keepTogether,
@@ -1024,6 +1116,8 @@ function takeMultiTableChunk(
           startOnNewPage: false,
           avoidRowSplit: block.avoidRowSplit,
           rowUnitScale: block.rowUnitScale,
+          landscape: block.landscape,
+          deploymentSchedule: block.deploymentSchedule,
         } satisfies EmpPreviewBlock)
       : null,
   }
@@ -1112,6 +1206,14 @@ function estimateMinimumStartUnits(block: EmpPreviewBlock | undefined) {
   }
 }
 
+function getBlockOrientation(block: EmpPreviewBlock | undefined): EmpContentPage['orientation'] {
+  if (!block) return 'portrait'
+  if (block.type === 'multi_table' && block.landscape) return 'landscape'
+  if (block.type === 'subheading' && block.landscape) return 'landscape'
+  if (block.type === 'image' && block.landscape) return 'landscape'
+  return 'portrait'
+}
+
 function paginateEmpContent(
   keyPrefix: string,
   title: string,
@@ -1120,17 +1222,22 @@ function paginateEmpContent(
 ) {
   const pages: EmpContentPage[] = []
 
-  const createPage = (index: number, continuation: boolean): EmpContentPage => ({
+  const createPage = (
+    index: number,
+    continuation: boolean,
+    orientation: EmpContentPage['orientation'] = 'portrait'
+  ): EmpContentPage => ({
     key: `${keyPrefix}-${index}`,
     title,
     description: continuation ? undefined : description,
     continuation,
     showHeading: !continuation,
+    orientation,
     blocks: [],
   })
 
   let page = createPage(0, false)
-  let availableUnits = EMP_PAGE_CAPACITY_UNITS - estimatePageIntroUnits(page.showHeading, page.description)
+  let availableUnits = getPageCapacityUnits(page.orientation) - estimatePageIntroUnits(page.showHeading, page.description)
 
   for (let blockIndex = 0; blockIndex < blocks.length; blockIndex += 1) {
     const originalBlock = blocks[blockIndex]
@@ -1138,6 +1245,48 @@ function paginateEmpContent(
     let currentBlock: EmpPreviewBlock | null = originalBlock
 
     while (currentBlock) {
+      const desiredOrientation = getBlockOrientation(currentBlock)
+      const shouldKeepWithNext =
+        currentBlock.type === 'subheading'
+        && nextBlock?.type === 'multi_table'
+        && nextBlock.deploymentSchedule
+      const keepWithNextUnits = shouldKeepWithNext
+        ? estimateBlockUnits(currentBlock) + EMP_BLOCK_GAP_UNITS + estimateBlockUnits(nextBlock)
+        : 0
+
+      if (desiredOrientation !== page.orientation && page.blocks.length > 0) {
+        pages.push(page)
+        page = createPage(pages.length, true, desiredOrientation)
+        availableUnits =
+          getPageCapacityUnits(page.orientation) - estimatePageIntroUnits(page.showHeading, page.description)
+      } else if (desiredOrientation !== page.orientation && page.blocks.length === 0) {
+        page.orientation = desiredOrientation
+        availableUnits =
+          getPageCapacityUnits(page.orientation) - estimatePageIntroUnits(page.showHeading, page.description)
+      }
+
+      if (
+        shouldKeepWithNext
+        && page.blocks.length > 0
+        && keepWithNextUnits > availableUnits
+      ) {
+        pages.push(page)
+        page = createPage(pages.length, true, desiredOrientation)
+        availableUnits =
+          getPageCapacityUnits(page.orientation) - estimatePageIntroUnits(page.showHeading, page.description)
+      }
+
+      if (
+        currentBlock.type === 'subheading'
+        && currentBlock.startOnNewPage
+        && page.blocks.length > 0
+      ) {
+        pages.push(page)
+        page = createPage(pages.length, true, desiredOrientation)
+        availableUnits =
+          getPageCapacityUnits(page.orientation) - estimatePageIntroUnits(page.showHeading, page.description)
+      }
+
       if (
         currentBlock.type === 'subheading'
         && nextBlock
@@ -1145,9 +1294,9 @@ function paginateEmpContent(
         && estimateBlockUnits(currentBlock) + EMP_BLOCK_GAP_UNITS + estimateMinimumStartUnits(nextBlock) > availableUnits
       ) {
         pages.push(page)
-        page = createPage(pages.length, true)
+        page = createPage(pages.length, true, desiredOrientation)
         availableUnits =
-          EMP_PAGE_CAPACITY_UNITS - estimatePageIntroUnits(page.showHeading, page.description)
+          getPageCapacityUnits(page.orientation) - estimatePageIntroUnits(page.showHeading, page.description)
       }
 
       if (
@@ -1156,9 +1305,22 @@ function paginateEmpContent(
         && page.blocks.length > 0
       ) {
         pages.push(page)
-        page = createPage(pages.length, true)
+        page = createPage(pages.length, true, desiredOrientation)
         availableUnits =
-          EMP_PAGE_CAPACITY_UNITS - estimatePageIntroUnits(page.showHeading, page.description)
+          getPageCapacityUnits(page.orientation) - estimatePageIntroUnits(page.showHeading, page.description)
+      }
+
+      if (
+        currentBlock.type === 'multi_table'
+        && currentBlock.deploymentSchedule
+        && page.blocks.length > 0
+        && countDeploymentRows(page.blocks) > 0
+        && countDeploymentRows(page.blocks) + currentBlock.rows.length > EMP_DEPLOYMENT_MAX_ROWS_PER_TABLE
+      ) {
+        pages.push(page)
+        page = createPage(pages.length, true, desiredOrientation)
+        availableUnits =
+          getPageCapacityUnits(page.orientation) - estimatePageIntroUnits(page.showHeading, page.description)
       }
 
       if (
@@ -1166,12 +1328,12 @@ function paginateEmpContent(
         && currentBlock.keepTogether
         && page.blocks.length > 0
         && estimateBlockUnits(currentBlock) > availableUnits
-        && estimateBlockUnits(currentBlock) <= EMP_PAGE_CAPACITY_UNITS - estimatePageIntroUnits(false)
+        && estimateBlockUnits(currentBlock) <= getPageCapacityUnits(page.orientation) - estimatePageIntroUnits(false)
       ) {
         pages.push(page)
-        page = createPage(pages.length, true)
+        page = createPage(pages.length, true, desiredOrientation)
         availableUnits =
-          EMP_PAGE_CAPACITY_UNITS - estimatePageIntroUnits(page.showHeading, page.description)
+          getPageCapacityUnits(page.orientation) - estimatePageIntroUnits(page.showHeading, page.description)
       }
 
       const blockUnits = estimateBlockUnits(currentBlock)
@@ -1185,9 +1347,9 @@ function paginateEmpContent(
         }
 
         pages.push(page)
-        page = createPage(pages.length, true)
+        page = createPage(pages.length, true, desiredOrientation)
         availableUnits =
-          EMP_PAGE_CAPACITY_UNITS - estimatePageIntroUnits(page.showHeading, page.description)
+          getPageCapacityUnits(page.orientation) - estimatePageIntroUnits(page.showHeading, page.description)
         continue
       }
 
@@ -1199,12 +1361,12 @@ function paginateEmpContent(
       }
 
       pages.push(page)
-      page = createPage(pages.length, true)
+      page = createPage(pages.length, true, getBlockOrientation(fitted.remainder || currentBlock))
       availableUnits =
-        EMP_PAGE_CAPACITY_UNITS - estimatePageIntroUnits(page.showHeading, page.description)
+        getPageCapacityUnits(page.orientation) - estimatePageIntroUnits(page.showHeading, page.description)
       currentBlock = fitted.remainder
 
-      if (blockUnits <= EMP_PAGE_CAPACITY_UNITS && availableUnits < 0) {
+      if (blockUnits <= getPageCapacityUnits(page.orientation) && availableUnits < 0) {
         break
       }
     }
@@ -1303,9 +1465,11 @@ function renderBlock(block: EmpPreviewBlock, blockIndex: number) {
       return (
         <MultiTable
           key={blockIndex}
+          title={block.title}
           headers={block.headers}
           rows={block.rows}
           compact={block.compact}
+          deploymentSchedule={block.deploymentSchedule}
           blockIndex={blockIndex}
         />
       )
@@ -1341,15 +1505,17 @@ function renderBlock(block: EmpPreviewBlock, blockIndex: number) {
 
 function PageHeader({
   title,
+  documentLabel,
 }: {
   title: string
+  documentLabel: string
 }) {
   return (
     <div className="emp-page-header mb-6 flex items-center justify-between border-b border-slate-200 pb-4">
       <img src="/kss-logo.png" alt="KSS NW LTD" className="emp-kss-logo-header h-8 w-auto object-contain" />
       <div className="px-4 text-center">
         <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-500">
-          Bar Security Operations Plan
+          {documentLabel}
         </div>
         <div className="mt-1 text-sm font-semibold text-slate-900">{title}</div>
       </div>
@@ -1364,13 +1530,15 @@ function PageHeader({
 function PageFooter({
   pageNumber,
   totalPages,
+  documentLabel,
 }: {
   pageNumber: number
   totalPages: number
+  documentLabel: string
 }) {
   return (
     <div className="emp-page-footer mt-8 flex items-center justify-between border-t border-slate-200 pt-3 text-[11px] text-slate-500">
-      <span>KSS NW LTD - Bar Security Operations Plan - Controlled operational document</span>
+      <span>KSS NW LTD - {documentLabel} - Controlled operational document</span>
       <span>
         Page {pageNumber} of {totalPages}
       </span>
@@ -1383,21 +1551,24 @@ function SectionPage({
   mode,
   pageNumber,
   totalPages,
+  documentLabel,
 }: {
   page: EmpContentPage
   mode: 'preview' | 'print'
   pageNumber: number
   totalPages: number
+  documentLabel: string
 }) {
   return (
     <section
       className={cn(
         'emp-a4-page emp-print-page flex flex-col overflow-hidden bg-white',
-        mode === 'preview' && 'w-[180mm] min-h-[267mm]',
+        page.orientation === 'landscape' && 'emp-page--landscape',
+        mode === 'preview' && (page.orientation === 'landscape' ? 'w-[297mm] min-h-[210mm]' : 'w-[180mm] min-h-[267mm]'),
         mode === 'preview' && 'shadow-sm'
       )}
     >
-      <PageHeader title={page.title} />
+      <PageHeader title={page.title} documentLabel={documentLabel} />
       <div className="emp-page-body flex-1 space-y-4">
         {page.showHeading ? (
           <h2 className="text-[22px] font-semibold tracking-tight text-slate-950">{page.title}</h2>
@@ -1411,7 +1582,7 @@ function SectionPage({
         ) : null}
         <div className="space-y-4">{page.blocks.map(renderBlock)}</div>
       </div>
-      <PageFooter pageNumber={pageNumber} totalPages={totalPages} />
+      <PageFooter pageNumber={pageNumber} totalPages={totalPages} documentLabel={documentLabel} />
     </section>
   )
 }
@@ -1421,21 +1592,24 @@ function AnnexPage({
   mode,
   pageNumber,
   totalPages,
+  documentLabel,
 }: {
   page: EmpContentPage
   mode: 'preview' | 'print'
   pageNumber: number
   totalPages: number
+  documentLabel: string
 }) {
   return (
     <section
       className={cn(
         'emp-a4-page emp-print-page flex flex-col overflow-hidden bg-white',
-        mode === 'preview' && 'w-[180mm] min-h-[267mm]',
+        page.orientation === 'landscape' && 'emp-page--landscape',
+        mode === 'preview' && (page.orientation === 'landscape' ? 'w-[297mm] min-h-[210mm]' : 'w-[180mm] min-h-[267mm]'),
         mode === 'preview' && 'shadow-sm'
       )}
     >
-      <PageHeader title={`Annex: ${page.title}`} />
+      <PageHeader title={`Annex: ${page.title}`} documentLabel={documentLabel} />
       <div className="emp-page-body flex-1 space-y-4">
         {page.showHeading ? (
           <h2 className="text-[22px] font-semibold tracking-tight text-slate-950">Annex: {page.title}</h2>
@@ -1449,7 +1623,7 @@ function AnnexPage({
         ) : null}
         <div className="space-y-4">{page.blocks.map(renderBlock)}</div>
       </div>
-      <PageFooter pageNumber={pageNumber} totalPages={totalPages} />
+      <PageFooter pageNumber={pageNumber} totalPages={totalPages} documentLabel={documentLabel} />
     </section>
   )
 }
@@ -1674,8 +1848,8 @@ function RiskAssessmentPages({
   riskAssessment: EmpRiskAssessmentModel
   mode: 'preview' | 'print'
 }) {
-  const firstPageRows = riskAssessment.rows.slice(0, 9)
-  const remainingRowChunks = chunkItems(riskAssessment.rows.slice(9), 13)
+  const firstPageRows = riskAssessment.rows.slice(0, 18)
+  const remainingRowChunks = chunkItems(riskAssessment.rows.slice(18), 22)
 
   return (
     <>
@@ -1686,7 +1860,6 @@ function RiskAssessmentPages({
         )}
         aria-label="Operational risk assessment"
       >
-        <RiskAssessmentScoringSummary />
         <RiskAssessmentMeta riskAssessment={riskAssessment} />
         <RiskAssessmentRowsTable rows={firstPageRows} />
         <RiskAssessmentFooter riskAssessment={riskAssessment} pageNumber={1} />
@@ -1756,7 +1929,7 @@ export function EmpPreviewDocument({
   )
   const riskAssessment = displayModelRiskAssessment(displayModel, output)
   const riskAssessmentPageCount = riskAssessment
-    ? 2 + Math.ceil(Math.max(0, riskAssessment.rows.length - 9) / 13)
+    ? 2 + Math.ceil(Math.max(0, riskAssessment.rows.length - 18) / 22)
     : 0
   const totalPages = (renderEmpPages ? 1 + sectionPages.length + annexPages.length : 0) + riskAssessmentPageCount
   const coverRowPairs = chunkItems(displayModel.coverRows, 2)
@@ -1846,7 +2019,7 @@ export function EmpPreviewDocument({
           </div>
 
           <div className="mt-auto pt-8">
-            <PageFooter pageNumber={1} totalPages={totalPages} />
+            <PageFooter pageNumber={1} totalPages={totalPages} documentLabel={displayModel.documentLabel} />
           </div>
         </div>
       </section> : null}
@@ -1858,6 +2031,7 @@ export function EmpPreviewDocument({
           mode={mode}
           pageNumber={index + 2}
           totalPages={totalPages}
+          documentLabel={displayModel.documentLabel}
         />
       )) : null}
 
@@ -1868,6 +2042,7 @@ export function EmpPreviewDocument({
           mode={mode}
           pageNumber={sectionPages.length + index + 2}
           totalPages={totalPages}
+          documentLabel={displayModel.documentLabel}
         />
       )) : null}
 

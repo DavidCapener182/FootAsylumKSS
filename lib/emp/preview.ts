@@ -15,13 +15,13 @@ export interface EmpResolvedFieldValue {
 
 export type EmpPreviewBlock =
   | { type: 'paragraph'; text: string }
-  | { type: 'subheading'; text: string }
+  | { type: 'subheading'; text: string; landscape?: boolean; startOnNewPage?: boolean }
   | { type: 'bullet_list'; items: string[] }
   | { type: 'table'; rows: Array<{ label: string; value: string }> }
-  | { type: 'multi_table'; headers: string[]; rows: string[][]; keepTogether?: boolean; compact?: boolean; startOnNewPage?: boolean; avoidRowSplit?: boolean; rowUnitScale?: number }
+  | { type: 'multi_table'; title?: string; headers: string[]; rows: string[][]; keepTogether?: boolean; compact?: boolean; startOnNewPage?: boolean; avoidRowSplit?: boolean; rowUnitScale?: number; landscape?: boolean; deploymentSchedule?: boolean }
   | { type: 'metric_grid'; items: Array<{ label: string; value: string }> }
   | { type: 'toc_columns'; items: Array<{ ref: string; title: string; page?: number }> }
-  | { type: 'image'; title: string; caption?: string; imageUrl: string; alt: string }
+  | { type: 'image'; title: string; caption?: string; imageUrl: string; alt: string; landscape?: boolean }
   | {
       type: 'image_grid'
       title: string
@@ -114,6 +114,7 @@ export interface EmpRiskAssessmentModel {
 
 export interface EmpPreviewModel {
   title: string
+  documentLabel: string
   subtitle: string
   coverRows: Array<{ label: string; value: string }>
   coverSummary: string
@@ -203,9 +204,9 @@ function getAnnexPresentation(
         'Accessible Campsite A4 and Accessible Campsite D patrols, welfare-linked checks, search support, and safeguarding escalation.',
     },
     stewarding_deployment: {
-      title: 'KSS Stewarding and Queue Marshal Deployment',
+      title: 'KSS Stewarding and Queue Marshal Role Summary',
       description:
-        'Queue marshal matrix, accessibility support, shift structure, and zone-by-zone deployment detail for KSS areas.',
+        'Queue marshal duties, accessibility support, escalation expectations, and welfare-aware stewarding controls for KSS areas.',
     },
   }
 
@@ -334,6 +335,48 @@ function maybeMetricGrid(items: Array<{ label: string; value: string | null | un
   return filtered.length ? [{ type: 'metric_grid', items: filtered }] : []
 }
 
+function buildResponseAndContingencyBlocks(fieldValues: Record<string, EmpResolvedFieldValue>, radioOne: boolean): EmpPreviewBlock[] {
+  if (radioOne) {
+    return labeledParagraph(
+      'Relief, contingency and escalation',
+      'Relief cover protects fixed bar posts and queue lanes during breaks. Escalate for queue obstruction, repeated refusals, intoxication, welfare/ejection demand, reduced queue capacity or Event Control/Peppermint requests.'
+    )
+  }
+
+  const responseValue = getValue(fieldValues, 'response_teams')
+  const threeColumnResponseRows = parseThreeColumnLines(responseValue)
+  const twoColumnResponseRows = parseTwoColumnLines(responseValue)
+  const contingencyRows = [
+    ['Relief and contingency', getValue(fieldValues, 'relief_and_contingency')],
+    ['Escalation staffing', getValue(fieldValues, 'escalation_staffing')],
+    ['Dynamic escalation triggers', getValue(fieldValues, 'dynamic_escalation_triggers')],
+  ]
+    .map(([label, value]) => [label, clean(value)])
+    .filter((row) => row[1])
+
+  return subheading('Response, Relief and Escalation')
+    .concat(
+      threeColumnResponseRows.length
+        ? maybeMultiTable(
+            ['Team', 'Resourcing', 'Purpose'],
+            threeColumnResponseRows,
+            { compact: true, avoidRowSplit: true, rowUnitScale: 0.55 }
+          )
+        : maybeMultiTable(
+            ['Response area', 'Operational role'],
+            twoColumnResponseRows,
+            { compact: true, avoidRowSplit: true, rowUnitScale: 0.58 }
+          )
+    )
+    .concat(
+      maybeMultiTable(
+        ['Control', 'Requirement'],
+        contingencyRows,
+        { compact: true, avoidRowSplit: true, rowUnitScale: 0.62 }
+      )
+    )
+}
+
 function maybeTocColumns(items: Array<{ ref: string; title: string; page?: number }>): EmpPreviewBlock[] {
   const filtered = items.filter((item) => clean(item.ref) && clean(item.title))
   return filtered.length ? [{ type: 'toc_columns', items: filtered }] : []
@@ -394,7 +437,160 @@ function splitThreeColumnLinesToLabels(value: string | null | undefined) {
   )
 }
 
-function buildDeploymentScheduleBlocks(value: string | null | undefined, includeAllMappedBars = false): EmpPreviewBlock[] {
+function parseRoleStaffing(role: string) {
+  const cleanedRole = clean(role).replace(/^Overnight\s+/i, '')
+  const parts = cleanedRole
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean)
+
+  const parsed = parts.map((part) => {
+    const match = part.match(/^(\d+(?:\.\d+)?)\s+(.+)$/)
+    if (!match) return null
+    return {
+      count: match[1],
+      role: clean(match[2]).toUpperCase(),
+    }
+  })
+
+  if (!parsed.length || parsed.some((part) => !part)) {
+    return null
+  }
+
+  return parsed as Array<{ count: string; role: string }>
+}
+
+function normalizeDeploymentArea(area: string) {
+  return /^BARS$/i.test(area) ? 'BARS' : area
+}
+
+function normalizeBarPosition(position: string) {
+  const normalized = clean(position)
+  const fixedNames: Record<string, string> = {
+    'STAFF CAMPSITE': 'Staff Campsite',
+    MGMT: 'Management',
+    RESPONSE: 'Response',
+    ROCKTAIL: 'Rocktail',
+    'IRON HARP': 'Iron Harp',
+    BEERHALL: 'Beerhall',
+    'BEERHALL SPIRIT': 'Beerhall Spirit',
+    'HAIR OF THE DOG': 'Hair of the Dog',
+    GUINNESS: 'Guinness',
+  }
+
+  const fixed = fixedNames[normalized.toUpperCase()]
+  if (fixed) return fixed
+
+  const barMatch = normalized.match(/^BAR\s+(\d+)$/i)
+  if (barMatch) return `Bar ${barMatch[1]}`
+
+  return normalized
+}
+
+function downloadBehaviouralRiskZoneRows() {
+  return [
+    ['District X', '23:00-03:00', 'Intoxication, refusal aggression', 'Supervisor-led mobile response team, rapid ejection logging and safeguarding pause where vulnerability is suspected.'],
+    ['Bar 2 & 3 crosswalk', '18:30-21:00', 'Crossflow congestion', 'Queue perimeter control, signage, route monitoring and early escalation if queues obstruct emergency or accessible routes.'],
+    ['Co-Op retail store', '07:00-10:00 / 17:00-20:00', 'Theft, safeguarding flags, over-capacity', 'Dedicated static guards, controlled ingress and egress, queue monitoring, radio welfare alerts and shop-manager liaison.'],
+    ['Guest Bar', '15:00-19:00', 'Low-risk hospitality patrons', 'Static guard cover, guest-list verification, calm refusal support and escalation for welfare or disorder indicators.'],
+    ['Wholesale compounds', '23:00-02:00', 'Stock theft, unauthorised access', 'Overnight patrols, access challenge, asset checks and CCTV / FAB monitoring where available.'],
+  ]
+}
+
+function downloadBarSpecificQueueRows() {
+  return [
+    ['Bar 1-4', 'Disney-style serpentine lanes', 'Managed via barriered lanes with entry and exit breaks. Signage posted at entry and queue-tail monitoring maintained.'],
+    ['Gooseneck', 'Hybrid adaptive', 'Allows flexibility for queue compression during act changeover and can be adjusted by supervisor instruction.'],
+    ['Rocktail', 'Compact linear system', 'Single barrier entry point with an officer redirecting overflow before the queue blocks adjacent routes.'],
+    ['Tap House', 'Split queue with side exit', 'Monitored closely during act changeovers and held if the side exit or route interface becomes pressured.'],
+    ['District X Pub', 'Controlled lane flow', 'Late-night intoxication management emphasis. Surge buffer area maintained and refusal/ejection escalation kept available.'],
+    ['Beer Hall', 'Open with overflow redirect', 'Managed flow with signage directing customers to alternate bars if full. Welfare and refusal indicators monitored at queue tail.'],
+  ]
+}
+
+function buildDeploymentScheduleBlocks(
+  value: string | null | undefined,
+  includeAllMappedBars = false,
+  rowFilter?: (row: { day: string; area: string; position: string }) => boolean
+): EmpPreviewBlock[] {
+  const detailedScheduleRows = splitLines(value)
+    .map((line) => line.split('|').map((cell) => clean(cell)))
+    .filter((cells) => cells.length >= 14 && cells.slice(0, 14).some(Boolean))
+    .map((cells) => cells.slice(0, 14))
+
+  if (detailedScheduleRows.length) {
+    const blocks: EmpPreviewBlock[] = []
+    const rowsByDay = new Map<string, string[][]>()
+
+    detailedScheduleRows.forEach(([day, area, position, _function, _company, role, dayStaff, dayStart, dayEnd, _dayHours, lateStaff, lateStart, lateEnd]) => {
+      if (rowFilter && !rowFilter({ day, area, position })) return
+
+      const dayStaffCount = Number.parseFloat(dayStaff || '0')
+      const lateStaffCount = Number.parseFloat(lateStaff || '0')
+      if (dayStaffCount === 0 && lateStaffCount === 0) return
+
+      const rows = rowsByDay.get(day) || []
+      const parsedRoles = /^BARS$/i.test(area) ? parseRoleStaffing(role) : null
+      const renderedArea = normalizeDeploymentArea(area)
+      const renderedPosition = /^BARS$/i.test(area) ? normalizeBarPosition(position) : position
+
+      if (parsedRoles) {
+        parsedRoles.forEach(({ count, role: parsedRole }) => {
+          rows.push([
+            renderedArea,
+            renderedPosition,
+            parsedRole,
+            dayStaffCount > 0 ? count : '',
+            dayStaffCount > 0 ? dayStart : '',
+            dayStaffCount > 0 ? dayEnd : '',
+            /SIA/i.test(parsedRole) && lateStaffCount > 0 ? lateStaff : '',
+            /SIA/i.test(parsedRole) && lateStaffCount > 0 ? lateStart : '',
+            /SIA/i.test(parsedRole) && lateStaffCount > 0 ? lateEnd : '',
+          ])
+        })
+      } else {
+        const renderedRole = /^BARS$/i.test(area) ? role.replace(/^Overnight\s+/i, '') : role
+        rows.push([renderedArea, renderedPosition, renderedRole, dayStaff, dayStart, dayEnd, lateStaff, lateStart, lateEnd])
+      }
+      rowsByDay.set(day, rows)
+    })
+
+    rowsByDay.forEach((rows, day) => {
+      const standardRows = rows.filter((row) => !/^Coop\b/i.test(row[1] || ''))
+      const coOpRows = rows.filter((row) => /^Coop\b/i.test(row[1] || ''))
+      const orderedRows = [...standardRows, ...coOpRows]
+      blocks.push({
+        type: 'multi_table',
+        title: day,
+        headers: ['Area', 'Position', 'Role', 'Day staff', 'Day start', 'Day end', 'Night staff', 'Night start', 'Night end'],
+        rows: orderedRows,
+        keepTogether: true,
+        compact: true,
+        avoidRowSplit: true,
+        rowUnitScale: 0.52,
+        landscape: true,
+        deploymentSchedule: true,
+      })
+    })
+
+    return blocks
+  }
+
+  const scheduleRows = splitLines(value)
+    .map((line) => line.split('|').map((cell) => clean(cell)))
+    .filter((cells) => cells.length === 4 && cells.every(Boolean))
+
+  if (scheduleRows.length) {
+    return [{
+      type: 'multi_table',
+      headers: ['Day', 'Position', 'Staff', 'Times'],
+      rows: scheduleRows,
+      compact: true,
+      avoidRowSplit: true,
+      rowUnitScale: 0.62,
+    }]
+  }
+
   const seenPipeRows = new Set<string>()
   const pipeRows = splitLines(value)
     .map((line) => line.split('|').map((cell) => clean(cell)))
@@ -516,6 +712,17 @@ function buildDeploymentScheduleBlocks(value: string | null | undefined, include
 
 function buildEventSiteMapBlocks(fieldValues: Record<string, EmpResolvedFieldValue>): EmpPreviewBlock[] {
   const eventName = `${getValue(fieldValues, 'event_name')} ${getValue(fieldValues, 'site_maps_and_route_diagrams')}`
+  if (/Download Festival 2026|Donington Park/i.test(eventName)) {
+    return [{
+      type: 'image',
+      title: 'Download 2026 Site Plan V5',
+      caption: 'Download 2026 Donington Park proposed site layout, A0 OS grid plan dated 14/04/2026. Used for KSS zone awareness, grid references, gates, routes, campsites, arena, Paddock and accessible-route interface planning.',
+      imageUrl: '/emp-assets/download-2026-site-plan-v5.png',
+      alt: 'Download 2026 Site Plan V5 Donington Park OS grid map',
+      landscape: true,
+    }]
+  }
+
   if (!/R1BW|Radio 1|Big Weekend/i.test(eventName)) return []
 
   return [{
@@ -870,6 +1077,8 @@ function buildEmpOperationalRiskAssessment(fieldValues: Record<string, EmpResolv
   const author = clean(getValue(fieldValues, 'author_name')) || 'David Capener'
   const assessors = /Radio 1|Big Weekend|R1BW/i.test(eventName) ? 'Floyd Allen' : author
   const year = (issueDate.match(/\b(20\d{2})\b/) || eventName.match(/\b(20\d{2})\b/) || [])[1] || ''
+  const download = isDownloadEvent(fieldValues)
+  const challengePolicyLabel = download ? 'Challenge 21' : 'Challenge 25'
 
   return {
     activity: `${eventName} - Operational Risk Assessment`,
@@ -882,7 +1091,7 @@ function buildEmpOperationalRiskAssessment(fieldValues: Record<string, EmpResolv
     footerTitle: `KSS NW LTD | ${eventName} - Operational Risk Assessment${year ? ` ${year}` : ''}`,
     rows: [
       riskRow('High-volume queuing and congestion', queueAreas, '3', 'Patrons, KSS, bar staff', 'Managed lanes, queue marshals, wait-time communication, event-control coordination and continuous KSS supervisor monitoring.', '2', 'Medium (Amber)'),
-      riskRow('Aggression following refusal of service', 'Allocated bars, service points and bar compounds', '3', 'KSS officers, bar staff', 'Challenge 25 refusals logged, de-escalation training, paired officer cover, radio escalation to Event Control and evidence capture where available.', '3', 'High (Red)'),
+      riskRow('Aggression following refusal of service', 'Allocated bars, service points and bar compounds', '3', 'KSS officers, bar staff', `${challengePolicyLabel} refusals logged, de-escalation training, paired officer cover, radio escalation to Event Control and evidence capture where available.`, '3', 'High (Red)'),
       riskRow('Surge pressure during act changeover', 'Arena crossflow zones and bar approaches', '3', 'Patrons, KSS, event security', 'Queue barriers, patrol dispersal, signage rerouting and intelligence-led staffing reinforcement at peak demand periods.', '2', 'Medium (Amber)'),
       riskRow('Pedestrian / vehicle conflict', 'PUDO zones, crossings, car parks and service routes', '3', 'Patrons, traffic teams, KSS', 'Traffic holds, static crossing officers, barriered lanes, service-route control and escalation to Event Control.', '2', 'Medium (Amber)'),
       riskRow('Suspicious item or hostile reconnaissance', 'Bar fronts, queue lanes, compounds and external crossings', '3', 'Patrons, KSS, event staff', 'SCaN-trained officers, cordon and report procedure, do-not-touch policy, JESIP escalation route and event log entry.', '2', 'Medium (Amber)'),
@@ -890,7 +1099,7 @@ function buildEmpOperationalRiskAssessment(fieldValues: Record<string, EmpResolv
       riskRow('Lost children or vulnerable patrons', `${venueName}, car parks and external routes`, '3', 'Patrons, safeguarding team', 'Safeguarding protocol, welfare referral, quiet holding areas, Event Control log and escalation to the event safeguarding lead.', '1', 'Low (Green)'),
       riskRow('Slip, trip or fall incidents', `${externalAreas}, egress lanes and queue routes`, '2', 'Patrons, staff', 'Lighting checks, head torches where required, hazard tape, route inspections and near-miss reporting to Event Control.', '2', 'Medium (Amber)'),
       riskRow('Prohibited item, alcohol or drugs', 'Bar queues and compounds', '2', 'Patrons, staff', 'Search interface, signage, confiscation logs, ingress search support and escalation to Event Control where required.', '3', 'Medium (Amber)'),
-      riskRow('Underage or proxy alcohol service', 'Licensed bar service points', '3', 'Patrons, bar staff, KSS officers', 'Challenge 25 support, refusal log, supervisor escalation, bar operator liaison and removal of persistent proxy-purchase attempts from the queue area.', '2', 'Medium (Amber)'),
+      riskRow('Underage or proxy alcohol service', 'Licensed bar service points', '3', 'Patrons, bar staff, KSS officers', `${challengePolicyLabel} support, refusal log, supervisor escalation, bar operator liaison and removal of persistent proxy-purchase attempts from the queue area.`, '2', 'Medium (Amber)'),
       riskRow('Intoxication, disorder or assault near bars', 'Bar fronts, queue tails and refusal points', '3', 'Patrons, KSS officers, bar staff', 'Early intervention, paired officer response, de-escalation, evidence preservation, welfare assessment and Event Control or police escalation where required.', '3', 'High (Red)'),
       riskRow('Queue barrier failure or lane collapse', 'Managed queue lanes and barrier lines', '3', 'Patrons, KSS, bar staff', 'Pre-opening barrier inspection, supervisor monitoring, spare barrier access, immediate lane hold and controlled re-forming of queue lines.', '2', 'Medium (Amber)'),
       riskRow('Emergency route obstruction by bar queues', 'Emergency routes beside bar queues and service lanes', '3', 'Patrons, emergency services, KSS', 'Queue limits, route checks, barrier adjustment, queue shortening and immediate escalation if emergency access is reduced.', '2', 'Medium (Amber)'),
@@ -905,16 +1114,25 @@ function buildEmpOperationalRiskAssessment(fieldValues: Record<string, EmpResolv
       riskRow('Inadequate lighting in compound walkways', 'Sponsor, bar or service compounds', '2', 'KSS overnight teams, contractors', 'Portable lighting, patrol torches and lighting inspection checklist for routes used during darkness.', '2', 'Medium (Amber)'),
       riskRow('Power loss or till / EPOS outage', 'Bar service points', '2', 'Patrons, bar staff, KSS', 'Bar operator fallback process, queue hold or close decision, customer communication, supervisor monitoring and Event Control logging.', '2', 'Medium (Amber)'),
       riskRow('Adverse weather affecting bar queues', 'External bar queues and exposed routes', '2', 'Patrons, KSS, bar staff', 'Weather monitoring, queue shortening, welfare observation, route-surface checks and escalation for high wind, lightning, heat or heavy rain.', '2', 'Medium (Amber)'),
-      riskRow('Marauding terrorist attack (MTA)', 'Arena externals, bar queues and crossflow zones', '3', 'Patrons, KSS, staff', 'ACT awareness, Run Hide Tell protocol, lockdown or invacuation briefing, Bronze-Silver-Gold escalation and JESIP coordination.', '1', 'Low (Green)'),
-      riskRow('Hostile vehicle threat (VAW)', 'Crossings, PUDO zones and access roads', '3', 'Patrons, KSS, traffic teams', 'Vehicle barrier strategy, static officer vigilance, suspicious vehicle reporting and police liaison through Event Control.', '2', 'Medium (Amber)'),
-      riskRow('Hostile reconnaissance / surveillance', 'External perimeters, bar compounds and ingress points', '3', 'Patrons, staff, contractors', 'SCaN behavioural detection, photo log and escalation, proactive patrols and CTSA engagement where available.', '2', 'Medium (Amber)'),
+      riskRow('Marauding terrorist attack (MTA)', 'Arena externals, bar queues and crossflow zones', '3', 'Patrons, KSS, staff', 'ACT awareness, Run Hide Tell protocol, lockdown or invacuation briefing, Bronze-Silver-Gold escalation and JESIP coordination. Minimum CT residual rating held at Medium due to the national threat environment.', '1', 'Medium (Amber)'),
+      riskRow('Hostile vehicle threat (VAW)', 'Crossings, PUDO zones and access roads', '3', 'Patrons, KSS, traffic teams', 'Vehicle barrier strategy, static officer vigilance, suspicious vehicle reporting and police liaison through Event Control. Minimum CT residual rating held at Medium due to the national threat environment.', '2', 'Medium (Amber)'),
+      riskRow('Hostile reconnaissance / surveillance', 'External perimeters, bar compounds and ingress points', '3', 'Patrons, staff, contractors', 'SCaN behavioural detection, photo log and escalation, proactive patrols and CTSA engagement where available. Minimum CT residual rating held at Medium due to the national threat environment.', '2', 'Medium (Amber)'),
       riskRow('Drone incursion', 'Arena footprint and bar compounds', '2', 'Patrons, staff', 'Observation and reporting, Event Control escalation, police drone-unit liaison and service pause if overhead threat is identified.', '2', 'Medium (Amber)'),
       riskRow('Fire as a weapon', 'Bar compounds, waste storage and external queue areas', '3', 'Patrons, staff', 'Fire watch patrols, extinguishers positioned, waste removal schedule, rapid cordon and fire liaison through Event Control.', '1', 'Low (Green)'),
-      riskRow('Chemical / biological hazard', 'Bars, externals and arena queues', '3', 'Patrons, staff', 'Staff awareness of symptoms, welfare and medical integration, rapid escalation through command and isolation cordons.', '1', 'Low (Green)'),
-      riskRow('Insider threat / contractor infiltration', 'Backstage and compounds', '3', 'Staff, patrons, contractors', 'Accreditation checks, three-step challenge policy, patrol logs, contractor verification and Event Control escalation.', '1', 'Low (Green)'),
+      riskRow('Chemical / biological hazard', 'Bars, externals and arena queues', '3', 'Patrons, staff', 'Staff awareness of symptoms, welfare and medical integration, rapid escalation through command and isolation cordons. Minimum CT residual rating held at Medium due to the national threat environment.', '1', 'Medium (Amber)'),
+      riskRow('Insider threat / contractor infiltration', 'Backstage and compounds', '3', 'Staff, patrons, contractors', 'Accreditation checks, three-step challenge policy, patrol logs, contractor verification and Event Control escalation. Minimum CT residual rating held at Medium due to the national threat environment.', '1', 'Medium (Amber)'),
       riskRow('Cyber disruption to EPOS / tills', 'Bar service points', '2', 'Patrons, staff', 'Local till backup, offline service protocols, bar-operator IT support, Event Control escalation and incident logging.', '2', 'Medium (Amber)'),
       riskRow('Communication failure', 'All licensed zones', '3', 'Supervisors, Event Control, emergency services', 'Printed comms tree, fallback emergency channel, supervisor check-ins and embedded KSS control-room reporting route.', '1', 'Low (Green)'),
       riskRow('Bar close-down and final egress pressure', 'Bar fronts, close-down routes and dispersal interfaces', '3', 'Patrons, KSS, bar staff', 'Controlled last-orders support, queue closure, refusal/ejection management, route protection, stock handover and stand-down only when clear.', '2', 'Medium (Amber)'),
+      ...(download
+        ? [
+            riskRow('Co-Op shop queue surge and over-capacity', 'Co-Op shop ingress, egress and queue lanes', '3', 'Co-Op customers, disabled guests, KSS, shop staff', 'Dedicated KSS queue monitoring, controlled ingress and egress, queue-tail observation, shop-manager liaison, route protection, welfare escalation and Event Control notification if the shop footprint or queue becomes unsafe.', '2', 'Medium (Amber)'),
+            riskRow('Co-Op shop theft, disorder or asset intrusion', 'Co-Op shop, perimeter and stock interface', '2', 'Co-Op staff, customers, KSS, contractors', 'Static guard presence, access challenge, perimeter patrol, suspicious behaviour reporting, evidence preservation, de-escalation, police/Event Control escalation where required and safeguarding check before removal.', '2', 'Medium (Amber)'),
+            riskRow('Accessibility campsite search delay or dignity concern', 'Accessibility campsite entrance and search points', '3', 'Disabled guests, companions, children, KSS search staff', 'Consent-based search, SIA-led person search, same-sex search where required, private discussion where needed, supervisor support, accessible processing space, medication/equipment sensitivity and escalation to Event Control/accessibility lead for disputes.', '2', 'Medium (Amber)'),
+            riskRow('Accessible route obstruction or crossover conflict', 'Accessible campsite routes, buggy pick-up, parking crossover and production-road crossing', '3', 'Disabled guests, companions, buggy users, KSS, production traffic', 'Fixed access-control posts, crossover monitoring, production-road crossing control, route width preservation, immediate removal of queue/vehicle obstruction and Event Control escalation if accessible routes are compromised.', '2', 'Medium (Amber)'),
+            riskRow('Overnight safeguarding or welfare incident in accessible campsites', 'Accessible Campsite A4, Accessible Campsite D and Accessibility Black Campsite', '3', 'Disabled guests, children, vulnerable adults, companions, KSS patrols', 'Response-team patrols, welfare-aware observation, privacy preservation, two-person approach where required, no unmanaged ejection/eviction, lost/found person process, Ask for Angela awareness and immediate safeguarding/welfare/Event Control escalation.', '2', 'Medium (Amber)'),
+          ]
+        : []),
     ],
   }
 }
@@ -968,6 +1186,7 @@ function buildOperationalRiskRows(
 ) {
   const isBarFocused = selectedAnnexes.includes('bar_operations') || /bar/i.test(getValue(fieldValues, 'plan_title'))
   const radioOne = isRadioOneEvent(fieldValues)
+  const challengePolicyLabel = isDownloadEvent(fieldValues) ? 'Challenge 21' : 'Challenge 25'
 
   if (isBarFocused) {
     const rows = [
@@ -982,7 +1201,7 @@ function buildOperationalRiskRows(
         'Licensing and refusals',
         'Underage sale risk, failed ID, refusal conflict or intoxication.',
         'Customers, bar staff, supervisors, licence holder.',
-        compactControl(getValue(fieldValues, 'challenge_policy'), 'Challenge 25, refusal support, calm escalation and incident logging.'),
+        compactControl(getValue(fieldValues, 'challenge_policy'), `${challengePolicyLabel}, refusal support, calm escalation and incident logging.`),
         'Medium / controlled'
       ),
       buildRiskRow(
@@ -1447,6 +1666,9 @@ function buildSectionBlocks(
             ? maybeParagraph('KSS operational delivery will be led by Floyd Allen as Operational Lead, supported by David Capener as Operational Support, with bar supervisors, response staff and the KSS Event Control/Logger working within the agreed Peppermint/FAB/Event Control reporting route.')
             : []
         )
+        .concat(subheading('Operational Assumptions and Dependencies'))
+        .concat(maybeBullets(getValue(fieldValues, 'operational_assumptions_dependencies')))
+        .concat(subheading('Related Documents'))
         .concat(maybeBullets(getValue(fieldValues, 'related_documents')))
 
     case 'event_overview':
@@ -1770,24 +1992,7 @@ function buildSectionBlocks(
         .concat(buildDeploymentScheduleBlocks(getValue(fieldValues, 'staffing_by_zone_and_time'), radioOne))
         .concat(radioOne ? maybeMultiTable(['Function', 'Call sign', 'Channel'], radioOneCallSignRows(), { compact: true, keepTogether: true, avoidRowSplit: true, rowUnitScale: 0.8 }) : [])
         .concat(radioOne ? maybeParagraph('Final call signs and radio channels will be inserted from the approved event radio plan and final Event Control/security briefing before issue.') : [])
-        .concat(
-          parseThreeColumnLines(getValue(fieldValues, 'response_teams')).length
-            ? maybeMultiTable(
-                ['Team', 'Resourcing', 'Purpose'],
-                parseThreeColumnLines(getValue(fieldValues, 'response_teams')),
-                { compact: true, avoidRowSplit: true, rowUnitScale: 0.55 }
-              )
-            : labeledParagraph('Response teams', getValue(fieldValues, 'response_teams'))
-        )
-        .concat(
-          radioOne
-            ? labeledParagraph(
-                'Relief, contingency and escalation',
-                'Relief cover protects fixed bar posts and queue lanes during breaks. Escalate for queue obstruction, repeated refusals, intoxication, welfare/ejection demand, reduced queue capacity or Event Control/Peppermint requests.'
-              )
-            : labeledParagraph('Relief and contingency', getValue(fieldValues, 'relief_and_contingency'))
-                .concat(labeledParagraph('Escalation staffing', getValue(fieldValues, 'escalation_staffing')))
-        )
+        .concat(buildResponseAndContingencyBlocks(fieldValues, radioOne))
 
     case 'ingress_operations':
       return ([{
@@ -1941,6 +2146,14 @@ function buildSectionBlocks(
             ['Activity / Position', 'Hazard', 'Who may be harmed', 'Controls in this EMP', 'Residual position'],
             buildOperationalRiskRows(fieldValues, selectedAnnexes)
           ))
+          .concat(isDownloadEvent(fieldValues)
+            ? subheading('Key Behavioural Risk Zones for KSS-Controlled Areas')
+              .concat(maybeMultiTable(
+                ['Zone', 'Time of Peak Risk', 'Risk Type', 'Control Measures'],
+                downloadBehaviouralRiskZoneRows(),
+                { compact: true, avoidRowSplit: true, rowUnitScale: 0.7 }
+              ))
+            : [])
       }
 
       return maybeParagraph(getValue(fieldValues, 'risk_assessment_methodology'))
@@ -2091,6 +2304,21 @@ function buildAnnexBlocks(
       return roleBlocks
         .concat(labeledParagraph('Bar and service area controls', getValue(fieldValues, 'venue_rules')))
         .concat(labeledParagraph('Queue design', getValue(fieldValues, 'queue_design')))
+        .concat(isDownloadEvent(fieldValues)
+          ? buildDeploymentScheduleBlocks(
+              getValue(fieldValues, 'staffing_by_zone_and_time'),
+              false,
+              ({ area }) => /^BARS$/i.test(area)
+            )
+          : [])
+        .concat(isDownloadEvent(fieldValues)
+          ? subheading('Bar-Specific Queuing Format')
+            .concat(maybeMultiTable(
+              ['Bar Zone', 'Queuing Format', 'Features'],
+              downloadBarSpecificQueueRows(),
+              { compact: true, avoidRowSplit: true, rowUnitScale: 0.72 }
+            ))
+          : [])
         .concat(labeledParagraph('Prohibited items', getValue(fieldValues, 'prohibited_items')))
         .concat(labeledParagraph('Incident response around licensed activity', getValue(fieldValues, 'incident_management')))
 
@@ -2109,6 +2337,11 @@ function buildAnnexBlocks(
       }
       return roleBlocks
         .concat(labeledParagraph('Co-Op shop and sponsor activation controls', getValue(fieldValues, 'high_density_controls')))
+        .concat(buildDeploymentScheduleBlocks(
+          getValue(fieldValues, 'staffing_by_zone_and_time'),
+          false,
+          ({ area }) => /^SPONSORSHIP$/i.test(area)
+        ))
         .concat(labeledParagraph('Response teams', getValue(fieldValues, 'response_teams')))
         .concat(labeledParagraph('Emergency escalation', getValue(fieldValues, 'command_escalation')))
 
@@ -2122,7 +2355,13 @@ function buildAnnexBlocks(
     case 'camping_security':
       return roleBlocks
         .concat(labeledParagraph(isDownloadEvent(fieldValues) ? 'Accessibility campsite profile' : 'Overnight asset profile', getValue(fieldValues, 'camping_profile')))
-        .concat(labeledParagraph('Staffing by zone and time', getValue(fieldValues, 'staffing_by_zone_and_time')))
+        .concat(isDownloadEvent(fieldValues)
+          ? buildDeploymentScheduleBlocks(
+              getValue(fieldValues, 'staffing_by_zone_and_time'),
+              false,
+              ({ area }) => /ACCESSIBILITY|PADDOCK/i.test(area)
+            )
+          : buildDeploymentScheduleBlocks(getValue(fieldValues, 'staffing_by_zone_and_time')))
         .concat(labeledParagraph('Safeguarding process', getValue(fieldValues, 'safeguarding_process')))
 
     case 'vip_backstage_security':
@@ -2133,25 +2372,7 @@ function buildAnnexBlocks(
 
     case 'stewarding_deployment':
       return roleBlocks
-        .concat(buildDeploymentScheduleBlocks(getValue(fieldValues, 'staffing_by_zone_and_time')))
-        .concat(
-          parseThreeColumnLines(getValue(fieldValues, 'response_teams')).length
-            ? maybeMultiTable(
-                ['Team', 'Resourcing', 'Purpose'],
-                parseThreeColumnLines(getValue(fieldValues, 'response_teams')),
-                { compact: true, avoidRowSplit: true, rowUnitScale: 0.55 }
-              )
-            : labeledParagraph('Response teams', getValue(fieldValues, 'response_teams'))
-        )
-        .concat(
-          radioOne
-            ? labeledParagraph(
-                'Relief, contingency and escalation',
-                'Relief cover protects fixed bar posts and queue lanes during breaks. Escalate for queue obstruction, repeated refusals, intoxication, welfare/ejection demand, reduced queue capacity or Event Control/Peppermint requests.'
-              )
-            : labeledParagraph('Relief and contingency', getValue(fieldValues, 'relief_and_contingency'))
-                .concat(labeledParagraph('Escalation staffing', getValue(fieldValues, 'escalation_staffing')))
-        )
+        .concat(buildResponseAndContingencyBlocks(fieldValues, radioOne))
 
     case 'emergency_action_cards':
       if (isDownloadEvent(fieldValues)) {
@@ -2398,6 +2619,125 @@ function riskAssessmentToHtml(riskAssessment: EmpRiskAssessmentModel) {
   return `<section class="emp-ra-html-section"><h2>Operational Risk Assessment</h2><table class="emp-key-value-table"><tbody><tr><th>Activity</th><td>${escapeHtml(riskAssessment.activity)}</td><th>Reference No:</th><td>${escapeHtml(riskAssessment.referenceNo)}</td></tr><tr><th>Location</th><td>${escapeHtml(riskAssessment.location)}</td><th>Date</th><td>${escapeHtml(riskAssessment.assessmentDate)}</td></tr><tr><th>Assessor(s)</th><td>${escapeHtml(riskAssessment.assessors)}</td><th>Review Date</th><td>${escapeHtml(riskAssessment.reviewDate)}</td></tr></tbody></table><table class="emp-ra-html-table"><thead><tr><th>Hazard / Activity</th><th>Location</th><th>Severity</th><th>Persons Affected</th><th>Control Measures</th><th>Likelihood</th><th>RPN</th><th>Risk Rating</th></tr></thead><tbody>${rowHtml}</tbody></table><h2>Risk Assessment Scoring</h2><p>Risk Priority Number (RPN) = Severity (S) x Likelihood (L). Low RPN 1 or 2: no further action required. Moderate RPN 3 or 4: take action within 3 - 6 months. Substantial RPN 6: take action within 1 month. Intolerable RPN 9: stop activity until action reduces risk.</p></section>`
 }
 
+function normalizeDownloadCommitmentLanguage(value: string) {
+  return value
+    .replace(/\bKSS must\b/g, 'KSS will')
+    .replace(/\bKSS staff must\b/g, 'KSS staff will')
+    .replace(/\bKSS supervisors must\b/g, 'KSS supervisors will')
+    .replace(/\bKSS queue designs must\b/g, 'KSS queue designs will')
+    .replace(/\bStaff must\b/g, 'Staff will')
+    .replace(/\bsearch support must\b/g, 'search support will')
+    .replace(/\bEgress assumptions must\b/g, 'Egress assumptions will')
+    .replace(/\bAccessible customers must\b/g, 'Accessible customers will')
+    .replace(/\bAccessibility campsite search must\b/g, 'Accessibility campsite search will')
+    .replace(/\bCo-Op shop queues must\b/g, 'Co-Op shop queues will')
+    .replace(/\bSafeguarding controls must\b/g, 'Safeguarding controls will')
+    .replace(/\bRefusals, intoxication, suspected proxy purchasing, welfare disclosure, drink spiking concerns and vulnerable-person indicators must\b/g, 'Refusals, intoxication, suspected proxy purchasing, welfare disclosure, drink spiking concerns and vulnerable-person indicators will')
+    .replace(/\bconsent must be requested and given\b/g, 'consent will be requested and confirmed')
+    .replace(/\bmust be processed calmly\b/g, 'will be processed calmly')
+    .replace(/\bmust be treated as\b/g, 'will be treated as')
+    .replace(/\bmust be escalated\b/g, 'will be escalated')
+    .replace(/\bmust be reported\b/g, 'will be reported')
+    .replace(/\bmust be handled\b/g, 'will be handled')
+    .replace(/\bmust be logged\b/g, 'will be logged')
+    .replace(/\bmust be completed\b/g, 'will be completed')
+    .replace(/\bmust be discreet\b/g, 'will be discreet')
+    .replace(/\bmust not conduct\b/g, 'will not conduct')
+    .replace(/\bmust not create\b/g, 'will not create')
+    .replace(/\bmust not move\b/g, 'will not move')
+    .replace(/\bmust not allow\b/g, 'will not allow')
+    .replace(/\bmust include\b/g, 'will include')
+    .replace(/\bmust receive\b/g, 'will receive')
+    .replace(/\bmust account\b/g, 'will account')
+    .replace(/\bmust keep\b/g, 'will keep')
+    .replace(/\bmust clear\b/g, 'will clear')
+    .replace(/\bmust provide\b/g, 'will provide')
+    .replace(/\bmust protect\b/g, 'will protect')
+    .replace(/\bmust preserve\b/g, 'will preserve')
+    .replace(/\bmust manage\b/g, 'will manage')
+    .replace(/\bmust prevent\b/g, 'will prevent')
+    .replace(/\bmust request\b/g, 'will request')
+    .replace(/\bmust remove\b/g, 'will remove')
+    .replace(/\bmust follow\b/g, 'will follow')
+    .replace(/\bmust support\b/g, 'will support')
+    .replace(/\bmust allow\b/g, 'will allow')
+}
+
+function normalizeDownloadFieldValues(
+  fieldValues: Record<string, EmpResolvedFieldValue>
+): Record<string, EmpResolvedFieldValue> {
+  return Object.fromEntries(
+    Object.entries(fieldValues).map(([key, value]) => [
+      key,
+      {
+        ...value,
+        valueText: normalizeDownloadCommitmentLanguage(value.valueText),
+      },
+    ])
+  )
+}
+
+function normalizeDownloadPreviewBlock(block: EmpPreviewBlock): EmpPreviewBlock {
+  switch (block.type) {
+    case 'paragraph':
+      return { ...block, text: normalizeDownloadCommitmentLanguage(block.text) }
+    case 'subheading':
+      return { ...block, text: normalizeDownloadCommitmentLanguage(block.text) }
+    case 'bullet_list':
+      return { ...block, items: block.items.map(normalizeDownloadCommitmentLanguage) }
+    case 'table':
+      return {
+        ...block,
+        rows: block.rows.map((row) => ({
+          label: row.label,
+          value: normalizeDownloadCommitmentLanguage(row.value),
+        })),
+      }
+    case 'multi_table':
+      return {
+        ...block,
+        title: block.title ? normalizeDownloadCommitmentLanguage(block.title) : block.title,
+        headers: block.headers.map(normalizeDownloadCommitmentLanguage),
+        rows: block.rows.map((row) => row.map(normalizeDownloadCommitmentLanguage)),
+      }
+    case 'metric_grid':
+      return {
+        ...block,
+        items: block.items.map((item) => ({
+          label: item.label,
+          value: normalizeDownloadCommitmentLanguage(item.value),
+        })),
+      }
+    default:
+      return block
+  }
+}
+
+function normalizeDownloadPreviewModel(model: EmpPreviewModel): EmpPreviewModel {
+  return {
+    ...model,
+    coverSummary: normalizeDownloadCommitmentLanguage(model.coverSummary),
+    coverRows: model.coverRows.map((row) => ({
+      label: row.label,
+      value: normalizeDownloadCommitmentLanguage(row.value),
+    })),
+    sections: model.sections.map((section) => ({
+      ...section,
+      description: section.description
+        ? normalizeDownloadCommitmentLanguage(section.description)
+        : section.description,
+      blocks: section.blocks.map(normalizeDownloadPreviewBlock),
+    })),
+    annexes: model.annexes.map((annex) => ({
+      ...annex,
+      description: annex.description
+        ? normalizeDownloadCommitmentLanguage(annex.description)
+        : annex.description,
+      blocks: annex.blocks.map(normalizeDownloadPreviewBlock),
+    })),
+  }
+}
+
 export function buildEmpPreviewModel(input: {
   fieldValues: Record<string, EmpResolvedFieldValue>
   selectedAnnexes: string[]
@@ -2405,45 +2745,49 @@ export function buildEmpPreviewModel(input: {
   documents?: EmpPreviewSourceDocument[]
 }) {
   const isRadioOneInput = isRadioOnePlan(input.fieldValues, input.selectedAnnexes)
+  const isDownloadInput = isDownloadEvent(input.fieldValues)
+  const fieldValues = isDownloadInput
+    ? normalizeDownloadFieldValues(input.fieldValues)
+    : input.fieldValues
   const title =
     isRadioOneInput
       ? RADIO_ONE_PLAN_TITLE
-      : getValue(input.fieldValues, 'plan_title') ||
-        getValue(input.fieldValues, 'event_name') ||
+      : getValue(fieldValues, 'plan_title') ||
+        getValue(fieldValues, 'event_name') ||
         'Bar Security Operations Plan'
   const subtitleParts = [
-    clean(getValue(input.fieldValues, 'event_name')),
-    clean(getValue(input.fieldValues, 'venue_name')),
-    clean(getValue(input.fieldValues, 'show_dates')),
+    clean(getValue(fieldValues, 'event_name')),
+    clean(getValue(fieldValues, 'venue_name')),
+    clean(getValue(fieldValues, 'show_dates')),
   ].filter(Boolean)
   const documentStatus = isRadioOneInput
-    ? getRadioOneIssueStatus(input.fieldValues)
-    : clean(getValue(input.fieldValues, 'document_status'))
+    ? getRadioOneIssueStatus(fieldValues)
+    : clean(getValue(fieldValues, 'document_status'))
 
   const coverRows = [
-    { label: 'Event', value: getValue(input.fieldValues, 'event_name') },
-    { label: 'Venue', value: getValue(input.fieldValues, 'venue_name') },
-    { label: 'Show dates', value: getValue(input.fieldValues, 'show_dates') },
-    { label: 'Version', value: getValue(input.fieldValues, 'document_version') },
+    { label: 'Event', value: getValue(fieldValues, 'event_name') },
+    { label: 'Venue', value: getValue(fieldValues, 'venue_name') },
+    { label: 'Show dates', value: getValue(fieldValues, 'show_dates') },
+    { label: 'Version', value: getValue(fieldValues, 'document_version') },
     {
       label: 'Status',
       value: documentStatus,
     },
-    { label: 'Issue date', value: getValue(input.fieldValues, 'issue_date') },
-    { label: 'Review date', value: getValue(input.fieldValues, 'review_date') },
-    { label: 'Author', value: getValue(input.fieldValues, 'author_name') },
-    { label: 'Approver', value: isRadioOneInput ? 'Floyd Allen' : getValue(input.fieldValues, 'approver_name') },
-    { label: 'Organiser', value: getValue(input.fieldValues, 'organiser_name') },
-    ...(isRadioOneInput ? [] : [{ label: 'Client', value: getValue(input.fieldValues, 'client_name') }]),
+    { label: 'Issue date', value: getValue(fieldValues, 'issue_date') },
+    { label: 'Review date', value: getValue(fieldValues, 'review_date') },
+    { label: 'Author', value: getValue(fieldValues, 'author_name') },
+    { label: 'Approver', value: isRadioOneInput ? 'Floyd Allen' : getValue(fieldValues, 'approver_name') },
+    { label: 'Organiser', value: getValue(fieldValues, 'organiser_name') },
+    ...(isRadioOneInput ? [] : [{ label: 'Client', value: getValue(fieldValues, 'client_name') }]),
   ].filter((row) => clean(row.value))
-  const coverSummary = isDownloadEvent(input.fieldValues)
+  const coverSummary = isDownloadEvent(fieldValues)
     ? 'This document records the KSS security operations arrangements for Download Festival 2026, including bars, the Co-Op shop, sponsor activations, Paddock, accessibility campsite search and accessible campsite security. It is intended to be read alongside the Download Festival Event Management Plan, Crowd and Security Management Plan, Safeguarding and Welfare Plan, FAB Safeguarding Policy, risk assessments, emergency procedures, licensing documentation, deployment schedules, and current site plans.'
     : isRadioOneInput
       ? 'This document records the KSS bar security operations arrangements for BBC Radio 1 Big Weekend. It is intended to be read alongside the BBC/FAB Event Management Plan, risk assessments, emergency procedures, licensing documentation, deployment schedules, and current site plans.'
       : 'This document records the KSS security operations arrangements for the named event. It is intended to be read alongside the event management plan, risk assessments, emergency procedures, licensing documentation, deployment schedules, and current site plans.'
 
   const documents = input.documents || []
-  const selectedAnnexes = getEffectiveSelectedAnnexes(input.fieldValues, input.selectedAnnexes)
+  const selectedAnnexes = getEffectiveSelectedAnnexes(fieldValues, input.selectedAnnexes)
   const isBarFocusedPlan = selectedAnnexes.includes('bar_operations') || /bar/i.test(title)
   const rawBaseSections: EmpPreviewSection[] = EMP_MASTER_TEMPLATE_SECTIONS.map((section) => {
     const description = section.key === 'risk_assessment' && isBarFocusedPlan
@@ -2453,7 +2797,7 @@ export function buildEmpPreviewModel(input: {
       key: section.key,
       title: SECTION_TITLES[section.key] || section.title,
       description,
-      blocks: buildSectionBlocks(section.key, input.fieldValues, selectedAnnexes, documents),
+      blocks: buildSectionBlocks(section.key, fieldValues, selectedAnnexes, documents),
     }
   }).filter((section) => section.blocks.length > 0 || clean(section.description))
 
@@ -2479,22 +2823,22 @@ export function buildEmpPreviewModel(input: {
   const annexes: EmpPreviewAnnex[] = EMP_ANNEX_DEFINITIONS
     .filter((annex) => selectedAnnexes.includes(annex.key))
     .map((annex) => {
-      const presentation = getAnnexPresentation(annex, input.fieldValues)
+      const presentation = getAnnexPresentation(annex, fieldValues)
       return {
         key: annex.key,
         title: presentation.title,
         description: presentation.description,
-        blocks: buildAnnexBlocks(annex.key, input.fieldValues, documents),
+        blocks: buildAnnexBlocks(annex.key, fieldValues, documents),
       }
     })
     .filter((annex) => annex.blocks.length > 0 || clean(annex.description))
 
   if (isRadioOneInput) {
-    annexes.push(...buildRadioOneCustomAnnexes(input.fieldValues))
+    annexes.push(...buildRadioOneCustomAnnexes(fieldValues))
   }
 
   if (input.includeKssProfileAppendix) {
-    const appendixValue = clean(getValue(input.fieldValues, 'appendix_notes'))
+    const appendixValue = clean(getValue(fieldValues, 'appendix_notes'))
     if (appendixValue) {
       annexes.push({
         key: 'provider_credentials_appendix',
@@ -2527,15 +2871,18 @@ export function buildEmpPreviewModel(input: {
           ...baseSections.slice(documentControlIndex + 1),
         ]
 
-  return {
+  const model = {
     title,
+    documentLabel: isDownloadInput ? 'Event Management Plan' : 'Bar Security Operations Plan',
     subtitle: subtitleParts.join(' | '),
     coverRows,
     coverSummary,
     sections,
     annexes,
-    riskAssessment: buildEmpOperationalRiskAssessment(input.fieldValues),
+    riskAssessment: buildEmpOperationalRiskAssessment(fieldValues),
   } satisfies EmpPreviewModel
+
+  return isDownloadInput ? normalizeDownloadPreviewModel(model) : model
 }
 
 export function renderEmpPreviewHtml(model: EmpPreviewModel) {

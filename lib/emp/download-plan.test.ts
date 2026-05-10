@@ -26,18 +26,44 @@ describe('Download EMP seed plan', () => {
 
     expect(planText).toContain('Co-Op')
     expect(planText).toContain('Co-Op shop ingress, egress, queueing and perimeter support')
-    expect(planText).toContain('sponsor activations')
+    expect(planText).toContain('Co-Op shop')
     expect(planText).toContain('Accessible Campsite A4')
     expect(planText).toContain('Accessible Campsite D')
     expect(planText).toContain('accessibility campsite search')
   })
 
+  it('includes supplied draft deployment schedule detail', () => {
+    expect(EMP_DOWNLOAD_PLAN_VALUES.staffing_by_zone_and_time).toContain(
+      'Monday 8 June|SPONSORSHIP|Sponsorship Supervisor|Access Control|KSS Security|SUP|1|07:00|19:00|12.00|1|19:00|07:00|12.00'
+    )
+    expect(EMP_DOWNLOAD_PLAN_VALUES.staffing_by_zone_and_time).toContain(
+      'Wednesday 10 June|ACCESSIBILITY CAMPSITE ENTRANCE|Accessible Entrance Search Team|Access Control|KSS Security|SIA|4|08:00|20:00|12.00|1|20:00|08:00|12.00'
+    )
+    expect(EMP_DOWNLOAD_PLAN_VALUES.staffing_by_zone_and_time).toContain(
+      'Wednesday 10 June|SPONSORSHIP|Coop Security No 2|Access Control|KSS Security|SIA|1|10:00|22:00|12.00|1|19:00|03:30|8.50'
+    )
+    expect(EMP_DOWNLOAD_PLAN_VALUES.staffing_by_zone_and_time).toContain(
+      'Monday 15 June|PADDOCK|Paddock Gate|Access Control|KSS Security|SIA|2|08:00|15:00|7.00||||'
+    )
+    expect(EMP_DOWNLOAD_PLAN_VALUES.staffing_by_zone_and_time).toContain(
+      'Thursday 11 June|ACCESSIBILITY CAMPSITE|Response Team 1 - Main Campsite|Security Patrol|KSS Security|SIA|2|08:00|20:00|12.00|2|20:00|08:00|12.00'
+    )
+    expect(EMP_DOWNLOAD_PLAN_VALUES.staffing_by_zone_and_time).toContain(
+      'Sunday 14 June|PADDOCK|Hospital Gate 2|Access Control|KSS Security|SIA|1|08:00|20:00|12.00|1|20:00|08:00|12.00'
+    )
+    expect(EMP_DOWNLOAD_PLAN_VALUES.front_of_stage_roles).toContain(
+      'The Co-Op is an actual shop, not a style of queue'
+    )
+    expect(EMP_DOWNLOAD_PLAN_VALUES.camping_security_roles).toContain('Accessibility Black Campsite')
+    expect(EMP_DOWNLOAD_PLAN_VALUES.response_teams).toContain('Paddock response/access support')
+  })
+
   it('makes safeguarding a lead control, not a secondary note', () => {
     expect(EMP_DOWNLOAD_PLAN_VALUES.safeguarding_process).toContain(
-      'KSS staff must not conduct safeguarding investigations'
+      'KSS staff will not conduct safeguarding investigations'
     )
     expect(EMP_DOWNLOAD_PLAN_VALUES.ejection_safeguarding).toContain(
-      'ejection or eviction must pause immediately'
+      'ejection or eviction will pause immediately'
     )
     expect(EMP_DOWNLOAD_PLAN_VALUES.ask_for_angela_process).toContain('Ask for Angela')
     expect(EMP_DOWNLOAD_PLAN_VALUES.lost_vulnerable_person_process).toContain('Disney')

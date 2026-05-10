@@ -81,6 +81,30 @@ describe('buildEmpPreviewModel', () => {
     expect(model.annexes.map((annex) => annex.title)).not.toContain('Overnight Bar Asset Protection')
   })
 
+  it('adds scored Download risks for Co-Op and accessibility campsite positions', () => {
+    const downloadFieldValues = resolveEmpFieldValueMap(
+      EMP_MASTER_TEMPLATE_FIELDS,
+      Object.entries(EMP_DOWNLOAD_PLAN_VALUES).map(([fieldKey, valueText]) => ({
+        fieldKey,
+        valueText,
+        source: 'manual',
+      }))
+    )
+    const model = buildEmpPreviewModel({
+      fieldValues: downloadFieldValues,
+      selectedAnnexes: EMP_DOWNLOAD_SELECTED_ANNEXES,
+      includeKssProfileAppendix: false,
+    })
+
+    expect(model.riskAssessment?.rows).toEqual(expect.arrayContaining([
+      expect.objectContaining({ hazard: 'Co-Op shop queue surge and over-capacity', rpn: '6', rating: 'Medium (Amber)' }),
+      expect.objectContaining({ hazard: 'Co-Op shop theft, disorder or asset intrusion', rpn: '4', rating: 'Medium (Amber)' }),
+      expect.objectContaining({ hazard: 'Accessibility campsite search delay or dignity concern', rpn: '6', rating: 'Medium (Amber)' }),
+      expect.objectContaining({ hazard: 'Accessible route obstruction or crossover conflict', rpn: '6', rating: 'Medium (Amber)' }),
+      expect.objectContaining({ hazard: 'Overnight safeguarding or welfare incident in accessible campsites', rpn: '6', rating: 'Medium (Amber)' }),
+    ]))
+  })
+
   it('uses event-specific queue diagram labels for non-Radio One EMPs', () => {
     const model = buildEmpPreviewModel({
       fieldValues: {
@@ -256,7 +280,7 @@ describe('buildEmpPreviewModel', () => {
     })
   })
 
-  it('renders stewarding deployment as structured tables when staffing rows are supplied', () => {
+  it('renders stewarding deployment annex without duplicating deployment tables', () => {
     const model = buildEmpPreviewModel({
       fieldValues: {
         ...fieldValues,
@@ -289,14 +313,144 @@ describe('buildEmpPreviewModel', () => {
     const multiTables = annex?.blocks.filter((block) => block.type === 'multi_table') || []
 
     expect(annex?.title).toBe('Stewarding / Queue Marshal Deployment')
-    expect(multiTables).toHaveLength(2)
+    expect(multiTables).toHaveLength(1)
     expect(multiTables[0]).toMatchObject({
-      headers: ['Time / Phase', 'Zone', 'Deployment Detail'],
-    })
-    expect(multiTables[1]).toMatchObject({
       headers: ['Team', 'Resourcing', 'Purpose'],
     })
   })
+
+  it('splits mixed Download bar roles into separate deployment rows', () => {
+    const downloadFieldValues = resolveEmpFieldValueMap(
+      EMP_MASTER_TEMPLATE_FIELDS,
+      Object.entries(EMP_DOWNLOAD_PLAN_VALUES).map(([fieldKey, valueText]) => ({
+        fieldKey,
+        valueText,
+        source: 'manual',
+      }))
+    )
+    const model = buildEmpPreviewModel({
+      fieldValues: downloadFieldValues,
+      selectedAnnexes: EMP_DOWNLOAD_SELECTED_ANNEXES,
+      includeKssProfileAppendix: false,
+    })
+    const deploymentRows = model.sections
+      .flatMap((section) => section.blocks)
+      .filter((block): block is Extract<(typeof model.sections)[number]['blocks'][number], { type: 'multi_table' }> => block.type === 'multi_table' && block.deploymentSchedule === true)
+      .flatMap((block) => block.rows)
+
+    expect(deploymentRows).toContainEqual(['BARS', 'Bar 1', 'SUP', '1', '12:00', '22:30', '', '', ''])
+    expect(deploymentRows).toContainEqual(['BARS', 'Bar 1', 'SIA', '2', '12:00', '22:30', '1', '22:30', '09:30'])
+    expect(deploymentRows).toContainEqual(['BARS', 'Bar 1', 'ST', '2', '12:00', '22:30', '', '', ''])
+    expect(deploymentRows).toContainEqual(expect.arrayContaining(['BARS', 'Hair of the Dog']))
+    expect(deploymentRows).not.toContainEqual(expect.arrayContaining(['BARS', 'HAIR OF THE DOG']))
+    expect(deploymentRows).not.toContainEqual(expect.arrayContaining(['1 SUP, 2 SIA, 2 ST']))
+  })
+
+  it('adds Download behavioural risk zones and bar-specific queue formats', () => {
+    const downloadFieldValues = resolveEmpFieldValueMap(
+      EMP_MASTER_TEMPLATE_FIELDS,
+      Object.entries(EMP_DOWNLOAD_PLAN_VALUES).map(([fieldKey, valueText]) => ({
+        fieldKey,
+        valueText,
+        source: 'manual',
+      }))
+    )
+    const model = buildEmpPreviewModel({
+      fieldValues: downloadFieldValues,
+      selectedAnnexes: EMP_DOWNLOAD_SELECTED_ANNEXES,
+      includeKssProfileAppendix: false,
+    })
+    const html = renderToStaticMarkup(createElement(EmpPreviewDocument, { mode: 'preview', model }))
+
+    expect(html).toContain('Key Behavioural Risk Zones for KSS-Controlled Areas')
+    expect(html).toContain('Co-Op retail store')
+    expect(html).toContain('Bar-Specific Queuing Format')
+    expect(html).toContain('Disney-style serpentine lanes')
+    expect(html).toContain('District X Pub')
+  })
+
+  it('adds the Download 2026 site plan as a landscape map image', () => {
+    const downloadFieldValues = resolveEmpFieldValueMap(
+      EMP_MASTER_TEMPLATE_FIELDS,
+      Object.entries(EMP_DOWNLOAD_PLAN_VALUES).map(([fieldKey, valueText]) => ({
+        fieldKey,
+        valueText,
+        source: 'manual',
+      }))
+    )
+    const model = buildEmpPreviewModel({
+      fieldValues: downloadFieldValues,
+      selectedAnnexes: EMP_DOWNLOAD_SELECTED_ANNEXES,
+      includeKssProfileAppendix: false,
+    })
+    const siteDesign = model.sections.find((section) => section.key === 'site_design')
+    const sitePlanImage = siteDesign?.blocks.find((block) => block.type === 'image' && block.imageUrl === '/emp-assets/download-2026-site-plan-v5.png')
+
+    expect(EMP_DOWNLOAD_PLAN_VALUES.site_maps_and_route_diagrams).toContain('Download 2026 Site Plan V5')
+    expect(sitePlanImage).toMatchObject({
+      title: 'Download 2026 Site Plan V5',
+      landscape: true,
+    })
+  })
+
+  it('renders the Download accessibility campsite annex deployment as schedule tables', () => {
+    const downloadFieldValues = resolveEmpFieldValueMap(
+      EMP_MASTER_TEMPLATE_FIELDS,
+      Object.entries(EMP_DOWNLOAD_PLAN_VALUES).map(([fieldKey, valueText]) => ({
+        fieldKey,
+        valueText,
+        source: 'manual',
+      }))
+    )
+    const model = buildEmpPreviewModel({
+      fieldValues: downloadFieldValues,
+      selectedAnnexes: EMP_DOWNLOAD_SELECTED_ANNEXES,
+      includeKssProfileAppendix: false,
+    })
+    const annex = model.annexes.find((item) => item.key === 'camping_security')
+    const deploymentTables = annex?.blocks.filter((block): block is Extract<(typeof model.annexes)[number]['blocks'][number], { type: 'multi_table' }> => block.type === 'multi_table' && block.deploymentSchedule === true) || []
+    const deploymentRows = deploymentTables.flatMap((block) => block.rows)
+
+    expect(annex?.title).toBe('Accessibility Campsite Security')
+    expect(deploymentTables.length).toBeGreaterThan(0)
+    expect(deploymentTables[0]).toMatchObject({
+      headers: ['Area', 'Position', 'Role', 'Day staff', 'Day start', 'Day end', 'Night staff', 'Night start', 'Night end'],
+      landscape: true,
+    })
+    expect(deploymentRows).toContainEqual(expect.arrayContaining(['ACCESSIBILITY CAMPSITE', 'Accessibility Manager']))
+    expect(deploymentRows).not.toContainEqual(expect.arrayContaining(['BARS']))
+    expect(deploymentRows).not.toContainEqual(expect.arrayContaining(['SPONSORSHIP']))
+    expect(annex?.blocks.some((block) => block.type === 'paragraph' && block.text.includes('|SPONSORSHIP|'))).toBe(false)
+  })
+
+  it('splits Download annex deployment rows by operational scope', () => {
+    const downloadFieldValues = resolveEmpFieldValueMap(
+      EMP_MASTER_TEMPLATE_FIELDS,
+      Object.entries(EMP_DOWNLOAD_PLAN_VALUES).map(([fieldKey, valueText]) => ({
+        fieldKey,
+        valueText,
+        source: 'manual',
+      }))
+    )
+    const model = buildEmpPreviewModel({
+      fieldValues: downloadFieldValues,
+      selectedAnnexes: EMP_DOWNLOAD_SELECTED_ANNEXES,
+      includeKssProfileAppendix: false,
+    })
+    const barAnnexRows = model.annexes
+      .find((item) => item.key === 'bar_operations')
+      ?.blocks.filter((block): block is Extract<(typeof model.annexes)[number]['blocks'][number], { type: 'multi_table' }> => block.type === 'multi_table' && block.deploymentSchedule === true)
+      .flatMap((block) => block.rows) || []
+    const coOpAnnexRows = model.annexes
+      .find((item) => item.key === 'front_of_stage_pit')
+      ?.blocks.filter((block): block is Extract<(typeof model.annexes)[number]['blocks'][number], { type: 'multi_table' }> => block.type === 'multi_table' && block.deploymentSchedule === true)
+      .flatMap((block) => block.rows) || []
+
+    expect(barAnnexRows).toContainEqual(expect.arrayContaining(['BARS', 'Bar 1']))
+    expect(barAnnexRows).not.toContainEqual(expect.arrayContaining(['SPONSORSHIP']))
+    expect(coOpAnnexRows).toContainEqual(expect.arrayContaining(['SPONSORSHIP', 'Coop Security No 1']))
+    expect(coOpAnnexRows).not.toContainEqual(expect.arrayContaining(['BARS']))
+   })
 
   it('renders richer structured blocks for the seeded demo event', () => {
     const demoFieldValues = resolveEmpFieldValueMap(
@@ -353,6 +507,7 @@ describe('buildEmpPreviewModel', () => {
         mode: 'preview',
         model: {
           title: 'Test EMP',
+          documentLabel: 'Event Management Plan',
           subtitle: '',
           coverRows: [],
           coverSummary: 'Test cover summary.',
@@ -384,6 +539,7 @@ describe('buildEmpPreviewModel', () => {
         mode: 'preview',
         model: {
           title: 'Table Pagination EMP',
+          documentLabel: 'Event Management Plan',
           subtitle: '',
           coverRows: [],
           coverSummary: 'Test cover summary.',
