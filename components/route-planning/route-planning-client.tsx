@@ -179,11 +179,11 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
     return Array.from(areas).sort()
   }, [stores])
 
-  // Filter stores available for planning (not planned, not completed within 6 months, not completed today)
+  // Filter stores available for planning (not planned, not completed within 1 month, not completed today)
   const storesAvailableForPlanning = useMemo<Store[]>(() => {
-    const sixMonthsAgo = new Date()
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
-    sixMonthsAgo.setHours(0, 0, 0, 0) // Start of day
+    const oneMonthAgo = new Date()
+    oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1)
+    oneMonthAgo.setHours(0, 0, 0, 0) // Start of day
     const today = new Date()
     today.setHours(0, 0, 0, 0) // Start of today
     
@@ -215,15 +215,15 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
         }
       }
       
-      // Hide stores that completed audit 2 from 2025 within the last 6 months
+      // Hide stores that completed audit 2 from 2025 within the last month
       // (But we're starting fresh for 2026, so this is mainly for stores that completed audit 2 recently)
       if (s.compliance_audit_2_date) {
         const audit2Date = new Date(s.compliance_audit_2_date)
         audit2Date.setHours(0, 0, 0, 0)
         
-        // Only hide if audit 2 was completed within last 6 months (from 2025)
+        // Only hide if audit 2 was completed within last month (from 2025)
         // This ensures stores that recently completed audit 2 are hidden
-        if (audit2Date >= sixMonthsAgo) {
+        if (audit2Date >= oneMonthAgo) {
           return false
         }
       }

@@ -298,11 +298,11 @@ async function getDashboardData(): Promise<DashboardData> {
     referenceDate: new Date(),
   })
 
-  // Filter out stores that completed audit 1 today (2026) or within the last 6 months
+  // Filter out stores that completed audit 1 today (2026) or within the last month
   // We're starting fresh for 2026, so hide stores that completed audit 1 recently
-  const sixMonthsAgo = new Date()
-  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
-  sixMonthsAgo.setHours(0, 0, 0, 0)
+  const oneMonthAgo = new Date()
+  oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1)
+  oneMonthAgo.setHours(0, 0, 0, 0)
   const todayDate = new Date()
   todayDate.setHours(0, 0, 0, 0)
 
@@ -310,13 +310,13 @@ async function getDashboardData(): Promise<DashboardData> {
     ?.filter((store: any) => {
       if (shouldHideStore(store)) return false
 
-      // If store completed audit 1 today or within last 6 months (2026), hide it
+      // If store completed audit 1 today or within last month (2026), hide it
       if (store.compliance_audit_1_date) {
         const audit1Date = new Date(store.compliance_audit_1_date)
         audit1Date.setHours(0, 0, 0, 0)
         
-        // Hide if audit 1 was completed today or within last 6 months
-        if (audit1Date >= sixMonthsAgo) {
+        // Hide if audit 1 was completed today or within last month
+        if (audit1Date >= oneMonthAgo) {
           return false
         }
       }
