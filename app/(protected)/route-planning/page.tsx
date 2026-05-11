@@ -5,9 +5,9 @@ import { applyStoreCoordinateOverride, shouldAlwaysIncludeStore, shouldHideStore
 
 async function getRoutePlanningData() {
   const supabase = createClient()
-  const sixMonthsAgo = new Date()
-  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
-  sixMonthsAgo.setHours(0, 0, 0, 0)
+  const oneMonthAgo = new Date()
+  oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1)
+  oneMonthAgo.setHours(0, 0, 0, 0)
 
   // Get all active stores with their locations and audit status
   // Try to fetch route_sequence, but handle gracefully if column doesn't exist
@@ -100,8 +100,8 @@ async function getRoutePlanningData() {
     console.error('Error fetching profiles:', profilesError)
   }
 
-  // Filter out closed/excluded stores and stores that have completed Audit 1 with score >= 80% within the last 6 months.
-  // These stores don't need a second audit for 6 months.
+  // Filter out closed/excluded stores and stores that have completed Audit 1 with score >= 80% within the last month.
+  // These stores don't need a second audit for 1 month.
   const storesWithCoordinates = (stores || []).map((store: any) => applyStoreCoordinateOverride(store))
 
   const filteredStores = storesWithCoordinates.filter((store: any) => {
@@ -118,8 +118,8 @@ async function getRoutePlanningData() {
       const audit1Date = new Date(store.compliance_audit_1_date)
       audit1Date.setHours(0, 0, 0, 0)
       
-      // Hide if Audit 1 was completed within the last 6 months (stores with >=80% don't need second audit for 6 months)
-      if (audit1Date >= sixMonthsAgo) {
+      // Hide if Audit 1 was completed within the last month (stores with >=80% don't need second audit for 1 month)
+      if (audit1Date >= oneMonthAgo) {
         return false // Exclude this store from route planning
       }
     }
