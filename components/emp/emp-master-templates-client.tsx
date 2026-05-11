@@ -33,10 +33,21 @@ import {
   type EmpMasterTemplateDefinition,
   type EmpMasterTemplateIconKey,
 } from '@/lib/emp/master-templates'
+import {
+  buildSupervisorDeploymentTablePagesFromDeploymentCells,
+  buildSupervisorDeploymentTablePagesFromDeploymentTablePages,
+  type EmpMasterTemplatePlanPrefill,
+} from '@/lib/emp/master-template-prefill'
+import { getBbcRadioOneStaffForEvent } from '@/lib/emp/bbc-radio-one-staff'
 import { cn } from '@/lib/utils'
 
 const TEMPLATE_GROUPS = groupEmpMasterTemplatesByCategory()
 const PREFILL_STORAGE_KEY = 'emp-master-template-prefill-v1'
+
+type EmpMasterTemplateTablePagePrefill = {
+  fields?: Record<string, string>
+  tableCells?: Record<string, string>
+}
 
 type EmpMasterTemplateEventProfile = {
   id: string
@@ -47,7 +58,24 @@ type EmpMasterTemplateEventProfile = {
     eventDate?: string
     templateFieldValues?: Record<string, Record<string, string>>
     templateTableCellValues?: Record<string, Record<string, string>>
+    templateTablePageValues?: Record<string, EmpMasterTemplateTablePagePrefill[]>
   } | null
+}
+
+type StaffAssignmentOption = {
+  value: string
+  label: string
+  mobileNumber?: string
+}
+
+type StoredEmpMasterTemplatePrefill = {
+  planId?: string
+  planTitle?: string
+  eventName?: string
+  eventDate?: string
+  templateFieldValues?: Record<string, Record<string, string>>
+  templateTableCellValues?: Record<string, Record<string, string>>
+  templateTablePageValues?: Record<string, EmpMasterTemplateTablePagePrefill[]>
 }
 
 const iconMap: Record<EmpMasterTemplateIconKey, typeof Shield> = {
@@ -67,19 +95,268 @@ const iconMap: Record<EmpMasterTemplateIconKey, typeof Shield> = {
   team: Users,
 }
 
-export function EmpMasterTemplatesClient() {
+function getPrefilledTableRowCount(tableCells: Record<string, string> | undefined) {
+  const rowIndexes = Object.entries(tableCells || {})
+    .filter(([, value]) => String(value || '').trim())
+    .map(([cellKey]) => Number.parseInt(cellKey.split(':')[0] || '', 10))
+    .filter((rowIndex) => Number.isFinite(rowIndex) && rowIndex >= 0)
+
+  return rowIndexes.length ? Math.max(...rowIndexes) + 1 : 0
+}
+
+function getEditableTableRowCount(template: EmpMasterTemplateDefinition | null, tableCells: Record<string, string> | undefined) {
+  if (!template || template.kind !== 'table') return 0
+  return Math.max(template.emptyRows, getPrefilledTableRowCount(tableCells))
+}
+
+function normalizeStaffCompany(value: string | undefined) {
+  return String(value || '').replace(/\s+\(continued\)$/i, '').trim()
+}
+
+function getStaffAssignmentOptions(pages: EmpMasterTemplateTablePagePrefill[] | undefined): StaffAssignmentOption[] {
+  const seen = new Set<string>()
+  const options: StaffAssignmentOption[] = []
+  const pageList = pages || []
+
+  pageList.forEach((page) => {
+    const company = normalizeStaffCompany(page.fields?.Company)
+    Object.entries(page.tableCells || {})
+      .filter(([cellKey, value]) => cellKey.endsWith(':staff_name') && String(value || '').trim())
+      .forEach(([, value]) => {
+        const staffName = String(value || '').trim()
+        const key = staffName.toLowerCase()
+        if (seen.has(key)) return
+        seen.add(key)
+        options.push({
+          value: staffName,
+          label: company ? `${staffName} (${company})` : staffName,
+        })
+      })
+  })
+
+  return options
+}
+
+function getStaffContactOptions(eventName: string, planTitle = ''): StaffAssignmentOption[] {
+  return getBbcRadioOneStaffForEvent(eventName, planTitle).map((row) => ({
+    value: row.staffName,
+    label: row.company ? `${row.staffName} (${row.company})` : row.staffName,
+    mobileNumber: row.mobileNumber || '',
+  }))
+}
+
+function getPrefillStorageKey(planId?: string) {
+  return planId ? `${PREFILL_STORAGE_KEY}:plan:${planId}` : `${PREFILL_STORAGE_KEY}:manual`
+}
+
+function parseStoredPrefill(raw: string | null): StoredEmpMasterTemplatePrefill | null {
+  if (!raw) return null
+
+  try {
+    const parsed = JSON.parse(raw)
+    return parsed && typeof parsed === 'object' ? parsed as StoredEmpMasterTemplatePrefill : null
+  } catch {
+    return null
+  }
+}
+
+function stripEventDateSuffix(value: string) {
+  return String(value || '').trim().replace(/\s+-\s+\d{1,2}\/\d{1,2}\/20\d{2}\s*$/, '')
+}
+
+function sanitizeTemplateFieldValues(values: Record<string, Record<string, string>>) {
+  const sanitized = {
+    ...values,
+    'uniform-ppe-allocation-log': {
+      ...(values['uniform-ppe-allocation-log'] || {}),
+    },
+    'radio-kit-sign-out-sheet': {
+      ...(values['radio-kit-sign-out-sheet'] || {}),
+    },
+    'incident-accident-form': {
+      ...(values['incident-accident-form'] || {}),
+    },
+    'refusal-of-entry-ejection-log': {
+      ...(values['refusal-of-entry-ejection-log'] || {}),
+    },
+    'suspicious-item-concern-report': {
+      ...(values['suspicious-item-concern-report'] || {}),
+    },
+    'daily-security-brief': {
+      ...(values['daily-security-brief'] || {}),
+    },
+    'duty-manager-debrief': {
+      ...(values['duty-manager-debrief'] || {}),
+    },
+  }
+
+  delete sanitized['uniform-ppe-allocation-log'].Company
+  delete sanitized['uniform-ppe-allocation-log']['Sheet Managed By']
+  delete sanitized['radio-kit-sign-out-sheet'].Company
+  delete sanitized['radio-kit-sign-out-sheet']['Comms Manager']
+  delete sanitized['incident-accident-form']['Reported By (Staff)']
+  delete sanitized['incident-accident-form']['Date of Incident']
+  delete sanitized['refusal-of-entry-ejection-log'].Supervisor
+  delete sanitized['suspicious-item-concern-report']['Reported By']
+  delete sanitized['suspicious-item-concern-report']['Date / Time']
+  delete sanitized['daily-security-brief']['Duty Security Manager']
+  if (sanitized['daily-security-brief']['Event Name & Date']) {
+    sanitized['daily-security-brief']['Event Name & Date'] = stripEventDateSuffix(
+      sanitized['daily-security-brief']['Event Name & Date']
+    )
+  }
+  delete sanitized['duty-manager-debrief']['Completed By']
+  if (sanitized['duty-manager-debrief']['Event Name & Date']) {
+    sanitized['duty-manager-debrief']['Event Name & Date'] = stripEventDateSuffix(
+      sanitized['duty-manager-debrief']['Event Name & Date']
+    )
+  }
+
+  return sanitized
+}
+
+function sanitizeTablePageValues(values: Record<string, EmpMasterTemplateTablePagePrefill[]>) {
+  return Object.fromEntries(
+    Object.entries(values).map(([templateId, pages]) => {
+      if (templateId === 'deployment-matrix') {
+        return [
+          templateId,
+          pages.map((page) => ({
+            fields: page.fields || {},
+            tableCells: Object.fromEntries(
+              Object.entries(page.tableCells || {}).filter(([cellKey]) => !cellKey.endsWith(':required'))
+            ),
+          })),
+        ]
+      }
+
+      if (templateId !== 'uniform-ppe-allocation-log' && templateId !== 'radio-kit-sign-out-sheet') {
+        return [templateId, pages]
+      }
+
+      const datePageCounts = new globalThis.Map<string, number>()
+      const sanitizedPages = pages.map((page) => ({
+          fields: Object.fromEntries(
+            Object.entries(page.fields || {}).filter(([label]) => label !== 'Company')
+          ),
+          tableCells: {},
+        }))
+        .filter((page, pageIndex) => {
+          const dateKey = String(page.fields.Date || `undated-${Math.floor(pageIndex / 2)}`).trim()
+          const currentCount = datePageCounts.get(dateKey) || 0
+          if (currentCount >= 2) return false
+          datePageCounts.set(dateKey, currentCount + 1)
+          return true
+        })
+
+      return [templateId, sanitizedPages]
+    })
+  )
+}
+
+function sanitizeTemplateTableCellValues(values: Record<string, Record<string, string>>) {
+  return Object.fromEntries(
+    Object.entries(values).map(([templateId, tableCells]) => [
+      templateId,
+      Object.fromEntries(
+        Object.entries(tableCells || {}).filter(([cellKey]) => {
+          return templateId !== 'deployment-matrix' || !cellKey.endsWith(':required')
+        })
+      ),
+    ])
+  )
+}
+
+function mergeTemplateValueRecords(
+  base: Record<string, Record<string, string>>,
+  overrides: Record<string, Record<string, string>> | undefined
+) {
+  if (!overrides || typeof overrides !== 'object') return sanitizeTemplateFieldValues(base)
+
+  return sanitizeTemplateFieldValues(Object.fromEntries(
+    Array.from(new Set([...Object.keys(base), ...Object.keys(overrides)])).map((templateId) => [
+      templateId,
+      {
+        ...(base[templateId] || {}),
+        ...(overrides[templateId] || {}),
+      },
+    ])
+  ))
+}
+
+function mergeTemplateTableCellValues(
+  base: Record<string, Record<string, string>>,
+  overrides: Record<string, Record<string, string>> | undefined
+) {
+  if (!overrides || typeof overrides !== 'object') return sanitizeTemplateTableCellValues(base)
+
+  return sanitizeTemplateTableCellValues(Object.fromEntries(
+    Array.from(new Set([...Object.keys(base), ...Object.keys(overrides)])).map((templateId) => [
+      templateId,
+      {
+        ...(base[templateId] || {}),
+        ...(overrides[templateId] || {}),
+      },
+    ])
+  ))
+}
+
+function mergeTablePageValues(
+  base: Record<string, EmpMasterTemplateTablePagePrefill[]>,
+  overrides: Record<string, EmpMasterTemplateTablePagePrefill[]> | undefined
+) {
+  if (!overrides || typeof overrides !== 'object') return sanitizeTablePageValues(base)
+
+  return sanitizeTablePageValues(Object.fromEntries(
+    Array.from(new Set([...Object.keys(base), ...Object.keys(overrides)])).map((templateId) => {
+      const basePages = base[templateId] || []
+      const overridePages = Array.isArray(overrides[templateId]) ? overrides[templateId] : []
+      const pageCount = Math.max(basePages.length, overridePages.length)
+
+      return [
+        templateId,
+        Array.from({ length: pageCount }).map((_, pageIndex) => ({
+          fields: {
+            ...(basePages[pageIndex]?.fields || {}),
+            ...(overridePages[pageIndex]?.fields || {}),
+          },
+          tableCells: {
+            ...(basePages[pageIndex]?.tableCells || {}),
+            ...(overridePages[pageIndex]?.tableCells || {}),
+          },
+        })),
+      ]
+    })
+  ))
+}
+
+export function EmpMasterTemplatesClient({
+  initialPlanPrefill = null,
+}: {
+  initialPlanPrefill?: EmpMasterTemplatePlanPrefill | null
+}) {
+  const initialPrefillData = initialPlanPrefill?.prefillData
   const [activeTemplateId, setActiveTemplateId] = useState(EMP_MASTER_TEMPLATES[0]?.id ?? '')
-  const [eventName, setEventName] = useState('')
-  const [eventDate, setEventDate] = useState('')
+  const [eventName, setEventName] = useState(initialPrefillData?.eventName || '')
+  const [eventDate, setEventDate] = useState(initialPrefillData?.eventDate || '')
   const [detailsModalOpen, setDetailsModalOpen] = useState(false)
   const [bulkModalOpen, setBulkModalOpen] = useState(false)
-  const [templateFieldValues, setTemplateFieldValues] = useState<Record<string, Record<string, string>>>({})
-  const [templateTableCellValues, setTemplateTableCellValues] = useState<Record<string, Record<string, string>>>({})
+  const [templateFieldValues, setTemplateFieldValues] = useState<Record<string, Record<string, string>>>(
+    sanitizeTemplateFieldValues(initialPrefillData?.templateFieldValues || {})
+  )
+  const [templateTableCellValues, setTemplateTableCellValues] = useState<Record<string, Record<string, string>>>(
+    sanitizeTemplateTableCellValues(initialPrefillData?.templateTableCellValues || {})
+  )
+  const [templateTablePageValues, setTemplateTablePageValues] = useState<Record<string, EmpMasterTemplateTablePagePrefill[]>>(
+    sanitizeTablePageValues(initialPrefillData?.templateTablePageValues || {})
+  )
   const [selectedTemplateIds, setSelectedTemplateIds] = useState<string[]>([])
   const [isBulkDownloading, setIsBulkDownloading] = useState(false)
   const [eventProfiles, setEventProfiles] = useState<EmpMasterTemplateEventProfile[]>([])
   const [activeEventProfileId, setActiveEventProfileId] = useState('')
   const [isSavingEventProfile, setIsSavingEventProfile] = useState(false)
+  const storageKey = useMemo(() => getPrefillStorageKey(initialPlanPrefill?.planId), [initialPlanPrefill?.planId])
+  const [loadedStorageKey, setLoadedStorageKey] = useState('')
 
   const activeTemplate = useMemo<EmpMasterTemplateDefinition | null>(
     () => EMP_MASTER_TEMPLATES.find((template) => template.id === activeTemplateId) ?? EMP_MASTER_TEMPLATES[0] ?? null,
@@ -98,29 +375,39 @@ export function EmpMasterTemplatesClient() {
 
   const uniqueTemplateInputLabels = Array.from(new Set(templateInputLabels.map((label) => String(label || '').trim()).filter(Boolean)))
   const activeTemplateFields = activeTemplate ? templateFieldValues[activeTemplate.id] || {} : {}
+  const activeTemplateTableCells = activeTemplate ? templateTableCellValues[activeTemplate.id] || {} : {}
+  const activeTemplateTablePages = activeTemplate ? templateTablePageValues[activeTemplate.id] || [] : []
+  const activeTemplateEditableRows = getEditableTableRowCount(activeTemplate, activeTemplateTableCells)
+  const staffAssignmentOptions = useMemo(
+    () => getStaffAssignmentOptions(templateTablePageValues['staff-sign-in-sign-out-sheet']),
+    [templateTablePageValues]
+  )
+  const contactStaffOptions = useMemo(
+    () => getStaffContactOptions(eventName, initialPlanPrefill?.planTitle || ''),
+    [eventName, initialPlanPrefill?.planTitle]
+  )
 
   useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(PREFILL_STORAGE_KEY)
-      if (!raw) return
-      const parsed = JSON.parse(raw) as {
-        eventName?: string
-        eventDate?: string
-        templateFieldValues?: Record<string, Record<string, string>>
-        templateTableCellValues?: Record<string, Record<string, string>>
-      }
+    const stored = parseStoredPrefill(window.localStorage.getItem(storageKey))
+    const legacyStored = parseStoredPrefill(window.localStorage.getItem(PREFILL_STORAGE_KEY))
+    const matchingLegacyStored =
+      !stored
+      && legacyStored
+      && (!initialPlanPrefill || !legacyStored.eventName || legacyStored.eventName === initialPrefillData?.eventName)
+        ? legacyStored
+        : null
+    const parsed = stored || matchingLegacyStored
+
+    if (parsed) {
       if (typeof parsed.eventName === 'string') setEventName(parsed.eventName)
       if (typeof parsed.eventDate === 'string') setEventDate(parsed.eventDate)
-      if (parsed.templateFieldValues && typeof parsed.templateFieldValues === 'object') {
-        setTemplateFieldValues(parsed.templateFieldValues)
-      }
-      if (parsed.templateTableCellValues && typeof parsed.templateTableCellValues === 'object') {
-        setTemplateTableCellValues(parsed.templateTableCellValues)
-      }
-    } catch {
-      // ignore invalid local state
+      setTemplateFieldValues((previous) => mergeTemplateValueRecords(previous, parsed.templateFieldValues))
+      setTemplateTableCellValues((previous) => mergeTemplateTableCellValues(previous, parsed.templateTableCellValues))
+      setTemplateTablePageValues((previous) => mergeTablePageValues(previous, parsed.templateTablePageValues))
     }
-  }, [])
+
+    setLoadedStorageKey(storageKey)
+  }, [initialPlanPrefill, initialPrefillData?.eventName, storageKey])
 
   const loadEventProfiles = async () => {
     const response = await fetch('/api/emp/master-templates/events', { cache: 'no-store' })
@@ -135,14 +422,29 @@ export function EmpMasterTemplatesClient() {
   }, [])
 
   useEffect(() => {
+    if (loadedStorageKey !== storageKey) return
+
     const payload = JSON.stringify({
+      planId: initialPlanPrefill?.planId,
+      planTitle: initialPlanPrefill?.planTitle,
       eventName,
       eventDate,
       templateFieldValues,
       templateTableCellValues,
+      templateTablePageValues,
     })
-    window.localStorage.setItem(PREFILL_STORAGE_KEY, payload)
-  }, [eventDate, eventName, templateFieldValues, templateTableCellValues])
+    window.localStorage.setItem(storageKey, payload)
+  }, [
+    eventDate,
+    eventName,
+    initialPlanPrefill?.planId,
+    initialPlanPrefill?.planTitle,
+    loadedStorageKey,
+    storageKey,
+    templateFieldValues,
+    templateTableCellValues,
+    templateTablePageValues,
+  ])
 
   if (!activeTemplate) {
     return null
@@ -158,11 +460,46 @@ export function EmpMasterTemplatesClient() {
     }))
   }
 
+  const getSupervisorDeploymentContext = () => {
+    const deploymentFields = templateFieldValues['deployment-matrix'] || {}
+
+    return {
+      eventName: String(deploymentFields['Event Name'] || eventName || '').trim(),
+      eventDate: String(deploymentFields.Date || eventDate || '').trim(),
+    }
+  }
+
+  const syncSupervisorDeploymentPages = (deploymentCells: Record<string, string>) => {
+    const supervisorPages = buildSupervisorDeploymentTablePagesFromDeploymentCells(
+      deploymentCells,
+      getSupervisorDeploymentContext()
+    )
+
+    setTemplateTablePageValues((previous) => ({
+      ...previous,
+      'supervisor-deployment': supervisorPages,
+    }))
+  }
+
+  const buildSyncedSupervisorDeploymentPagesFromDeploymentPages = (deploymentPages: EmpMasterTemplateTablePagePrefill[]) => {
+    return buildSupervisorDeploymentTablePagesFromDeploymentTablePages(
+      deploymentPages.map((page) => ({
+        ...page,
+        fields: {
+          ...(page.fields || {}),
+          'Event Name': String(page.fields?.['Event Name'] || eventName || '').trim(),
+          Date: String(page.fields?.Date || eventDate || '').trim(),
+        },
+      }))
+    )
+  }
+
   const getPrefillPayloadForActiveTemplate = () => ({
     eventName: eventName.trim(),
     eventDate,
     fields: activeTemplateFields,
-    tableCells: templateTableCellValues[activeTemplate.id] || {},
+    tableCells: activeTemplateTableCells,
+    tablePages: activeTemplateTablePages,
   })
 
   const getPrefillPayloadForLinks = () => ({
@@ -173,13 +510,73 @@ export function EmpMasterTemplatesClient() {
 
   const updateActiveTemplateTableCell = (rowIndex: number, columnKey: string, value: string) => {
     const cellKey = `${rowIndex}:${columnKey}`
-    setTemplateTableCellValues((previous) => ({
-      ...previous,
-      [activeTemplate.id]: {
+    setTemplateTableCellValues((previous) => {
+      const templateCells = {
         ...(previous[activeTemplate.id] || {}),
         [cellKey]: value,
-      },
-    }))
+      }
+
+      if (activeTemplate.id === 'deployment-matrix') {
+        syncSupervisorDeploymentPages(templateCells)
+      }
+
+      return {
+        ...previous,
+        [activeTemplate.id]: templateCells,
+      }
+    })
+  }
+
+  const updateContactNameCell = (rowIndex: number, value: string) => {
+    const selectedStaff = contactStaffOptions.find((option) => option.value === value)
+    setTemplateTableCellValues((previous) => {
+      const templateCells = {
+        ...(previous['contact-and-cascade-list'] || {}),
+        [`${rowIndex}:name`]: value,
+        [`${rowIndex}:mobile`]: selectedStaff?.mobileNumber || '',
+      }
+
+      return {
+        ...previous,
+        'contact-and-cascade-list': templateCells,
+      }
+    })
+  }
+
+  const updateActiveTemplateTablePageCell = (pageIndex: number, rowIndex: number, columnKey: string, value: string) => {
+    const cellKey = `${rowIndex}:${columnKey}`
+    setTemplateTablePageValues((previous) => {
+      const nextPages = [...(previous[activeTemplate.id] || [])]
+      const currentPage = nextPages[pageIndex] || {}
+      nextPages[pageIndex] = {
+        ...currentPage,
+        tableCells: {
+          ...(currentPage.tableCells || {}),
+          [cellKey]: value,
+        },
+      }
+
+      const nextValues = {
+        ...previous,
+        [activeTemplate.id]: nextPages,
+      }
+
+      if (activeTemplate.id === 'deployment-matrix') {
+        nextValues['supervisor-deployment'] = buildSyncedSupervisorDeploymentPagesFromDeploymentPages(nextPages)
+      }
+
+      return nextValues
+    })
+  }
+
+  const getTablePageLabel = (page: EmpMasterTemplateTablePagePrefill, pageIndex: number) => {
+    const parts = [
+      page.fields?.Date,
+      page.fields?.Company,
+      page.fields?.['Supervisor / Zone'],
+    ].map((part) => String(part || '').trim()).filter(Boolean)
+
+    return parts.length ? parts.join(' - ') : `Page ${pageIndex + 1}`
   }
 
   const buildTemplateHrefForTemplate = (basePath: string, templateId: string) => {
@@ -188,8 +585,15 @@ export function EmpMasterTemplatesClient() {
       eventName: eventName.trim(),
       eventDate,
       fields: templateFieldValues[templateId] || {},
+      tableCells: templateTableCellValues[templateId] || {},
+      tablePages: templateTablePageValues[templateId] || [],
     }
-    params.set('prefill', JSON.stringify(prefillPayload))
+    const serializedPrefill = JSON.stringify(prefillPayload)
+    if (initialPlanPrefill && serializedPrefill.length > 6000) {
+      params.set('planId', initialPlanPrefill.planId)
+    } else {
+      params.set('prefill', serializedPrefill)
+    }
 
     return `${basePath}?${params.toString()}`
   }
@@ -235,6 +639,7 @@ export function EmpMasterTemplatesClient() {
             eventDate,
             templateFieldValues,
             templateTableCellValues,
+            templateTablePageValues,
           },
         }),
       })
@@ -272,12 +677,21 @@ export function EmpMasterTemplatesClient() {
     const prefill = profile.prefill_data || {}
     setEventName(String(prefill.eventName || profile.event_name || ''))
     setEventDate(String(prefill.eventDate || profile.event_date || ''))
-    if (prefill.templateFieldValues && typeof prefill.templateFieldValues === 'object') {
-      setTemplateFieldValues(prefill.templateFieldValues)
-    }
-    if (prefill.templateTableCellValues && typeof prefill.templateTableCellValues === 'object') {
-      setTemplateTableCellValues(prefill.templateTableCellValues)
-    }
+    setTemplateFieldValues(
+      prefill.templateFieldValues && typeof prefill.templateFieldValues === 'object'
+        ? sanitizeTemplateFieldValues(prefill.templateFieldValues)
+        : {}
+    )
+    setTemplateTableCellValues(
+      prefill.templateTableCellValues && typeof prefill.templateTableCellValues === 'object'
+        ? sanitizeTemplateTableCellValues(prefill.templateTableCellValues)
+        : {}
+    )
+    setTemplateTablePageValues(
+      prefill.templateTablePageValues && typeof prefill.templateTablePageValues === 'object'
+        ? sanitizeTablePageValues(prefill.templateTablePageValues)
+        : {}
+    )
   }
 
   const saveEventProfile = async () => {
@@ -301,6 +715,7 @@ export function EmpMasterTemplatesClient() {
             eventDate,
             templateFieldValues,
             templateTableCellValues,
+            templateTablePageValues,
           },
         }),
       })
@@ -366,6 +781,22 @@ export function EmpMasterTemplatesClient() {
           </div>
 
           <div className="grid gap-3 rounded-md border border-emerald-200 bg-white/80 p-3 md:grid-cols-2">
+            {initialPlanPrefill ? (
+              <div className="md:col-span-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-950">
+                <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                  <span>
+                    Using plan history details from <span className="font-semibold">{initialPlanPrefill.planTitle}</span>.
+                  </span>
+                  <a
+                    href={`/admin/event-management-plans/${initialPlanPrefill.planId}`}
+                    className="font-medium text-emerald-800 underline-offset-4 hover:underline"
+                  >
+                    Open EMP
+                  </a>
+                </div>
+              </div>
+            ) : null}
+
             <div className="space-y-2 md:col-span-2">
               <Label htmlFor="emp-master-template-event-profile" className="text-xs uppercase tracking-[0.12em] text-slate-600">
                 Saved EMP Event Profile
@@ -501,7 +932,11 @@ export function EmpMasterTemplatesClient() {
                   <h2 className="text-2xl font-bold tracking-tight text-slate-950">{activeTemplate.title}</h2>
                   <Badge variant="outline">{activeTemplate.category}</Badge>
                   <Badge variant="secondary">
-                    {activeTemplate.orientation === 'landscape' ? 'A4 Landscape' : 'A4 Portrait'}
+                    {activeTemplate.kind === 'radio_one_daily_brief_booklet'
+                      ? 'A5 Portrait'
+                      : activeTemplate.orientation === 'landscape'
+                        ? 'A4 Landscape'
+                        : 'A4 Portrait'}
                   </Badge>
                 </div>
                 <p className="max-w-3xl text-sm leading-6 text-slate-600">{activeTemplate.description}</p>
@@ -561,7 +996,7 @@ export function EmpMasterTemplatesClient() {
               uniqueTemplateInputLabels.map((label) => {
                 const inputId = `emp-template-field-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`
                 const lowerLabel = label.toLowerCase()
-                const isDateField = lowerLabel.includes('date')
+                const isDateField = lowerLabel.includes('date') && !lowerLabel.includes('event name')
                 return (
                   <div key={label} className="space-y-2">
                     <Label htmlFor={inputId} className="text-xs uppercase tracking-[0.08em] text-slate-600">
@@ -590,43 +1025,164 @@ export function EmpMasterTemplatesClient() {
           {activeTemplate.kind === 'table' ? (
             <div className="space-y-3 rounded-md border border-slate-200 p-3">
               <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-600">Table Cells (optional)</p>
-              <div className="max-h-[62vh] overflow-auto rounded-md border border-slate-200">
-                <table className="w-full min-w-[1400px] border-collapse text-xs">
-                  <thead className="bg-slate-50">
-                    <tr>
-                      <th className="sticky left-0 z-10 border-b border-r border-slate-200 bg-slate-50 px-2 py-2 text-left font-semibold text-slate-700">
-                        Row
-                      </th>
-                      {activeTemplate.columns.map((column) => (
-                        <th key={column.key} className="border-b border-slate-200 px-2 py-2 text-left font-semibold text-slate-700">
-                          {column.label}
+              {activeTemplateTablePages.length ? (
+                <div className="max-h-[62vh] space-y-4 overflow-auto rounded-md border border-slate-200 p-3">
+                  {activeTemplateTablePages.map((page, pageIndex) => (
+                    <div key={`modal-table-page-${pageIndex}`} className="overflow-hidden rounded-md border border-slate-200">
+                      <div className="border-b border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700">
+                        {getTablePageLabel(page, pageIndex)}
+                      </div>
+                      <div className="overflow-auto">
+                        <table className="w-full min-w-[1400px] border-collapse text-xs">
+                          <thead className="bg-slate-50">
+                            <tr>
+                              <th className="sticky left-0 z-10 border-b border-r border-slate-200 bg-slate-50 px-2 py-2 text-left font-semibold text-slate-700">
+                                Row
+                              </th>
+                              {activeTemplate.columns.map((column) => (
+                                <th key={column.key} className="border-b border-slate-200 px-2 py-2 text-left font-semibold text-slate-700">
+                                  {column.label}
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {Array.from({ length: activeTemplate.emptyRows }).map((_, rowIndex) => (
+                              <tr key={`modal-page-${pageIndex}-row-${rowIndex}`} className="align-top">
+                                <td className="sticky left-0 z-10 border-r border-slate-200 bg-white px-2 py-2 font-medium text-slate-600">
+                                  {rowIndex + 1}
+                                </td>
+                                {activeTemplate.columns.map((column) => {
+                                  const cellKey = `${rowIndex}:${column.key}`
+                                  const cellValue = page.tableCells?.[cellKey] || ''
+                                  const isDeploymentAssignmentCell =
+                                    activeTemplate.id === 'deployment-matrix'
+                                    && column.key === 'assigned'
+                                    && staffAssignmentOptions.length > 0
+                                  const hasCurrentAssignmentOption = staffAssignmentOptions.some((option) => option.value === cellValue)
+                                  return (
+                                    <td key={`modal-page-${pageIndex}-cell-${rowIndex}-${column.key}`} className="border-l border-slate-100 px-1 py-1">
+                                      {isDeploymentAssignmentCell ? (
+                                        <select
+                                          value={cellValue}
+                                          onChange={(event) => updateActiveTemplateTablePageCell(pageIndex, rowIndex, column.key, event.target.value)}
+                                          className="h-9 w-full rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-900"
+                                          aria-label={`Assign staff to deployment page ${pageIndex + 1} row ${rowIndex + 1}`}
+                                        >
+                                          <option value="">Unassigned</option>
+                                          {cellValue && !hasCurrentAssignmentOption ? (
+                                            <option value={cellValue}>{cellValue}</option>
+                                          ) : null}
+                                          {staffAssignmentOptions.map((option) => (
+                                            <option key={option.value} value={option.value}>
+                                              {option.label}
+                                            </option>
+                                          ))}
+                                        </select>
+                                      ) : (
+                                        <Input
+                                          value={cellValue}
+                                          onChange={(event) => updateActiveTemplateTablePageCell(pageIndex, rowIndex, column.key, event.target.value)}
+                                          className="h-9 min-h-0 rounded-md bg-white text-xs"
+                                        />
+                                      )}
+                                    </td>
+                                  )
+                                })}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="max-h-[62vh] overflow-auto rounded-md border border-slate-200">
+                  <table className="w-full min-w-[1400px] border-collapse text-xs">
+                    <thead className="bg-slate-50">
+                      <tr>
+                        <th className="sticky left-0 z-10 border-b border-r border-slate-200 bg-slate-50 px-2 py-2 text-left font-semibold text-slate-700">
+                          Row
                         </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {Array.from({ length: activeTemplate.emptyRows }).map((_, rowIndex) => (
-                      <tr key={`modal-row-${rowIndex}`} className="align-top">
-                        <td className="sticky left-0 z-10 border-r border-slate-200 bg-white px-2 py-2 font-medium text-slate-600">
-                          {rowIndex + 1}
-                        </td>
-                        {activeTemplate.columns.map((column) => {
-                          const cellKey = `${rowIndex}:${column.key}`
-                          return (
-                            <td key={`modal-cell-${rowIndex}-${column.key}`} className="border-l border-slate-100 px-1 py-1">
-                              <Input
-                                value={(templateTableCellValues[activeTemplate.id] || {})[cellKey] || ''}
-                                onChange={(event) => updateActiveTemplateTableCell(rowIndex, column.key, event.target.value)}
-                                className="h-9 min-h-0 rounded-md bg-white text-xs"
-                              />
-                            </td>
-                          )
-                        })}
+                        {activeTemplate.columns.map((column) => (
+                          <th key={column.key} className="border-b border-slate-200 px-2 py-2 text-left font-semibold text-slate-700">
+                            {column.label}
+                          </th>
+                        ))}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {Array.from({ length: activeTemplateEditableRows }).map((_, rowIndex) => (
+                        <tr key={`modal-row-${rowIndex}`} className="align-top">
+                          <td className="sticky left-0 z-10 border-r border-slate-200 bg-white px-2 py-2 font-medium text-slate-600">
+                            {rowIndex + 1}
+                          </td>
+                          {activeTemplate.columns.map((column) => {
+                            const cellKey = `${rowIndex}:${column.key}`
+                            const cellValue = activeTemplateTableCells[cellKey] || ''
+                            const isDeploymentAssignmentCell =
+                              activeTemplate.id === 'deployment-matrix'
+                              && column.key === 'assigned'
+                              && staffAssignmentOptions.length > 0
+                            const hasCurrentAssignmentOption = staffAssignmentOptions.some((option) => option.value === cellValue)
+                            const isContactNameCell =
+                              activeTemplate.id === 'contact-and-cascade-list'
+                              && column.key === 'name'
+                              && contactStaffOptions.length > 0
+                            const hasCurrentContactOption = contactStaffOptions.some((option) => option.value === cellValue)
+                            return (
+                              <td key={`modal-cell-${rowIndex}-${column.key}`} className="border-l border-slate-100 px-1 py-1">
+                                {isDeploymentAssignmentCell ? (
+                                  <select
+                                    value={cellValue}
+                                    onChange={(event) => updateActiveTemplateTableCell(rowIndex, column.key, event.target.value)}
+                                    className="h-9 w-full rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-900"
+                                    aria-label={`Assign staff to deployment row ${rowIndex + 1}`}
+                                  >
+                                    <option value="">Unassigned</option>
+                                    {cellValue && !hasCurrentAssignmentOption ? (
+                                      <option value={cellValue}>{cellValue}</option>
+                                    ) : null}
+                                    {staffAssignmentOptions.map((option) => (
+                                      <option key={option.value} value={option.value}>
+                                        {option.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                ) : isContactNameCell ? (
+                                  <select
+                                    value={cellValue}
+                                    onChange={(event) => updateContactNameCell(rowIndex, event.target.value)}
+                                    className="h-9 w-full rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-900"
+                                    aria-label={`Select contact name for row ${rowIndex + 1}`}
+                                  >
+                                    <option value="">Select staff</option>
+                                    {cellValue && !hasCurrentContactOption ? (
+                                      <option value={cellValue}>{cellValue}</option>
+                                    ) : null}
+                                    {contactStaffOptions.map((option) => (
+                                      <option key={option.value} value={option.value}>
+                                        {option.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                ) : (
+                                  <Input
+                                    value={cellValue}
+                                    onChange={(event) => updateActiveTemplateTableCell(rowIndex, column.key, event.target.value)}
+                                    className="h-9 min-h-0 rounded-md bg-white text-xs"
+                                  />
+                                )}
+                              </td>
+                            )
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           ) : null}
 

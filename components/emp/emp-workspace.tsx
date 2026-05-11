@@ -1,4 +1,4 @@
-import { FileText } from 'lucide-react'
+import { FileText, Files } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -93,7 +93,7 @@ export function EmpWorkspace({ plans }: { plans: EmpPlanSummary[] }) {
               <Badge variant="outline">{EMP_MASTER_TEMPLATES.length} PDFs</Badge>
             </div>
             <p className="text-sm text-slate-500">
-              Keep printable event management paperwork separate from the EMP plan builder and ready for live events.
+              Keep printable event management paperwork ready for live events, or open them from a plan-history row to prefill event details.
             </p>
           </div>
 
@@ -167,6 +167,13 @@ export function EmpWorkspace({ plans }: { plans: EmpPlanSummary[] }) {
                     className={cn(buttonVariants({ variant: 'default' }), 'pointer-events-auto')}
                   >
                     Preview
+                  </a>
+                  <a
+                    href={`/admin/event-management-plans/master-templates?planId=${encodeURIComponent(plan.id)}`}
+                    className={cn(buttonVariants({ variant: 'outline' }), 'pointer-events-auto')}
+                  >
+                    <Files className="mr-2 h-4 w-4" />
+                    Documents
                   </a>
                   <form method="post" action="/api/emp/delete" className="inline-flex">
                     <input type="hidden" name="planId" value={plan.id} />

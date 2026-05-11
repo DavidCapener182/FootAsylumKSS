@@ -1346,3 +1346,618 @@ body.fra-print-preview .fra-preview-hide-toolbar {
     page-break-after: auto !important;
   }
 }
+
+/* ---------- EMP RADIO ONE EVENT WEEK SECURITY BRIEF / A5 ---------- */
+
+.emp-radio-one-brief-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+@media screen {
+  .emp-radio-one-brief-content {
+    zoom: 1.12;
+  }
+}
+
+.emp-radio-one-brief-page {
+  width: 148mm;
+  height: 210mm;
+  min-height: 210mm;
+  padding: 0;
+  color: #0f172a;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 8px;
+  line-height: 1.24;
+}
+
+.emp-radio-one-brief-inner {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  gap: 2.2mm;
+  padding: 4.8mm;
+}
+
+.emp-radio-one-brief-header {
+  display: grid;
+  grid-template-columns: 22mm minmax(0, 1fr) 41mm;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 2.6mm;
+  border: 1px solid #dbeafe;
+  border-left: 3px solid #ef4444;
+  background: #f8fafc;
+  padding: 2mm;
+}
+
+.emp-radio-one-brand-lockup {
+  display: flex;
+}
+
+.emp-radio-one-kss-mark {
+  overflow: hidden;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.emp-radio-one-kss-mark {
+  display: flex;
+  height: 12mm;
+  align-items: center;
+  justify-content: center;
+  padding: 1mm;
+}
+
+.emp-radio-one-kss-mark img {
+  max-height: 100%;
+  max-width: 100%;
+  object-fit: contain;
+}
+
+.emp-radio-one-brief-title-block {
+  min-width: 0;
+}
+
+.emp-radio-one-kicker {
+  margin-bottom: 0.8mm;
+  color: #b91c1c;
+  font-size: 6.8px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.emp-radio-one-brief-title-block h1 {
+  margin: 0;
+  color: #020617;
+  font-size: 12.4px;
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: 0;
+}
+
+.emp-radio-one-brief-title-block p {
+  margin: 0.9mm 0 0;
+  color: #475569;
+  font-size: 7.4px;
+  font-weight: 600;
+}
+
+.emp-radio-one-brief-title-block .emp-radio-one-subtitle {
+  color: #047857;
+  font-weight: 800;
+}
+
+.emp-radio-one-bbc-logo-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  border: 1px solid #bfdbfe;
+  background: #fff;
+  padding: 1mm;
+}
+
+.emp-radio-one-bbc-logo-card img {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: 18.8mm;
+  object-fit: contain;
+}
+
+.emp-radio-one-bbc-logo-card span {
+  margin-top: 0.8mm;
+  color: #1e3a8a;
+  font-size: 5.7px;
+  font-weight: 800;
+  line-height: 1.1;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.emp-radio-one-brief-body {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 2mm;
+  overflow: hidden;
+}
+
+.emp-radio-one-brief-footer {
+  flex-shrink: 0;
+  border-top: 1px solid #93c5fd;
+  padding-top: 1.5mm;
+  color: #334155;
+  font-size: 6.8px;
+  font-weight: 700;
+  line-height: 1.1;
+  text-align: center;
+}
+
+.emp-radio-one-panel,
+.emp-radio-one-action-card {
+  overflow: hidden;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.03);
+}
+
+.emp-radio-one-panel > h2,
+.emp-radio-one-action-card > h2 {
+  margin: 0;
+  border-bottom: 1px solid #bfdbfe;
+  background: #020617;
+  color: #fff;
+  font-size: 7.1px;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  line-height: 1.15;
+  padding: 1.4mm 1.8mm;
+  text-transform: uppercase;
+}
+
+.emp-radio-one-panel > div,
+.emp-radio-one-action-card {
+  font-size: 7.6px;
+}
+
+.emp-radio-one-panel > div {
+  padding: 1.7mm;
+}
+
+.emp-radio-one-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.emp-radio-one-table th,
+.emp-radio-one-table td {
+  border: 1px solid #cbd5e1;
+  padding: 1.2mm 1.4mm;
+  text-align: left;
+  vertical-align: top;
+}
+
+.emp-radio-one-table th {
+  background: #e0f2fe;
+  color: #075985;
+  font-size: 6.8px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.emp-radio-one-table tbody tr:nth-child(even) td {
+  background: #f8fafc;
+}
+
+.emp-radio-one-table--dense th,
+.emp-radio-one-table--dense td {
+  padding: 0.78mm 1mm;
+}
+
+.emp-radio-one-table--dense {
+  font-size: 7.2px;
+  line-height: 1.18;
+}
+
+.emp-radio-one-lineup-panel .emp-radio-one-table {
+  font-size: 6.2px;
+  line-height: 1.08;
+}
+
+.emp-radio-one-lineup-panel .emp-radio-one-table th,
+.emp-radio-one-lineup-panel .emp-radio-one-table td {
+  padding: 0.65mm 0.8mm;
+}
+
+.emp-radio-one-warning-line,
+.emp-radio-one-map-note,
+.emp-radio-one-notes-panel p {
+  margin: 1mm 0 0;
+  color: #b45309;
+  font-size: 6.8px;
+  font-weight: 700;
+}
+
+.emp-radio-one-script-panel p {
+  margin: 0;
+  border-left: 2px solid #ef4444;
+  background: #fff7ed;
+  color: #0f172a;
+  font-size: 7.5px;
+  font-weight: 700;
+  line-height: 1.28;
+  padding: 1.3mm 1.6mm;
+}
+
+.emp-radio-one-risk-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.6mm;
+}
+
+.emp-radio-one-risk-strip div {
+  border: 1px solid #fed7aa;
+  background: #fff7ed;
+  padding: 1.6mm;
+}
+
+.emp-radio-one-risk-strip strong {
+  display: block;
+  color: #b91c1c;
+  font-size: 7px;
+  text-transform: uppercase;
+}
+
+.emp-radio-one-risk-strip span {
+  display: block;
+  margin-top: 0.7mm;
+  color: #334155;
+  font-size: 6.8px;
+}
+
+.emp-radio-one-map-frame {
+  position: relative;
+  height: 42mm;
+  overflow: hidden;
+  border: 1px solid #94a3b8;
+  background: #f8fafc;
+}
+
+.emp-radio-one-map-frame img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center center;
+}
+
+.emp-map-label {
+  position: absolute;
+  z-index: 2;
+  max-width: 34mm;
+  transform: translate(-50%, -50%);
+  border: 1px solid #0f766e;
+  background: rgba(240, 253, 250, 0.96);
+  color: #134e4a;
+  font-size: 5.6px;
+  font-weight: 800;
+  line-height: 1.05;
+  padding: 0.65mm 0.85mm;
+  text-align: center;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.emp-map-label--bar1 { left: 47.5%; top: 47%; }
+.emp-map-label--bar2 { left: 67.8%; top: 30%; }
+.emp-map-label--bar3 { left: 64.6%; top: 67%; }
+.emp-map-label--bar4 { left: 65.4%; top: 77%; }
+.emp-map-label--bar5 { left: 38.5%; top: 57%; }
+.emp-map-label--vip { left: 76%; top: 28%; }
+.emp-map-label--control { left: 81%; top: 76%; }
+.emp-map-label--medical { left: 82.5%; top: 88%; border-color: #dc2626; background: rgba(254, 242, 242, 0.94); color: #7f1d1d; }
+.emp-map-label--routes { left: 48%; top: 91%; max-width: 46mm; border-color: #2563eb; background: rgba(239, 246, 255, 0.94); color: #1e3a8a; }
+
+.emp-radio-one-map-panel .emp-radio-one-map-note {
+  margin-top: 0.7mm;
+}
+
+.emp-radio-one-queue-panel p {
+  margin: 0 0 0.8mm;
+  color: #334155;
+  font-size: 6.9px;
+  font-weight: 700;
+  line-height: 1.18;
+}
+
+.emp-radio-one-queue-image {
+  height: 24.5mm;
+  overflow: hidden;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+}
+
+.emp-radio-one-queue-image img {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  padding: 0.8mm;
+  object-fit: contain;
+  object-position: center center;
+}
+
+.emp-radio-one-queue-points {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.2mm;
+  margin-top: 0.8mm;
+}
+
+.emp-radio-one-queue-points span {
+  display: block;
+  border: 1px solid #dbeafe;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 6.6px;
+  line-height: 1.15;
+  padding: 0.7mm 1mm;
+}
+
+.emp-radio-one-queue-points strong {
+  color: #0f172a;
+}
+
+.emp-radio-one-deployment-panel .emp-radio-one-table {
+  font-size: 6.45px;
+  line-height: 1.08;
+}
+
+.emp-radio-one-deployment-panel .emp-radio-one-table th,
+.emp-radio-one-deployment-panel .emp-radio-one-table td {
+  padding: 0.55mm 0.75mm;
+}
+
+.emp-radio-one-two-col {
+  display: grid;
+  min-height: 0;
+  grid-template-columns: 1fr 1fr;
+  gap: 2mm;
+}
+
+.emp-radio-one-two-col .emp-radio-one-panel > div {
+  padding: 1.15mm;
+}
+
+.emp-radio-one-two-col .emp-radio-one-bullets {
+  padding-left: 2.7mm;
+  font-size: 6.45px;
+  line-height: 1.08;
+}
+
+.emp-radio-one-two-col .emp-radio-one-bullets li {
+  margin-bottom: 0.45mm;
+}
+
+.emp-radio-one-two-col .emp-radio-one-table--dense {
+  font-size: 6.35px;
+  line-height: 1.06;
+}
+
+.emp-radio-one-two-col .emp-radio-one-table--dense th,
+.emp-radio-one-two-col .emp-radio-one-table--dense td {
+  padding: 0.5mm 0.65mm;
+}
+
+.emp-radio-one-bullets {
+  margin: 0;
+  padding-left: 3.2mm;
+}
+
+.emp-radio-one-bullets li {
+  margin: 0 0 0.7mm;
+}
+
+.emp-radio-one-action-grid {
+  display: grid;
+  flex: 1;
+  align-content: start;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.7mm;
+}
+
+.emp-radio-one-action-card {
+  min-height: 0;
+  padding-bottom: 1.2mm;
+}
+
+.emp-radio-one-action-card:nth-child(1) > h2,
+.emp-radio-one-action-card:nth-child(3) > h2 {
+  background: #0f766e;
+}
+
+.emp-radio-one-action-card:nth-child(2) > h2,
+.emp-radio-one-action-card:nth-child(4) > h2 {
+  background: #b91c1c;
+}
+
+.emp-radio-one-action-card:nth-child(5) > h2,
+.emp-radio-one-action-card:nth-child(6) > h2 {
+  background: #1d4ed8;
+}
+
+.emp-radio-one-action-card > :not(h2) {
+  margin: 1.2mm 1.5mm 0;
+}
+
+.emp-radio-one-action-card > .emp-radio-one-table {
+  width: calc(100% - 3mm);
+}
+
+.emp-radio-one-ct-card,
+.emp-radio-one-alert-card {
+  grid-column: 1 / -1;
+}
+
+.emp-radio-one-ct-visual-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.4mm;
+  margin: 1mm 1.5mm 0;
+}
+
+.emp-radio-one-ct-visual {
+  height: 44mm;
+  overflow: hidden;
+  border: 1px solid #020617;
+  background: #f8fafc;
+}
+
+.emp-radio-one-rht-poster {
+  background: #020617;
+}
+
+.emp-radio-one-remove-poster {
+  border-color: #5b3a98;
+  background: #5b3a98;
+}
+
+.emp-radio-one-ct-visual img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.emp-radio-one-ct-card > .emp-radio-one-table,
+.emp-radio-one-alert-card > .emp-radio-one-table {
+  font-size: 6.45px;
+  line-height: 1.06;
+}
+
+.emp-radio-one-ct-card > .emp-radio-one-table th,
+.emp-radio-one-ct-card > .emp-radio-one-table td,
+.emp-radio-one-alert-card > .emp-radio-one-table th,
+.emp-radio-one-alert-card > .emp-radio-one-table td {
+  padding: 0.55mm 0.75mm;
+}
+
+.emp-radio-one-action-card p {
+  color: #334155;
+  font-size: 7.1px;
+  line-height: 1.22;
+}
+
+.emp-radio-one-radio-call {
+  border-left: 2px solid #047857;
+  background: #ecfdf5;
+  color: #064e3b !important;
+  font-weight: 800;
+  padding: 1mm;
+}
+
+.emp-radio-one-numbered {
+  margin: 1mm 1.5mm 0 4mm !important;
+  padding: 0;
+}
+
+.emp-radio-one-numbered li {
+  margin-bottom: 0.5mm;
+  padding-left: 0.5mm;
+}
+
+.emp-radio-one-checklist {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1mm 2mm;
+}
+
+.emp-radio-one-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 1.2mm;
+}
+
+.emp-radio-one-check span {
+  display: block;
+  width: 3mm;
+  height: 3mm;
+  flex: 0 0 3mm;
+  border: 1px solid #0f766e;
+  background: #f0fdfa;
+}
+
+.emp-radio-one-check p {
+  margin: 0;
+  font-size: 7.2px;
+  line-height: 1.16;
+}
+
+.emp-radio-one-notes-panel {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+.emp-radio-one-notes-panel > div {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  padding-bottom: 5mm;
+}
+
+.emp-radio-one-note-lines {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: 2.6mm;
+}
+
+.emp-radio-one-note-lines span {
+  display: block;
+  border-bottom: 1px solid #94a3b8;
+  flex: 1;
+}
+
+.emp-radio-one-notes-panel p {
+  position: absolute;
+  right: 1.7mm;
+  bottom: 1.2mm;
+  left: 1.7mm;
+  margin: 0;
+}
+
+@media print {
+  .emp-radio-one-brief-content {
+    display: block !important;
+    zoom: 1 !important;
+  }
+
+  .emp-radio-one-brief-page {
+    width: 148mm !important;
+    min-width: 148mm !important;
+    max-width: 148mm !important;
+    height: 210mm !important;
+    min-height: 210mm !important;
+    padding: 0 !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .emp-radio-one-brief-page:last-child {
+    break-after: auto !important;
+    page-break-after: auto !important;
+  }
+}

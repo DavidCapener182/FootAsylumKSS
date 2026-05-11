@@ -3,6 +3,7 @@ import { EmpMasterTemplateDocument } from '@/components/emp/emp-master-template-
 import { EmpMasterTemplatePrintToolbar } from '@/components/emp/emp-master-template-print-toolbar'
 import { buttonVariants } from '@/components/ui/button'
 import { requireEmpAccess } from '@/lib/emp/access'
+import { getEmpMasterTemplatePlanPrefill } from '@/lib/emp/data'
 import { getEmpMasterTemplateById } from '@/lib/emp/master-templates'
 import { cn } from '@/lib/utils'
 
@@ -11,11 +12,12 @@ export const dynamic = 'force-dynamic'
 export default async function EmpMasterTemplatePrintPage({
   searchParams,
 }: {
-  searchParams: { templateId?: string; prefill?: string }
+  searchParams: { templateId?: string; prefill?: string; planId?: string }
 }) {
   await requireEmpAccess()
 
   const template = getEmpMasterTemplateById(searchParams?.templateId)
+  const planId = String(searchParams?.planId || '').trim()
 
   if (!template) {
     return (
@@ -27,9 +29,23 @@ export default async function EmpMasterTemplatePrintPage({
     )
   }
 
-  const pageSize = template.orientation === 'landscape' ? 'A4 landscape' : 'A4 portrait'
+  const pageSize =
+    template.kind === 'radio_one_daily_brief_booklet'
+      ? 'A5 portrait'
+      : template.orientation === 'landscape'
+        ? 'A4 landscape'
+        : 'A4 portrait'
   const prefillRaw = String(searchParams?.prefill || '')
-  let prefillValues: { eventName?: string; eventDate?: string; fields?: Record<string, string> } = {}
+  let prefillValues: {
+    eventName?: string
+    eventDate?: string
+    fields?: Record<string, string>
+    tableCells?: Record<string, string>
+    tablePages?: Array<{
+      fields?: Record<string, string>
+      tableCells?: Record<string, string>
+    }>
+  } = {}
 
   if (prefillRaw) {
     try {
@@ -40,10 +56,23 @@ export default async function EmpMasterTemplatePrintPage({
     } catch {
       prefillValues = {}
     }
+  } else if (planId) {
+    const planPrefill = await getEmpMasterTemplatePlanPrefill(planId)
+    prefillValues = {
+      eventName: planPrefill.prefillData.eventName,
+      eventDate: planPrefill.prefillData.eventDate,
+      fields: planPrefill.prefillData.templateFieldValues?.[template.id] || {},
+      tableCells: planPrefill.prefillData.templateTableCellValues?.[template.id] || {},
+      tablePages: planPrefill.prefillData.templateTablePageValues?.[template.id] || [],
+    }
   }
 
   const queryParams = new URLSearchParams({ templateId: template.id })
-  queryParams.set('prefill', JSON.stringify(prefillValues))
+  if (planId && !prefillRaw) {
+    queryParams.set('planId', planId)
+  } else {
+    queryParams.set('prefill', JSON.stringify(prefillValues))
+  }
 
   return (
     <div className="emp-master-template-print-root bg-white">

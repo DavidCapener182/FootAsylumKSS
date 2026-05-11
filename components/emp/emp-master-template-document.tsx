@@ -1,4 +1,5 @@
 import React, { type ReactNode } from 'react'
+import { RadioOneDailySecurityBriefBooklet } from '@/components/emp/radio-one-daily-security-brief-booklet'
 import {
   type EmpMasterTemplateDefinition,
   type EmpMasterTemplateEmergencyActionPlan,
@@ -20,6 +21,10 @@ type EmpMasterTemplatePrefillValues = {
   eventDate?: string
   fields?: Record<string, string>
   tableCells?: Record<string, string>
+  tablePages?: Array<{
+    fields?: Record<string, string>
+    tableCells?: Record<string, string>
+  }>
 }
 
 function formatPrefillDate(value: string | undefined) {
@@ -30,23 +35,116 @@ function formatPrefillDate(value: string | undefined) {
   return `${day}/${month}/${year}`
 }
 
+const HEADER_CARD_MONTH_NAMES = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+]
+
+const HEADER_CARD_WEEKDAY_NAMES = [
+  'Sunday',
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+]
+
+function formatHeaderCardDate(value: string | undefined) {
+  const raw = String(value || '').trim()
+  if (!raw) return ''
+
+  const isoDateMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  const slashDateMatch = raw.match(/^(?:(?:Mon|Tues|Wednes|Thurs|Fri|Satur|Sun)day\s+)?(\d{1,2})\/(\d{1,2})\/(\d{4})$/i)
+  const longDateMatch = raw.match(
+    /^(?:(?:Mon|Tues|Wednes|Thurs|Fri|Satur|Sun)day\s+)?(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})$/i,
+  )
+
+  let year = 0
+  let month = 0
+  let day = 0
+
+  if (isoDateMatch) {
+    year = Number(isoDateMatch[1])
+    month = Number(isoDateMatch[2])
+    day = Number(isoDateMatch[3])
+  } else if (slashDateMatch) {
+    day = Number(slashDateMatch[1])
+    month = Number(slashDateMatch[2])
+    year = Number(slashDateMatch[3])
+  } else if (longDateMatch) {
+    day = Number(longDateMatch[1])
+    month = HEADER_CARD_MONTH_NAMES.findIndex((monthName) => (
+      monthName.toLowerCase() === longDateMatch[2].toLowerCase()
+    )) + 1
+    year = Number(longDateMatch[3])
+  } else {
+    return raw
+  }
+
+  const date = new Date(Date.UTC(year, month - 1, day))
+  if (
+    !Number.isFinite(date.getTime())
+    || date.getUTCFullYear() !== year
+    || date.getUTCMonth() !== month - 1
+    || date.getUTCDate() !== day
+  ) {
+    return raw
+  }
+
+  return `${HEADER_CARD_WEEKDAY_NAMES[date.getUTCDay()]} ${day} ${HEADER_CARD_MONTH_NAMES[month - 1]} ${year}`
+}
+
+function normalizePrefillLabel(label: string) {
+  return String(label || '').toLowerCase().replace(/&/g, ' and ').replace(/[^a-z0-9]+/g, ' ').trim()
+}
+
+function prefillLabelHasWord(label: string, word: string) {
+  const normalized = normalizePrefillLabel(label)
+  return new RegExp(`\\b${word}\\b`).test(normalized)
+}
+
+function stripEventDateSuffix(value: string) {
+  return String(value || '').trim().replace(/\s+-\s+\d{1,2}\/\d{1,2}\/20\d{2}\s*$/, '')
+}
+
 function resolvePrefillValue(label: string, prefillValues?: EmpMasterTemplatePrefillValues) {
-  const normalizedLabel = String(label || '').toLowerCase()
+  const normalizedLabel = normalizePrefillLabel(label)
   const exactFieldValue = prefillValues?.fields?.[label]
   if (typeof exactFieldValue === 'string' && exactFieldValue.trim()) {
-    return exactFieldValue.trim()
+    if (normalizedLabel === 'event name and date') return stripEventDateSuffix(exactFieldValue)
+    return prefillLabelHasWord(label, 'date') ? formatPrefillDate(exactFieldValue.trim()) : exactFieldValue.trim()
   }
 
   const normalizedFieldEntries = Object.entries(prefillValues?.fields || {})
-  const matchingFieldEntry = normalizedFieldEntries.find(([key]) => key.trim().toLowerCase() === normalizedLabel)
+  const matchingFieldEntry = normalizedFieldEntries.find(([key]) => normalizePrefillLabel(key) === normalizedLabel)
   if (matchingFieldEntry?.[1]?.trim()) {
-    return matchingFieldEntry[1].trim()
+    if (normalizedLabel === 'event name and date') return stripEventDateSuffix(matchingFieldEntry[1])
+    return prefillLabelHasWord(label, 'date') ? formatPrefillDate(matchingFieldEntry[1].trim()) : matchingFieldEntry[1].trim()
   }
 
   const eventName = String(prefillValues?.eventName || '').trim()
   const eventDate = formatPrefillDate(prefillValues?.eventDate)
 
-  if (normalizedLabel.includes('event') && normalizedLabel.includes('date')) {
+  if (normalizedLabel === 'date of incident' || normalizedLabel === 'date time') {
+    return ''
+  }
+
+  if (normalizedLabel === 'event name and date') {
+    return eventName
+  }
+
+  if (normalizedLabel.includes('event') && prefillLabelHasWord(label, 'date')) {
     if (eventName && eventDate) return `${eventName} - ${eventDate}`
     return eventName || eventDate
   }
@@ -55,7 +153,7 @@ function resolvePrefillValue(label: string, prefillValues?: EmpMasterTemplatePre
     return eventName
   }
 
-  if (normalizedLabel.includes('date')) {
+  if (prefillLabelHasWord(label, 'date')) {
     return eventDate
   }
 
@@ -147,6 +245,28 @@ function getTemplateHeaderFields(template: EmpMasterTemplateDefinition): EmpMast
   }
 }
 
+function getHeaderCardDateLabel(
+  template: EmpMasterTemplateDefinition,
+  prefillValues?: EmpMasterTemplatePrefillValues,
+) {
+  const headerDateField = getTemplateHeaderFields(template).find((field) => (
+    prefillLabelHasWord(field.label, 'date')
+  ))
+  const headerDateValue = headerDateField ? resolvePrefillValue(headerDateField.label, prefillValues) : ''
+  if (headerDateValue) return formatHeaderCardDate(headerDateValue)
+
+  const matchingFieldDate = Object.entries(prefillValues?.fields || {}).find(([label, value]) => (
+    prefillLabelHasWord(label, 'date') && String(value || '').trim()
+  ))
+
+  if (matchingFieldDate?.[1]) return formatHeaderCardDate(matchingFieldDate[1])
+
+  const directEventDate = formatHeaderCardDate(prefillValues?.eventDate)
+  if (directEventDate) return directEventDate
+
+  return 'Event Date'
+}
+
 function MasterTemplateHeader({
   template,
   prefillValues,
@@ -156,6 +276,7 @@ function MasterTemplateHeader({
 }) {
   const headerFields = getTemplateHeaderFields(template)
   const fieldCount = template.kind === 'incident_form' ? 4 : headerFields.length
+  const headerDateLabel = getHeaderCardDateLabel(template, prefillValues)
 
   return (
     <div className="emp-master-template-header mb-4 border-b border-slate-300 pb-4">
@@ -179,12 +300,10 @@ function MasterTemplateHeader({
 
         <div className="min-w-[180px] rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-right">
           <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-emerald-800">
-            Master Template
+            KSS NW LTD
           </p>
-          <p className="mt-1 text-sm font-semibold text-slate-950">{template.documentCode}</p>
-          <p className="text-[11px] text-slate-600">
-            Event Management / {template.category}
-          </p>
+          <p className="mt-1 text-sm font-semibold leading-tight text-slate-950">{headerDateLabel}</p>
+          <p className="text-[11px] font-semibold text-slate-600">{template.documentCode}</p>
         </div>
       </div>
 
@@ -250,11 +369,31 @@ function NoticeBanner({ notice }: { notice: EmpMasterTemplateNotice }) {
   )
 }
 
-function DocumentFooter({ template }: { template: EmpMasterTemplateDefinition }) {
+function getFooterDocumentLabel(prefillValues?: EmpMasterTemplatePrefillValues) {
+  const eventName = String(prefillValues?.eventName || '').trim()
+  if (eventName) return eventName
+
+  const eventField = Object.entries(prefillValues?.fields || {}).find(([label, value]) => {
+    const normalizedLabel = label.toLowerCase()
+    return normalizedLabel.includes('event') && String(value || '').trim()
+  })
+
+  return String(eventField?.[1] || '').trim() || 'Controlled blank document'
+}
+
+function DocumentFooter({
+  template,
+  prefillValues,
+}: {
+  template: EmpMasterTemplateDefinition
+  prefillValues?: EmpMasterTemplatePrefillValues
+}) {
+  const documentLabel = getFooterDocumentLabel(prefillValues)
+
   return (
     <footer className="mt-3 flex items-center justify-between gap-4 border-t border-slate-300 pt-2 text-[10px] text-slate-500">
-      <span>KSS NW LTD | Event Management Master Templates | {template.documentCode}</span>
-      <span>Controlled blank document</span>
+      <span>KSS NW LTD | {template.title} | {template.documentCode}</span>
+      <span className="max-w-[55%] text-right leading-tight">{documentLabel}</span>
     </footer>
   )
 }
@@ -327,9 +466,11 @@ function TableTemplateDocument({ template }: { template: EmpMasterTemplateTable 
 function TableTemplateDocumentWithPrefill({
   template,
   prefillValues,
+  rowOffset = 0,
 }: {
   template: EmpMasterTemplateTable
   prefillValues?: EmpMasterTemplatePrefillValues
+  rowOffset?: number
 }) {
   return (
     <div className="emp-master-template-table-layout flex min-h-0 flex-1 flex-col">
@@ -358,7 +499,7 @@ function TableTemplateDocumentWithPrefill({
           <tbody>
             {Array.from({ length: template.emptyRows }).map((_, rowIndex) => (
               <tr
-                key={`${template.id}-row-${rowIndex}`}
+                key={`${template.id}-row-${rowOffset + rowIndex}`}
                 className={cn('emp-master-template-table-row', template.rowHeightClass || 'h-[31px]')}
               >
                 {template.columns.map((column) => {
@@ -372,7 +513,7 @@ function TableTemplateDocumentWithPrefill({
                         column.align === 'center' ? 'text-center' : ''
                       )}
                     >
-                      {prefillValues?.tableCells?.[`${rowIndex}:${column.key}`] || ''}
+                      {prefillValues?.tableCells?.[`${rowOffset + rowIndex}:${column.key}`] || ''}
                     </td>
                   )
                 })}
@@ -391,6 +532,82 @@ function TableTemplateDocumentWithPrefill({
         </div>
       ) : null}
     </div>
+  )
+}
+
+function getPrefilledTableRowCount(tableCells: Record<string, string> | undefined) {
+  const rowIndexes = Object.entries(tableCells || {})
+    .filter(([, value]) => String(value || '').trim())
+    .map(([cellKey]) => Number.parseInt(cellKey.split(':')[0] || '', 10))
+    .filter((rowIndex) => Number.isFinite(rowIndex) && rowIndex >= 0)
+
+  return rowIndexes.length ? Math.max(...rowIndexes) + 1 : 0
+}
+
+function getTablePageOffsets(template: EmpMasterTemplateTable, prefillValues?: EmpMasterTemplatePrefillValues) {
+  const filledRowCount = getPrefilledTableRowCount(prefillValues?.tableCells)
+  const pageCount = Math.max(1, Math.ceil(Math.max(filledRowCount, template.emptyRows) / template.emptyRows))
+  return Array.from({ length: pageCount }).map((_, pageIndex) => pageIndex * template.emptyRows)
+}
+
+function getTablePagePrefillValues(
+  prefillValues: EmpMasterTemplatePrefillValues | undefined,
+  tablePage: NonNullable<EmpMasterTemplatePrefillValues['tablePages']>[number] | undefined
+) {
+  if (!tablePage) return prefillValues
+
+  return {
+    ...prefillValues,
+    fields: {
+      ...(prefillValues?.fields || {}),
+      ...(tablePage.fields || {}),
+    },
+    tableCells: tablePage.tableCells || {},
+  }
+}
+
+function MasterTemplatePage({
+  template,
+  prefillValues,
+  tableRowOffset = 0,
+}: {
+  template: EmpMasterTemplateDefinition
+  prefillValues?: EmpMasterTemplatePrefillValues
+  tableRowOffset?: number
+}) {
+  return (
+    <article
+      className={cn(
+        'emp-master-template-page',
+        template.orientation === 'landscape'
+          ? 'emp-master-template-page--landscape'
+          : 'emp-master-template-page--portrait'
+      )}
+    >
+      <MasterTemplateHeader template={template} prefillValues={prefillValues} />
+
+      <div className="emp-master-template-page-body flex min-h-0 flex-1 flex-col gap-3">
+        {template.notice ? <NoticeBanner notice={template.notice} /> : null}
+
+        {template.kind === 'table' ? (
+          <TableTemplateDocumentWithPrefill
+            template={template}
+            prefillValues={prefillValues}
+            rowOffset={tableRowOffset}
+          />
+        ) : template.kind === 'incident_form' ? (
+          <IncidentTemplateDocument template={template} prefillValues={prefillValues} />
+        ) : template.kind === 'narrative_form' ? (
+          <NarrativeTemplateDocumentWithPrefill template={template} prefillValues={prefillValues} />
+        ) : template.kind === 'emergency_action_plan' ? (
+          <EmergencyActionPlanDocument template={template} prefillValues={prefillValues} />
+        ) : template.kind === 'suspicious_item_report' ? (
+          <SuspiciousItemTemplateDocument template={template} prefillValues={prefillValues} />
+        ) : null}
+      </div>
+
+      <DocumentFooter template={template} prefillValues={prefillValues} />
+    </article>
   )
 }
 
@@ -640,6 +857,43 @@ export function EmpMasterTemplateDocument({
   template: EmpMasterTemplateDefinition
   prefillValues?: EmpMasterTemplatePrefillValues
 }) {
+  if (template.kind === 'radio_one_daily_brief_booklet') {
+    return (
+      <div
+        id="print-root"
+        data-pdf-title={template.title}
+        data-pdf-template-id={template.id}
+        data-pdf-filename={template.filename}
+        data-pdf-event-name={prefillValues?.eventName || "BBC Radio 1's Big Weekend Sunderland 2026"}
+        data-pdf-event-date={prefillValues?.eventDate || ''}
+        data-pdf-prefill-fields={JSON.stringify(prefillValues?.fields || {})}
+        className="emp-master-template-root"
+      >
+        <div className="emp-master-template-content emp-radio-one-brief-content">
+          <RadioOneDailySecurityBriefBooklet />
+        </div>
+      </div>
+    )
+  }
+
+  const tablePageInputs = template.kind === 'table' && prefillValues?.tablePages?.length
+    ? prefillValues.tablePages.map((tablePage, pageIndex) => ({
+        key: `${template.id}-page-${pageIndex}`,
+        prefillValues: getTablePagePrefillValues(prefillValues, tablePage),
+        tableRowOffset: 0,
+      }))
+    : template.kind === 'table'
+      ? getTablePageOffsets(template, prefillValues).map((rowOffset) => ({
+          key: `${template.id}-${rowOffset}`,
+          prefillValues,
+          tableRowOffset: rowOffset,
+        }))
+      : [{
+          key: template.id,
+          prefillValues,
+          tableRowOffset: 0,
+        }]
+
   return (
     <div
       id="print-root"
@@ -652,34 +906,14 @@ export function EmpMasterTemplateDocument({
       className="emp-master-template-root"
     >
       <div className="emp-master-template-content">
-        <article
-          className={cn(
-            'emp-master-template-page',
-            template.orientation === 'landscape'
-              ? 'emp-master-template-page--landscape'
-              : 'emp-master-template-page--portrait'
-          )}
-        >
-          <MasterTemplateHeader template={template} prefillValues={prefillValues} />
-
-          <div className="emp-master-template-page-body flex min-h-0 flex-1 flex-col gap-3">
-            {template.notice ? <NoticeBanner notice={template.notice} /> : null}
-
-            {template.kind === 'table' ? (
-              <TableTemplateDocumentWithPrefill template={template} prefillValues={prefillValues} />
-            ) : template.kind === 'incident_form' ? (
-              <IncidentTemplateDocument template={template} prefillValues={prefillValues} />
-            ) : template.kind === 'narrative_form' ? (
-              <NarrativeTemplateDocumentWithPrefill template={template} prefillValues={prefillValues} />
-            ) : template.kind === 'emergency_action_plan' ? (
-              <EmergencyActionPlanDocument template={template} prefillValues={prefillValues} />
-            ) : (
-              <SuspiciousItemTemplateDocument template={template} prefillValues={prefillValues} />
-            )}
-          </div>
-
-          <DocumentFooter template={template} />
-        </article>
+        {tablePageInputs.map((page) => (
+          <MasterTemplatePage
+            key={page.key}
+            template={template}
+            prefillValues={page.prefillValues}
+            tableRowOffset={page.tableRowOffset}
+          />
+        ))}
       </div>
     </div>
   )

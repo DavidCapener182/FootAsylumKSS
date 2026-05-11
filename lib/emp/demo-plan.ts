@@ -35,6 +35,13 @@ export const EMP_DEMO_PLAN_VALUES: Record<string, string> = {
     'Stewarding and security deployment matrix',
     'Weather trigger matrix'
   ),
+  operational_assumptions_dependencies: lines(
+    'Deployment numbers remain subject to final confirmation through Event Control and the live deployment sheet.',
+    'KSS operates under the event command structure and works alongside the organiser, medical, welfare, traffic, bar, and production teams.',
+    'Site plans, queue layouts, emergency routes, weather controls, and transport arrangements may be revised before or during the event.',
+    'Evacuation, shelter, lockdown, public messaging, and emergency-service liaison decisions remain with the event command structure.',
+    'Dynamic risk assessment is required where crowd density, weather, welfare demand, transport disruption, or security intelligence changes the operating picture.'
+  ),
 
   event_name: EMP_DEMO_EVENT_NAME,
   event_type: 'Three-day outdoor live music festival with camping, licensed bars, concessions, VIP areas, and late evening headline performances.',
@@ -236,6 +243,13 @@ export const EMP_DEMO_PLAN_VALUES: Record<string, string> = {
     'Relief staff are assigned by supervisor to maintain statutory breaks without leaving fixed posts uncovered. A reserve of 12 trained staff is held each day for sickness, queue pressure, adverse weather, and emergency redeployment. Overnight staff campsite cover includes a relief handover and fatigue check.',
   escalation_staffing:
     'Additional staff are deployed if queue hold time exceeds 20 minutes, bar queue spillback reaches the main west route, staff campsite noise or welfare incidents rise above forecast, or weather conditions reduce route performance. Further escalation is available through standby reserve and contractor support under Event Control direction.',
+  dynamic_escalation_triggers: lines(
+    'Queue tails obstruct the main arena spine, emergency route, accessible route, service crossing, or bar feeder lane.',
+    'Visible compression, stop-start movement, barrier pressure, or customer distress is reported by supervisors.',
+    'Refusal conflict, intoxication, disorder, safeguarding, welfare, or medical demand exceeds the local supervisor response.',
+    'Adverse weather, route loss, lighting failure, ground deterioration, or transport disruption reduces safe movement capacity.',
+    'Event Control reports intelligence, suspicious behaviour, hostile reconnaissance, or a change in threat posture requiring deployment adjustment.'
+  ),
   bar_operations_roles:
     'West Village Bar Supervisor manages bar queue stewards, refusals support, service-lane protection, and escalation for intoxication or disorder. Two queue teams regulate feeder lanes, one roaming response pair supports refusals and conflict management, and stock-gate access is checked during live trading and close-down.',
   search_screening_roles:

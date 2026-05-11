@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import type { Browser } from 'puppeteer'
 import JSZip from 'jszip'
 import { EMP_ADMIN_EMAIL } from '@/lib/emp/access'
+import { getEmpMasterTemplatePlanPrefill } from '@/lib/emp/data'
 import { EMP_MASTER_TEMPLATES, getEmpMasterTemplateById, type EmpMasterTemplateDefinition } from '@/lib/emp/master-templates'
 import { launchPuppeteerBrowser } from '@/lib/pdf/puppeteer-browser'
 import { createClient } from '@/lib/supabase/server'
@@ -142,6 +143,10 @@ function buildPrefillForTemplate(
     eventDate?: string
     templateFieldValues?: Record<string, Record<string, string>>
     templateTableCellValues?: Record<string, Record<string, string>>
+    templateTablePageValues?: Record<string, Array<{
+      fields?: Record<string, string>
+      tableCells?: Record<string, string>
+    }>>
   }
 ) {
   return JSON.stringify({
@@ -149,6 +154,7 @@ function buildPrefillForTemplate(
     eventDate: String(prefill.eventDate || ''),
     fields: prefill.templateFieldValues?.[templateId] || {},
     tableCells: prefill.templateTableCellValues?.[templateId] || {},
+    tablePages: prefill.templateTablePageValues?.[templateId] || [],
   })
 }
 
@@ -162,11 +168,17 @@ export async function GET(request: NextRequest) {
     }
 
     const templateId = String(request.nextUrl.searchParams.get('templateId') || '').trim()
-    const prefill = String(request.nextUrl.searchParams.get('prefill') || '')
+    const planId = String(request.nextUrl.searchParams.get('planId') || '').trim()
+    let prefill = String(request.nextUrl.searchParams.get('prefill') || '')
     const template = getEmpMasterTemplateById(templateId)
 
     if (!template) {
       return NextResponse.json({ error: 'Unknown templateId' }, { status: 400 })
+    }
+
+    if (!prefill && planId) {
+      const planPrefill = await getEmpMasterTemplatePlanPrefill(planId)
+      prefill = buildPrefillForTemplate(template.id, planPrefill.prefillData)
     }
 
     browser = await launchPuppeteerBrowser()
@@ -213,6 +225,10 @@ export async function POST(request: NextRequest) {
         eventDate?: string
         templateFieldValues?: Record<string, Record<string, string>>
         templateTableCellValues?: Record<string, Record<string, string>>
+        templateTablePageValues?: Record<string, Array<{
+          fields?: Record<string, string>
+          tableCells?: Record<string, string>
+        }>>
       }
     }
     const templateIds = Array.isArray(body.templateIds)

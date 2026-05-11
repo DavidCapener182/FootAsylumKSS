@@ -23,6 +23,10 @@ import {
   getEmpBusinessTemplatePlanMetadata,
 } from '@/lib/emp/business-template'
 import {
+  buildEmpMasterTemplatePrefillFromFieldValues,
+  type EmpMasterTemplatePlanPrefill,
+} from '@/lib/emp/master-template-prefill'
+import {
   EMP_MASTER_TEMPLATE_DESCRIPTION,
   EMP_MASTER_TEMPLATE_FIELDS,
   EMP_MASTER_TEMPLATE_SECTIONS,
@@ -1164,5 +1168,43 @@ export async function getEmpPreviewData(planId: string) {
   return {
     model,
     editorData,
+  }
+}
+
+export async function getEmpMasterTemplatePlanPrefill(planId: string): Promise<EmpMasterTemplatePlanPrefill> {
+  const editorData = await getEmpPlanEditorData(planId)
+  const resolvedValues = resolveEmpFieldValueMap(
+    editorData.fields,
+    editorData.values.map((valueRow) => ({
+      fieldKey: valueRow.fieldKey,
+      valueText: valueRow.valueText,
+      source: valueRow.valueSource,
+    }))
+  )
+  const fieldValues = Object.fromEntries(
+    Object.entries(resolvedValues).map(([fieldKey, fieldValue]) => [fieldKey, fieldValue.valueText])
+  )
+  const previewModel = buildEmpPreviewModel({
+    fieldValues: resolvedValues,
+    selectedAnnexes: editorData.plan.selectedAnnexes,
+    includeKssProfileAppendix: editorData.plan.includeKssProfileAppendix,
+    documents: editorData.documents.map((document) => ({
+      documentKind: document.documentKind,
+      fileName: document.fileName,
+      fileType: document.fileType,
+      signedUrl: document.signedUrl,
+    })),
+  })
+  const prefillData = buildEmpMasterTemplatePrefillFromFieldValues(fieldValues, {
+    planTitle: editorData.plan.title,
+    riskAssessmentRows: previewModel.riskAssessment?.rows || [],
+  })
+
+  return {
+    planId,
+    planTitle: editorData.plan.title,
+    eventName: prefillData.eventName,
+    eventDate: prefillData.eventDate,
+    prefillData,
   }
 }
