@@ -132,7 +132,7 @@ export const CMP_DEMO_PLAN_VALUES: Record<string, string> = {
   dim_aliced_egress:
     'Egress will operate through the south boulevard and east plaza under phased release conditions, supported by route stewards and transport marshals. Campsite return remains segregated from off-site dispersal where practicable. Any degraded route condition will trigger reduced flow assumptions and controlled holds.',
   dim_aliced_dynamics:
-    'The principal dynamic risks are density build-up during headline performances, short-term surges at the front-of-stage line, queue spillback at the west bar village, campsite crossover conflict after show close, and concentrated demand at the taxi rank. Control measures focus on early observation, visible intervention, and route preservation.',
+    'Dispersal risks are concentrated around phased release after headline performances, queue clear-down near front-of-stage and bar pressure points, campsite crossover after show close, and concentrated demand at the taxi rank. Control measures focus on route split clarity, early observation, visible intervention, and route preservation.',
 
   ramp_routes:
     'Primary routes include the east ingress plaza, south boulevard egress route, north campsite crossover, west food and bar spine, and the step-free accessible route from the east entrance to the viewing platform and welfare hub. Secondary routes provide resilience through the outer park loop and service-road-supported pedestrian corridor.',

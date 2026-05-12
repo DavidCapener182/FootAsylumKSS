@@ -217,7 +217,7 @@ export function deriveCmpFieldCandidates(documents: CmpSourceDocumentForExtracti
     dim_aliced_ingress: firstSectionMatch(grouped.all, ['Ingress']),
     dim_aliced_circulation: firstSectionMatch(grouped.all, ['Circulation']),
     dim_aliced_egress: firstSectionMatch(grouped.all, ['Egress']),
-    dim_aliced_dynamics: firstSectionMatch(grouped.all, ['Dynamics']),
+    dim_aliced_dynamics: firstSectionMatch(grouped.all, [/DIM[\s_-]*ALICED[\s\S]*?Dispersal/i, 'Dispersal', 'Dynamics']),
     ramp_routes: firstSectionMatch(grouped.all, ['ROUTES']),
     ramp_arrival: firstSectionMatch(grouped.all, ['ARRIVAL']),
     ramp_movement: firstSectionMatch(grouped.all, ['MOVEMENT']),

@@ -505,7 +505,7 @@ export function generateCmpFieldValuesFromGuidedAnswers(
   values.dim_aliced_ingress = `${primaryRoutes || 'Ingress routes'} should be reviewed against arrival demand, holding capacity, search throughput, accessible entry, ticket resolution, rejection management, and contingency arrangements.`
   values.dim_aliced_circulation = `${movementPressurePoints || 'Internal circulation routes and pressure points'} should be monitored to prevent queue spillback, route obstruction, counterflow, and loss of emergency access.`
   values.dim_aliced_egress = `${answer(answers, 'dispersal_routes', 'Egress and dispersal routes')} should support phased release, transport coordination, route protection, accessible departure, and safe off-site dispersal.`
-  values.dim_aliced_dynamics = `Crowd dynamics should consider density build-up, stop-start movement, counterflow, behavioural triggers, information needs, and how staff intervention may alter crowd response during ${eventName}.`
+  values.dim_aliced_dynamics = `Dispersal should consider phased release, route split, onward transport, accessible departure, public messaging, post-event dwell, and how staff intervention protects safe movement away from ${eventName}.`
 
   values.ramp_routes = `${primaryRoutes || 'Primary and secondary routes'} should be assessed for width, lighting, steward positions, accessible alternatives, crossings, and resilience if a route is lost or degraded. Route resilience is assessed as ${routeResilienceLevel}.${routeResilienceNotes ? ` ${routeResilienceNotes}` : ''}`
   values.ramp_arrival = `${

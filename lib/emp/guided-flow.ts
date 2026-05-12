@@ -853,7 +853,7 @@ export function generateEmpFieldValuesFromGuidedAnswers(
   values.dim_aliced_ingress = `${primaryRoutes || 'KSS access points and queue routes'} should be reviewed against bar demand, holding capacity, accessible support, refusal management, and contingency arrangements.`
   values.dim_aliced_circulation = `${movementPressurePoints || 'Bar and service pressure points'} should be monitored to prevent queue spillback, route obstruction, counterflow, and loss of emergency access.`
   values.dim_aliced_egress = `${answer(answers, 'dispersal_routes', 'Close-down and stock movement routes')} should support final service, stock or cash protection, staff clear-down, client handover, and route protection.`
-  values.dim_aliced_dynamics = `Operational dynamics should consider queue build-up, stop-start movement, counterflow, behavioural triggers, information needs, and how staff intervention may alter attendee response around KSS areas during ${eventName}.`
+  values.dim_aliced_dynamics = `Dispersal should consider final service close-down, queue clear-down, route split, accessible departure, staff and customer separation, onward movement from KSS areas, and how staff intervention protects safe movement away from ${eventName}.`
 
   values.ramp_routes = `${primaryRoutes || 'Primary and secondary routes'} should be assessed for width, lighting, steward positions, accessible alternatives, crossings, and resilience if a route is lost or degraded. Route resilience is assessed as ${routeResilienceLevel}.${routeResilienceNotes ? ` ${routeResilienceNotes}` : ''}`
   values.ramp_arrival = `${

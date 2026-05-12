@@ -69,4 +69,10 @@ describe('Download EMP seed plan', () => {
     expect(EMP_DOWNLOAD_PLAN_VALUES.lost_vulnerable_person_process).toContain('Disney')
     expect(EMP_DOWNLOAD_PLAN_VALUES.lost_vulnerable_person_process).toContain('Mr Care')
   })
+
+  it('uses Dispersal for the final DIM-ALICED factor', () => {
+    expect(EMP_DOWNLOAD_PLAN_VALUES.dim_aliced_dynamics).toContain('Dispersal risks')
+    expect(EMP_DOWNLOAD_PLAN_VALUES.dim_aliced_dynamics).toContain('nightly arena egress')
+    expect(EMP_DOWNLOAD_PLAN_VALUES.dim_aliced_dynamics).not.toMatch(/Dynamic risks|Crowd dynamics|Operational dynamics|principal dynamic/i)
+  })
 })

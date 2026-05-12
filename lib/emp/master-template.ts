@@ -487,9 +487,9 @@ export const EMP_MASTER_TEMPLATE_FIELDS: EmpMasterTemplateField[] = [
     defaultValueText:
       'Egress analysis should cover phased release, route protection, transport coordination, re-entry controls, and the expected behaviour of patrons beyond the site boundary.',
   }),
-  field('site_design', 'dim_aliced_dynamics', 'DIM-ALICED: Dynamics', 12, 'textarea', {
+  field('site_design', 'dim_aliced_dynamics', 'DIM-ALICED: Dispersal', 12, 'textarea', {
     defaultValueText:
-      'Crowd dynamics should consider density build-up, stop-start movement, counterflow, pressure points, behavioural triggers, and how information or intervention may alter crowd response.',
+      'Dispersal analysis should consider phased release, route split, onward transport interfaces, accessible departure, public messaging, post-event dwell, and how staff intervention protects safe movement away from the event.',
   }),
 
   field('ramp_assessment', 'ramp_routes', 'RAMP: Routes', 0, 'textarea', {

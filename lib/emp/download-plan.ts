@@ -157,7 +157,7 @@ export const EMP_DOWNLOAD_PLAN_VALUES: Record<string, string> = {
   dim_aliced_egress:
     'Egress includes nightly arena exit, accessible and guest exit routes, campsite return and Monday campsite clearance. Accessible/guest egress requires wristband checks, removal of search-lane infrastructure before egress where required, and retention of sufficient width.',
   dim_aliced_dynamics:
-    'Dynamic risks are highest when alcohol, fatigue, loud environments, long walking distances, disability needs, sensory overload, poor weather, crowd frustration and late-night campsite returns combine. Safeguarding and welfare escalation will be treated as a live operational control, not an after-action process.',
+    'Dispersal risks are highest during nightly arena egress, accessible and guest exit movement, campsite return, Monday campsite clearance, bar close-down and Co-Op shop close-down. KSS staff will protect accessible routes, direct customers to the correct route based on access entitlement, and treat safeguarding or welfare escalation as a live operational control.',
 
   ramp_routes:
     'Primary KSS route considerations are bar queue lanes, Co-Op shop queue lanes, accessible campsite routes, Paddock routes, welfare/medical routes, stock routes, service crossings and accessible egress routes. No queue or security cordon may block an accessible route or emergency route.',

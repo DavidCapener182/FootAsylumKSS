@@ -420,6 +420,64 @@ async function loadPlanValueRows(
   })) satisfies EmpEditorValueRow[]
 }
 
+const RADIO_ONE_DIM_ALICED_DISPERSAL_VALUE =
+  'Dispersal for the Radio 1 bar operation should consider final service close-down, queue clear-down from bar fronts, route split toward agreed event egress routes, accessible departure, customer/staff separation around bar compounds, and coordination with Event Control/Peppermint so KSS activity supports the wider site dispersal plan.'
+
+const RADIO_ONE_STALE_DIM_ALICED_DISPERSAL_PATTERNS = [
+  /^Crowd dynamics should consider density build-up/i,
+  /^Operational dynamics should consider queue build-up/i,
+  /^The principal dynamic risks are density build-up/i,
+  /\bprincipal dynamic risks\b/i,
+]
+
+function isRadioOneEmpPlan(plan: EmpPlanRow) {
+  return /Radio 1|Big Weekend|R1BW/i.test(`${plan.title} ${plan.event_name || ''}`)
+}
+
+async function syncRadioOneDimAlicedDispersalValue(input: {
+  supabase: ReturnType<typeof createClient>
+  plan: EmpPlanRow
+  fields: EmpEditorField[]
+  values: EmpEditorValueRow[]
+  updatedByUserId: string
+}) {
+  if (!isRadioOneEmpPlan(input.plan)) return input.values
+
+  const field = input.fields.find((item) => item.key === 'dim_aliced_dynamics')
+  if (!field) return input.values
+
+  const existing = input.values.find((value) => value.fieldKey === field.key)
+  const existingText = clean(existing?.valueText)
+  if (!existingText || existingText === RADIO_ONE_DIM_ALICED_DISPERSAL_VALUE) return input.values
+  if (!RADIO_ONE_STALE_DIM_ALICED_DISPERSAL_PATTERNS.some((pattern) => pattern.test(existingText))) {
+    return input.values
+  }
+
+  const nowIso = new Date().toISOString()
+  const { error } = await input.supabase
+    .from('emp_plan_field_values')
+    .upsert({
+      plan_id: input.plan.id,
+      field_id: field.id,
+      value_text: RADIO_ONE_DIM_ALICED_DISPERSAL_VALUE,
+      value_source: 'manual',
+      source_document_id: null,
+      source_excerpt: null,
+      updated_by_user_id: input.updatedByUserId,
+      updated_at: nowIso,
+    }, { onConflict: 'plan_id,field_id' })
+
+  if (error) {
+    throwEmpOperationError('Failed to update Radio One DIM-ALICED dispersal value', error)
+  }
+
+  return input.values.map((value) => (
+    value.fieldKey === field.key
+      ? { ...value, valueText: RADIO_ONE_DIM_ALICED_DISPERSAL_VALUE, valueSource: 'manual', updatedAt: nowIso }
+      : value
+  ))
+}
+
 async function loadPlanDocuments(
   supabase: ReturnType<typeof createClient>,
   planId: string
@@ -612,6 +670,7 @@ const DOWNLOAD_STALE_DEPLOYMENT_FIELD_PATTERNS: Record<string, RegExp> = {
   staffing_by_zone_and_time: /^(Campsite ingress - Accessibility campsite search support,|Draft deployment source - supplied FAB \/ Live Nation security schedule screenshots\.|Monday 8 June\|Sponsorship Supervisor\|Day x1)/,
   response_teams: /^KSS response pair\/team - Support refusals, sponsor activation pressure,/,
   service_delivery_scope: /^KSS service delivery covers allocated bars, the Co-Op shop, Paddock, Accessible Campsite A4, Accessible Campsite D,/,
+  dim_aliced_dynamics: /^Dynamic risks are highest when alcohol, fatigue, loud environments,/,
   escalation_staffing: /^Escalation staffing is requested where bar queues or Co-Op shop queues block routes,/,
   front_of_stage_roles: /^For sponsor activations, KSS roles include queue layout,/,
   camping_security_roles: /^KSS camping roles focus on Accessible Campsite A4 and Accessible Campsite D,/,
@@ -860,7 +919,13 @@ export async function getEmpPlanEditorData(planId: string): Promise<EmpPlanEdito
 
   const plan = await getPlanOrThrow(supabase, planId)
   const templateGraph = await loadTemplateGraph(supabase, plan.template_id)
-  const values = await loadPlanValueRows(supabase, planId, templateGraph.fields)
+  const values = await syncRadioOneDimAlicedDispersalValue({
+    supabase,
+    plan,
+    fields: templateGraph.fields,
+    values: await loadPlanValueRows(supabase, planId, templateGraph.fields),
+    updatedByUserId: profile.id,
+  })
   const documents = await loadPlanDocuments(supabase, planId)
 
   const { data: template, error: templateError } = await supabase

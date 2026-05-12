@@ -1802,7 +1802,7 @@ function buildSectionBlocks(
               ['Ingress', getValue(fieldValues, 'dim_aliced_ingress')],
               ['Circulation', getValue(fieldValues, 'dim_aliced_circulation')],
               ['Egress', getValue(fieldValues, 'dim_aliced_egress')],
-              ['Dynamics', getValue(fieldValues, 'dim_aliced_dynamics')],
+              ['Dispersal', getValue(fieldValues, 'dim_aliced_dynamics')],
             ],
             { compact: true, startOnNewPage: true }
           ))
@@ -1835,7 +1835,7 @@ function buildSectionBlocks(
             ['Ingress', getValue(fieldValues, 'dim_aliced_ingress')],
             ['Circulation', getValue(fieldValues, 'dim_aliced_circulation')],
             ['Egress', getValue(fieldValues, 'dim_aliced_egress')],
-            ['Dynamics', getValue(fieldValues, 'dim_aliced_dynamics')],
+            ['Dispersal', getValue(fieldValues, 'dim_aliced_dynamics')],
           ]
         ))
 
