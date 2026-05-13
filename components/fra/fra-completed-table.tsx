@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/client'
 import { getFRAPDFDownloadUrl, deleteFRAPDF } from '@/app/actions/fra-pdfs'
 import { uploadFraPdfFromClient } from '@/lib/fra/upload-pdf-client'
-import { Download, File, Search, Upload } from 'lucide-react'
+import { Download, File, Flame, Search, Upload } from 'lucide-react'
 import { PDFViewerModal } from '@/components/shared/pdf-viewer-modal'
 import { getInternalAreaDisplayName } from '@/lib/areas'
 import { getDisplayStoreCode } from '@/lib/utils'
@@ -108,6 +108,10 @@ export function FRACompletedTable({
   }, [filtered])
 
   const handleViewPDF = (row: FRARow) => {
+    if (row.fire_risk_assessment_instance_id) {
+      window.location.href = `/audit-lab/view-fra-report?instanceId=${row.fire_risk_assessment_instance_id}`
+      return
+    }
     if (!row.fire_risk_assessment_pdf_path) return
     setSelectedPdfRow(row)
     setPdfViewerOpen(true)
@@ -425,7 +429,18 @@ export function FRACompletedTable({
                               </TableCell>
                               
                               <TableCell className="border-b bg-white group-hover:bg-slate-50">
-                                {row.fire_risk_assessment_pdf_path ? (
+                                {row.fire_risk_assessment_instance_id ? (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleViewPDF(row)}
+                                    className="h-7 px-2 text-xs"
+                                    title="View completed FRA"
+                                  >
+                                    <Flame className="h-3.5 w-3.5 text-orange-600" />
+                                    <span className="ml-1 hidden xl:inline">View FRA</span>
+                                  </Button>
+                                ) : row.fire_risk_assessment_pdf_path ? (
                                   <div className="flex items-center gap-1">
                                     <Button
                                       size="sm"

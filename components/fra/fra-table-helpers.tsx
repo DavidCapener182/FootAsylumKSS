@@ -40,6 +40,7 @@ export interface FRARow {
   fire_risk_assessment_notes: string | null
   fire_risk_assessment_pct: number | null
   fire_risk_assessment_rating?: string | null
+  fire_risk_assessment_instance_id?: string | null
 }
 
 export type FRAStatus = 'up_to_date' | 'due' | 'overdue' | 'not_required' | 'required'
