@@ -3,8 +3,6 @@ import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { requireAuth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 
-export const EMP_ADMIN_EMAIL = 'david.capener@kssnwltd.co.uk'
-
 export class EmpAccessError extends Error {
   constructor(message = 'Unauthorized') {
     super(message)
@@ -12,39 +10,17 @@ export class EmpAccessError extends Error {
   }
 }
 
-export function isEmpAllowedEmail(email: string | null | undefined): boolean {
-  return String(email || '').trim().toLowerCase() === EMP_ADMIN_EMAIL
-}
-
-export function assertEmpAllowedEmail(email: string | null | undefined) {
-  if (!isEmpAllowedEmail(email)) {
-    throw new EmpAccessError('Unauthorized - EMP access is restricted')
-  }
-}
-
-export async function requireEmpAccess() {
-  const session = await requireAuth()
-
-  if (!isEmpAllowedEmail(session.user.email)) {
-    redirect('/')
-  }
-
-  return session
-}
-
-export async function getEmpUserContext() {
-  const authSupabase = createClient()
+async function getEmpAdminProfile() {
+  const supabase = createClient()
   const {
     data: { user },
-  } = await authSupabase.auth.getUser()
+  } = await supabase.auth.getUser()
 
   if (!user) {
     throw new EmpAccessError('Unauthorized')
   }
 
-  assertEmpAllowedEmail(user.email)
-
-  const { data: profile, error: profileError } = await authSupabase
+  const { data: profile, error: profileError } = await supabase
     .from('fa_profiles')
     .select('id, full_name, role')
     .eq('id', user.id)
@@ -54,6 +30,41 @@ export async function getEmpUserContext() {
     throw new EmpAccessError('EMP profile not available')
   }
 
+  if (profile.role !== 'admin') {
+    throw new EmpAccessError('Unauthorized - EMP access is restricted to administrators')
+  }
+
+  return { user, profile }
+}
+
+export async function isCurrentEmpAdmin() {
+  try {
+    await getEmpAdminProfile()
+    return true
+  } catch {
+    return false
+  }
+}
+
+export async function requireEmpAccess() {
+  const session = await requireAuth()
+  const supabase = createClient()
+
+  const { data: profile, error: profileError } = await supabase
+    .from('fa_profiles')
+    .select('role')
+    .eq('id', session.user.id)
+    .single()
+
+  if (profileError || profile?.role !== 'admin') {
+    redirect('/')
+  }
+
+  return session
+}
+
+export async function getEmpUserContext() {
+  const { user, profile } = await getEmpAdminProfile()
   const supabase = createAdminSupabaseClient()
 
   return {

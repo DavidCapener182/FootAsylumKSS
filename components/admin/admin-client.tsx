@@ -712,7 +712,7 @@ export function AdminClient() {
                 Admin
               </Badge>
               <span className="text-muted-foreground">
-                Full access to all features including this admin page. Only david.capener@kssnwltd.co.uk should have this role.
+                Full access to all features including this admin page, Crowd Management Plans, and Event Management Plans.
               </span>
             </div>
             <div>

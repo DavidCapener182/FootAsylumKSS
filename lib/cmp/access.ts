@@ -1,8 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { requireAuth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
-
-export const CMP_ADMIN_EMAIL = 'david.capener@kssnwltd.co.uk'
 
 export class CmpAccessError extends Error {
   constructor(message = 'Unauthorized') {
@@ -11,27 +10,7 @@ export class CmpAccessError extends Error {
   }
 }
 
-export function isCmpAllowedEmail(email: string | null | undefined): boolean {
-  return String(email || '').trim().toLowerCase() === CMP_ADMIN_EMAIL
-}
-
-export function assertCmpAllowedEmail(email: string | null | undefined) {
-  if (!isCmpAllowedEmail(email)) {
-    throw new CmpAccessError('Unauthorized - CMP access is restricted')
-  }
-}
-
-export async function requireCmpAccess() {
-  const session = await requireAuth()
-
-  if (!isCmpAllowedEmail(session.user.email)) {
-    redirect('/')
-  }
-
-  return session
-}
-
-export async function getCmpUserContext() {
+async function getCmpAdminProfile() {
   const supabase = createClient()
   const {
     data: { user },
@@ -40,8 +19,6 @@ export async function getCmpUserContext() {
   if (!user) {
     throw new CmpAccessError('Unauthorized')
   }
-
-  assertCmpAllowedEmail(user.email)
 
   const { data: profile, error: profileError } = await supabase
     .from('fa_profiles')
@@ -52,6 +29,43 @@ export async function getCmpUserContext() {
   if (profileError || !profile) {
     throw new CmpAccessError('CMP profile not available')
   }
+
+  if (profile.role !== 'admin') {
+    throw new CmpAccessError('Unauthorized - CMP access is restricted to administrators')
+  }
+
+  return { user, profile }
+}
+
+export async function isCurrentCmpAdmin() {
+  try {
+    await getCmpAdminProfile()
+    return true
+  } catch {
+    return false
+  }
+}
+
+export async function requireCmpAccess() {
+  const session = await requireAuth()
+  const supabase = createClient()
+
+  const { data: profile, error: profileError } = await supabase
+    .from('fa_profiles')
+    .select('role')
+    .eq('id', session.user.id)
+    .single()
+
+  if (profileError || profile?.role !== 'admin') {
+    redirect('/')
+  }
+
+  return session
+}
+
+export async function getCmpUserContext() {
+  const { user, profile } = await getCmpAdminProfile()
+  const supabase = createAdminSupabaseClient()
 
   return {
     supabase,

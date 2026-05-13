@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import type { Browser } from 'puppeteer'
 import JSZip from 'jszip'
-import { CMP_ADMIN_EMAIL } from '@/lib/cmp/access'
+import { isCurrentCmpAdmin } from '@/lib/cmp/access'
 import { CMP_MASTER_TEMPLATES, getCmpMasterTemplateById, type CmpMasterTemplateDefinition } from '@/lib/cmp/master-templates'
 import { launchPuppeteerBrowser } from '@/lib/pdf/puppeteer-browser'
-import { createClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -12,12 +11,7 @@ export const runtime = 'nodejs'
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 async function ensureAuthorizedAdmin() {
-  const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  const email = String(user?.email || '').toLowerCase()
-  return Boolean(user && email === CMP_ADMIN_EMAIL)
+  return isCurrentCmpAdmin()
 }
 
 async function renderTemplatePdf(

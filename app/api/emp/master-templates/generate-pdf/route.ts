@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import type { Browser } from 'puppeteer'
 import JSZip from 'jszip'
-import { EMP_ADMIN_EMAIL } from '@/lib/emp/access'
+import { isCurrentEmpAdmin } from '@/lib/emp/access'
 import { getEmpMasterTemplatePlanPrefill } from '@/lib/emp/data'
 import { EMP_MASTER_TEMPLATES, getEmpMasterTemplateById, type EmpMasterTemplateDefinition } from '@/lib/emp/master-templates'
 import { launchPuppeteerBrowser } from '@/lib/pdf/puppeteer-browser'
-import { createClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -13,12 +12,7 @@ export const runtime = 'nodejs'
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 async function ensureAuthorizedAdmin() {
-  const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  const email = String(user?.email || '').toLowerCase()
-  return Boolean(user && email === EMP_ADMIN_EMAIL)
+  return isCurrentEmpAdmin()
 }
 
 async function renderTemplatePdf(

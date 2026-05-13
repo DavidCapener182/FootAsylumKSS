@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import type { Browser } from 'puppeteer'
-import { EMP_ADMIN_EMAIL } from '@/lib/emp/access'
-import { createClient } from '@/lib/supabase/server'
+import { isCurrentEmpAdmin } from '@/lib/emp/access'
 import { launchPuppeteerBrowser } from '@/lib/pdf/puppeteer-browser'
 import { getEmpReportFilename } from '@/lib/utils'
 
@@ -48,14 +47,7 @@ export async function GET(request: NextRequest) {
   let browser: Browser | null = null
 
   try {
-    const supabase = createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    const email = String(user?.email || '').toLowerCase()
-
-    if (!user || email !== EMP_ADMIN_EMAIL) {
+    if (!(await isCurrentEmpAdmin())) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
