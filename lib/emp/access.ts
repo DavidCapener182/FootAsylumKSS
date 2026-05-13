@@ -3,8 +3,6 @@ import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { requireAuth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 
-export const EMP_ADMIN_EMAIL = 'david.capener@kssnwltd.co.uk'
-
 export class EmpAccessError extends Error {
   constructor(message = 'Unauthorized') {
     super(message)
@@ -12,27 +10,22 @@ export class EmpAccessError extends Error {
   }
 }
 
-export function isEmpAllowedEmail(email: string | null | undefined): boolean {
-  return String(email || '').trim().toLowerCase() === EMP_ADMIN_EMAIL
-}
+async function getEmpProfileForUser(userId: string) {
+  const adminSupabase = createAdminSupabaseClient()
+  const { data: profile, error: profileError } = await adminSupabase
+    .from('fa_profiles')
+    .select('id, full_name, role')
+    .eq('id', userId)
+    .single()
 
-export function assertEmpAllowedEmail(email: string | null | undefined) {
-  if (!isEmpAllowedEmail(email)) {
-    throw new EmpAccessError('Unauthorized - EMP access is restricted')
-  }
-}
-
-export async function requireEmpAccess() {
-  const session = await requireAuth()
-
-  if (!isEmpAllowedEmail(session.user.email)) {
-    redirect('/')
+  if (profileError || !profile) {
+    throw new EmpAccessError('EMP profile not available')
   }
 
-  return session
+  return profile
 }
 
-export async function getEmpUserContext() {
+async function getEmpAdminProfile() {
   const authSupabase = createClient()
   const {
     data: { user },
@@ -42,18 +35,34 @@ export async function getEmpUserContext() {
     throw new EmpAccessError('Unauthorized')
   }
 
-  assertEmpAllowedEmail(user.email)
-
-  const { data: profile, error: profileError } = await authSupabase
-    .from('fa_profiles')
-    .select('id, full_name, role')
-    .eq('id', user.id)
-    .single()
-
-  if (profileError || !profile) {
-    throw new EmpAccessError('EMP profile not available')
+  const profile = await getEmpProfileForUser(user.id)
+  if (profile.role !== 'admin') {
+    throw new EmpAccessError('Unauthorized - EMP access is restricted to administrators')
   }
 
+  return { user, profile }
+}
+
+export async function isCurrentEmpAdmin() {
+  try {
+    await getEmpAdminProfile()
+    return true
+  } catch {
+    return false
+  }
+}
+
+export async function requireEmpAccess() {
+  const session = await requireAuth()
+  const profile = await getEmpProfileForUser(session.user.id)
+
+  if (profile.role !== 'admin') {
+    redirect('/')
+  }
+}
+
+export async function getEmpUserContext() {
+  const { user, profile } = await getEmpAdminProfile()
   const supabase = createAdminSupabaseClient()
 
   return {

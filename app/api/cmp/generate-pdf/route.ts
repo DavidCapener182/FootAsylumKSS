@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import type { Browser } from 'puppeteer'
-import { CMP_ADMIN_EMAIL } from '@/lib/cmp/access'
-import { createClient } from '@/lib/supabase/server'
+import { isCurrentCmpAdmin } from '@/lib/cmp/access'
 import { launchPuppeteerBrowser } from '@/lib/pdf/puppeteer-browser'
 import { getCmpReportFilename } from '@/lib/utils'
 
@@ -14,14 +13,7 @@ export async function GET(request: NextRequest) {
   let browser: Browser | null = null
 
   try {
-    const supabase = createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    const email = String(user?.email || '').toLowerCase()
-
-    if (!user || email !== CMP_ADMIN_EMAIL) {
+    if (!(await isCurrentCmpAdmin())) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 

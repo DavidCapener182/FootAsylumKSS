@@ -40,10 +40,24 @@ export async function getUserProfile(): Promise<UserProfile | null> {
 }
 
 export async function requireAuth() {
-  const session = await getSession()
+  const supabase = createClient()
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser()
+
+  if (userError || !user) {
+    redirect('/login')
+  }
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+
   if (!session) {
     redirect('/login')
   }
+
   return session
 }
 
