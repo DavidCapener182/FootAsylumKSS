@@ -28,6 +28,7 @@ async function getStoreFRAs() {
     fire_risk_assessment_notes: null as string | null,
     fire_risk_assessment_pct: null as number | null,
     fire_risk_assessment_rating: null as string | null,
+    fire_risk_assessment_instance_id: null as string | null,
   }))
 
   // Try to fetch FRA data if columns exist
@@ -88,6 +89,7 @@ async function getStoreFRAs() {
         .from('fa_audit_instances')
         .select(`
           store_id,
+          id,
           fra_overall_risk_rating,
           conducted_at,
           created_at,
@@ -111,6 +113,7 @@ async function getStoreFRAs() {
           .from('fa_audit_instances')
           .select(`
             store_id,
+            id,
             conducted_at,
             created_at,
             fa_audit_templates!inner ( category ),
@@ -133,6 +136,7 @@ async function getStoreFRAs() {
         console.error('Error fetching FRA risk ratings:', completedFraAuditsError)
       } else {
         const ratingByStoreId = new Map<string, string | null>()
+        const instanceIdByStoreId = new Map<string, string | null>()
 
         for (const audit of (completedFraAudits || []) as any[]) {
           if ((audit.fa_audit_templates as any)?.category !== 'fire_risk_assessment') continue
@@ -148,11 +152,13 @@ async function getStoreFRAs() {
           const rating = fromEvidence ?? stored
 
           ratingByStoreId.set(audit.store_id, rating)
+          instanceIdByStoreId.set(audit.store_id, audit.id || null)
         }
 
         storesWithFRA.forEach((store) => {
           if (ratingByStoreId.has(store.id)) {
             store.fire_risk_assessment_rating = ratingByStoreId.get(store.id) || null
+            store.fire_risk_assessment_instance_id = instanceIdByStoreId.get(store.id) || null
           }
         })
       }

@@ -13,7 +13,7 @@ import { getFRAPDFDownloadUrl, deleteFRAPDF } from '@/app/actions/fra-pdfs'
 import { updateFRA } from '@/app/actions/stores'
 import { uploadFraPdfFromClient } from '@/lib/fra/upload-pdf-client'
 import { can } from '@/lib/role-capabilities'
-import { Upload, File, SlidersHorizontal, ChevronDown, ChevronUp, Search } from 'lucide-react'
+import { Upload, File, Flame, SlidersHorizontal, ChevronDown, ChevronUp, Search } from 'lucide-react'
 import { PDFViewerModal } from '@/components/shared/pdf-viewer-modal'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { 
@@ -225,6 +225,10 @@ export function FRATable({
   }
 
   const handleViewPDF = (row: FRARow) => {
+    if (row.fire_risk_assessment_instance_id) {
+      window.location.href = `/audit-lab/view-fra-report?instanceId=${row.fire_risk_assessment_instance_id}`
+      return
+    }
     if (!row.fire_risk_assessment_pdf_path) return
     setSelectedPdfRow(row)
     setPdfViewerOpen(true)
@@ -607,7 +611,17 @@ export function FRATable({
                               {row.fire_risk_assessment_date ? 'Edit FRA' : 'Add FRA'}
                             </Button>
                           ) : null}
-                          {row.fire_risk_assessment_pdf_path ? (
+                          {row.fire_risk_assessment_instance_id ? (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleViewPDF(row)}
+                              className="h-8 border border-slate-200 bg-white px-2.5 text-xs text-slate-700 hover:bg-slate-50"
+                            >
+                              <Flame className="h-3.5 w-3.5 mr-1 text-orange-600" />
+                              View FRA
+                            </Button>
+                          ) : row.fire_risk_assessment_pdf_path ? (
                             <>
                               <Button
                                 size="sm"
@@ -774,7 +788,17 @@ export function FRATable({
                             
                             <TableCell className="border-b bg-white group-hover:bg-slate-50">
                               <div className="flex items-center gap-1">
-                                {row.fire_risk_assessment_pdf_path ? (
+                                {row.fire_risk_assessment_instance_id ? (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => handleViewPDF(row)}
+                                    className="h-7 border border-slate-200 bg-white px-2 text-xs hover:bg-slate-50"
+                                    title="View FRA"
+                                  >
+                                    <Flame className="h-4 w-4 text-orange-600" />
+                                  </Button>
+                                ) : row.fire_risk_assessment_pdf_path ? (
                                   <>
                                     <Button
                                       size="sm"
