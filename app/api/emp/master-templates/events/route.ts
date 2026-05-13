@@ -84,6 +84,38 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ event: data })
     }
 
+    let existingEventQuery = (supabase as any)
+      .from('emp_master_template_events')
+      .select('id')
+      .eq('event_name', eventName)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+
+    existingEventQuery = eventDate
+      ? existingEventQuery.eq('event_date', eventDate)
+      : existingEventQuery.is('event_date', null)
+
+    const { data: existingEvent, error: existingEventError } = await existingEventQuery.maybeSingle()
+
+    if (existingEventError) {
+      throw new Error(existingEventError?.message || 'Failed to find existing EMP template event')
+    }
+
+    if (existingEvent?.id) {
+      const { data, error } = await (supabase as any)
+        .from('emp_master_template_events')
+        .update(payload)
+        .eq('id', existingEvent.id)
+        .select('id, event_name, event_date, prefill_data, created_at, updated_at')
+        .single()
+
+      if (error) {
+        throw new Error(error?.message || 'Failed to update EMP template event')
+      }
+
+      return NextResponse.json({ event: data })
+    }
+
     const { data, error } = await (supabase as any)
       .from('emp_master_template_events')
       .insert({

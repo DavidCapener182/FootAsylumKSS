@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertTriangle,
   ClipboardCheck,
@@ -57,6 +57,8 @@ type EmpMasterTemplateEventProfile = {
   id: string
   event_name: string
   event_date: string | null
+  created_at?: string | null
+  updated_at?: string | null
   prefill_data: {
     eventName?: string
     eventDate?: string
@@ -81,6 +83,8 @@ type StoredEmpMasterTemplatePrefill = {
   templateTableCellValues?: Record<string, Record<string, string>>
   templateTablePageValues?: Record<string, EmpMasterTemplateTablePagePrefill[]>
 }
+
+type SharedEventPrefillData = NonNullable<EmpMasterTemplateEventProfile['prefill_data']>
 
 const iconMap: Record<EmpMasterTemplateIconKey, typeof Shield> = {
   shield: Shield,
@@ -151,6 +155,52 @@ function getStaffContactOptions(eventName: string, planTitle = ''): StaffAssignm
 
 function getPrefillStorageKey(planId?: string) {
   return planId ? `${PREFILL_STORAGE_KEY}:plan:${planId}` : `${PREFILL_STORAGE_KEY}:manual`
+}
+
+function normalizeEventProfileName(value: string | null | undefined) {
+  return String(value || '').trim().toLowerCase()
+}
+
+function normalizeEventProfileDate(value: string | null | undefined) {
+  return String(value || '').trim()
+}
+
+function getEventProfileName(profile: EmpMasterTemplateEventProfile) {
+  return String(profile.prefill_data?.eventName || profile.event_name || '').trim()
+}
+
+function getEventProfileDate(profile: EmpMasterTemplateEventProfile) {
+  return String(profile.prefill_data?.eventDate || profile.event_date || '').trim()
+}
+
+function findMatchingEventProfile(
+  profiles: EmpMasterTemplateEventProfile[],
+  eventName: string,
+  eventDate: string
+) {
+  const normalizedName = normalizeEventProfileName(eventName)
+  const normalizedDate = normalizeEventProfileDate(eventDate)
+  if (!normalizedName) return null
+
+  const nameMatches = profiles.filter((profile) => normalizeEventProfileName(getEventProfileName(profile)) === normalizedName)
+  if (!nameMatches.length) return null
+
+  if (normalizedDate) {
+    const dateMatch = nameMatches.find((profile) => normalizeEventProfileDate(getEventProfileDate(profile)) === normalizedDate)
+    if (dateMatch) return dateMatch
+  }
+
+  return nameMatches[0] || null
+}
+
+function upsertEventProfile(
+  profiles: EmpMasterTemplateEventProfile[],
+  eventProfile: EmpMasterTemplateEventProfile
+) {
+  const existingIndex = profiles.findIndex((profile) => profile.id === eventProfile.id)
+  if (existingIndex === -1) return [eventProfile, ...profiles]
+
+  return profiles.map((profile, index) => (index === existingIndex ? eventProfile : profile))
 }
 
 function parseStoredPrefill(raw: string | null): StoredEmpMasterTemplatePrefill | null {
@@ -359,10 +409,18 @@ export function EmpMasterTemplatesClient({
   const [selectedTemplateIds, setSelectedTemplateIds] = useState<string[]>([])
   const [isBulkDownloading, setIsBulkDownloading] = useState(false)
   const [eventProfiles, setEventProfiles] = useState<EmpMasterTemplateEventProfile[]>([])
+  const [eventProfilesLoaded, setEventProfilesLoaded] = useState(false)
   const [activeEventProfileId, setActiveEventProfileId] = useState('')
   const [isSavingEventProfile, setIsSavingEventProfile] = useState(false)
   const storageKey = useMemo(() => getPrefillStorageKey(initialPlanPrefill?.planId), [initialPlanPrefill?.planId])
   const [loadedStorageKey, setLoadedStorageKey] = useState('')
+  const activeEventProfileIdRef = useRef('')
+  const autosaveTimerRef = useRef<number | null>(null)
+  const hasAppliedInitialSharedProfileRef = useRef(false)
+  const isApplyingSharedProfileRef = useRef(false)
+  const isSavingSharedProfileRef = useRef(false)
+  const lastSharedPayloadRef = useRef('')
+  const lastSharedUpdatedAtRef = useRef('')
 
   const activeTemplate = useMemo<EmpMasterTemplateDefinition | null>(
     () => EMP_MASTER_TEMPLATES.find((template) => template.id === activeTemplateId) ?? EMP_VISIBLE_MASTER_TEMPLATES[0] ?? null,
@@ -398,6 +456,136 @@ export function EmpMasterTemplatesClient({
   )
 
   useEffect(() => {
+    activeEventProfileIdRef.current = activeEventProfileId
+  }, [activeEventProfileId])
+
+  const buildSharedPrefillData = useCallback((): SharedEventPrefillData => {
+    const syncedTemplateTablePageValues = { ...templateTablePageValues }
+    if (Array.isArray(syncedTemplateTablePageValues['deployment-matrix'])) {
+      syncedTemplateTablePageValues['deployment-matrix'] = syncDeploymentMatrixEventPagesFromSourcePages(
+        syncedTemplateTablePageValues['deployment-matrix']
+      )
+    }
+
+    return {
+      eventName: eventName.trim(),
+      eventDate,
+      templateFieldValues,
+      templateTableCellValues,
+      templateTablePageValues: syncedTemplateTablePageValues,
+    }
+  }, [eventDate, eventName, templateFieldValues, templateTableCellValues, templateTablePageValues])
+
+  const applySharedEventProfile = useCallback((profile: EmpMasterTemplateEventProfile) => {
+    const prefill = profile.prefill_data || {}
+    const nextEventName = String(prefill.eventName || profile.event_name || '')
+    const nextEventDate = String(prefill.eventDate || profile.event_date || '')
+    const nextTemplateFieldValues =
+      prefill.templateFieldValues && typeof prefill.templateFieldValues === 'object'
+        ? sanitizeTemplateFieldValues(prefill.templateFieldValues)
+        : {}
+    const nextTemplateTableCellValues =
+      prefill.templateTableCellValues && typeof prefill.templateTableCellValues === 'object'
+        ? sanitizeTemplateTableCellValues(prefill.templateTableCellValues)
+        : {}
+    const nextTemplateTablePageValues =
+      prefill.templateTablePageValues && typeof prefill.templateTablePageValues === 'object'
+        ? sanitizeTablePageValues(prefill.templateTablePageValues)
+        : {}
+
+    isApplyingSharedProfileRef.current = true
+    activeEventProfileIdRef.current = profile.id
+    lastSharedUpdatedAtRef.current = profile.updated_at || ''
+    lastSharedPayloadRef.current = JSON.stringify({
+      eventName: nextEventName.trim(),
+      eventDate: nextEventDate,
+      templateFieldValues: nextTemplateFieldValues,
+      templateTableCellValues: nextTemplateTableCellValues,
+      templateTablePageValues: nextTemplateTablePageValues,
+    })
+
+    setActiveEventProfileId(profile.id)
+    setEventName(nextEventName)
+    setEventDate(nextEventDate)
+    setTemplateFieldValues(nextTemplateFieldValues)
+    setTemplateTableCellValues(nextTemplateTableCellValues)
+    setTemplateTablePageValues(nextTemplateTablePageValues)
+  }, [])
+
+  const loadEventProfiles = useCallback(async () => {
+    const response = await fetch('/api/emp/master-templates/events', { cache: 'no-store' })
+    if (!response.ok) {
+      setEventProfilesLoaded(true)
+      return []
+    }
+
+    const payload = await response.json().catch(() => ({}))
+    const profiles = Array.isArray(payload?.events) ? payload.events as EmpMasterTemplateEventProfile[] : []
+    setEventProfiles(profiles)
+    setEventProfilesLoaded(true)
+    return profiles
+  }, [])
+
+  const persistSharedEventProfile = useCallback(async ({
+    prefillData = buildSharedPrefillData(),
+    showAlert = false,
+  }: {
+    prefillData?: SharedEventPrefillData
+    showAlert?: boolean
+  } = {}) => {
+    const trimmedEventName = String(prefillData.eventName || eventName || '').trim()
+    if (!trimmedEventName) {
+      if (showAlert) window.alert('Please add an event name before saving.')
+      return
+    }
+
+    if (isSavingSharedProfileRef.current && !showAlert) return
+
+    const serializedPrefillData = JSON.stringify({
+      ...prefillData,
+      eventName: trimmedEventName,
+    })
+    if (!showAlert && serializedPrefillData === lastSharedPayloadRef.current) return
+
+    isSavingSharedProfileRef.current = true
+    setIsSavingEventProfile(true)
+    try {
+      const response = await fetch('/api/emp/master-templates/events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: activeEventProfileIdRef.current || undefined,
+          eventName: trimmedEventName,
+          eventDate: prefillData.eventDate || null,
+          prefillData: {
+            ...prefillData,
+            eventName: trimmedEventName,
+          },
+        }),
+      })
+
+      const payload = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        throw new Error(payload?.error || 'Failed to save event profile')
+      }
+
+      const savedEvent = payload?.event as EmpMasterTemplateEventProfile | undefined
+      if (savedEvent?.id) {
+        activeEventProfileIdRef.current = savedEvent.id
+        lastSharedUpdatedAtRef.current = savedEvent.updated_at || ''
+        lastSharedPayloadRef.current = serializedPrefillData
+        setActiveEventProfileId(savedEvent.id)
+        setEventProfiles((previous) => upsertEventProfile(previous, savedEvent))
+      }
+    } catch (error: any) {
+      if (showAlert) window.alert(error?.message || 'Failed to save event profile')
+    } finally {
+      isSavingSharedProfileRef.current = false
+      setIsSavingEventProfile(false)
+    }
+  }, [buildSharedPrefillData, eventName])
+
+  useEffect(() => {
     const stored = parseStoredPrefill(window.localStorage.getItem(storageKey))
     const legacyStored = parseStoredPrefill(window.localStorage.getItem(PREFILL_STORAGE_KEY))
     const matchingLegacyStored =
@@ -419,17 +607,110 @@ export function EmpMasterTemplatesClient({
     setLoadedStorageKey(storageKey)
   }, [initialPlanPrefill, initialPrefillData?.eventName, storageKey])
 
-  const loadEventProfiles = async () => {
-    const response = await fetch('/api/emp/master-templates/events', { cache: 'no-store' })
-    if (!response.ok) return
-    const payload = await response.json().catch(() => ({}))
-    const profiles = Array.isArray(payload?.events) ? payload.events : []
-    setEventProfiles(profiles)
-  }
-
   useEffect(() => {
     loadEventProfiles().catch(() => {})
-  }, [])
+  }, [loadEventProfiles])
+
+  useEffect(() => {
+    if (!eventProfilesLoaded || loadedStorageKey !== storageKey || hasAppliedInitialSharedProfileRef.current) return
+
+    const lookupEventName = eventName || initialPrefillData?.eventName || ''
+    if (!lookupEventName.trim()) return
+
+    const profile = findMatchingEventProfile(
+      eventProfiles,
+      lookupEventName,
+      eventDate || initialPrefillData?.eventDate || ''
+    )
+    if (profile) {
+      applySharedEventProfile(profile)
+    }
+
+    hasAppliedInitialSharedProfileRef.current = true
+  }, [
+    eventDate,
+    eventName,
+    eventProfiles,
+    eventProfilesLoaded,
+    initialPrefillData?.eventDate,
+    initialPrefillData?.eventName,
+    applySharedEventProfile,
+    loadedStorageKey,
+    storageKey,
+  ])
+
+  useEffect(() => {
+    if (!eventProfilesLoaded || loadedStorageKey !== storageKey || !hasAppliedInitialSharedProfileRef.current) return
+
+    if (isApplyingSharedProfileRef.current) {
+      isApplyingSharedProfileRef.current = false
+      return
+    }
+
+    const trimmedEventName = eventName.trim()
+    if (!trimmedEventName) return
+
+    const prefillData = buildSharedPrefillData()
+    const serializedPrefillData = JSON.stringify({
+      ...prefillData,
+      eventName: trimmedEventName,
+    })
+    if (serializedPrefillData === lastSharedPayloadRef.current) return
+
+    if (autosaveTimerRef.current) window.clearTimeout(autosaveTimerRef.current)
+    autosaveTimerRef.current = window.setTimeout(() => {
+      autosaveTimerRef.current = null
+      persistSharedEventProfile({ prefillData }).catch(() => {})
+    }, 900)
+
+    return () => {
+      if (autosaveTimerRef.current) {
+        window.clearTimeout(autosaveTimerRef.current)
+        autosaveTimerRef.current = null
+      }
+    }
+  }, [
+    eventDate,
+    eventName,
+    eventProfilesLoaded,
+    buildSharedPrefillData,
+    persistSharedEventProfile,
+    loadedStorageKey,
+    storageKey,
+    templateFieldValues,
+    templateTableCellValues,
+    templateTablePageValues,
+  ])
+
+  useEffect(() => {
+    if (!eventProfilesLoaded || loadedStorageKey !== storageKey) return
+
+    const refreshSharedEventProfile = async () => {
+      const profiles = await loadEventProfiles()
+      const activeProfileId = activeEventProfileIdRef.current
+      const profile = activeProfileId
+        ? profiles.find((item) => item.id === activeProfileId)
+        : findMatchingEventProfile(profiles, eventName, eventDate)
+
+      if (!profile || isSavingSharedProfileRef.current) return
+      if (profile.updated_at && profile.updated_at === lastSharedUpdatedAtRef.current) return
+
+      applySharedEventProfile(profile)
+    }
+
+    const refreshOnFocus = () => {
+      refreshSharedEventProfile().catch(() => {})
+    }
+    const intervalId = window.setInterval(() => {
+      refreshSharedEventProfile().catch(() => {})
+    }, 12000)
+
+    window.addEventListener('focus', refreshOnFocus)
+    return () => {
+      window.clearInterval(intervalId)
+      window.removeEventListener('focus', refreshOnFocus)
+    }
+  }, [applySharedEventProfile, eventDate, eventName, eventProfilesLoaded, loadEventProfiles, loadedStorageKey, storageKey])
 
   useEffect(() => {
     if (loadedStorageKey !== storageKey) return
@@ -698,67 +979,18 @@ export function EmpMasterTemplatesClient({
   const hasBulkSelection = selectedTemplateIds.length > 0
 
   const applyEventProfile = (profileId: string) => {
-    setActiveEventProfileId(profileId)
     const profile = eventProfiles.find((item) => item.id === profileId)
-    if (!profile) return
-    const prefill = profile.prefill_data || {}
-    setEventName(String(prefill.eventName || profile.event_name || ''))
-    setEventDate(String(prefill.eventDate || profile.event_date || ''))
-    setTemplateFieldValues(
-      prefill.templateFieldValues && typeof prefill.templateFieldValues === 'object'
-        ? sanitizeTemplateFieldValues(prefill.templateFieldValues)
-        : {}
-    )
-    setTemplateTableCellValues(
-      prefill.templateTableCellValues && typeof prefill.templateTableCellValues === 'object'
-        ? sanitizeTemplateTableCellValues(prefill.templateTableCellValues)
-        : {}
-    )
-    setTemplateTablePageValues(
-      prefill.templateTablePageValues && typeof prefill.templateTablePageValues === 'object'
-        ? sanitizeTablePageValues(prefill.templateTablePageValues)
-        : {}
-    )
-  }
-
-  const saveEventProfile = async () => {
-    const trimmedEventName = eventName.trim()
-    if (!trimmedEventName) {
-      window.alert('Please add an event name before saving.')
+    if (!profile) {
+      setActiveEventProfileId(profileId)
+      activeEventProfileIdRef.current = profileId
       return
     }
 
-    setIsSavingEventProfile(true)
-    try {
-      const response = await fetch('/api/emp/master-templates/events', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: activeEventProfileId || undefined,
-          eventName: trimmedEventName,
-          eventDate: eventDate || null,
-          prefillData: {
-            eventName: trimmedEventName,
-            eventDate,
-            templateFieldValues,
-            templateTableCellValues,
-            templateTablePageValues,
-          },
-        }),
-      })
+    applySharedEventProfile(profile)
+  }
 
-      const payload = await response.json().catch(() => ({}))
-      if (!response.ok) {
-        throw new Error(payload?.error || 'Failed to save event profile')
-      }
-
-      setActiveEventProfileId(String(payload?.event?.id || ''))
-      await loadEventProfiles()
-    } catch (error: any) {
-      window.alert(error?.message || 'Failed to save event profile')
-    } finally {
-      setIsSavingEventProfile(false)
-    }
+  const saveEventProfile = async () => {
+    await persistSharedEventProfile({ showAlert: true })
   }
 
   const deleteEventProfile = async () => {
@@ -774,6 +1006,9 @@ export function EmpMasterTemplatesClient({
         throw new Error(payload?.error || 'Failed to delete event profile')
       }
       setActiveEventProfileId('')
+      activeEventProfileIdRef.current = ''
+      lastSharedPayloadRef.current = ''
+      lastSharedUpdatedAtRef.current = ''
       await loadEventProfiles()
     } catch (error: any) {
       window.alert(error?.message || 'Failed to delete event profile')
