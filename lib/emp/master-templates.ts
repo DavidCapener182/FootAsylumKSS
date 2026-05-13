@@ -42,6 +42,7 @@ type EmpMasterTemplateBase = {
   orientation: EmpMasterTemplateOrientation
   notice?: EmpMasterTemplateNotice
   titleTone?: EmpMasterTemplateTitleTone
+  hiddenFromDocuments?: boolean
 }
 
 export type EmpMasterTemplateField = {
@@ -512,6 +513,7 @@ export const EMP_MASTER_TEMPLATES: EmpMasterTemplateDefinition[] = [
     filename: '14_Daily_Security_Brief.pdf',
     orientation: 'portrait',
     kind: 'narrative_form',
+    hiddenFromDocuments: true,
     headerFields: [
       { label: 'Event Name & Date' },
       { label: 'Duty Security Manager' },
@@ -608,6 +610,8 @@ export const EMP_MASTER_TEMPLATES: EmpMasterTemplateDefinition[] = [
   },
 ]
 
+export const EMP_VISIBLE_MASTER_TEMPLATES = EMP_MASTER_TEMPLATES.filter((template) => !template.hiddenFromDocuments)
+
 export function getEmpMasterTemplateById(templateId: string | null | undefined) {
   const normalizedId = String(templateId || '').trim().toLowerCase()
   return EMP_MASTER_TEMPLATES.find((template) => template.id === normalizedId) ?? null
@@ -616,6 +620,6 @@ export function getEmpMasterTemplateById(templateId: string | null | undefined) 
 export function groupEmpMasterTemplatesByCategory() {
   return EMP_MASTER_TEMPLATE_CATEGORIES.map((category) => ({
     category,
-    templates: EMP_MASTER_TEMPLATES.filter((template) => template.category === category),
+    templates: EMP_VISIBLE_MASTER_TEMPLATES.filter((template) => template.category === category),
   }))
 }

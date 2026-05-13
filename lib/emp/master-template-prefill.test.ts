@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
+  applyDeploymentMatrixSourcePageOverrides,
+  buildDeploymentMatrixSourcePageOverrides,
   buildEmpMasterTemplatePrefillFromFieldValues,
   buildSupervisorDeploymentTablePagesFromDeploymentCells,
   extractEmpTemplateIsoDates,
   extractFirstEmpTemplateIsoDate,
+  syncDeploymentMatrixEventPagesFromSourcePages,
 } from '@/lib/emp/master-template-prefill'
 
 describe('emp master template prefill', () => {
@@ -325,6 +328,161 @@ describe('emp master template prefill', () => {
       tableCells: {
         '17:zone': 'Bar 6 Guest',
         '17:position': 'SIA',
+      },
+    })
+  })
+
+  it('syncs deployment matrix first-day page edits across matching event days', () => {
+    const pages = syncDeploymentMatrixEventPagesFromSourcePages([
+      {
+        fields: { Date: 'Friday 22/05/2026' },
+        tableCells: {
+          '0:zone': 'Response',
+          '0:position': 'Supervisor',
+          '0:assigned': 'Floyd Allen',
+          '0:supervisor': 'Floyd Allen',
+        },
+      },
+      {
+        fields: { Date: 'Friday 22/05/2026' },
+        tableCells: {
+          '0:zone': 'Bar 3',
+          '0:position': 'Supervisor',
+          '0:assigned': 'Nigel Train',
+          '0:supervisor': 'Nigel Train',
+        },
+      },
+      {
+        fields: { Date: 'Saturday 23/05/2026' },
+        tableCells: {
+          '0:zone': 'Response',
+          '0:position': 'Supervisor',
+          '0:assigned': 'Old Saturday Response',
+          '0:supervisor': 'Old Saturday Response',
+        },
+      },
+      {
+        fields: { Date: 'Saturday 23/05/2026' },
+        tableCells: {
+          '0:zone': 'Bar 3',
+          '0:position': 'Supervisor',
+          '0:assigned': 'Old Saturday Bar',
+          '0:supervisor': 'Old Saturday Bar',
+        },
+      },
+      {
+        fields: { Date: 'Sunday 24/05/2026' },
+        tableCells: {
+          '0:zone': 'Response',
+          '0:position': 'Supervisor',
+        },
+      },
+      {
+        fields: { Date: 'Sunday 24/05/2026' },
+        tableCells: {
+          '0:zone': 'Bar 3',
+          '0:position': 'Supervisor',
+        },
+      },
+    ])
+
+    expect(pages[2]).toMatchObject({
+      fields: { Date: 'Saturday 23/05/2026' },
+      tableCells: {
+        '0:assigned': 'Floyd Allen',
+        '0:supervisor': 'Floyd Allen',
+      },
+    })
+    expect(pages[3]).toMatchObject({
+      fields: { Date: 'Saturday 23/05/2026' },
+      tableCells: {
+        '0:assigned': 'Nigel Train',
+        '0:supervisor': 'Nigel Train',
+      },
+    })
+    expect(pages[4]).toMatchObject({
+      fields: { Date: 'Sunday 24/05/2026' },
+      tableCells: {
+        '0:assigned': 'Floyd Allen',
+        '0:supervisor': 'Floyd Allen',
+      },
+    })
+    expect(pages[5]).toMatchObject({
+      fields: { Date: 'Sunday 24/05/2026' },
+      tableCells: {
+        '0:assigned': 'Nigel Train',
+        '0:supervisor': 'Nigel Train',
+      },
+    })
+  })
+
+  it('applies compact first-day deployment overrides to plan-loaded event pages', () => {
+    const basePages = [
+      {
+        fields: { Date: 'Friday 22/05/2026' },
+        tableCells: {
+          '0:zone': 'Response',
+          '0:position': 'Supervisor',
+          '0:assigned': '',
+          '0:supervisor': 'Supervisor',
+        },
+      },
+      {
+        fields: { Date: 'Saturday 23/05/2026' },
+        tableCells: {
+          '0:zone': 'Response',
+          '0:position': 'Supervisor',
+          '0:assigned': '',
+          '0:supervisor': 'Supervisor',
+        },
+      },
+      {
+        fields: { Date: 'Sunday 24/05/2026' },
+        tableCells: {
+          '0:zone': 'Response',
+          '0:position': 'Supervisor',
+          '0:assigned': '',
+          '0:supervisor': 'Supervisor',
+        },
+      },
+    ]
+    const editedPages = [
+      {
+        fields: { Date: 'Friday 22/05/2026' },
+        tableCells: {
+          '0:zone': 'Response',
+          '0:position': 'Supervisor',
+          '0:assigned': 'Floyd Allen',
+          '0:supervisor': 'Floyd Allen',
+        },
+      },
+      basePages[1],
+      basePages[2],
+    ]
+
+    const overrides = buildDeploymentMatrixSourcePageOverrides(editedPages, basePages)
+    const pages = applyDeploymentMatrixSourcePageOverrides(basePages, overrides)
+
+    expect(overrides).toEqual([
+      {
+        tableCells: {
+          '0:assigned': 'Floyd Allen',
+          '0:supervisor': 'Floyd Allen',
+        },
+      },
+    ])
+    expect(pages[1]).toMatchObject({
+      fields: { Date: 'Saturday 23/05/2026' },
+      tableCells: {
+        '0:assigned': 'Floyd Allen',
+        '0:supervisor': 'Floyd Allen',
+      },
+    })
+    expect(pages[2]).toMatchObject({
+      fields: { Date: 'Sunday 24/05/2026' },
+      tableCells: {
+        '0:assigned': 'Floyd Allen',
+        '0:supervisor': 'Floyd Allen',
       },
     })
   })

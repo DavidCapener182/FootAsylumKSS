@@ -4,6 +4,10 @@ import { EmpMasterTemplatePrintToolbar } from '@/components/emp/emp-master-templ
 import { buttonVariants } from '@/components/ui/button'
 import { requireEmpAccess } from '@/lib/emp/access'
 import { getEmpMasterTemplatePlanPrefill } from '@/lib/emp/data'
+import {
+  applyDeploymentMatrixSourcePageOverrides,
+  syncDeploymentMatrixEventPagesFromSourcePages,
+} from '@/lib/emp/master-template-prefill'
 import { getEmpMasterTemplateById } from '@/lib/emp/master-templates'
 import { cn } from '@/lib/utils'
 
@@ -12,7 +16,7 @@ export const dynamic = 'force-dynamic'
 export default async function EmpMasterTemplatePrintPage({
   searchParams,
 }: {
-  searchParams: { templateId?: string; prefill?: string; planId?: string }
+  searchParams: { templateId?: string; prefill?: string; planId?: string; deploymentOverrides?: string }
 }) {
   await requireEmpAccess()
 
@@ -36,6 +40,11 @@ export default async function EmpMasterTemplatePrintPage({
         ? 'A4 landscape'
         : 'A4 portrait'
   const prefillRaw = String(searchParams?.prefill || '')
+  const deploymentOverridesRaw = String(searchParams?.deploymentOverrides || '')
+  let deploymentOverrides: Array<{
+    fields?: Record<string, string>
+    tableCells?: Record<string, string>
+  }> = []
   let prefillValues: {
     eventName?: string
     eventDate?: string
@@ -57,19 +66,41 @@ export default async function EmpMasterTemplatePrintPage({
       prefillValues = {}
     }
   } else if (planId) {
+    if (deploymentOverridesRaw) {
+      try {
+        const parsedOverrides = JSON.parse(deploymentOverridesRaw)
+        deploymentOverrides = Array.isArray(parsedOverrides) ? parsedOverrides : []
+      } catch {
+        deploymentOverrides = []
+      }
+    }
+
     const planPrefill = await getEmpMasterTemplatePlanPrefill(planId)
+    const tablePages = planPrefill.prefillData.templateTablePageValues?.[template.id] || []
     prefillValues = {
       eventName: planPrefill.prefillData.eventName,
       eventDate: planPrefill.prefillData.eventDate,
       fields: planPrefill.prefillData.templateFieldValues?.[template.id] || {},
       tableCells: planPrefill.prefillData.templateTableCellValues?.[template.id] || {},
-      tablePages: planPrefill.prefillData.templateTablePageValues?.[template.id] || [],
+      tablePages: template.id === 'deployment-matrix'
+        ? applyDeploymentMatrixSourcePageOverrides(tablePages, deploymentOverrides)
+        : tablePages,
+    }
+  }
+
+  if (template.id === 'deployment-matrix' && prefillValues.tablePages?.length) {
+    prefillValues = {
+      ...prefillValues,
+      tablePages: syncDeploymentMatrixEventPagesFromSourcePages(prefillValues.tablePages),
     }
   }
 
   const queryParams = new URLSearchParams({ templateId: template.id })
   if (planId && !prefillRaw) {
     queryParams.set('planId', planId)
+    if (deploymentOverridesRaw) {
+      queryParams.set('deploymentOverrides', deploymentOverridesRaw)
+    }
   } else {
     queryParams.set('prefill', JSON.stringify(prefillValues))
   }

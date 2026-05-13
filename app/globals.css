@@ -1433,9 +1433,9 @@ body.fra-print-preview .fra-preview-hide-toolbar {
 .emp-radio-one-brief-title-block h1 {
   margin: 0;
   color: #020617;
-  font-size: 12.4px;
+  font-size: 11.8px;
   font-weight: 800;
-  line-height: 1.05;
+  line-height: 1;
   letter-spacing: 0;
 }
 
@@ -1444,6 +1444,13 @@ body.fra-print-preview .fra-preview-hide-toolbar {
   color: #475569;
   font-size: 7.4px;
   font-weight: 600;
+}
+
+.emp-radio-one-brief-title-block .emp-radio-one-event-title {
+  color: #020617;
+  font-size: 8px;
+  font-weight: 800;
+  line-height: 1.08;
 }
 
 .emp-radio-one-brief-title-block .emp-radio-one-subtitle {

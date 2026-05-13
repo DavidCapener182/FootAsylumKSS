@@ -1,5 +1,5 @@
 /* eslint-disable @next/next/no-img-element */
-import type { ReactNode } from 'react'
+import React, { type ReactNode } from 'react'
 
 type RadioOneBriefDay = {
   key: string
@@ -15,6 +15,7 @@ type RadioOneBriefDay = {
 const CONTROL_FOOTER =
   'KSS NW LTD | Staff Briefing Use Only | Controlled Operational Brief | Not for Public Distribution'
 
+const DOCUMENT_HEADING = 'Radio One Event Week Security Brief'
 const EVENT_TITLE = "BBC Radio 1's Big Weekend Sunderland 2026"
 const EVENT_WEEK_LABEL = 'Friday 22 May - Sunday 24 May 2026'
 const EVENT_WEEK_SHORT_LABEL = '22-24 May 2026'
@@ -147,7 +148,8 @@ function BriefPage({
           </div>
           <div className="emp-radio-one-brief-title-block">
             <div className="emp-radio-one-kicker">Controlled Bar Security Briefing</div>
-            <h1>{EVENT_TITLE}</h1>
+            <h1>{DOCUMENT_HEADING}</h1>
+            <p className="emp-radio-one-event-title">{EVENT_TITLE}</p>
             <p className="emp-radio-one-subtitle">Event Week KSS Bar Security Brief - {EVENT_WEEK_LABEL}</p>
             <p>Venue: {VENUE_FULL}</p>
           </div>

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   EMP_MASTER_TEMPLATES,
+  EMP_VISIBLE_MASTER_TEMPLATES,
   getEmpMasterTemplateById,
   groupEmpMasterTemplatesByCategory,
 } from '@/lib/emp/master-templates'
@@ -18,7 +19,7 @@ describe('emp master templates', () => {
     const groupedIds = groups.flatMap((group) => group.templates).map((template) => template.id)
 
     expect(groups.map((group) => group.category)).toEqual(['Plans', 'Checklists', 'Logs', 'Briefings'])
-    expect([...groupedIds].sort()).toEqual([...EMP_MASTER_TEMPLATES.map((template) => template.id)].sort())
+    expect([...groupedIds].sort()).toEqual([...EMP_VISIBLE_MASTER_TEMPLATES.map((template) => template.id)].sort())
   })
 
   it('numbers active documents sequentially in displayed category order', () => {
@@ -44,7 +45,6 @@ describe('emp master templates', () => {
       { id: 'incident-accident-form', documentCode: 'EMP-MT-11', filename: '11_Incident_Accident_Form.pdf' },
       { id: 'refusal-of-entry-ejection-log', documentCode: 'EMP-MT-12', filename: '12_Refusal_Ejection_Log.pdf' },
       { id: 'suspicious-item-concern-report', documentCode: 'EMP-MT-13', filename: '13_Suspicious_Item_Report.pdf' },
-      { id: 'daily-security-brief', documentCode: 'EMP-MT-14', filename: '14_Daily_Security_Brief.pdf' },
       { id: 'duty-manager-debrief', documentCode: 'EMP-MT-15', filename: '15_Duty_Manager_Debrief.pdf' },
       { id: 'radio-one-daily-security-brief', documentCode: 'EMP-MT-16', filename: '16_Radio_One_Event_Week_Security_Brief.pdf' },
     ])
@@ -53,6 +53,16 @@ describe('emp master templates', () => {
   it('contains all sixteen event management documents', () => {
     expect(EMP_MASTER_TEMPLATES).toHaveLength(16)
     expect(EMP_MASTER_TEMPLATES.map((template) => template.id)).not.toContain('event-control-log')
+  })
+
+  it('hides the standard daily security brief from document lists but keeps direct lookup', () => {
+    const displayedTemplates = groupEmpMasterTemplatesByCategory().flatMap((group) => group.templates)
+    const hiddenTemplate = getEmpMasterTemplateById('daily-security-brief')
+
+    expect(hiddenTemplate?.title).toBe('Daily Security Brief')
+    expect(hiddenTemplate?.hiddenFromDocuments).toBe(true)
+    expect(displayedTemplates.map((template) => template.id)).not.toContain('daily-security-brief')
+    expect(EMP_VISIBLE_MASTER_TEMPLATES.map((template) => template.id)).not.toContain('daily-security-brief')
   })
 
   it('adds a dedicated Radio One event week security briefing booklet', () => {

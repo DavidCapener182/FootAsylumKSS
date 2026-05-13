@@ -6,7 +6,7 @@ import { EMP_DEMO_EVENT_NAME } from '@/lib/emp/demo-plan'
 import { EMP_DOWNLOAD_EVENT_NAME } from '@/lib/emp/download-plan'
 import { EMP_BUSINESS_TEMPLATE_DESCRIPTION } from '@/lib/emp/business-template'
 import type { EmpPlanSummary } from '@/lib/emp/data'
-import { EMP_MASTER_TEMPLATES } from '@/lib/emp/master-templates'
+import { EMP_VISIBLE_MASTER_TEMPLATES } from '@/lib/emp/master-templates'
 import { cn, formatAppDateTime } from '@/lib/utils'
 
 export function EmpWorkspace({ plans }: { plans: EmpPlanSummary[] }) {
@@ -90,7 +90,7 @@ export function EmpWorkspace({ plans }: { plans: EmpPlanSummary[] }) {
               <p className="text-sm text-slate-600">
                 Blank event-day forms for sign-in, equipment issue, control logging, and incident records.
               </p>
-              <Badge variant="outline">{EMP_MASTER_TEMPLATES.length} PDFs</Badge>
+              <Badge variant="outline">{EMP_VISIBLE_MASTER_TEMPLATES.length} PDFs</Badge>
             </div>
             <p className="text-sm text-slate-500">
               Keep printable event management paperwork ready for live events, or open them from a plan-history row to prefill event details.

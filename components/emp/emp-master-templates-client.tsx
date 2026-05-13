@@ -29,13 +29,17 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
   EMP_MASTER_TEMPLATES,
+  EMP_VISIBLE_MASTER_TEMPLATES,
   groupEmpMasterTemplatesByCategory,
   type EmpMasterTemplateDefinition,
   type EmpMasterTemplateIconKey,
 } from '@/lib/emp/master-templates'
 import {
+  buildDeploymentMatrixSourcePageOverrides,
   buildSupervisorDeploymentTablePagesFromDeploymentCells,
   buildSupervisorDeploymentTablePagesFromDeploymentTablePages,
+  getDeploymentMatrixSourcePageCount,
+  syncDeploymentMatrixEventPagesFromSourcePages,
   type EmpMasterTemplatePlanPrefill,
 } from '@/lib/emp/master-template-prefill'
 import { getBbcRadioOneStaffForEvent } from '@/lib/emp/bbc-radio-one-staff'
@@ -221,12 +225,14 @@ function sanitizeTablePageValues(values: Record<string, EmpMasterTemplateTablePa
       if (templateId === 'deployment-matrix') {
         return [
           templateId,
-          pages.map((page) => ({
-            fields: page.fields || {},
-            tableCells: Object.fromEntries(
-              Object.entries(page.tableCells || {}).filter(([cellKey]) => !cellKey.endsWith(':required'))
-            ),
-          })),
+          syncDeploymentMatrixEventPagesFromSourcePages(
+            pages.map((page) => ({
+              fields: page.fields || {},
+              tableCells: Object.fromEntries(
+                Object.entries(page.tableCells || {}).filter(([cellKey]) => !cellKey.endsWith(':required'))
+              ),
+            }))
+          ),
         ]
       }
 
@@ -336,7 +342,7 @@ export function EmpMasterTemplatesClient({
   initialPlanPrefill?: EmpMasterTemplatePlanPrefill | null
 }) {
   const initialPrefillData = initialPlanPrefill?.prefillData
-  const [activeTemplateId, setActiveTemplateId] = useState(EMP_MASTER_TEMPLATES[0]?.id ?? '')
+  const [activeTemplateId, setActiveTemplateId] = useState(EMP_VISIBLE_MASTER_TEMPLATES[0]?.id ?? '')
   const [eventName, setEventName] = useState(initialPrefillData?.eventName || '')
   const [eventDate, setEventDate] = useState(initialPrefillData?.eventDate || '')
   const [detailsModalOpen, setDetailsModalOpen] = useState(false)
@@ -359,7 +365,7 @@ export function EmpMasterTemplatesClient({
   const [loadedStorageKey, setLoadedStorageKey] = useState('')
 
   const activeTemplate = useMemo<EmpMasterTemplateDefinition | null>(
-    () => EMP_MASTER_TEMPLATES.find((template) => template.id === activeTemplateId) ?? EMP_MASTER_TEMPLATES[0] ?? null,
+    () => EMP_MASTER_TEMPLATES.find((template) => template.id === activeTemplateId) ?? EMP_VISIBLE_MASTER_TEMPLATES[0] ?? null,
     [activeTemplateId]
   )
 
@@ -377,6 +383,10 @@ export function EmpMasterTemplatesClient({
   const activeTemplateFields = activeTemplate ? templateFieldValues[activeTemplate.id] || {} : {}
   const activeTemplateTableCells = activeTemplate ? templateTableCellValues[activeTemplate.id] || {} : {}
   const activeTemplateTablePages = activeTemplate ? templateTablePageValues[activeTemplate.id] || [] : []
+  const activeTemplateEditableTablePages =
+    activeTemplate?.id === 'deployment-matrix'
+      ? activeTemplateTablePages.slice(0, getDeploymentMatrixSourcePageCount(activeTemplateTablePages))
+      : activeTemplateTablePages
   const activeTemplateEditableRows = getEditableTableRowCount(activeTemplate, activeTemplateTableCells)
   const staffAssignmentOptions = useMemo(
     () => getStaffAssignmentOptions(templateTablePageValues['staff-sign-in-sign-out-sheet']),
@@ -555,14 +565,17 @@ export function EmpMasterTemplatesClient({
           [cellKey]: value,
         },
       }
+      const syncedPages = activeTemplate.id === 'deployment-matrix'
+        ? syncDeploymentMatrixEventPagesFromSourcePages(nextPages)
+        : nextPages
 
       const nextValues = {
         ...previous,
-        [activeTemplate.id]: nextPages,
+        [activeTemplate.id]: syncedPages,
       }
 
       if (activeTemplate.id === 'deployment-matrix') {
-        nextValues['supervisor-deployment'] = buildSyncedSupervisorDeploymentPagesFromDeploymentPages(nextPages)
+        nextValues['supervisor-deployment'] = buildSyncedSupervisorDeploymentPagesFromDeploymentPages(syncedPages)
       }
 
       return nextValues
@@ -581,16 +594,30 @@ export function EmpMasterTemplatesClient({
 
   const buildTemplateHrefForTemplate = (basePath: string, templateId: string) => {
     const params = new URLSearchParams({ templateId })
+    const rawTablePages = templateTablePageValues[templateId] || []
+    const tablePages = templateId === 'deployment-matrix'
+      ? syncDeploymentMatrixEventPagesFromSourcePages(rawTablePages)
+      : rawTablePages
     const prefillPayload = {
       eventName: eventName.trim(),
       eventDate,
       fields: templateFieldValues[templateId] || {},
       tableCells: templateTableCellValues[templateId] || {},
-      tablePages: templateTablePageValues[templateId] || [],
+      tablePages,
     }
     const serializedPrefill = JSON.stringify(prefillPayload)
     if (initialPlanPrefill && serializedPrefill.length > 6000) {
       params.set('planId', initialPlanPrefill.planId)
+      if (templateId === 'deployment-matrix') {
+        const sourcePageOverrides = buildDeploymentMatrixSourcePageOverrides(
+          tablePages,
+          initialPrefillData?.templateTablePageValues?.[templateId] || []
+        )
+        const serializedOverrides = JSON.stringify(sourcePageOverrides)
+        if (serializedOverrides !== '[]') {
+          params.set('deploymentOverrides', serializedOverrides)
+        }
+      }
     } else {
       params.set('prefill', serializedPrefill)
     }
@@ -612,7 +639,7 @@ export function EmpMasterTemplatesClient({
   }
 
   const selectAllTemplates = () => {
-    setSelectedTemplateIds(EMP_MASTER_TEMPLATES.map((template) => template.id))
+    setSelectedTemplateIds(EMP_VISIBLE_MASTER_TEMPLATES.map((template) => template.id))
   }
 
   const clearTemplateSelection = () => {
@@ -761,7 +788,7 @@ export function EmpMasterTemplatesClient({
             <div className="space-y-2">
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-2xl font-bold tracking-tight text-slate-900">Master Templates</h1>
-                <Badge variant="outline">{EMP_MASTER_TEMPLATES.length} documents</Badge>
+                <Badge variant="outline">{EMP_VISIBLE_MASTER_TEMPLATES.length} documents</Badge>
               </div>
               <p className="max-w-3xl text-sm text-slate-600">
                 Blank event-day plans, checklists, logs, and briefing sheets ready for live-event printing.
@@ -1025,9 +1052,9 @@ export function EmpMasterTemplatesClient({
           {activeTemplate.kind === 'table' ? (
             <div className="space-y-3 rounded-md border border-slate-200 p-3">
               <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-600">Table Cells (optional)</p>
-              {activeTemplateTablePages.length ? (
+              {activeTemplateEditableTablePages.length ? (
                 <div className="max-h-[62vh] space-y-4 overflow-auto rounded-md border border-slate-200 p-3">
-                  {activeTemplateTablePages.map((page, pageIndex) => (
+                  {activeTemplateEditableTablePages.map((page, pageIndex) => (
                     <div key={`modal-table-page-${pageIndex}`} className="overflow-hidden rounded-md border border-slate-200">
                       <div className="border-b border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700">
                         {getTablePageLabel(page, pageIndex)}
@@ -1215,7 +1242,7 @@ export function EmpMasterTemplatesClient({
 
           <div className="max-h-[48vh] overflow-auto rounded-md border border-slate-200">
             <div className="divide-y divide-slate-100">
-              {EMP_MASTER_TEMPLATES.map((template) => {
+              {EMP_VISIBLE_MASTER_TEMPLATES.map((template) => {
                 const checked = selectedTemplateIds.includes(template.id)
                 const checkboxId = `emp-bulk-${template.id}`
                 return (

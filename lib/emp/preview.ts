@@ -638,6 +638,9 @@ function buildDeploymentScheduleBlocks(
     if (/^bar [1-4]$/.test(normalizedZone)) {
       return 'Supervisor x1; SIA x5; Steward x2'
     }
+    if (/^bar 5$/.test(normalizedZone) || /^bar 6(?: guest)?$/.test(normalizedZone)) {
+      return 'Supervisor x1; SIA x1'
+    }
     if (/^response$/.test(normalizedZone)) {
       return 'Supervisor x1; SIA support x4'
     }
@@ -862,8 +865,8 @@ function radioOneBarOperatingMatrixRows() {
     ['Bar 2', 'V4', 'Supervisor x1; SIA x5; Steward x2', 'Serpentine / split feeder. High-volume queue pressure.', 'Prevent spillback into public circulation. Response support if refusals cluster. Welfare route TBC.'],
     ['Bar 3', 'U6', 'Supervisor x1; SIA x5; Steward x2', 'Serpentine / split feeder. Changeover pressure and lateral movement.', 'Protect adjacent circulation/routes. Monitor queue tail. Welfare route TBC.'],
     ['Bar 4', 'U7', 'Supervisor x1; SIA x5; Steward x2', 'Serpentine / split feeder. High demand and Challenge 25 pressure.', 'Keep emergency/stock routes clear. Coordinate with Peppermint manager. Welfare route TBC.'],
-    ['Bar 5', 'O6', 'SIA x1', 'Compact linear queue. Limited holding space and overspill risk.', 'Escalate early if queue exceeds footprint. Response may be required at peaks. Welfare route TBC.'],
-    ['Bar 6 Guest', 'Guest / VIP area', 'SIA x1', 'Compact guest queue. Accreditation, service dispute and refusal conflict.', 'Keep guest access clear. Escalate discreetly via supervisor/control. Welfare route TBC.'],
+    ['Bar 5', 'O6', 'Supervisor x1; SIA x1', 'Compact linear queue. Limited holding space and overspill risk.', 'Escalate early if queue exceeds footprint. Response may be required at peaks. Welfare route TBC.'],
+    ['Bar 6 Guest', 'Guest / VIP area', 'Supervisor x1; SIA x1', 'Compact guest queue. Accreditation, service dispute and refusal conflict.', 'Keep guest access clear. Escalate discreetly via supervisor/control. Welfare route TBC.'],
   ]
 }
 
@@ -876,7 +879,8 @@ function radioOneCallSignRows() {
     ['Bar 2 Supervisor', 'TBC', 'TBC'],
     ['Bar 3 Supervisor', 'TBC', 'TBC'],
     ['Bar 4 Supervisor', 'TBC', 'TBC'],
-    ['Bar 5 / Guest', 'TBC', 'TBC'],
+    ['Bar 5 Supervisor', 'TBC', 'TBC'],
+    ['Bar 6 Guest Supervisor', 'TBC', 'TBC'],
   ]
 }
 

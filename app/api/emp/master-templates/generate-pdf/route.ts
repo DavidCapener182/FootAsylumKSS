@@ -3,7 +3,11 @@ import type { Browser } from 'puppeteer'
 import JSZip from 'jszip'
 import { isCurrentEmpAdmin } from '@/lib/emp/access'
 import { getEmpMasterTemplatePlanPrefill } from '@/lib/emp/data'
-import { EMP_MASTER_TEMPLATES, getEmpMasterTemplateById, type EmpMasterTemplateDefinition } from '@/lib/emp/master-templates'
+import {
+  applyDeploymentMatrixSourcePageOverrides,
+  syncDeploymentMatrixEventPagesFromSourcePages,
+} from '@/lib/emp/master-template-prefill'
+import { getEmpMasterTemplateById, type EmpMasterTemplateDefinition } from '@/lib/emp/master-templates'
 import { launchPuppeteerBrowser } from '@/lib/pdf/puppeteer-browser'
 
 export const dynamic = 'force-dynamic'
@@ -141,14 +145,26 @@ function buildPrefillForTemplate(
       fields?: Record<string, string>
       tableCells?: Record<string, string>
     }>>
-  }
+  },
+  options: {
+    deploymentOverrides?: Array<{
+      fields?: Record<string, string>
+      tableCells?: Record<string, string>
+    }>
+  } = {}
 ) {
+  const tablePages = prefill.templateTablePageValues?.[templateId] || []
+
   return JSON.stringify({
     eventName: String(prefill.eventName || ''),
     eventDate: String(prefill.eventDate || ''),
     fields: prefill.templateFieldValues?.[templateId] || {},
     tableCells: prefill.templateTableCellValues?.[templateId] || {},
-    tablePages: prefill.templateTablePageValues?.[templateId] || [],
+    tablePages: templateId === 'deployment-matrix'
+      ? options.deploymentOverrides?.length
+        ? applyDeploymentMatrixSourcePageOverrides(tablePages, options.deploymentOverrides)
+        : syncDeploymentMatrixEventPagesFromSourcePages(tablePages)
+      : tablePages,
   })
 }
 
@@ -163,6 +179,7 @@ export async function GET(request: NextRequest) {
 
     const templateId = String(request.nextUrl.searchParams.get('templateId') || '').trim()
     const planId = String(request.nextUrl.searchParams.get('planId') || '').trim()
+    const deploymentOverridesRaw = String(request.nextUrl.searchParams.get('deploymentOverrides') || '').trim()
     let prefill = String(request.nextUrl.searchParams.get('prefill') || '')
     const template = getEmpMasterTemplateById(templateId)
 
@@ -172,7 +189,23 @@ export async function GET(request: NextRequest) {
 
     if (!prefill && planId) {
       const planPrefill = await getEmpMasterTemplatePlanPrefill(planId)
-      prefill = buildPrefillForTemplate(template.id, planPrefill.prefillData)
+      let deploymentOverrides: Array<{
+        fields?: Record<string, string>
+        tableCells?: Record<string, string>
+      }> = []
+
+      if (deploymentOverridesRaw) {
+        try {
+          const parsedOverrides = JSON.parse(deploymentOverridesRaw)
+          deploymentOverrides = Array.isArray(parsedOverrides) ? parsedOverrides : []
+        } catch {
+          deploymentOverrides = []
+        }
+      }
+
+      prefill = buildPrefillForTemplate(template.id, planPrefill.prefillData, {
+        deploymentOverrides,
+      })
     }
 
     browser = await launchPuppeteerBrowser()

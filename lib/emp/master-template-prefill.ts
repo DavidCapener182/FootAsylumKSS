@@ -683,6 +683,90 @@ export function buildSupervisorDeploymentTablePagesFromDeploymentTablePages(
   ))
 }
 
+export function getDeploymentMatrixSourcePageCount(deploymentPages: EmpMasterTemplateTablePagePrefill[]) {
+  if (!deploymentPages.length) return 0
+
+  const firstDate = clean(deploymentPages[0]?.fields?.Date)
+  if (!firstDate) return 1
+
+  const firstNextDatePageIndex = deploymentPages.findIndex((page, pageIndex) => {
+    return pageIndex > 0 && clean(page.fields?.Date) !== firstDate
+  })
+
+  return firstNextDatePageIndex === -1 ? deploymentPages.length : firstNextDatePageIndex
+}
+
+export function syncDeploymentMatrixEventPagesFromSourcePages(
+  deploymentPages: EmpMasterTemplateTablePagePrefill[]
+) {
+  const pageList = deploymentPages.map((page) => ({
+    fields: { ...(page.fields || {}) },
+    tableCells: { ...(page.tableCells || {}) },
+  }))
+  const sourcePageCount = getDeploymentMatrixSourcePageCount(pageList)
+
+  if (sourcePageCount <= 0 || pageList.length <= sourcePageCount) {
+    return pageList
+  }
+
+  return pageList.map((page, pageIndex) => {
+    if (pageIndex < sourcePageCount) return page
+
+    const sourcePage = pageList[pageIndex % sourcePageCount]
+    return {
+      ...page,
+      tableCells: { ...(sourcePage?.tableCells || {}) },
+    }
+  })
+}
+
+export function buildDeploymentMatrixSourcePageOverrides(
+  deploymentPages: EmpMasterTemplateTablePagePrefill[],
+  baseDeploymentPages: EmpMasterTemplateTablePagePrefill[] = []
+) {
+  const syncedPages = syncDeploymentMatrixEventPagesFromSourcePages(deploymentPages)
+  const sourcePageCount = getDeploymentMatrixSourcePageCount(syncedPages)
+
+  return syncedPages.slice(0, sourcePageCount).map((page, pageIndex) => {
+    const basePage = baseDeploymentPages[pageIndex] || {}
+    const tableCells = Object.fromEntries(
+      Object.entries(page.tableCells || {}).filter(([cellKey, value]) => {
+        return String(value ?? '') !== String(basePage.tableCells?.[cellKey] ?? '')
+      })
+    )
+
+    return { tableCells }
+  })
+}
+
+export function applyDeploymentMatrixSourcePageOverrides(
+  deploymentPages: EmpMasterTemplateTablePagePrefill[],
+  sourcePageOverrides: EmpMasterTemplateTablePagePrefill[] | undefined
+) {
+  if (!sourcePageOverrides?.length) {
+    return syncDeploymentMatrixEventPagesFromSourcePages(deploymentPages)
+  }
+
+  const pageList = deploymentPages.map((page) => ({
+    fields: { ...(page.fields || {}) },
+    tableCells: { ...(page.tableCells || {}) },
+  }))
+  const sourcePageCount = getDeploymentMatrixSourcePageCount(pageList)
+
+  sourcePageOverrides.slice(0, sourcePageCount).forEach((overridePage, pageIndex) => {
+    const currentPage = pageList[pageIndex] || { fields: {}, tableCells: {} }
+    pageList[pageIndex] = {
+      ...currentPage,
+      tableCells: {
+        ...(currentPage.tableCells || {}),
+        ...(overridePage.tableCells || {}),
+      },
+    }
+  })
+
+  return syncDeploymentMatrixEventPagesFromSourcePages(pageList)
+}
+
 function getTemplateLabels(template: EmpMasterTemplateDefinition) {
   if (template.kind === 'table') return template.infoFields.map((field) => field.label)
 
