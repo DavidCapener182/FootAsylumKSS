@@ -5,6 +5,7 @@ import { isCurrentEmpAdmin } from '@/lib/emp/access'
 import { getEmpMasterTemplatePlanPrefill } from '@/lib/emp/data'
 import {
   applyDeploymentMatrixSourcePageOverrides,
+  buildSupervisorDeploymentTablePagesFromDeploymentMatrixOverrides,
   syncDeploymentMatrixEventPagesFromSourcePages,
 } from '@/lib/emp/master-template-prefill'
 import { getEmpMasterTemplateById, type EmpMasterTemplateDefinition } from '@/lib/emp/master-templates'
@@ -154,6 +155,10 @@ function buildPrefillForTemplate(
   } = {}
 ) {
   const tablePages = prefill.templateTablePageValues?.[templateId] || []
+  const deploymentMatrixPages = prefill.templateTablePageValues?.['deployment-matrix'] || []
+  const supervisorDeploymentPages = templateId === 'supervisor-deployment' && options.deploymentOverrides?.length
+    ? buildSupervisorDeploymentTablePagesFromDeploymentMatrixOverrides(deploymentMatrixPages, options.deploymentOverrides)
+    : []
 
   return JSON.stringify({
     eventName: String(prefill.eventName || ''),
@@ -164,6 +169,8 @@ function buildPrefillForTemplate(
       ? options.deploymentOverrides?.length
         ? applyDeploymentMatrixSourcePageOverrides(tablePages, options.deploymentOverrides)
         : syncDeploymentMatrixEventPagesFromSourcePages(tablePages)
+      : templateId === 'supervisor-deployment' && supervisorDeploymentPages.length
+        ? supervisorDeploymentPages
       : tablePages,
   })
 }

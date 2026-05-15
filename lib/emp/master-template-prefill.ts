@@ -683,6 +683,15 @@ export function buildSupervisorDeploymentTablePagesFromDeploymentTablePages(
   ))
 }
 
+export function buildSupervisorDeploymentTablePagesFromDeploymentMatrixOverrides(
+  deploymentPages: EmpMasterTemplateTablePagePrefill[],
+  sourcePageOverrides: EmpMasterTemplateTablePagePrefill[] | undefined
+) {
+  return buildSupervisorDeploymentTablePagesFromDeploymentTablePages(
+    applyDeploymentMatrixSourcePageOverrides(deploymentPages, sourcePageOverrides)
+  )
+}
+
 export function getDeploymentMatrixSourcePageCount(deploymentPages: EmpMasterTemplateTablePagePrefill[]) {
   if (!deploymentPages.length) return 0
 

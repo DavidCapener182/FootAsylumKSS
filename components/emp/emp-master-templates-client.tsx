@@ -889,10 +889,13 @@ export function EmpMasterTemplatesClient({
     const serializedPrefill = JSON.stringify(prefillPayload)
     if (initialPlanPrefill && serializedPrefill.length > 6000) {
       params.set('planId', initialPlanPrefill.planId)
-      if (templateId === 'deployment-matrix') {
+      if (templateId === 'deployment-matrix' || templateId === 'supervisor-deployment') {
+        const deploymentTablePages = templateId === 'deployment-matrix'
+          ? tablePages
+          : syncDeploymentMatrixEventPagesFromSourcePages(templateTablePageValues['deployment-matrix'] || [])
         const sourcePageOverrides = buildDeploymentMatrixSourcePageOverrides(
-          tablePages,
-          initialPrefillData?.templateTablePageValues?.[templateId] || []
+          deploymentTablePages,
+          initialPrefillData?.templateTablePageValues?.['deployment-matrix'] || []
         )
         const serializedOverrides = JSON.stringify(sourcePageOverrides)
         if (serializedOverrides !== '[]') {

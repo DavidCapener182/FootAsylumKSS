@@ -6,6 +6,7 @@ import { requireEmpAccess } from '@/lib/emp/access'
 import { getEmpMasterTemplatePlanPrefill } from '@/lib/emp/data'
 import {
   applyDeploymentMatrixSourcePageOverrides,
+  buildSupervisorDeploymentTablePagesFromDeploymentMatrixOverrides,
   syncDeploymentMatrixEventPagesFromSourcePages,
 } from '@/lib/emp/master-template-prefill'
 import { getEmpMasterTemplateById } from '@/lib/emp/master-templates'
@@ -77,6 +78,10 @@ export default async function EmpMasterTemplatePrintPage({
 
     const planPrefill = await getEmpMasterTemplatePlanPrefill(planId)
     const tablePages = planPrefill.prefillData.templateTablePageValues?.[template.id] || []
+    const deploymentMatrixPages = planPrefill.prefillData.templateTablePageValues?.['deployment-matrix'] || []
+    const supervisorDeploymentPages = template.id === 'supervisor-deployment' && deploymentOverrides.length
+      ? buildSupervisorDeploymentTablePagesFromDeploymentMatrixOverrides(deploymentMatrixPages, deploymentOverrides)
+      : []
     prefillValues = {
       eventName: planPrefill.prefillData.eventName,
       eventDate: planPrefill.prefillData.eventDate,
@@ -84,6 +89,8 @@ export default async function EmpMasterTemplatePrintPage({
       tableCells: planPrefill.prefillData.templateTableCellValues?.[template.id] || {},
       tablePages: template.id === 'deployment-matrix'
         ? applyDeploymentMatrixSourcePageOverrides(tablePages, deploymentOverrides)
+        : template.id === 'supervisor-deployment' && supervisorDeploymentPages.length
+          ? supervisorDeploymentPages
         : tablePages,
     }
   }

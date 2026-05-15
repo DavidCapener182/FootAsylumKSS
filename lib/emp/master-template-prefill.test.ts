@@ -4,6 +4,7 @@ import {
   buildDeploymentMatrixSourcePageOverrides,
   buildEmpMasterTemplatePrefillFromFieldValues,
   buildSupervisorDeploymentTablePagesFromDeploymentCells,
+  buildSupervisorDeploymentTablePagesFromDeploymentMatrixOverrides,
   extractEmpTemplateIsoDates,
   extractFirstEmpTemplateIsoDate,
   syncDeploymentMatrixEventPagesFromSourcePages,
@@ -462,6 +463,7 @@ describe('emp master template prefill', () => {
 
     const overrides = buildDeploymentMatrixSourcePageOverrides(editedPages, basePages)
     const pages = applyDeploymentMatrixSourcePageOverrides(basePages, overrides)
+    const supervisorPages = buildSupervisorDeploymentTablePagesFromDeploymentMatrixOverrides(basePages, overrides)
 
     expect(overrides).toEqual([
       {
@@ -483,6 +485,24 @@ describe('emp master template prefill', () => {
       tableCells: {
         '0:assigned': 'Floyd Allen',
         '0:supervisor': 'Floyd Allen',
+      },
+    })
+    expect(supervisorPages).toHaveLength(3)
+    expect(supervisorPages[0]).toMatchObject({
+      fields: {
+        'Supervisor / Zone': 'Response Supervisor',
+      },
+      tableCells: {
+        '0:assigned': 'Floyd Allen',
+      },
+    })
+    expect(supervisorPages[1]).toMatchObject({
+      fields: {
+        Date: 'Saturday 23/05/2026',
+        'Supervisor / Zone': 'Response Supervisor',
+      },
+      tableCells: {
+        '0:assigned': 'Floyd Allen',
       },
     })
   })
