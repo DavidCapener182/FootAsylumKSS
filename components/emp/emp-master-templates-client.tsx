@@ -1198,7 +1198,7 @@ export function EmpMasterTemplatesClient({
                   <Badge variant="outline">{activeTemplate.category}</Badge>
                   <Badge variant="secondary">
                     {activeTemplate.kind === 'radio_one_daily_brief_booklet'
-                      ? 'A5 Portrait'
+                      ? 'A4 Booklet'
                       : activeTemplate.orientation === 'landscape'
                         ? 'A4 Landscape'
                         : 'A4 Portrait'}

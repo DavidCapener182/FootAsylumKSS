@@ -853,9 +853,11 @@ function SuspiciousItemTemplateDocument({
 export function EmpMasterTemplateDocument({
   template,
   prefillValues,
+  radioOneLayout = 'booklet',
 }: {
   template: EmpMasterTemplateDefinition
   prefillValues?: EmpMasterTemplatePrefillValues
+  radioOneLayout?: 'pages' | 'booklet'
 }) {
   if (template.kind === 'radio_one_daily_brief_booklet') {
     return (
@@ -870,7 +872,7 @@ export function EmpMasterTemplateDocument({
         className="emp-master-template-root"
       >
         <div className="emp-master-template-content emp-radio-one-brief-content">
-          <RadioOneDailySecurityBriefBooklet />
+          <RadioOneDailySecurityBriefBooklet layout={radioOneLayout} />
         </div>
       </div>
     )

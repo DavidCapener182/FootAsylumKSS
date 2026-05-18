@@ -36,7 +36,7 @@ export default async function EmpMasterTemplatePrintPage({
 
   const pageSize =
     template.kind === 'radio_one_daily_brief_booklet'
-      ? 'A5 portrait'
+      ? 'A4 landscape'
       : template.orientation === 'landscape'
         ? 'A4 landscape'
         : 'A4 portrait'
@@ -138,7 +138,11 @@ export default async function EmpMasterTemplatePrintPage({
       </div>
 
       <div className="emp-master-template-print-stage bg-slate-200 px-4 py-6 md:px-6">
-        <EmpMasterTemplateDocument template={template} prefillValues={prefillValues} />
+        <EmpMasterTemplateDocument
+          template={template}
+          prefillValues={prefillValues}
+          radioOneLayout={template.kind === 'radio_one_daily_brief_booklet' ? 'booklet' : 'pages'}
+        />
       </div>
     </div>
   )

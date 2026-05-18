@@ -1355,6 +1355,45 @@ body.fra-print-preview .fra-preview-hide-toolbar {
   gap: 16px;
 }
 
+.emp-radio-one-booklet-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.emp-radio-one-booklet-sheet {
+  display: grid;
+  width: 297mm;
+  height: 210mm;
+  min-height: 210mm;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  overflow: hidden;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  box-shadow: 0 20px 44px rgba(15, 23, 42, 0.12);
+}
+
+.emp-radio-one-booklet-slot {
+  display: flex;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.emp-radio-one-booklet-slot--left {
+  border-right: 1px dashed rgba(100, 116, 139, 0.42);
+}
+
+.emp-radio-one-booklet-slot .emp-radio-one-brief-page {
+  flex: 0 0 auto;
+  margin: 0;
+  border: 1px solid rgba(148, 163, 184, 0.7);
+  box-shadow: none;
+  transform: scale(0.96);
+  transform-origin: center center;
+}
+
 @media screen {
   .emp-radio-one-brief-content {
     zoom: 1.12;
@@ -1377,20 +1416,20 @@ body.fra-print-preview .fra-preview-hide-toolbar {
   height: 100%;
   min-height: 0;
   flex-direction: column;
-  gap: 2.2mm;
-  padding: 4.8mm;
+  gap: 1.55mm;
+  padding: 4mm;
 }
 
 .emp-radio-one-brief-header {
   display: grid;
-  grid-template-columns: 22mm minmax(0, 1fr) 41mm;
+  grid-template-columns: 17mm minmax(0, 1fr) 31mm;
   flex-shrink: 0;
   align-items: center;
-  gap: 2.6mm;
+  gap: 1.6mm;
   border: 1px solid #dbeafe;
-  border-left: 3px solid #ef4444;
+  border-left: 2px solid #ef4444;
   background: #f8fafc;
-  padding: 2mm;
+  padding: 1.2mm;
 }
 
 .emp-radio-one-brand-lockup {
@@ -1405,10 +1444,10 @@ body.fra-print-preview .fra-preview-hide-toolbar {
 
 .emp-radio-one-kss-mark {
   display: flex;
-  height: 12mm;
+  height: 9mm;
   align-items: center;
   justify-content: center;
-  padding: 1mm;
+  padding: 0.7mm;
 }
 
 .emp-radio-one-kss-mark img {
@@ -1422,33 +1461,34 @@ body.fra-print-preview .fra-preview-hide-toolbar {
 }
 
 .emp-radio-one-kicker {
-  margin-bottom: 0.8mm;
+  margin-bottom: 0.45mm;
   color: #b91c1c;
-  font-size: 6.8px;
+  font-size: 5.4px;
   font-weight: 800;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 
 .emp-radio-one-brief-title-block h1 {
   margin: 0;
   color: #020617;
-  font-size: 11.8px;
+  font-size: 9.2px;
   font-weight: 800;
-  line-height: 1;
+  line-height: 1.02;
   letter-spacing: 0;
 }
 
 .emp-radio-one-brief-title-block p {
-  margin: 0.9mm 0 0;
+  margin: 0.45mm 0 0;
   color: #475569;
-  font-size: 7.4px;
+  font-size: 5.7px;
   font-weight: 600;
+  line-height: 1.08;
 }
 
 .emp-radio-one-brief-title-block .emp-radio-one-event-title {
   color: #020617;
-  font-size: 8px;
+  font-size: 6.2px;
   font-weight: 800;
   line-height: 1.08;
 }
@@ -1465,21 +1505,21 @@ body.fra-print-preview .fra-preview-hide-toolbar {
   justify-content: flex-start;
   border: 1px solid #bfdbfe;
   background: #fff;
-  padding: 1mm;
+  padding: 0.65mm;
 }
 
 .emp-radio-one-bbc-logo-card img {
   display: block;
   width: auto;
   max-width: 100%;
-  height: 18.8mm;
+  height: 13mm;
   object-fit: contain;
 }
 
 .emp-radio-one-bbc-logo-card span {
-  margin-top: 0.8mm;
+  margin-top: 0.45mm;
   color: #1e3a8a;
-  font-size: 5.7px;
+  font-size: 4.4px;
   font-weight: 800;
   line-height: 1.1;
   text-align: center;
@@ -1491,16 +1531,16 @@ body.fra-print-preview .fra-preview-hide-toolbar {
   min-height: 0;
   flex: 1 1 auto;
   flex-direction: column;
-  gap: 2mm;
+  gap: 1.45mm;
   overflow: hidden;
 }
 
 .emp-radio-one-brief-footer {
   flex-shrink: 0;
   border-top: 1px solid #93c5fd;
-  padding-top: 1.5mm;
+  padding-top: 1mm;
   color: #334155;
-  font-size: 6.8px;
+  font-size: 6px;
   font-weight: 700;
   line-height: 1.1;
   text-align: center;
@@ -1520,11 +1560,11 @@ body.fra-print-preview .fra-preview-hide-toolbar {
   border-bottom: 1px solid #bfdbfe;
   background: #020617;
   color: #fff;
-  font-size: 7.1px;
+  font-size: 6.45px;
   font-weight: 800;
-  letter-spacing: 0.09em;
+  letter-spacing: 0.07em;
   line-height: 1.15;
-  padding: 1.4mm 1.8mm;
+  padding: 1.05mm 1.45mm;
   text-transform: uppercase;
 }
 
@@ -1534,7 +1574,7 @@ body.fra-print-preview .fra-preview-hide-toolbar {
 }
 
 .emp-radio-one-panel > div {
-  padding: 1.7mm;
+  padding: 1.25mm;
 }
 
 .emp-radio-one-table {
@@ -1546,7 +1586,7 @@ body.fra-print-preview .fra-preview-hide-toolbar {
 .emp-radio-one-table th,
 .emp-radio-one-table td {
   border: 1px solid #cbd5e1;
-  padding: 1.2mm 1.4mm;
+  padding: 0.95mm 1.1mm;
   text-align: left;
   vertical-align: top;
 }
@@ -1566,22 +1606,22 @@ body.fra-print-preview .fra-preview-hide-toolbar {
 
 .emp-radio-one-table--dense th,
 .emp-radio-one-table--dense td {
-  padding: 0.78mm 1mm;
+  padding: 0.58mm 0.78mm;
 }
 
 .emp-radio-one-table--dense {
-  font-size: 7.2px;
-  line-height: 1.18;
+  font-size: 6.65px;
+  line-height: 1.12;
 }
 
 .emp-radio-one-lineup-panel .emp-radio-one-table {
-  font-size: 6.2px;
-  line-height: 1.08;
+  font-size: 5.8px;
+  line-height: 1.04;
 }
 
 .emp-radio-one-lineup-panel .emp-radio-one-table th,
 .emp-radio-one-lineup-panel .emp-radio-one-table td {
-  padding: 0.65mm 0.8mm;
+  padding: 0.48mm 0.65mm;
 }
 
 .emp-radio-one-warning-line,
@@ -1598,41 +1638,41 @@ body.fra-print-preview .fra-preview-hide-toolbar {
   border-left: 2px solid #ef4444;
   background: #fff7ed;
   color: #0f172a;
-  font-size: 7.5px;
+  font-size: 6.8px;
   font-weight: 700;
-  line-height: 1.28;
-  padding: 1.3mm 1.6mm;
+  line-height: 1.18;
+  padding: 1mm 1.25mm;
 }
 
 .emp-radio-one-risk-strip {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1.6mm;
+  gap: 1.1mm;
 }
 
 .emp-radio-one-risk-strip div {
   border: 1px solid #fed7aa;
   background: #fff7ed;
-  padding: 1.6mm;
+  padding: 1.1mm;
 }
 
 .emp-radio-one-risk-strip strong {
   display: block;
   color: #b91c1c;
-  font-size: 7px;
+  font-size: 6.35px;
   text-transform: uppercase;
 }
 
 .emp-radio-one-risk-strip span {
   display: block;
-  margin-top: 0.7mm;
+  margin-top: 0.45mm;
   color: #334155;
-  font-size: 6.8px;
+  font-size: 6.1px;
 }
 
 .emp-radio-one-map-frame {
   position: relative;
-  height: 42mm;
+  height: 34mm;
   overflow: hidden;
   border: 1px solid #94a3b8;
   background: #f8fafc;
@@ -1674,19 +1714,19 @@ body.fra-print-preview .fra-preview-hide-toolbar {
 .emp-map-label--routes { left: 48%; top: 91%; max-width: 46mm; border-color: #2563eb; background: rgba(239, 246, 255, 0.94); color: #1e3a8a; }
 
 .emp-radio-one-map-panel .emp-radio-one-map-note {
-  margin-top: 0.7mm;
+  margin-top: 0.45mm;
 }
 
 .emp-radio-one-queue-panel p {
-  margin: 0 0 0.8mm;
+  margin: 0 0 0.55mm;
   color: #334155;
-  font-size: 6.9px;
+  font-size: 6.2px;
   font-weight: 700;
-  line-height: 1.18;
+  line-height: 1.12;
 }
 
 .emp-radio-one-queue-image {
-  height: 24.5mm;
+  height: 18mm;
   overflow: hidden;
   border: 1px solid #cbd5e1;
   background: #fff;
@@ -1705,8 +1745,8 @@ body.fra-print-preview .fra-preview-hide-toolbar {
 .emp-radio-one-queue-points {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 1.2mm;
-  margin-top: 0.8mm;
+  gap: 0.8mm;
+  margin-top: 0.6mm;
 }
 
 .emp-radio-one-queue-points span {
@@ -1714,9 +1754,9 @@ body.fra-print-preview .fra-preview-hide-toolbar {
   border: 1px solid #dbeafe;
   background: #f8fafc;
   color: #334155;
-  font-size: 6.6px;
-  line-height: 1.15;
-  padding: 0.7mm 1mm;
+  font-size: 5.9px;
+  line-height: 1.1;
+  padding: 0.55mm 0.75mm;
 }
 
 .emp-radio-one-queue-points strong {
@@ -1724,53 +1764,53 @@ body.fra-print-preview .fra-preview-hide-toolbar {
 }
 
 .emp-radio-one-deployment-panel .emp-radio-one-table {
-  font-size: 6.45px;
-  line-height: 1.08;
+  font-size: 5.9px;
+  line-height: 1.04;
 }
 
 .emp-radio-one-deployment-panel .emp-radio-one-table th,
 .emp-radio-one-deployment-panel .emp-radio-one-table td {
-  padding: 0.55mm 0.75mm;
+  padding: 0.42mm 0.6mm;
 }
 
 .emp-radio-one-two-col {
   display: grid;
   min-height: 0;
   grid-template-columns: 1fr 1fr;
-  gap: 2mm;
+  gap: 1.3mm;
 }
 
 .emp-radio-one-two-col .emp-radio-one-panel > div {
-  padding: 1.15mm;
+  padding: 0.85mm;
 }
 
 .emp-radio-one-two-col .emp-radio-one-bullets {
-  padding-left: 2.7mm;
-  font-size: 6.45px;
-  line-height: 1.08;
+  padding-left: 2.4mm;
+  font-size: 5.9px;
+  line-height: 1.04;
 }
 
 .emp-radio-one-two-col .emp-radio-one-bullets li {
-  margin-bottom: 0.45mm;
+  margin-bottom: 0.28mm;
 }
 
 .emp-radio-one-two-col .emp-radio-one-table--dense {
-  font-size: 6.35px;
-  line-height: 1.06;
+  font-size: 5.8px;
+  line-height: 1.03;
 }
 
 .emp-radio-one-two-col .emp-radio-one-table--dense th,
 .emp-radio-one-two-col .emp-radio-one-table--dense td {
-  padding: 0.5mm 0.65mm;
+  padding: 0.35mm 0.5mm;
 }
 
 .emp-radio-one-bullets {
   margin: 0;
-  padding-left: 3.2mm;
+  padding-left: 2.8mm;
 }
 
 .emp-radio-one-bullets li {
-  margin: 0 0 0.7mm;
+  margin: 0 0 0.45mm;
 }
 
 .emp-radio-one-action-grid {
@@ -1778,12 +1818,12 @@ body.fra-print-preview .fra-preview-hide-toolbar {
   flex: 1;
   align-content: start;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1.7mm;
+  gap: 1.15mm;
 }
 
 .emp-radio-one-action-card {
   min-height: 0;
-  padding-bottom: 1.2mm;
+  padding-bottom: 0.75mm;
 }
 
 .emp-radio-one-action-card:nth-child(1) > h2,
@@ -1802,11 +1842,11 @@ body.fra-print-preview .fra-preview-hide-toolbar {
 }
 
 .emp-radio-one-action-card > :not(h2) {
-  margin: 1.2mm 1.5mm 0;
+  margin: 0.85mm 1.05mm 0;
 }
 
 .emp-radio-one-action-card > .emp-radio-one-table {
-  width: calc(100% - 3mm);
+  width: calc(100% - 2.1mm);
 }
 
 .emp-radio-one-ct-card,
@@ -1817,12 +1857,12 @@ body.fra-print-preview .fra-preview-hide-toolbar {
 .emp-radio-one-ct-visual-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1.4mm;
-  margin: 1mm 1.5mm 0;
+  gap: 1mm;
+  margin: 0.8mm 1.05mm 0;
 }
 
 .emp-radio-one-ct-visual {
-  height: 44mm;
+  height: 28mm;
   overflow: hidden;
   border: 1px solid #020617;
   background: #f8fafc;
@@ -1846,21 +1886,21 @@ body.fra-print-preview .fra-preview-hide-toolbar {
 
 .emp-radio-one-ct-card > .emp-radio-one-table,
 .emp-radio-one-alert-card > .emp-radio-one-table {
-  font-size: 6.45px;
-  line-height: 1.06;
+  font-size: 5.8px;
+  line-height: 1.03;
 }
 
 .emp-radio-one-ct-card > .emp-radio-one-table th,
 .emp-radio-one-ct-card > .emp-radio-one-table td,
 .emp-radio-one-alert-card > .emp-radio-one-table th,
 .emp-radio-one-alert-card > .emp-radio-one-table td {
-  padding: 0.55mm 0.75mm;
+  padding: 0.36mm 0.5mm;
 }
 
 .emp-radio-one-action-card p {
   color: #334155;
-  font-size: 7.1px;
-  line-height: 1.22;
+  font-size: 6.3px;
+  line-height: 1.12;
 }
 
 .emp-radio-one-radio-call {
@@ -1868,23 +1908,23 @@ body.fra-print-preview .fra-preview-hide-toolbar {
   background: #ecfdf5;
   color: #064e3b !important;
   font-weight: 800;
-  padding: 1mm;
+  padding: 0.7mm;
 }
 
 .emp-radio-one-numbered {
-  margin: 1mm 1.5mm 0 4mm !important;
+  margin: 0.7mm 1.05mm 0 3.4mm !important;
   padding: 0;
 }
 
 .emp-radio-one-numbered li {
-  margin-bottom: 0.5mm;
-  padding-left: 0.5mm;
+  margin-bottom: 0.3mm;
+  padding-left: 0.35mm;
 }
 
 .emp-radio-one-checklist {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 1mm 2mm;
+  gap: 0.8mm 1.4mm;
 }
 
 .emp-radio-one-check {
@@ -1904,8 +1944,8 @@ body.fra-print-preview .fra-preview-hide-toolbar {
 
 .emp-radio-one-check p {
   margin: 0;
-  font-size: 7.2px;
-  line-height: 1.16;
+  font-size: 6.65px;
+  line-height: 1.12;
 }
 
 .emp-radio-one-notes-panel {
@@ -1948,6 +1988,53 @@ body.fra-print-preview .fra-preview-hide-toolbar {
   .emp-radio-one-brief-content {
     display: block !important;
     zoom: 1 !important;
+  }
+
+  header.emp-radio-one-brief-header {
+    display: grid !important;
+  }
+
+  .emp-radio-one-booklet-content {
+    display: block !important;
+    width: 297mm !important;
+    max-width: 297mm !important;
+  }
+
+  .emp-radio-one-booklet-sheet {
+    display: grid !important;
+    width: 297mm !important;
+    min-width: 297mm !important;
+    max-width: 297mm !important;
+    height: 210mm !important;
+    min-height: 210mm !important;
+    grid-template-columns: 148.5mm 148.5mm !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    break-after: page !important;
+    page-break-after: always !important;
+  }
+
+  .emp-radio-one-booklet-sheet:last-child {
+    break-after: auto !important;
+    page-break-after: auto !important;
+  }
+
+  .emp-radio-one-booklet-slot {
+    width: 148.5mm !important;
+    height: 210mm !important;
+  }
+
+  .emp-radio-one-booklet-slot--left {
+    border-right: 0.2mm dashed rgba(100, 116, 139, 0.38) !important;
+  }
+
+  .emp-radio-one-booklet-slot .emp-radio-one-brief-page {
+    border: 0.2mm solid rgba(148, 163, 184, 0.65) !important;
+    box-shadow: none !important;
+    break-after: auto !important;
+    page-break-after: auto !important;
+    transform: scale(0.96) !important;
+    transform-origin: center center !important;
   }
 
   .emp-radio-one-brief-page {

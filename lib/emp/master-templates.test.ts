@@ -46,7 +46,7 @@ describe('emp master templates', () => {
       { id: 'refusal-of-entry-ejection-log', documentCode: 'EMP-MT-12', filename: '12_Refusal_Ejection_Log.pdf' },
       { id: 'suspicious-item-concern-report', documentCode: 'EMP-MT-13', filename: '13_Suspicious_Item_Report.pdf' },
       { id: 'duty-manager-debrief', documentCode: 'EMP-MT-15', filename: '15_Duty_Manager_Debrief.pdf' },
-      { id: 'radio-one-daily-security-brief', documentCode: 'EMP-MT-16', filename: '16_Radio_One_Event_Week_Security_Brief.pdf' },
+      { id: 'radio-one-daily-security-brief', documentCode: 'EMP-MT-16', filename: '16_Radio_One_Event_Week_Security_Brief_Booklet.pdf' },
     ])
   })
 
@@ -70,7 +70,7 @@ describe('emp master templates', () => {
 
     expect(template?.kind).toBe('radio_one_daily_brief_booklet')
     expect(template?.category).toBe('Briefings')
-    expect(template?.filename).toBe('16_Radio_One_Event_Week_Security_Brief.pdf')
+    expect(template?.filename).toBe('16_Radio_One_Event_Week_Security_Brief_Booklet.pdf')
   })
 
   it('keeps employer agency off the staff sign-in sheet', () => {

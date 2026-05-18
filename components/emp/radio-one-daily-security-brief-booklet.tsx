@@ -258,6 +258,8 @@ function CheckList({ items }: { items: string[] }) {
   )
 }
 
+type RadioOneBriefLayout = 'pages' | 'booklet'
+
 function PageOne() {
   return (
     <BriefPage pageNumber={1}>
@@ -507,7 +509,54 @@ function PageFour() {
   )
 }
 
-export function RadioOneDailySecurityBriefBooklet() {
+function renderBriefPage(pageNumber: 1 | 2 | 3 | 4) {
+  switch (pageNumber) {
+    case 1:
+      return <PageOne />
+    case 2:
+      return <PageTwo />
+    case 3:
+      return <PageThree />
+    case 4:
+      return <PageFour />
+  }
+}
+
+function BookletSheet({
+  sideLabel,
+  leftPage,
+  rightPage,
+}: {
+  sideLabel: string
+  leftPage: 1 | 2 | 3 | 4
+  rightPage: 1 | 2 | 3 | 4
+}) {
+  return (
+    <section className="emp-radio-one-booklet-sheet" aria-label={sideLabel}>
+      <div className="emp-radio-one-booklet-slot emp-radio-one-booklet-slot--left">
+        {renderBriefPage(leftPage)}
+      </div>
+      <div className="emp-radio-one-booklet-slot emp-radio-one-booklet-slot--right">
+        {renderBriefPage(rightPage)}
+      </div>
+    </section>
+  )
+}
+
+export function RadioOneDailySecurityBriefBooklet({
+  layout = 'booklet',
+}: {
+  layout?: RadioOneBriefLayout
+}) {
+  if (layout === 'booklet') {
+    return (
+      <div className="emp-radio-one-booklet-content">
+        <BookletSheet sideLabel="Outside booklet spread" leftPage={4} rightPage={1} />
+        <BookletSheet sideLabel="Inside booklet spread" leftPage={2} rightPage={3} />
+      </div>
+    )
+  }
+
   return (
     <>
       <PageOne />

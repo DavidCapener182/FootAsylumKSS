@@ -603,8 +603,8 @@ export const EMP_MASTER_TEMPLATES: EmpMasterTemplateDefinition[] = [
     icon: 'message',
     title: 'Radio One Event Week Security Brief',
     description:
-      'Four-page A5 event-week bar-security briefing booklet for BBC Radio 1 Big Weekend Sunderland 2026.',
-    filename: '16_Radio_One_Event_Week_Security_Brief.pdf',
+      'A4 landscape duplex booklet with four A5 event-week bar-security pages for BBC Radio 1 Big Weekend Sunderland 2026.',
+    filename: '16_Radio_One_Event_Week_Security_Brief_Booklet.pdf',
     orientation: 'portrait',
     kind: 'radio_one_daily_brief_booklet',
   },
