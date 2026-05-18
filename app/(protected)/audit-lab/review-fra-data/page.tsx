@@ -231,13 +231,15 @@ export default function ReviewFRADataPage({
     const colors: Record<string, string> = {
       PDF: 'bg-blue-100 text-blue-800 border-blue-300',
       DATABASE: 'bg-purple-100 text-purple-800 border-purple-300',
+      REVIEW: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+      PRE_OPENING: 'bg-teal-100 text-teal-800 border-teal-300',
       DEFAULT: 'bg-amber-100 text-amber-800 border-amber-300',
       NOT_FOUND: 'bg-gray-100 text-gray-800 border-gray-300',
     }
     const color = colors[source] || 'bg-gray-100 text-gray-800 border-gray-300'
     return (
       <Badge className={`ml-2 ${color}`}>
-        {source === 'NOT_FOUND' ? 'Not Found' : source}
+        {source === 'NOT_FOUND' ? 'Not Found' : source === 'PRE_OPENING' ? 'Pre-opening' : source}
       </Badge>
     )
   }
@@ -254,7 +256,7 @@ export default function ReviewFRADataPage({
         <span>{title}</span>
         {extractedData?.sources?.[fieldKey] && getSourceBadge(extractedData.sources[fieldKey])}
       </span>
-      {getSourceQuestion(fieldKey) ? (
+      {getSourceQuestion(fieldKey) && extractedData?.sources?.[fieldKey] !== 'PRE_OPENING' ? (
         <span className="mt-1 block text-xs font-normal text-slate-500">
           Pulled from: {getSourceQuestion(fieldKey)}
         </span>
@@ -267,7 +269,7 @@ export default function ReviewFRADataPage({
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin text-indigo-600 mx-auto mb-4" />
-          <p className="text-slate-600">Extracting data from H&S Audit...</p>
+          <p className="text-slate-600">Preparing FRA data...</p>
         </div>
       </div>
     )
@@ -287,6 +289,8 @@ export default function ReviewFRADataPage({
     )
   }
 
+  const isPreOpeningFRA = extractedData?.hasPreOpeningData || extractedData?.fra_template_variant === 'new_store_pre_opening' || extractedData?.assessmentContext === 'pre_opening'
+
   return (
     <div className="min-h-screen bg-slate-50">
       <div className="sticky top-0 z-10 flex items-center gap-4 bg-slate-900 text-white px-4 py-3 shadow">
@@ -294,7 +298,7 @@ export default function ReviewFRADataPage({
           ← Back to Audits
         </Link>
         <span className="text-xs text-slate-300">
-          Review Extracted Data
+          {isPreOpeningFRA ? 'Review Pre-Opening FRA Data' : 'Review Extracted Data'}
         </span>
       </div>
 
@@ -303,10 +307,12 @@ export default function ReviewFRADataPage({
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5" />
-              Review Extracted Data from H&S Audit
+              {isPreOpeningFRA ? 'Review New Store FRA Data' : 'Review Extracted Data from H&S Audit'}
             </CardTitle>
             <p className="text-sm text-slate-600 mt-2">
-              Please review the extracted information below. You can edit any fields before creating the FRA report.
+              {isPreOpeningFRA
+                ? 'Please review the pre-opening information below. You can edit any fields before creating the FRA report.'
+                : 'Please review the extracted information below. You can edit any fields before creating the FRA report.'}
             </p>
           </CardHeader>
           <CardContent>
@@ -316,7 +322,7 @@ export default function ReviewFRADataPage({
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <CheckCircle2 className="h-4 w-4 text-blue-600" />
-                    <span className="font-semibold text-blue-900">Data Sources</span>
+                    <span className="font-semibold text-blue-900">{isPreOpeningFRA ? 'Pre-opening FRA Data' : 'Data Sources'}</span>
                   </div>
                   {extractedData?.hasPdfText && (
                     <Button
@@ -330,28 +336,36 @@ export default function ReviewFRADataPage({
                   )}
                 </div>
                 <div className="text-sm text-blue-800 space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span>PDF Text:</span>
-                    {extractedData?.hasPdfText ? (
-                      <span className="text-green-700 font-semibold">✓ Found ({extractedData?.pdfTextLength} characters)</span>
-                    ) : (
-                      <span className="text-red-700 font-semibold">✗ Not found</span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span>Database Audit:</span>
-                    {extractedData?.hasDatabaseAudit ? (
-                      <span className="text-green-700 font-semibold">✓ Found</span>
-                    ) : (
-                      <span className="text-red-700 font-semibold">✗ Not found</span>
-                    )}
-                  </div>
+                  {isPreOpeningFRA ? (
+                    <div className="rounded border border-teal-200 bg-teal-50 px-3 py-2 text-teal-900">
+                      This FRA uses pre-opening defaults because the store is not yet open to the public and may not have a completed H&S audit.
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-2">
+                        <span>PDF Text:</span>
+                        {extractedData?.hasPdfText ? (
+                          <span className="text-green-700 font-semibold">✓ Found ({extractedData?.pdfTextLength} characters)</span>
+                        ) : (
+                          <span className="text-red-700 font-semibold">✗ Not found</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span>Database Audit:</span>
+                        {extractedData?.hasDatabaseAudit ? (
+                          <span className="text-green-700 font-semibold">✓ Found</span>
+                        ) : (
+                          <span className="text-red-700 font-semibold">✗ Not found</span>
+                        )}
+                      </div>
+                    </>
+                  )}
                   {draftRestored && (
                     <div className="mt-2 rounded border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-medium text-amber-900">
                       Restored unsaved edits from local draft after refresh.
                     </div>
                   )}
-                  {extractedData && !extractedData.hasPdfText && (
+                  {extractedData && !extractedData.hasPdfText && !isPreOpeningFRA && (
                     <div className="mt-2 p-3 bg-amber-50 border border-amber-300 rounded text-sm text-amber-900">
                       <strong>No PDF text was extracted from the H&S audit.</strong>
                       <ul className="list-disc list-inside mt-2 space-y-0.5">

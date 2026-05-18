@@ -62,6 +62,33 @@ async function getDirectPdfText(
   return null
 }
 
+async function getStoredFraData(
+  supabase: ReturnType<typeof createClient>,
+  instanceId: string
+): Promise<{ extractedData: Record<string, any>; customData: Record<string, any>; variant: string | null }> {
+  const { data: responses } = await supabase
+    .from('fa_audit_responses')
+    .select('response_json, created_at')
+    .eq('audit_instance_id', instanceId)
+    .order('created_at', { ascending: false })
+
+  for (const response of responses || []) {
+    const responseJson = response?.response_json || {}
+    const extractedData = responseJson.fra_extracted_data
+    const customData = responseJson.fra_custom_data
+    const variant = responseJson.fra_template_variant || extractedData?.fra_template_variant || customData?.fra_template_variant || null
+    if (extractedData || customData || variant) {
+      return {
+        extractedData: extractedData && typeof extractedData === 'object' ? extractedData : {},
+        customData: customData && typeof customData === 'object' ? customData : {},
+        variant: typeof variant === 'string' ? variant : null,
+      }
+    }
+  }
+
+  return { extractedData: {}, customData: {}, variant: null }
+}
+
 async function enrichStoreFallbacks(
   extracted: FraPdfExtractedData,
   store: { store_name?: string | null; address_line_1?: string | null; city?: string | null } | null
@@ -121,6 +148,13 @@ export async function GET(request: NextRequest) {
     const storeId = store.id
 
     const directPdfText = await getDirectPdfText(supabase, instanceId)
+    const storedFraData = await getStoredFraData(supabase, instanceId)
+    const storedExtractedData = storedFraData.extractedData
+    const storedSource = storedFraData.variant === 'new_store_pre_opening' ? 'PRE_OPENING' : 'REVIEW'
+    const pickValue = (key: string, pdfValue: string | null | undefined = null) =>
+      storedExtractedData[key] ?? pdfValue ?? null
+    const sourceValue = (key: string, pdfValue: string | null | undefined = null, fallbackSource = 'NOT_FOUND') =>
+      storedExtractedData[key] ? storedSource : (pdfValue ? 'PDF' : fallbackSource)
     const hsAuditResult = await getLatestHSAuditForStore(storeId, instanceId)
     const pdfText = directPdfText || hsAuditResult.pdfText
 
@@ -137,73 +171,82 @@ export async function GET(request: NextRequest) {
     }
 
     const extractedData = {
-      storeManager: pdfExtractedData.storeManager || null,
-      assessmentStartTime: pdfExtractedData.assessmentStartTime || null,
-      firePanelLocation: pdfExtractedData.firePanelLocation || null,
-      firePanelFaults: pdfExtractedData.firePanelFaults || null,
-      emergencyLightingSwitch: pdfExtractedData.emergencyLightingSwitch || null,
-      numberOfFloors: pdfExtractedData.numberOfFloors || null,
-      operatingHours: pdfExtractedData.operatingHours || null,
-      conductedDate: pdfExtractedData.conductedDate || null,
-      squareFootage: pdfExtractedData.squareFootage || null,
-      escapeRoutesEvidence: pdfExtractedData.escapeRoutesEvidence || null,
-      combustibleStorageEscapeCompromise: pdfExtractedData.combustibleStorageEscapeCompromise || null,
-      fireSafetyTrainingNarrative: pdfExtractedData.fireSafetyTrainingNarrative || null,
-      fireDoorsCondition: pdfExtractedData.fireDoorsCondition || null,
-      weeklyFireTests: pdfExtractedData.weeklyFireTests || null,
-      emergencyLightingMonthlyTest: pdfExtractedData.emergencyLightingMonthlyTest || null,
-      fireExtinguisherService: pdfExtractedData.fireExtinguisherService || null,
-      managementReviewStatement: pdfExtractedData.managementReviewStatement || null,
-      numberOfFireExits: pdfExtractedData.numberOfFireExits || null,
-      totalStaffEmployed: pdfExtractedData.totalStaffEmployed || null,
-      maxStaffOnSite: pdfExtractedData.maxStaffOnSite || null,
-      youngPersonsCount: pdfExtractedData.youngPersonsCount || null,
-      fireDrillDate: pdfExtractedData.fireDrillDate || null,
-      patTestingStatus: pdfExtractedData.patTestingStatus || null,
-      fixedWireTestDate: pdfExtractedData.fixedWireTestDate || null,
-      exitSignageCondition: pdfExtractedData.exitSignageCondition || null,
-      compartmentationStatus: pdfExtractedData.compartmentationStatus || null,
-      extinguisherServiceDate: pdfExtractedData.extinguisherServiceDate || null,
-      callPointAccessibility: pdfExtractedData.callPointAccessibility || null,
+      fra_template_variant: storedFraData.variant,
+      assessmentContext: storedExtractedData.assessmentContext || storedFraData.customData.assessmentContext || null,
+      storeManager: pickValue('storeManager', pdfExtractedData.storeManager),
+      assessmentStartTime: pickValue('assessmentStartTime', pdfExtractedData.assessmentStartTime),
+      firePanelLocation: pickValue('firePanelLocation', pdfExtractedData.firePanelLocation),
+      firePanelFaults: pickValue('firePanelFaults', pdfExtractedData.firePanelFaults),
+      emergencyLightingSwitch: pickValue('emergencyLightingSwitch', pdfExtractedData.emergencyLightingSwitch),
+      numberOfFloors: pickValue('numberOfFloors', pdfExtractedData.numberOfFloors),
+      operatingHours: pickValue('operatingHours', pdfExtractedData.operatingHours),
+      conductedDate: pickValue('conductedDate', pdfExtractedData.conductedDate),
+      squareFootage: pickValue('squareFootage', pdfExtractedData.squareFootage),
+      escapeRoutesEvidence: pickValue('escapeRoutesEvidence', pdfExtractedData.escapeRoutesEvidence),
+      combustibleStorageEscapeCompromise: pickValue('combustibleStorageEscapeCompromise', pdfExtractedData.combustibleStorageEscapeCompromise),
+      fireSafetyTrainingNarrative: pickValue('fireSafetyTrainingNarrative', pdfExtractedData.fireSafetyTrainingNarrative),
+      fireDoorsCondition: pickValue('fireDoorsCondition', pdfExtractedData.fireDoorsCondition),
+      weeklyFireTests: pickValue('weeklyFireTests', pdfExtractedData.weeklyFireTests),
+      emergencyLightingMonthlyTest: pickValue('emergencyLightingMonthlyTest', pdfExtractedData.emergencyLightingMonthlyTest),
+      fireExtinguisherService: pickValue('fireExtinguisherService', pdfExtractedData.fireExtinguisherService),
+      managementReviewStatement: pickValue('managementReviewStatement', pdfExtractedData.managementReviewStatement),
+      numberOfFireExits: pickValue('numberOfFireExits', pdfExtractedData.numberOfFireExits),
+      totalStaffEmployed: pickValue('totalStaffEmployed', pdfExtractedData.totalStaffEmployed),
+      maxStaffOnSite: pickValue('maxStaffOnSite', pdfExtractedData.maxStaffOnSite),
+      youngPersonsCount: pickValue('youngPersonsCount', pdfExtractedData.youngPersonsCount),
+      fireDrillDate: pickValue('fireDrillDate', pdfExtractedData.fireDrillDate),
+      patTestingStatus: pickValue('patTestingStatus', pdfExtractedData.patTestingStatus),
+      fixedWireTestDate: pickValue('fixedWireTestDate', pdfExtractedData.fixedWireTestDate),
+      exitSignageCondition: pickValue('exitSignageCondition', pdfExtractedData.exitSignageCondition),
+      compartmentationStatus: pickValue('compartmentationStatus', pdfExtractedData.compartmentationStatus),
+      extinguisherServiceDate: pickValue('extinguisherServiceDate', pdfExtractedData.extinguisherServiceDate),
+      callPointAccessibility: pickValue('callPointAccessibility', pdfExtractedData.callPointAccessibility),
       sources: {
-        storeManager: pdfExtractedData.storeManager ? 'PDF' : 'NOT_FOUND',
-        assessmentStartTime: pdfExtractedData.assessmentStartTime ? 'PDF' : 'NOT_FOUND',
-        firePanelLocation: pdfExtractedData.firePanelLocation ? 'PDF' : 'NOT_FOUND',
-        firePanelFaults: pdfExtractedData.firePanelFaults ? 'PDF' : 'NOT_FOUND',
-        emergencyLightingSwitch: pdfExtractedData.emergencyLightingSwitch ? 'PDF' : 'NOT_FOUND',
-        numberOfFloors: pdfExtractedData.numberOfFloors ? 'PDF' : 'NOT_FOUND',
-        operatingHours: pdfExtractedData.operatingHours ? 'PDF' : 'NOT_FOUND',
-        conductedDate: pdfExtractedData.conductedDate ? 'PDF' : 'NOT_FOUND',
+        storeManager: sourceValue('storeManager', pdfExtractedData.storeManager),
+        assessmentStartTime: sourceValue('assessmentStartTime', pdfExtractedData.assessmentStartTime),
+        firePanelLocation: sourceValue('firePanelLocation', pdfExtractedData.firePanelLocation),
+        firePanelFaults: sourceValue('firePanelFaults', pdfExtractedData.firePanelFaults),
+        emergencyLightingSwitch: sourceValue('emergencyLightingSwitch', pdfExtractedData.emergencyLightingSwitch),
+        numberOfFloors: sourceValue('numberOfFloors', pdfExtractedData.numberOfFloors),
+        operatingHours: sourceValue('operatingHours', pdfExtractedData.operatingHours),
+        conductedDate: sourceValue('conductedDate', pdfExtractedData.conductedDate),
         squareFootage:
+          storedExtractedData.squareFootage
+          ? storedSource
+          :
           pdfExtractedData.squareFootageSource
           || (pdfExtractedData.squareFootage ? 'PDF' : 'NOT_FOUND'),
-        escapeRoutesEvidence: pdfExtractedData.escapeRoutesEvidence ? 'PDF' : 'NOT_FOUND',
-        combustibleStorageEscapeCompromise: pdfExtractedData.combustibleStorageEscapeCompromise ? 'PDF' : 'NOT_FOUND',
-        fireSafetyTrainingNarrative: pdfExtractedData.fireSafetyTrainingNarrative ? 'PDF' : 'NOT_FOUND',
-        fireDoorsCondition: pdfExtractedData.fireDoorsCondition ? 'PDF' : 'NOT_FOUND',
-        weeklyFireTests: pdfExtractedData.weeklyFireTests ? 'PDF' : 'NOT_FOUND',
-        emergencyLightingMonthlyTest: pdfExtractedData.emergencyLightingMonthlyTest ? 'PDF' : 'NOT_FOUND',
-        fireExtinguisherService: pdfExtractedData.fireExtinguisherService ? 'PDF' : 'NOT_FOUND',
+        escapeRoutesEvidence: sourceValue('escapeRoutesEvidence', pdfExtractedData.escapeRoutesEvidence),
+        combustibleStorageEscapeCompromise: sourceValue('combustibleStorageEscapeCompromise', pdfExtractedData.combustibleStorageEscapeCompromise),
+        fireSafetyTrainingNarrative: sourceValue('fireSafetyTrainingNarrative', pdfExtractedData.fireSafetyTrainingNarrative),
+        fireDoorsCondition: sourceValue('fireDoorsCondition', pdfExtractedData.fireDoorsCondition),
+        weeklyFireTests: sourceValue('weeklyFireTests', pdfExtractedData.weeklyFireTests),
+        emergencyLightingMonthlyTest: sourceValue('emergencyLightingMonthlyTest', pdfExtractedData.emergencyLightingMonthlyTest),
+        fireExtinguisherService: sourceValue('fireExtinguisherService', pdfExtractedData.fireExtinguisherService),
         managementReviewStatement:
+          storedExtractedData.managementReviewStatement
+          ? storedSource
+          :
           pdfExtractedData.managementReviewStatementSource
           || (pdfExtractedData.managementReviewStatement ? 'PDF' : 'NOT_FOUND'),
-        numberOfFireExits: pdfExtractedData.numberOfFireExits ? 'PDF' : 'NOT_FOUND',
-        totalStaffEmployed: pdfExtractedData.totalStaffEmployed ? 'PDF' : 'NOT_FOUND',
-        maxStaffOnSite: pdfExtractedData.maxStaffOnSite ? 'PDF' : 'NOT_FOUND',
-        youngPersonsCount: pdfExtractedData.youngPersonsCount ? 'PDF' : 'NOT_FOUND',
-        fireDrillDate: pdfExtractedData.fireDrillDate ? 'PDF' : 'NOT_FOUND',
-        patTestingStatus: pdfExtractedData.patTestingStatus ? 'PDF' : 'NOT_FOUND',
-        fixedWireTestDate: pdfExtractedData.fixedWireTestDate ? 'PDF' : 'NOT_FOUND',
-        exitSignageCondition: pdfExtractedData.exitSignageCondition ? 'PDF' : 'NOT_FOUND',
-        compartmentationStatus: pdfExtractedData.compartmentationStatus ? 'PDF' : 'NOT_FOUND',
-        extinguisherServiceDate: pdfExtractedData.extinguisherServiceDate ? 'PDF' : 'NOT_FOUND',
-        callPointAccessibility: pdfExtractedData.callPointAccessibility ? 'PDF' : 'NOT_FOUND',
+        numberOfFireExits: sourceValue('numberOfFireExits', pdfExtractedData.numberOfFireExits),
+        totalStaffEmployed: sourceValue('totalStaffEmployed', pdfExtractedData.totalStaffEmployed),
+        maxStaffOnSite: sourceValue('maxStaffOnSite', pdfExtractedData.maxStaffOnSite),
+        youngPersonsCount: sourceValue('youngPersonsCount', pdfExtractedData.youngPersonsCount),
+        fireDrillDate: sourceValue('fireDrillDate', pdfExtractedData.fireDrillDate),
+        patTestingStatus: sourceValue('patTestingStatus', pdfExtractedData.patTestingStatus),
+        fixedWireTestDate: sourceValue('fixedWireTestDate', pdfExtractedData.fixedWireTestDate),
+        exitSignageCondition: sourceValue('exitSignageCondition', pdfExtractedData.exitSignageCondition),
+        compartmentationStatus: sourceValue('compartmentationStatus', pdfExtractedData.compartmentationStatus),
+        extinguisherServiceDate: sourceValue('extinguisherServiceDate', pdfExtractedData.extinguisherServiceDate),
+        callPointAccessibility: sourceValue('callPointAccessibility', pdfExtractedData.callPointAccessibility),
       },
       sourceQuestions: SOURCE_QUESTIONS,
       hasPdfText: !!pdfText,
-      hasDatabaseAudit: false,
+      hasDatabaseAudit: Object.keys(storedExtractedData).length > 0,
+      hasPreOpeningData: storedFraData.variant === 'new_store_pre_opening',
       pdfTextLength: pdfText?.length || 0,
-      pdfExtractedCount: Object.keys(pdfExtractedData).filter((key) => (pdfExtractedData as Record<string, unknown>)[key] != null).length,
+      pdfExtractedCount: Object.keys({ ...pdfExtractedData, ...storedExtractedData }).filter((key) => ({ ...pdfExtractedData, ...storedExtractedData } as Record<string, unknown>)[key] != null).length,
       dbExtractedCount: 0,
     }
 

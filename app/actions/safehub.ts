@@ -10,6 +10,17 @@ import { requirePermission } from '@/lib/permissions'
 // TEMPLATE ACTIONS
 // ============================================
 
+const NEW_STORE_FRA_TEMPLATE_TITLE = 'New Store Fire Risk Assessment'
+
+const NEW_STORE_FRA_DESCRIPTION =
+  'Pre-opening Fire Risk Assessment for new stores before they open to the public.'
+
+const NEW_STORE_FRA_VARIANT = 'new_store_pre_opening'
+
+function todayDateInputValue() {
+  return new Date().toISOString().slice(0, 10)
+}
+
 export async function getTemplates() {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -199,6 +210,110 @@ export async function createTemplate(data: {
   return template
 }
 
+async function ensureTemplateStorageQuestion(supabase: ReturnType<typeof createClient>, templateId: string) {
+  const { data: sections, error: sectionsError } = await supabase
+    .from('fa_audit_template_sections')
+    .select('id')
+    .eq('template_id', templateId)
+    .order('order_index', { ascending: true })
+
+  if (sectionsError) {
+    throw new Error(`Failed to check FRA template sections: ${sectionsError.message}`)
+  }
+
+  let sectionId = sections?.[0]?.id
+  if (!sectionId) {
+    const { data: section, error: sectionError } = await supabase
+      .from('fa_audit_template_sections')
+      .insert({
+        template_id: templateId,
+        title: 'Pre-opening FRA metadata',
+        order_index: 0,
+      })
+      .select('id')
+      .single()
+
+    if (sectionError || !section) {
+      throw new Error(`Failed to create FRA metadata section: ${sectionError?.message || 'unknown error'}`)
+    }
+    sectionId = section.id
+  }
+
+  const { data: firstQuestion, error: questionLookupError } = await supabase
+    .from('fa_audit_template_questions')
+    .select('id')
+    .eq('section_id', sectionId)
+    .order('order_index', { ascending: true })
+    .limit(1)
+    .maybeSingle()
+
+  if (questionLookupError) {
+    throw new Error(`Failed to check FRA metadata question: ${questionLookupError.message}`)
+  }
+
+  if (firstQuestion?.id) return firstQuestion.id
+
+  const { data: question, error: questionError } = await supabase
+    .from('fa_audit_template_questions')
+    .insert({
+      section_id: sectionId,
+      question_text: 'New store FRA metadata',
+      question_type: 'text',
+      order_index: 0,
+      is_required: false,
+    })
+    .select('id')
+    .single()
+
+  if (questionError || !question) {
+    throw new Error(`Failed to create FRA metadata question: ${questionError?.message || 'unknown error'}`)
+  }
+
+  return question.id
+}
+
+export async function ensureNewStoreFRATemplate() {
+  const { supabase, userId } = await requirePermission('manageAudits')
+
+  const { data: existing, error: lookupError } = await supabase
+    .from('fa_audit_templates')
+    .select('*')
+    .eq('category', 'fire_risk_assessment')
+    .ilike('title', NEW_STORE_FRA_TEMPLATE_TITLE)
+    .eq('is_active', true)
+    .limit(1)
+    .maybeSingle()
+
+  if (lookupError) {
+    throw new Error(`Failed to find new store FRA template: ${lookupError.message}`)
+  }
+
+  if (existing) {
+    await ensureTemplateStorageQuestion(supabase, existing.id)
+    return existing
+  }
+
+  const { data: template, error: templateError } = await supabase
+    .from('fa_audit_templates')
+    .insert({
+      title: NEW_STORE_FRA_TEMPLATE_TITLE,
+      description: NEW_STORE_FRA_DESCRIPTION,
+      category: 'fire_risk_assessment',
+      created_by_user_id: userId,
+      is_active: true,
+    })
+    .select()
+    .single()
+
+  if (templateError || !template) {
+    throw new Error(`Failed to create new store FRA template: ${templateError?.message || 'unknown error'}`)
+  }
+
+  await ensureTemplateStorageQuestion(supabase, template.id)
+  revalidatePath('/audit-lab')
+  return template
+}
+
 export async function updateTemplate(id: string, data: {
   title?: string
   description?: string
@@ -274,6 +389,148 @@ export async function createAuditInstance(templateId: string, storeId: string) {
 
   revalidatePath('/audit-lab')
   return instance
+}
+
+export async function prepareNewStoreFRAInstance(instanceId: string) {
+  const { supabase } = await requirePermission('manageAudits')
+
+  const { data: instance, error: instanceError } = await supabase
+    .from('fa_audit_instances')
+    .select(`
+      id,
+      template_id,
+      store_id,
+      fa_audit_templates (
+        id,
+        title,
+        category
+      ),
+      fa_stores (
+        id,
+        store_name,
+        store_code,
+        address_line_1,
+        city,
+        postcode,
+        region
+      )
+    `)
+    .eq('id', instanceId)
+    .single()
+
+  if (instanceError || !instance) {
+    throw new Error(`FRA instance not found: ${instanceError?.message || 'unknown error'}`)
+  }
+
+  const template = instance.fa_audit_templates as any
+  if (
+    template?.category !== 'fire_risk_assessment'
+    || String(template?.title || '').trim().toLowerCase() !== NEW_STORE_FRA_TEMPLATE_TITLE.toLowerCase()
+  ) {
+    throw new Error('This action can only prepare a New Store Fire Risk Assessment instance')
+  }
+
+  const questionId = await ensureTemplateStorageQuestion(supabase, instance.template_id)
+  const store = instance.fa_stores as any
+  const assessmentDate = todayDateInputValue()
+
+  const preOpeningExtractedData = {
+    fra_template_variant: NEW_STORE_FRA_VARIANT,
+    assessmentContext: 'pre_opening',
+    conductedDate: assessmentDate,
+    assessmentStartTime: '',
+    storeManager: '',
+    numberOfFloors: '',
+    squareFootage: '',
+    operatingHours: 'Pre-opening - store not yet open to the public',
+    firePanelLocation: 'To be confirmed during pre-opening inspection',
+    firePanelFaults: 'Fire alarm panel status to be confirmed before opening',
+    emergencyLightingSwitch: 'To be confirmed during pre-opening inspection',
+    escapeRoutesEvidence: 'Escape routes, final exits and back-of-house circulation routes are to be verified clear and available before the store opens to the public.',
+    combustibleStorageEscapeCompromise: 'Stockroom, merchandising and combustible storage arrangements are to be checked during fit-out and before trading commences.',
+    fireSafetyTrainingNarrative: 'Fire safety induction, evacuation arrangements and local emergency procedures must be briefed to store colleagues before public opening.',
+    fireDoorsCondition: 'Fire doors, final exits and compartmentation should be inspected as part of the pre-opening handover and any defects closed before trading.',
+    weeklyFireTests: 'Weekly fire alarm testing regime to be set up and recorded from opening.',
+    emergencyLightingMonthlyTest: 'Monthly emergency lighting test regime to be set up and recorded from opening.',
+    fireExtinguisherService: 'Fire extinguisher installation/commissioning evidence to be confirmed and retained before opening.',
+    managementReviewStatement: 'Pre-opening Fire Risk Assessment completed before the premises opens to the public. Commissioning, handover and local management records should be verified and retained before trading commences.',
+    numberOfFireExits: '',
+    totalStaffEmployed: '',
+    maxStaffOnSite: '',
+    youngPersonsCount: '',
+    fireDrillDate: 'First fire drill to be scheduled after opening once the store team is in place.',
+    patTestingStatus: 'Portable appliance testing / new equipment checks to be confirmed before opening.',
+    fixedWireTestDate: 'Electrical installation commissioning or fixed wire certification to be confirmed before opening.',
+    exitSignageCondition: 'Exit signage to be checked as installed, visible and directional before opening.',
+    compartmentationStatus: 'Compartmentation and fire stopping to be visually checked during the pre-opening inspection.',
+    extinguisherServiceDate: 'To be confirmed from extinguisher installation/service records before opening.',
+    callPointAccessibility: 'Manual call points to be checked clear, visible and accessible before opening.',
+  }
+
+  const preOpeningCustomData = {
+    fra_template_variant: NEW_STORE_FRA_VARIANT,
+    assessmentContext: 'pre_opening',
+    propertyType: 'New retail unit prior to opening to the public.',
+    description: `The premises at ${[store?.address_line_1, store?.city, store?.postcode].filter(Boolean).join(', ') || store?.store_name || 'the recorded store address'} is being assessed before public trading commences. The assessment considers the intended retail sales area, back-of-house accommodation, escape routes, fire safety systems and pre-opening management arrangements required before occupation by staff and customers.`,
+    operatingHours: 'Pre-opening - store not yet open to the public',
+    sleepingRisk: 'No sleeping occupants',
+    intumescentStripsPresent: true,
+    managementReviewStatement: preOpeningExtractedData.managementReviewStatement,
+  }
+
+  const responseJson = {
+    source: NEW_STORE_FRA_VARIANT,
+    fra_template_variant: NEW_STORE_FRA_VARIANT,
+    fra_custom_data: preOpeningCustomData,
+    fra_extracted_data: preOpeningExtractedData,
+    fra_extracted_data_updated_at: new Date().toISOString(),
+  }
+
+  const { data: existing } = await supabase
+    .from('fa_audit_responses')
+    .select('id, response_json')
+    .eq('audit_instance_id', instanceId)
+    .eq('question_id', questionId)
+    .maybeSingle()
+
+  if (existing?.id) {
+    const mergedJson = {
+      ...((existing.response_json as Record<string, unknown>) || {}),
+      ...responseJson,
+    }
+    const { error: updateError } = await supabase
+      .from('fa_audit_responses')
+      .update({
+        response_value: NEW_STORE_FRA_VARIANT,
+        response_json: mergedJson,
+      })
+      .eq('id', existing.id)
+
+    if (updateError) {
+      throw new Error(`Failed to prepare new store FRA data: ${updateError.message}`)
+    }
+  } else {
+    const { error: insertError } = await supabase
+      .from('fa_audit_responses')
+      .insert({
+        audit_instance_id: instanceId,
+        question_id: questionId,
+        response_value: NEW_STORE_FRA_VARIANT,
+        response_json: responseJson,
+      })
+
+    if (insertError) {
+      throw new Error(`Failed to prepare new store FRA data: ${insertError.message}`)
+    }
+  }
+
+  await supabase
+    .from('fa_audit_instances')
+    .update({ status: 'in_progress', updated_at: new Date().toISOString() })
+    .eq('id', instanceId)
+
+  revalidatePath('/audit-lab')
+  return { success: true }
 }
 
 export async function saveAuditResponse(

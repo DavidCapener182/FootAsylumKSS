@@ -2060,10 +2060,17 @@ export async function mapHSAuditToFRAData(
   console.log('[FRA] Final Assessment Date:', assessmentDateValue)
   console.log('[FRA] Final Assessment Start Time:', assessmentStartTimeValue)
   console.log('[FRA] =================================')
+
+  const isPreOpeningAssessment =
+    customData?.assessmentContext === 'pre_opening'
+    || customData?.fra_template_variant === 'new_store_pre_opening'
+    || editedExtractedData?.assessmentContext === 'pre_opening'
+    || editedExtractedData?.fra_template_variant === 'new_store_pre_opening'
   
   const returnData = {
     // Cover page data
     clientName: 'Footasylum Ltd',
+    assessmentContext: isPreOpeningAssessment ? 'pre_opening' : 'operational',
     _sources: {
       clientName: 'DEFAULT',
       premises: 'DATABASE',
@@ -2150,7 +2157,7 @@ export async function mapHSAuditToFRAData(
 
     // About the Property (customData overrides when set)
     buildDate: resolvedBuildDate,
-    propertyType: customData?.propertyType ?? 'Retail unit used for the sale of branded fashion apparel and footwear to members of the public.',
+    propertyType: customData?.propertyType ?? (isPreOpeningAssessment ? 'New retail unit prior to opening to the public.' : 'Retail unit used for the sale of branded fashion apparel and footwear to members of the public.'),
     description: (() => {
       const normalizeAddressComparable = (value: string): string =>
         value
@@ -2188,6 +2195,11 @@ export async function mapHSAuditToFRAData(
       }
       const numFloors = customData?.numberOfFloors || generalSiteInfo?.value || generalSiteInfo?.comment || '1'
       const floorsNum = parseInt(String(numFloors).replace(/\D/g, '')) || 1
+      if (isPreOpeningAssessment) {
+        return `The premises is located at ${storeAddressForDescription || 'the recorded store address'} and is being assessed before opening to the public. The assessment considers the intended sales floor, back-of-house areas, escape routes, fire safety systems and management arrangements required before trading commences.
+The unit is expected to operate as a Footasylum retail store once handover, commissioning evidence, staff induction and local emergency arrangements have been confirmed.
+Any remaining fit-out, merchandising or handover actions should be completed before the premises is occupied by customers.`
+      }
       if (floorsNum === 1) {
         return `The premises is located at ${storeAddressForDescription || 'the recorded store address'} and operates over one level (Ground Floor) with a main sales floor to the front of the unit and associated back-of-house areas to the rear, including stockroom, office and staff welfare facilities.
 The unit is of modern construction, consisting primarily of steel frame with blockwork, modern internal wall finishes and commercial-grade floor coverings.

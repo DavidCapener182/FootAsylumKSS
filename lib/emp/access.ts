@@ -29,9 +29,10 @@ async function getEmpAdminProfile() {
   const authSupabase = createClient()
   const {
     data: { user },
+    error: userError,
   } = await authSupabase.auth.getUser()
 
-  if (!user) {
+  if (userError || !user) {
     throw new EmpAccessError('Unauthorized')
   }
 

@@ -34,7 +34,9 @@ import {
   getTemplates, 
   getTemplate, 
   createTemplate,
+  ensureNewStoreFRATemplate,
   createAuditInstance,
+  prepareNewStoreFRAInstance,
   getAuditHistory,
   deleteAuditInstance,
   bulkDeleteAuditInstances,
@@ -55,6 +57,8 @@ interface Template {
   created_at: string
   is_active: boolean
 }
+
+const NEW_STORE_FRA_TEMPLATE_TITLE = 'New Store Fire Risk Assessment'
 
 const getTemplateDisplayTitle = (template: { title?: string; category?: string }) => {
   if (template.category === 'footasylum_audit') {
@@ -100,6 +104,11 @@ const isFireRiskAssessmentCategory = (category?: string | null): boolean => {
   if (!category) return false
   const normalized = String(category).trim().toLowerCase().replace(/[\s-]+/g, '_')
   return normalized === 'fire_risk_assessment' || normalized === 'fire_risk'
+}
+
+const isNewStoreFRATemplate = (template?: { title?: string | null; category?: string | null } | null): boolean => {
+  if (!template || !isFireRiskAssessmentCategory(template.category)) return false
+  return String(template.title || '').trim().toLowerCase() === NEW_STORE_FRA_TEMPLATE_TITLE.toLowerCase()
 }
 
 const toTitleCase = (value: string): string =>
@@ -1058,7 +1067,9 @@ function TemplatesLibraryView({
 }) {
   const [seeding, setSeeding] = useState(false)
   const [creatingFRA, setCreatingFRA] = useState(false)
-  const hasFRATemplate = templates.some((template) => template.category === 'fire_risk_assessment')
+  const [creatingNewStoreFRA, setCreatingNewStoreFRA] = useState(false)
+  const hasFRATemplate = templates.some((template) => template.category === 'fire_risk_assessment' && !isNewStoreFRATemplate(template))
+  const hasNewStoreFRATemplate = templates.some(isNewStoreFRATemplate)
   const visibleTemplates = templates.filter((template) => template.category !== 'footasylum_audit')
 
   const handleSeedFootAsylumTemplate = async () => {
@@ -1105,7 +1116,16 @@ function TemplatesLibraryView({
         title: 'Fire Risk Assessment',
         description: 'Fire Risk Assessment template for stores that have completed H&S audits.',
         category: 'fire_risk_assessment',
-        sections: [],
+        sections: [{
+          title: 'FRA metadata',
+          order_index: 0,
+          questions: [{
+            question_text: 'FRA metadata',
+            question_type: 'text',
+            order_index: 0,
+            is_required: false,
+          }],
+        }],
       })
       alert('Fire Risk Assessment template created successfully!')
       if (onTemplatesReload) {
@@ -1118,6 +1138,20 @@ function TemplatesLibraryView({
       alert(`Failed to create FRA template: ${error.message || 'Unknown error'}`)
     } finally {
       setCreatingFRA(false)
+    }
+  }
+
+  const handleStartNewStoreFRA = async () => {
+    try {
+      setCreatingNewStoreFRA(true)
+      const template = await ensureNewStoreFRATemplate()
+      if (onTemplatesReload) onTemplatesReload()
+      onTemplateClick(template.id)
+    } catch (error: any) {
+      console.error('Error preparing new store FRA template:', error)
+      alert(`Failed to prepare new store FRA template: ${error.message || 'Unknown error'}`)
+    } finally {
+      setCreatingNewStoreFRA(false)
     }
   }
 
@@ -1171,7 +1205,7 @@ function TemplatesLibraryView({
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
         </div>
-      ) : visibleTemplates.length === 0 ? (
+      ) : visibleTemplates.length === 0 && hasNewStoreFRATemplate ? (
         <Card>
           <CardContent className="py-12 text-center">
             <FileText className="h-12 w-12 mx-auto text-slate-300 mb-4" />
@@ -1215,6 +1249,42 @@ function TemplatesLibraryView({
               </CardContent>
             </Card>
           )})}
+          {!hasNewStoreFRATemplate && (
+            <Card
+              className="w-full min-w-0 max-w-full cursor-pointer overflow-hidden border-l-4 border-l-teal-500 transition-shadow hover:shadow-lg"
+              onClick={handleStartNewStoreFRA}
+            >
+              <CardHeader className="rounded-t-lg bg-teal-50/70 p-4 md:p-6">
+                <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <CardTitle className="min-w-0 break-words text-lg font-extrabold tracking-tight text-slate-900 sm:text-xl">
+                    {NEW_STORE_FRA_TEMPLATE_TITLE}
+                  </CardTitle>
+                  <Badge variant="outline" className="w-fit max-w-full shrink whitespace-normal break-words border-teal-200 bg-teal-50 text-left text-teal-700 sm:ml-2 sm:shrink-0">
+                    pre-opening FRA
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="p-4 pt-0 md:p-6 md:pt-0">
+                <p className="mb-4 text-sm text-slate-600">
+                  Pre-opening Fire Risk Assessment for new stores before they open to the public.
+                </p>
+                <div className="flex flex-col gap-3 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+                  <span>Created on first use</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={creatingNewStoreFRA}
+                    className="w-full min-w-0 justify-center text-teal-700 sm:w-auto"
+                  >
+                    {creatingNewStoreFRA ? (
+                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                    ) : null}
+                    Start Audit <ChevronRight className="h-3 w-3 ml-1" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       )}
     </div>
@@ -1357,18 +1427,20 @@ function AuditFormView({
     loadTemplate()
   }, [templateId])
 
-  useEffect(() => {
-    loadStores()
-  }, [template?.category])
+  const isNewStoreFRA = isNewStoreFRATemplate(template)
 
   useEffect(() => {
-    if (selectedStoreId) {
+    loadStores()
+  }, [template?.category, template?.title])
+
+  useEffect(() => {
+    if (selectedStoreId && !isNewStoreFRA) {
       loadPreviousFailures(selectedStoreId)
     } else {
       setPreviousFailures({})
       setPreviousAuditDate(null)
     }
-  }, [selectedStoreId, templateId])
+  }, [selectedStoreId, templateId, isNewStoreFRA])
 
   const loadTemplate = async () => {
     try {
@@ -1385,15 +1457,24 @@ function AuditFormView({
   const loadStores = async () => {
     try {
       const supabase = createClient()
-      const { data, error } = await supabase
+      let query = supabase
         .from('fa_stores')
-        .select('id, store_code, store_name, city, region, compliance_audit_1_date, compliance_audit_2_date, fire_risk_assessment_date')
-        .eq('is_active', true)
+        .select('id, store_code, store_name, city, region, is_active, compliance_audit_1_date, compliance_audit_2_date, fire_risk_assessment_date')
         .order('store_name', { ascending: true })
+
+      if (!isNewStoreFRA) {
+        query = query.eq('is_active', true)
+      }
+
+      const { data, error } = await query
 
       if (!error && data) {
         if (template?.category === 'fire_risk_assessment') {
           const eligible = data.filter((store) => {
+            if (isNewStoreFRA) {
+              return true
+            }
+
             const hasCompletedComplianceAudit = Boolean(
               store.compliance_audit_1_date || store.compliance_audit_2_date
             )
@@ -1432,7 +1513,10 @@ function AuditFormView({
       
       // For FRA templates, open the review/report flow and wait for explicit Save + Complete.
       if (template?.category === 'fire_risk_assessment') {
-        if (hsAuditPastedText.trim()) {
+        if (isNewStoreFRA) {
+          await prepareNewStoreFRAInstance(instance.id)
+          console.log('[AUDIT-LAB] New store FRA instance prepared with pre-opening defaults.')
+        } else if (hsAuditPastedText.trim()) {
           setUploadingHSAudit(true)
           try {
             console.log('[AUDIT-LAB] Storing pasted H&S audit text...')
@@ -1606,12 +1690,13 @@ function AuditFormView({
                 <option key={store.id} value={store.id}>
                   {store.store_name} {store.store_code && `(${store.store_code})`} 
                   {store.city && ` - ${store.city}`}
+                  {isNewStoreFRA && store.is_active === false ? ' - inactive/pre-opening' : ''}
                 </option>
               ))}
             </select>
           </div>
 
-          {selectedStoreId && (
+          {selectedStoreId && !isNewStoreFRA && (
             <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
               {loadingPrevious && (
                 <div className="flex items-center gap-2 text-sm text-slate-600">
@@ -1647,8 +1732,14 @@ function AuditFormView({
             </div>
           )}
 
+          {isNewStoreFRA && (
+            <div className="rounded-lg border border-teal-200 bg-teal-50 p-4 text-sm text-teal-900">
+              This flow is for stores before public opening. It starts the same FRA report, but uses pre-opening defaults and does not require a completed H&S audit or pasted H&S audit text.
+            </div>
+          )}
+
           {/* H&S Audit text input for FRA */}
-          {template?.category === 'fire_risk_assessment' && (
+          {template?.category === 'fire_risk_assessment' && !isNewStoreFRA && (
             <div className="pt-4 border-t space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">

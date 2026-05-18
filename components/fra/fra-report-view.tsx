@@ -109,6 +109,7 @@ const StoreMap = dynamic(() => import('./store-map'), { ssr: false })
 
 interface FRAData {
   clientName: string
+  assessmentContext?: string | null
   premises: string
   address: string
   responsiblePerson: string
@@ -322,6 +323,11 @@ async function optimizeImageForUpload(file: File): Promise<File> {
 
 export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showPrintHeaderFooter }: FRAReportViewProps) {
   const showHeaderFooter = showPrintHeaderFooter === true
+  const isPreOpeningAssessment = data.assessmentContext === 'pre_opening'
+  const reportTitle = isPreOpeningAssessment ? 'Pre-Opening Fire Risk Assessment' : 'Fire Risk Assessment'
+  const reportSubtitle = isPreOpeningAssessment
+    ? 'Life Safety Assessment - New Store Prior to Public Opening'
+    : 'Life Safety Assessment - Retail Premises'
   const printOnlyUiClass = showHeaderFooter ? 'hidden' : 'print:hidden'
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -343,6 +349,8 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
     youngPersonsCount: data.youngPersonsCount ?? '',
     description: data.description ?? '',
     intumescentStripsPresent: data.intumescentStripsPresent ?? true,
+    assessmentContext: data.assessmentContext ?? null,
+    fra_template_variant: isPreOpeningAssessment ? 'new_store_pre_opening' : null,
   })
   const [uploadingPhotos, setUploadingPhotos] = useState<Record<string, boolean>>({})
   const [deletingPhotoPath, setDeletingPhotoPath] = useState<string | null>(null)
@@ -514,8 +522,10 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
       youngPersonsCount: data.youngPersonsCount ?? '',
       description: data.description ?? '',
       intumescentStripsPresent: data.intumescentStripsPresent ?? true,
+      assessmentContext: data.assessmentContext ?? null,
+      fra_template_variant: isPreOpeningAssessment ? 'new_store_pre_opening' : null,
     })
-  }, [data.floorArea, data.occupancy, data.operatingHours, data.buildDate, data.propertyType, data.numberOfFloors, data.numberOfFireExits, data.adjacentOccupancies, data.sleepingRisk, data.totalStaffEmployed, data.maxStaffOnSite, data.youngPersonsCount, data.description, data.intumescentStripsPresent])
+  }, [data.floorArea, data.occupancy, data.operatingHours, data.buildDate, data.propertyType, data.numberOfFloors, data.numberOfFireExits, data.adjacentOccupancies, data.sleepingRisk, data.totalStaffEmployed, data.maxStaffOnSite, data.youngPersonsCount, data.description, data.intumescentStripsPresent, data.assessmentContext, isPreOpeningAssessment])
 
   useEffect(() => {
     customDataRef.current = customData
@@ -1030,7 +1040,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
   const printHeaderContent = (
     <>
       <span className="w-[80px] shrink-0" aria-hidden="true" />
-      <span className="fra-report-print-title flex-1 text-center mx-3">Fire Risk Assessment</span>
+      <span className="fra-report-print-title flex-1 text-center mx-3">{reportTitle}</span>
       <span className="w-[80px] shrink-0" aria-hidden="true" />
     </>
   )
@@ -1092,8 +1102,8 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
                 onError={() => setLogoError(true)}
               />
             )}
-            <h1 className="text-2xl font-bold text-slate-900 mt-4">Fire Risk Assessment</h1>
-            <p className="text-base font-medium text-slate-600 mt-2">Life Safety Assessment – Retail Premises</p>
+            <h1 className="text-2xl font-bold text-slate-900 mt-4">{reportTitle}</h1>
+            <p className="text-base font-medium text-slate-600 mt-2">{reportSubtitle}</p>
             <hr className="mt-3 w-24 mx-auto border-slate-300" />
           </div>
 
@@ -1239,8 +1249,9 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
             protection.
           </p>
           <p>
-            This document represents a live, operational Fire Risk Assessment and supersedes the pre-opening
-            assumptions contained within the previous assessment.
+            {isPreOpeningAssessment
+              ? 'This document represents a pre-opening Fire Risk Assessment completed before the premises opens to the public. It should be reviewed once trading has commenced, or sooner if the layout, fit-out, fire strategy or management arrangements materially change.'
+              : 'This document represents a live, operational Fire Risk Assessment and supersedes the pre-opening assumptions contained within the previous assessment.'}
           </p>
         </div>
         <figure className="fra-figure mt-6">
@@ -1558,9 +1569,8 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
           <ul className="list-disc list-inside ml-4 space-y-1">
             <li>A visual inspection of the premises</li>
             <li>Review of fire safety arrangements in place at the time of the assessment</li>
-            <li>Consideration of documented records made available, including fire alarm testing,
-            emergency lighting tests and fire drill records</li>
-            <li>Observations made during a Health & Safety and Fire Safety audit conducted on {data.assessmentDate || 'the assessment date'}</li>
+            <li>{isPreOpeningAssessment ? 'Consideration of commissioning, handover and pre-opening records made available at the time of assessment' : 'Consideration of documented records made available, including fire alarm testing, emergency lighting tests and fire drill records'}</li>
+            <li>{isPreOpeningAssessment ? `Observations made during the pre-opening fire risk assessment conducted on ${data.assessmentDate || 'the assessment date'}` : `Observations made during a Health & Safety and Fire Safety audit conducted on ${data.assessmentDate || 'the assessment date'}`}</li>
           </ul>
           <p className="mt-4">
             No intrusive inspection, destructive testing, or specialist testing of fire systems, structural elements,
@@ -1820,6 +1830,8 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
                     youngPersonsCount: data.youngPersonsCount ?? '',
                     description: data.description ?? '',
                     intumescentStripsPresent: data.intumescentStripsPresent ?? true,
+                    assessmentContext: data.assessmentContext ?? null,
+                    fra_template_variant: isPreOpeningAssessment ? 'new_store_pre_opening' : null,
                   })
                 }}
                 disabled={saving}
@@ -2590,28 +2602,26 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
           <div>
             <h3 className="font-semibold mb-2">Introduction</h3>
             <p>
-              The client is Footasylum Ltd, a national branded fashion apparel and footwear retailer. This Fire
-              Risk Assessment relates solely to their retail premises at {data.premises}. The premises is situated within an established managed shopping centre
-              environment.
+              {isPreOpeningAssessment
+                ? `The client is Footasylum Ltd, a national branded fashion apparel and footwear retailer. This pre-opening Fire Risk Assessment relates solely to their new retail premises at ${data.premises} before public trading commences.`
+                : `The client is Footasylum Ltd, a national branded fashion apparel and footwear retailer. This Fire Risk Assessment relates solely to their retail premises at ${data.premises}. The premises is situated within an established managed shopping centre environment.`}
             </p>
             <p className="mt-2 whitespace-pre-line">
               {data.description.split('\n').slice(0, 1).join('\n') || defaultPremisesDescriptionLine(customData.numberOfFloors || data.numberOfFloors)}
             </p>
             <p className="mt-2">
-              The premises is provided with designated fire exit routes serving the sales floor and back-of-house
-              areas, which discharge to a place of relative safety via the shopping centre&apos;s managed evacuation
-              routes. Escape routes and back-of-house circulation routes were observed
-              to be available and in use at the time of assessment.
+              {isPreOpeningAssessment
+                ? 'The premises must have designated fire exit routes serving the intended sales floor and back-of-house areas before opening. Escape routes, final exits, alarm call points, emergency lighting and exit signage should be verified as available, visible and unobstructed before customers are admitted.'
+                : 'The premises is provided with designated fire exit routes serving the sales floor and back-of-house areas, which discharge to a place of relative safety via the shopping centre\'s managed evacuation routes. Escape routes and back-of-house circulation routes were observed to be available and in use at the time of assessment.'}
             </p>
           </div>
 
           <div>
             <h3 className="font-semibold mb-2">Overview of the workplace being assessed</h3>
             <p>
-              The primary function of the premises is the retail sale of branded fashion apparel and footwear to
-              members of the public. The store operates as a standard high-street retail environment with a
-              public sales area and associated back-of-house accommodation, including stockroom, staff welfare
-              facilities and a management office.
+              {isPreOpeningAssessment
+                ? 'The intended function of the premises is the retail sale of branded fashion apparel and footwear to members of the public. At the time of this assessment the store is in a pre-opening condition, with public access not yet commenced.'
+                : 'The primary function of the premises is the retail sale of branded fashion apparel and footwear to members of the public. The store operates as a standard high-street retail environment with a public sales area and associated back-of-house accommodation, including stockroom, staff welfare facilities and a management office.'}
             </p>
             <p className="mt-2">
               The premises operates over {floorLayoutPhrase(effectiveFloorCount)}. Staffing levels vary depending on trading
