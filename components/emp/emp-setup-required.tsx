@@ -2,6 +2,8 @@ import { AlertTriangle } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
 export function EmpSetupRequired({ details }: { details?: string }) {
+  const hasSpecificMigration = Boolean(details && !details.includes('048_add_emp_module.sql'))
+
   return (
     <div className="mx-auto max-w-3xl">
       <Card className="border border-amber-200 bg-amber-50/70 shadow-none">
@@ -11,16 +13,29 @@ export function EmpSetupRequired({ details }: { details?: string }) {
           </div>
           <CardTitle>EMP database setup required</CardTitle>
           <CardDescription className="text-sm text-amber-900/80">
-            Apply <span className="font-mono">supabase/migrations/048_add_emp_module.sql</span> to
-            the connected Supabase project, then refresh this page.
+            {hasSpecificMigration ? (
+              <>Apply the missing EMP migration shown below to the connected Supabase project, then refresh this page.</>
+            ) : (
+              <>
+                Apply <span className="font-mono">supabase/migrations/048_add_emp_module.sql</span> to
+                the connected Supabase project, then refresh this page.
+              </>
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3 text-sm text-amber-950">
-          <p>
-            This migration creates the <span className="font-mono">emp_</span> tables, row-level
-            security policies, and the <span className="font-mono">emp-documents</span> storage
-            bucket used by the Event Management Plan module.
-          </p>
+          {hasSpecificMigration ? (
+            <p>
+              The base EMP module is available, but this screen needs an additional table before it can
+              save live event records.
+            </p>
+          ) : (
+            <p>
+              This migration creates the <span className="font-mono">emp_</span> tables, row-level
+              security policies, and the <span className="font-mono">emp-documents</span> storage
+              bucket used by the Event Management Plan module.
+            </p>
+          )}
           {details ? (
             <p className="rounded-lg border border-amber-200 bg-white/70 px-3 py-2 font-mono text-xs text-amber-950">
               {details}

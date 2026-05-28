@@ -292,6 +292,7 @@ export const EMP_MASTER_TEMPLATES: EmpMasterTemplateDefinition[] = [
     filename: '02_Emergency_Action_Plan.pdf',
     orientation: 'portrait',
     kind: 'emergency_action_plan',
+    hiddenFromDocuments: true,
     titleTone: 'danger',
     notice: {
       tone: 'danger',
@@ -386,6 +387,7 @@ export const EMP_MASTER_TEMPLATES: EmpMasterTemplateDefinition[] = [
     filename: '08_Shift_Rota.pdf',
     orientation: 'landscape',
     kind: 'table',
+    hiddenFromDocuments: true,
     infoFields: [],
     columns: [
       { key: 'staff_name', label: 'Staff Name', width: '18%' },
@@ -437,6 +439,7 @@ export const EMP_MASTER_TEMPLATES: EmpMasterTemplateDefinition[] = [
     filename: '10_Equipment_Check_In.pdf',
     orientation: 'landscape',
     kind: 'table',
+    hiddenFromDocuments: true,
     infoFields: [],
     columns: [
       { key: 'asset_id', label: 'Asset ID', width: '8%' },
@@ -503,6 +506,39 @@ export const EMP_MASTER_TEMPLATES: EmpMasterTemplateDefinition[] = [
     ],
   },
   {
+    id: 'event-control-log',
+    documentCode: 'EMP-MT-17',
+    order: 17,
+    category: 'Logs',
+    icon: 'list',
+    title: 'Event Control Log',
+    description: 'Live radio-message and decision log for incidents, operational updates, actions, and status tracking.',
+    filename: '17_Event_Control_Log.pdf',
+    orientation: 'landscape',
+    kind: 'table',
+    infoFields: [
+      { label: 'Event Name' },
+      { label: 'Date' },
+      { label: 'Controller Name' },
+      { label: 'Page Number' },
+    ],
+    columns: [
+      { key: 'log', label: 'Log', width: '6%', align: 'center' },
+      { key: 'time', label: 'Time', width: '6%', align: 'center' },
+      { key: 'from', label: 'From', width: '9%' },
+      { key: 'to', label: 'To', width: '9%' },
+      { key: 'occurrence', label: 'Occurrence', width: '28%' },
+      { key: 'type', label: 'Type', width: '10%', align: 'center' },
+      { key: 'action', label: 'Action', width: '18%' },
+      { key: 'priority', label: 'Priority', width: '7%', align: 'center' },
+      { key: 'status', label: 'Status', width: '7%', align: 'center' },
+    ],
+    emptyRows: 16,
+    rowHeightClass: 'h-[38px]',
+    footerNote:
+      'Entries are copied from the plan-linked Event Control Log. Keep radio messages factual, time-stamped, and updated when actions are closed.',
+  },
+  {
     id: 'daily-security-brief',
     documentCode: 'EMP-MT-14',
     order: 14,
@@ -562,6 +598,7 @@ export const EMP_MASTER_TEMPLATES: EmpMasterTemplateDefinition[] = [
     filename: '15_Duty_Manager_Debrief.pdf',
     orientation: 'portrait',
     kind: 'narrative_form',
+    hiddenFromDocuments: true,
     headerFields: [
       { label: 'Event Name & Date' },
       { label: 'Completed By' },
@@ -620,6 +657,8 @@ export function getEmpMasterTemplateById(templateId: string | null | undefined) 
 export function groupEmpMasterTemplatesByCategory() {
   return EMP_MASTER_TEMPLATE_CATEGORIES.map((category) => ({
     category,
-    templates: EMP_VISIBLE_MASTER_TEMPLATES.filter((template) => template.category === category),
+    templates: EMP_VISIBLE_MASTER_TEMPLATES
+      .filter((template) => template.category === category)
+      .sort((first, second) => first.order - second.order),
   }))
 }

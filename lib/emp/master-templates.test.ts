@@ -22,7 +22,7 @@ describe('emp master templates', () => {
     expect([...groupedIds].sort()).toEqual([...EMP_VISIBLE_MASTER_TEMPLATES.map((template) => template.id)].sort())
   })
 
-  it('numbers active documents sequentially in displayed category order', () => {
+  it('returns active documents in displayed category order', () => {
     const displayedTemplates = groupEmpMasterTemplatesByCategory().flatMap((group) => group.templates)
 
     expect(
@@ -33,36 +33,42 @@ describe('emp master templates', () => {
       }))
     ).toEqual([
       { id: 'security-risk-assessment', documentCode: 'EMP-MT-01', filename: '01_Security_Risk_Assessment.pdf' },
-      { id: 'emergency-action-plan-cover', documentCode: 'EMP-MT-02', filename: '02_Emergency_Action_Plan.pdf' },
       { id: 'uniform-ppe-allocation-log', documentCode: 'EMP-MT-03', filename: '03_Uniform_PPE_Allocation_Log.pdf' },
       { id: 'radio-kit-sign-out-sheet', documentCode: 'EMP-MT-04', filename: '04_Radio_Kit_Sign_Out_Sheet.pdf' },
       { id: 'staff-sign-in-sign-out-sheet', documentCode: 'EMP-MT-05', filename: '05_Staff_Sign_In_Sheet.pdf' },
       { id: 'deployment-matrix', documentCode: 'EMP-MT-06', filename: '06_Deployment_Matrix.pdf' },
       { id: 'supervisor-deployment', documentCode: 'EMP-MT-07', filename: '07_Supervisor_Deployment.pdf' },
-      { id: 'shift-rota', documentCode: 'EMP-MT-08', filename: '08_Shift_Rota.pdf' },
       { id: 'contact-and-cascade-list', documentCode: 'EMP-MT-09', filename: '09_Contact_Cascade_List.pdf' },
-      { id: 'equipment-check-in-kit-return', documentCode: 'EMP-MT-10', filename: '10_Equipment_Check_In.pdf' },
       { id: 'incident-accident-form', documentCode: 'EMP-MT-11', filename: '11_Incident_Accident_Form.pdf' },
       { id: 'refusal-of-entry-ejection-log', documentCode: 'EMP-MT-12', filename: '12_Refusal_Ejection_Log.pdf' },
       { id: 'suspicious-item-concern-report', documentCode: 'EMP-MT-13', filename: '13_Suspicious_Item_Report.pdf' },
-      { id: 'duty-manager-debrief', documentCode: 'EMP-MT-15', filename: '15_Duty_Manager_Debrief.pdf' },
+      { id: 'event-control-log', documentCode: 'EMP-MT-17', filename: '17_Event_Control_Log.pdf' },
       { id: 'radio-one-daily-security-brief', documentCode: 'EMP-MT-16', filename: '16_Radio_One_Event_Week_Security_Brief_Booklet.pdf' },
     ])
   })
 
-  it('contains all sixteen event management documents', () => {
-    expect(EMP_MASTER_TEMPLATES).toHaveLength(16)
-    expect(EMP_MASTER_TEMPLATES.map((template) => template.id)).not.toContain('event-control-log')
+  it('contains all seventeen event management documents', () => {
+    expect(EMP_MASTER_TEMPLATES).toHaveLength(17)
+    expect(EMP_MASTER_TEMPLATES.map((template) => template.id)).toContain('event-control-log')
   })
 
-  it('hides the standard daily security brief from document lists but keeps direct lookup', () => {
+  it('hides retired documents from document lists but keeps direct lookup', () => {
     const displayedTemplates = groupEmpMasterTemplatesByCategory().flatMap((group) => group.templates)
-    const hiddenTemplate = getEmpMasterTemplateById('daily-security-brief')
+    const displayedTemplateIds = displayedTemplates.map((template) => template.id)
+    const visibleTemplateIds = EMP_VISIBLE_MASTER_TEMPLATES.map((template) => template.id)
+    const hiddenTemplateIds = [
+      'emergency-action-plan-cover',
+      'shift-rota',
+      'equipment-check-in-kit-return',
+      'daily-security-brief',
+      'duty-manager-debrief',
+    ]
 
-    expect(hiddenTemplate?.title).toBe('Daily Security Brief')
-    expect(hiddenTemplate?.hiddenFromDocuments).toBe(true)
-    expect(displayedTemplates.map((template) => template.id)).not.toContain('daily-security-brief')
-    expect(EMP_VISIBLE_MASTER_TEMPLATES.map((template) => template.id)).not.toContain('daily-security-brief')
+    for (const templateId of hiddenTemplateIds) {
+      expect(getEmpMasterTemplateById(templateId)?.hiddenFromDocuments).toBe(true)
+      expect(displayedTemplateIds).not.toContain(templateId)
+      expect(visibleTemplateIds).not.toContain(templateId)
+    }
   })
 
   it('adds a dedicated Radio One event week security briefing booklet', () => {

@@ -28,7 +28,6 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
-  EMP_MASTER_TEMPLATES,
   EMP_VISIBLE_MASTER_TEMPLATES,
   groupEmpMasterTemplatesByCategory,
   type EmpMasterTemplateDefinition,
@@ -423,7 +422,7 @@ export function EmpMasterTemplatesClient({
   const lastSharedUpdatedAtRef = useRef('')
 
   const activeTemplate = useMemo<EmpMasterTemplateDefinition | null>(
-    () => EMP_MASTER_TEMPLATES.find((template) => template.id === activeTemplateId) ?? EMP_VISIBLE_MASTER_TEMPLATES[0] ?? null,
+    () => EMP_VISIBLE_MASTER_TEMPLATES.find((template) => template.id === activeTemplateId) ?? EMP_VISIBLE_MASTER_TEMPLATES[0] ?? null,
     [activeTemplateId]
   )
 

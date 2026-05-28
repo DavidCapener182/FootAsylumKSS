@@ -63,9 +63,17 @@ export async function middleware(request: NextRequest) {
 
   // Allow access to login and password reset routes
   const isAuthRoute = request.nextUrl.pathname.startsWith('/login')
+  const isApiRoute = request.nextUrl.pathname.startsWith('/api/')
   
   // Protect routes - redirect to login if not authenticated
   if (!user && !isAuthRoute) {
+    if (isApiRoute) {
+      return NextResponse.json(
+        { error: 'Authentication required. Refresh the page and sign in again.' },
+        { status: 401 }
+      )
+    }
+
     return NextResponse.redirect(new URL('/login', request.url))
   }
 

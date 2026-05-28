@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState, type ChangeEvent } from 'react'
-import { ArrowLeft, Download, Loader2, Save, Sparkles, Upload } from 'lucide-react'
+import { ArrowLeft, Download, Loader2, Radio, Save, Sparkles, Upload } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -649,6 +649,13 @@ export function EmpPlanEditor({ initialData }: { initialData: EmpPlanEditorData 
             >
               Preview
               <Download className="ml-2 h-4 w-4" />
+            </a>
+            <a
+              href={`/admin/event-management-plans/${editorData.plan.id}/event-control-log`}
+              className="inline-flex h-10 items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm hover:bg-accent hover:text-accent-foreground"
+            >
+              <Radio className="mr-2 h-4 w-4" />
+              Event Control
             </a>
             <a
               href={`/print/emp-report?planId=${editorData.plan.id}`}

@@ -1,4 +1,4 @@
-import { ArrowLeft, FileText, Printer } from 'lucide-react'
+import { ArrowLeft, FileText, Printer, Radio } from 'lucide-react'
 import type { Metadata } from 'next'
 import { EmpDocumentTitle } from '@/components/emp/emp-document-title'
 import { EmpPdfDownloadButton } from '@/components/emp/emp-pdf-download-button'
@@ -84,6 +84,13 @@ export default async function CrowdManagementPlanPreviewPage({
             </div>
             <div className="flex flex-wrap gap-2">
               <EmpPdfDownloadButton planId={params.planId} />
+              <a
+                href={`/admin/event-management-plans/${params.planId}/event-control-log`}
+                className={cn(buttonVariants({ variant: 'outline' }))}
+              >
+                <Radio className="mr-2 h-4 w-4" />
+                Event Control
+              </a>
               <a
                 href={`/print/emp-report?planId=${params.planId}`}
                 target="_blank"

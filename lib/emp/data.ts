@@ -27,6 +27,17 @@ import {
   type EmpMasterTemplatePlanPrefill,
 } from '@/lib/emp/master-template-prefill'
 import {
+  EMP_EVENT_CONTROL_LOG_PRIORITY_OPTIONS,
+  EMP_EVENT_CONTROL_LOG_STATUS_OPTIONS,
+  getEmpEventControlLogPriorityLabel,
+  getEmpEventControlLogStatusLabel,
+  getEmpEventControlLogTypeLabel,
+  normalizeEmpEventControlLogTypeValue,
+  type EmpEventControlLogPriority,
+  type EmpEventControlLogStatus,
+  type EmpEventControlLogType,
+} from '@/lib/emp/event-control-log-options'
+import {
   EMP_MASTER_TEMPLATE_DESCRIPTION,
   EMP_MASTER_TEMPLATE_FIELDS,
   EMP_MASTER_TEMPLATE_SECTIONS,
@@ -36,6 +47,7 @@ import {
   type EmpDocumentKind,
 } from '@/lib/emp/master-template'
 import { buildEmpPreviewModel, resolveEmpFieldValueMap } from '@/lib/emp/preview'
+import { formatAppDate, formatAppDateTime, formatAppTime } from '@/lib/utils'
 
 type EmpTemplateRow = {
   id: string
@@ -57,6 +69,23 @@ type EmpPlanRow = {
   updated_at: string
 }
 
+type EmpEventControlLogEntryRow = {
+  id: string
+  plan_id: string
+  log_number: number
+  logged_at: string
+  from_call_sign: string | null
+  to_call_sign: string | null
+  occurrence: string
+  message_type: string
+  action_taken: string | null
+  owner: string | null
+  priority: string
+  status: string
+  created_at: string
+  updated_at: string
+}
+
 export type EmpPlanSummary = {
   id: string
   title: string
@@ -67,6 +96,34 @@ export type EmpPlanSummary = {
   includeKssProfileAppendix: boolean
   createdAt: string
   updatedAt: string
+}
+
+export type EmpEventControlLogEntry = {
+  id: string
+  planId: string
+  logNumber: number
+  loggedAt: string
+  fromCallSign: string | null
+  toCallSign: string | null
+  occurrence: string
+  messageType: EmpEventControlLogType
+  actionTaken: string | null
+  owner: string | null
+  priority: EmpEventControlLogPriority
+  status: EmpEventControlLogStatus
+  createdAt: string
+  updatedAt: string
+}
+
+export type EmpEventControlLogSuggestions = {
+  messageTypes: string[]
+  contacts: string[]
+}
+
+export type EmpEventControlLogData = {
+  plan: EmpPlanSummary
+  entries: EmpEventControlLogEntry[]
+  suggestions: EmpEventControlLogSuggestions
 }
 
 export type EmpEditorField = {
@@ -124,6 +181,7 @@ export type EmpPlanEditorData = {
 
 const EMP_SETUP_REQUIRED_MESSAGE =
   'EMP database setup required. Apply supabase/migrations/048_add_emp_module.sql to the connected Supabase project, then refresh this page.'
+const EVENT_CONTROL_LOG_FUTURE_TOLERANCE_MS = 2 * 60 * 1000
 
 type EmpErrorLike = {
   message?: string | null
@@ -184,6 +242,140 @@ function buildPlanSummary(plan: EmpPlanRow): EmpPlanSummary {
     createdAt: plan.created_at,
     updatedAt: plan.updated_at,
   }
+}
+
+function isAllowedEventControlLogPriority(value: string): value is EmpEventControlLogPriority {
+  return EMP_EVENT_CONTROL_LOG_PRIORITY_OPTIONS.some((option) => option.value === value)
+}
+
+function isAllowedEventControlLogStatus(value: string): value is EmpEventControlLogStatus {
+  return EMP_EVENT_CONTROL_LOG_STATUS_OPTIONS.some((option) => option.value === value)
+}
+
+function normalizeEventControlLogType(value: unknown): EmpEventControlLogType {
+  return normalizeEmpEventControlLogTypeValue(value)
+}
+
+function normalizeEventControlLogLoggedAt(value: unknown) {
+  const raw = clean(value)
+  const now = new Date()
+  const date = raw ? new Date(raw) : now
+  if (Number.isNaN(date.getTime())) return now.toISOString()
+  return date.getTime() - now.getTime() > EVENT_CONTROL_LOG_FUTURE_TOLERANCE_MS
+    ? now.toISOString()
+    : date.toISOString()
+}
+
+function normalizeEventControlLogPriority(value: unknown): EmpEventControlLogPriority {
+  const normalized = clean(value).toLowerCase()
+  return isAllowedEventControlLogPriority(normalized) ? normalized : 'medium'
+}
+
+function normalizeEventControlLogStatus(value: unknown): EmpEventControlLogStatus {
+  const normalized = clean(value).toLowerCase()
+  return isAllowedEventControlLogStatus(normalized) ? normalized : 'open'
+}
+
+function buildEventControlLogEntry(row: EmpEventControlLogEntryRow): EmpEventControlLogEntry {
+  const loggedAt = new Date(row.logged_at)
+  const createdAt = new Date(row.created_at)
+  const displayLoggedAt =
+    !Number.isNaN(loggedAt.getTime()) &&
+    !Number.isNaN(createdAt.getTime()) &&
+    loggedAt.getTime() - createdAt.getTime() > EVENT_CONTROL_LOG_FUTURE_TOLERANCE_MS
+      ? row.created_at
+      : row.logged_at
+
+  return {
+    id: row.id,
+    planId: row.plan_id,
+    logNumber: Number(row.log_number || 0),
+    loggedAt: displayLoggedAt,
+    fromCallSign: row.from_call_sign,
+    toCallSign: row.to_call_sign,
+    occurrence: row.occurrence,
+    messageType: normalizeEventControlLogType(row.message_type),
+    actionTaken: row.action_taken,
+    owner: row.owner,
+    priority: normalizeEventControlLogPriority(row.priority),
+    status: normalizeEventControlLogStatus(row.status),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }
+}
+
+function throwEmpEventControlLogOperationError(context: string, error?: EmpErrorLike): never {
+  if (isEmpSchemaMissingError(error)) {
+    throw new EmpSetupRequiredError(
+      'EMP Event Control Log database setup required. Apply supabase/migrations/054_add_emp_event_control_log.sql to the connected Supabase project, then refresh this page.'
+    )
+  }
+
+  throwEmpOperationError(context, error)
+}
+
+function formatEventControlLogNumber(value: number) {
+  return String(Math.max(0, Number(value || 0))).padStart(3, '0')
+}
+
+function sortEventControlLogEntriesNewestFirst(entries: EmpEventControlLogEntry[]) {
+  return [...entries].sort((first, second) => {
+    const logDiff = Number(second.logNumber || 0) - Number(first.logNumber || 0)
+    if (logDiff !== 0) return logDiff
+
+    const createdDiff = new Date(second.createdAt).getTime() - new Date(first.createdAt).getTime()
+    if (createdDiff !== 0) return createdDiff
+
+    return new Date(second.loggedAt).getTime() - new Date(first.loggedAt).getTime()
+  })
+}
+
+function buildEventControlLogAmendment(input: {
+  currentValue: string | null
+  amendment: unknown
+  amendedAt: string
+  amendedBy: string | null | undefined
+}) {
+  const amendment = clean(input.amendment)
+  if (!amendment) return input.currentValue
+
+  const timestamp = formatAppDateTime(
+    input.amendedAt,
+    {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    },
+    input.amendedAt
+  )
+  const author = clean(input.amendedBy) || 'Event Control'
+  const auditBlock = `[Amended ${timestamp} by ${author}]\n${amendment}`
+  const currentValue = clean(input.currentValue)
+
+  return currentValue ? `${currentValue}\n\n${auditBlock}` : auditBlock
+}
+
+function buildEventControlLogTableCells(entries: EmpEventControlLogEntry[]) {
+  const tableCells: Record<string, string> = {}
+
+  sortEventControlLogEntriesNewestFirst(entries)
+    .forEach((entry, rowIndex) => {
+      tableCells[`${rowIndex}:log`] = formatEventControlLogNumber(entry.logNumber)
+      tableCells[`${rowIndex}:time`] = formatAppTime(entry.loggedAt, {}, entry.loggedAt)
+      tableCells[`${rowIndex}:from`] = clean(entry.fromCallSign)
+      tableCells[`${rowIndex}:to`] = clean(entry.toCallSign)
+      tableCells[`${rowIndex}:occurrence`] = entry.occurrence
+      tableCells[`${rowIndex}:type`] = getEmpEventControlLogTypeLabel(entry.messageType)
+      tableCells[`${rowIndex}:action`] = clean(entry.actionTaken)
+      tableCells[`${rowIndex}:priority`] = getEmpEventControlLogPriorityLabel(entry.priority)
+      tableCells[`${rowIndex}:status`] = getEmpEventControlLogStatusLabel(entry.status)
+    })
+
+  return tableCells
 }
 
 function sanitizeFileName(fileName: string) {
@@ -452,6 +644,81 @@ async function loadPlanDocuments(
       signedUrl: await createEmpDocumentSignedUrl(supabase, document.filePath),
     }))
   )
+}
+
+async function loadEventControlLogEntries(
+  supabase: ReturnType<typeof createClient>,
+  planId: string
+) {
+  const { data, error } = await (supabase as any)
+    .from('emp_event_control_log_entries')
+    .select('id, plan_id, log_number, logged_at, from_call_sign, to_call_sign, occurrence, message_type, action_taken, owner, priority, status, created_at, updated_at')
+    .eq('plan_id', planId)
+    .order('log_number', { ascending: false })
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    throwEmpEventControlLogOperationError('Failed to load EMP event control log entries', error)
+  }
+
+  return sortEventControlLogEntriesNewestFirst(((data || []) as EmpEventControlLogEntryRow[]).map(buildEventControlLogEntry))
+}
+
+async function loadEventControlLogSuggestions(
+  supabase: ReturnType<typeof createClient>
+): Promise<EmpEventControlLogSuggestions> {
+  const { data, error } = await (supabase as any)
+    .from('emp_event_control_log_entries')
+    .select('from_call_sign, to_call_sign, message_type, owner')
+    .order('updated_at', { ascending: false })
+    .limit(500)
+
+  if (error) {
+    throwEmpEventControlLogOperationError('Failed to load EMP event control log suggestions', error)
+  }
+
+  const messageTypes = new Set<string>()
+  const contacts = new Map<string, string>()
+  const suggestionRows = (data || []) as Array<Pick<
+    EmpEventControlLogEntryRow,
+    'from_call_sign' | 'to_call_sign' | 'message_type' | 'owner'
+  >>
+
+  suggestionRows.forEach((row) => {
+    const messageType = normalizeEventControlLogType(row.message_type)
+    if (messageType) messageTypes.add(messageType)
+
+    const contactValues = [row.from_call_sign, row.to_call_sign, row.owner]
+    contactValues.forEach((value) => {
+      const contact = clean(value)
+      const key = contact.toLowerCase()
+      if (contact && !contacts.has(key)) contacts.set(key, contact)
+    })
+  })
+
+  return {
+    messageTypes: Array.from(messageTypes),
+    contacts: Array.from(contacts.values()),
+  }
+}
+
+async function getNextEventControlLogNumber(
+  supabase: ReturnType<typeof createClient>,
+  planId: string
+) {
+  const { data, error } = await (supabase as any)
+    .from('emp_event_control_log_entries')
+    .select('log_number')
+    .eq('plan_id', planId)
+    .order('log_number', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error) {
+    throwEmpEventControlLogOperationError('Failed to inspect EMP event control log numbering', error)
+  }
+
+  return Number(data?.log_number || 0) + 1
 }
 
 async function syncPlanSummaryFromValues(input: {
@@ -887,6 +1154,173 @@ export async function getEmpPlanEditorData(planId: string): Promise<EmpPlanEdito
   }
 }
 
+export async function getEmpEventControlLogData(planId: string): Promise<EmpEventControlLogData> {
+  const { supabase, profile } = await getEmpUserContext()
+  await ensureEmpTemplateSeededForContext(supabase, profile.id)
+
+  const plan = await getPlanOrThrow(supabase, planId)
+  const entries = await loadEventControlLogEntries(supabase, planId)
+  const suggestions = await loadEventControlLogSuggestions(supabase)
+
+  return {
+    plan: buildPlanSummary(plan),
+    entries,
+    suggestions,
+  }
+}
+
+async function touchEmpPlan(input: {
+  supabase: ReturnType<typeof createClient>
+  planId: string
+  updatedByUserId: string
+}) {
+  const { error } = await input.supabase
+    .from('emp_plans')
+    .update({
+      updated_by_user_id: input.updatedByUserId,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', input.planId)
+
+  if (error) {
+    throwEmpOperationError('Failed to update EMP plan timestamp', error)
+  }
+}
+
+export async function createEmpEventControlLogEntry(input: {
+  planId: string
+  loggedAt?: string
+  fromCallSign?: string | null
+  toCallSign?: string | null
+  occurrence: string
+  messageType?: string
+  actionTaken?: string | null
+  owner?: string | null
+  priority?: string
+  status?: string
+}) {
+  const { supabase, profile } = await getEmpUserContext()
+  await getPlanOrThrow(supabase, input.planId)
+
+  const occurrence = clean(input.occurrence)
+  if (!occurrence) {
+    throw new Error('Occurrence is required')
+  }
+
+  const loggedAt = normalizeEventControlLogLoggedAt(input.loggedAt)
+  const nowIso = new Date().toISOString()
+  const logNumber = await getNextEventControlLogNumber(supabase, input.planId)
+
+  const { data, error } = await (supabase as any)
+    .from('emp_event_control_log_entries')
+    .insert({
+      plan_id: input.planId,
+      log_number: logNumber,
+      logged_at: loggedAt,
+      from_call_sign: clean(input.fromCallSign) || null,
+      to_call_sign: clean(input.toCallSign) || 'Event Control',
+      occurrence,
+      message_type: normalizeEventControlLogType(input.messageType),
+      action_taken: clean(input.actionTaken) || null,
+      owner: clean(input.owner) || null,
+      priority: normalizeEventControlLogPriority(input.priority),
+      status: normalizeEventControlLogStatus(input.status),
+      created_by_user_id: profile.id,
+      updated_by_user_id: profile.id,
+      updated_at: nowIso,
+    })
+    .select('id, plan_id, log_number, logged_at, from_call_sign, to_call_sign, occurrence, message_type, action_taken, owner, priority, status, created_at, updated_at')
+    .single()
+
+  if (error || !data) {
+    throwEmpEventControlLogOperationError('Failed to create EMP event control log entry', error)
+  }
+
+  await touchEmpPlan({ supabase, planId: input.planId, updatedByUserId: profile.id })
+
+  return buildEventControlLogEntry(data as EmpEventControlLogEntryRow)
+}
+
+export async function updateEmpEventControlLogEntry(input: {
+  planId: string
+  entryId: string
+  loggedAt?: string
+  fromCallSign?: string | null
+  toCallSign?: string | null
+  occurrenceAmendment?: string | null
+  messageType?: string
+  actionTakenAmendment?: string | null
+  owner?: string | null
+  priority?: string
+  status?: string
+}) {
+  const { supabase, profile } = await getEmpUserContext()
+  await getPlanOrThrow(supabase, input.planId)
+  const nowIso = new Date().toISOString()
+
+  const updatePayload: Record<string, unknown> = {
+    updated_by_user_id: profile.id,
+    updated_at: nowIso,
+  }
+
+  if (typeof input.loggedAt === 'string') updatePayload.logged_at = normalizeEventControlLogLoggedAt(input.loggedAt)
+  if (typeof input.fromCallSign !== 'undefined') updatePayload.from_call_sign = clean(input.fromCallSign) || null
+  if (typeof input.toCallSign !== 'undefined') updatePayload.to_call_sign = clean(input.toCallSign) || null
+  if (typeof input.messageType === 'string') updatePayload.message_type = normalizeEventControlLogType(input.messageType)
+  if (typeof input.owner !== 'undefined') updatePayload.owner = clean(input.owner) || null
+  if (typeof input.priority === 'string') updatePayload.priority = normalizeEventControlLogPriority(input.priority)
+  if (typeof input.status === 'string') updatePayload.status = normalizeEventControlLogStatus(input.status)
+
+  const occurrenceAmendment = clean(input.occurrenceAmendment)
+  const actionTakenAmendment = clean(input.actionTakenAmendment)
+  if (occurrenceAmendment || actionTakenAmendment) {
+    const { data: currentEntry, error: currentEntryError } = await (supabase as any)
+      .from('emp_event_control_log_entries')
+      .select('occurrence, action_taken')
+      .eq('id', input.entryId)
+      .eq('plan_id', input.planId)
+      .single()
+
+    if (currentEntryError || !currentEntry) {
+      throwEmpEventControlLogOperationError('Failed to load EMP event control log entry for amendment', currentEntryError)
+    }
+
+    if (occurrenceAmendment) {
+      updatePayload.occurrence = buildEventControlLogAmendment({
+        currentValue: currentEntry.occurrence,
+        amendment: occurrenceAmendment,
+        amendedAt: nowIso,
+        amendedBy: profile.full_name,
+      })
+    }
+
+    if (actionTakenAmendment) {
+      updatePayload.action_taken = buildEventControlLogAmendment({
+        currentValue: currentEntry.action_taken,
+        amendment: actionTakenAmendment,
+        amendedAt: nowIso,
+        amendedBy: profile.full_name,
+      })
+    }
+  }
+
+  const { data, error } = await (supabase as any)
+    .from('emp_event_control_log_entries')
+    .update(updatePayload)
+    .eq('id', input.entryId)
+    .eq('plan_id', input.planId)
+    .select('id, plan_id, log_number, logged_at, from_call_sign, to_call_sign, occurrence, message_type, action_taken, owner, priority, status, created_at, updated_at')
+    .single()
+
+  if (error || !data) {
+    throwEmpEventControlLogOperationError('Failed to update EMP event control log entry', error)
+  }
+
+  await touchEmpPlan({ supabase, planId: input.planId, updatedByUserId: profile.id })
+
+  return buildEventControlLogEntry(data as EmpEventControlLogEntryRow)
+}
+
 export async function saveEmpPlanFields(input: {
   planId: string
   values: Record<string, string>
@@ -1172,6 +1606,7 @@ export async function getEmpPreviewData(planId: string) {
 }
 
 export async function getEmpMasterTemplatePlanPrefill(planId: string): Promise<EmpMasterTemplatePlanPrefill> {
+  const { supabase } = await getEmpUserContext()
   const editorData = await getEmpPlanEditorData(planId)
   const resolvedValues = resolveEmpFieldValueMap(
     editorData.fields,
@@ -1199,6 +1634,22 @@ export async function getEmpMasterTemplatePlanPrefill(planId: string): Promise<E
     planTitle: editorData.plan.title,
     riskAssessmentRows: previewModel.riskAssessment?.rows || [],
   })
+  let eventControlLogEntries: EmpEventControlLogEntry[] = []
+  try {
+    eventControlLogEntries = await loadEventControlLogEntries(supabase, planId)
+  } catch (error) {
+    if (!(error instanceof EmpSetupRequiredError)) {
+      throw error
+    }
+  }
+
+  if (eventControlLogEntries.length > 0) {
+    prefillData.templateTableCellValues['event-control-log'] = buildEventControlLogTableCells(eventControlLogEntries)
+    prefillData.templateFieldValues['event-control-log'] = {
+      ...(prefillData.templateFieldValues['event-control-log'] || {}),
+      Date: formatAppDate(eventControlLogEntries[eventControlLogEntries.length - 1]?.loggedAt || prefillData.eventDate, {}, prefillData.eventDate),
+    }
+  }
 
   return {
     planId,
