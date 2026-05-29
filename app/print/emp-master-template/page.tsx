@@ -111,6 +111,7 @@ export default async function EmpMasterTemplatePrintPage({
   } else {
     queryParams.set('prefill', JSON.stringify(prefillValues))
   }
+  const pdfHref = `/api/emp/master-templates/generate-pdf?${queryParams.toString()}`
 
   return (
     <div className="emp-master-template-print-root bg-white">
@@ -125,9 +126,9 @@ export default async function EmpMasterTemplatePrintPage({
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Templates
           </a>
-          <EmpMasterTemplatePrintToolbar />
+          <EmpMasterTemplatePrintToolbar pdfHref={pdfHref} />
           <a
-            href={`/api/emp/master-templates/generate-pdf?${queryParams.toString()}`}
+            href={pdfHref}
             className={cn(buttonVariants({ variant: 'default' }))}
           >
             <Download className="mr-2 h-4 w-4" />

@@ -4,7 +4,13 @@ import { useEffect } from 'react'
 import { Printer } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
-export function EmpMasterTemplatePrintToolbar() {
+function buildInlinePdfHref(pdfHref: string) {
+  const url = new URL(pdfHref, window.location.href)
+  url.searchParams.set('disposition', 'inline')
+  return url.toString()
+}
+
+export function EmpMasterTemplatePrintToolbar({ pdfHref = '' }: { pdfHref?: string }) {
   useEffect(() => {
     const prepareForPrint = () => {
       document.body.classList.add('emp-master-template-browser-print')
@@ -31,6 +37,11 @@ export function EmpMasterTemplatePrintToolbar() {
   }, [])
 
   const handlePrint = () => {
+    if (pdfHref) {
+      window.open(buildInlinePdfHref(pdfHref), '_blank', 'noopener,noreferrer')
+      return
+    }
+
     document.body.classList.add('emp-master-template-browser-print')
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
     document.documentElement.scrollTop = 0
@@ -47,7 +58,7 @@ export function EmpMasterTemplatePrintToolbar() {
   return (
     <Button type="button" variant="outline" onClick={handlePrint}>
       <Printer className="mr-2 h-4 w-4" />
-      Print
+      Print PDF
     </Button>
   )
 }

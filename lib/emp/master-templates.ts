@@ -654,10 +654,12 @@ export function getEmpMasterTemplateById(templateId: string | null | undefined) 
   return EMP_MASTER_TEMPLATES.find((template) => template.id === normalizedId) ?? null
 }
 
-export function groupEmpMasterTemplatesByCategory() {
+export function groupEmpMasterTemplatesByCategory(
+  templates: EmpMasterTemplateDefinition[] = EMP_VISIBLE_MASTER_TEMPLATES
+) {
   return EMP_MASTER_TEMPLATE_CATEGORIES.map((category) => ({
     category,
-    templates: EMP_VISIBLE_MASTER_TEMPLATES
+    templates: templates
       .filter((template) => template.category === category)
       .sort((first, second) => first.order - second.order),
   }))

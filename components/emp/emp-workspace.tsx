@@ -6,6 +6,12 @@ import { EMP_DEMO_EVENT_NAME } from '@/lib/emp/demo-plan'
 import { EMP_DOWNLOAD_EVENT_NAME } from '@/lib/emp/download-plan'
 import { EMP_BUSINESS_TEMPLATE_DESCRIPTION } from '@/lib/emp/business-template'
 import type { EmpPlanSummary } from '@/lib/emp/data'
+import {
+  EMP_IRELAND_JOBS_DESCRIPTION,
+  EMP_IRELAND_JOBS_TITLE,
+  EMP_IRELAND_JOB_LOCATIONS,
+  EMP_IRELAND_SIGN_IN_PRESET_ID,
+} from '@/lib/emp/ireland-jobs'
 import { EMP_VISIBLE_MASTER_TEMPLATES } from '@/lib/emp/master-templates'
 import { isRadioOneEmpPlan, splitEmpPlansByHistory } from '@/lib/emp/plan-history'
 import { cn, formatAppDateTime } from '@/lib/utils'
@@ -96,6 +102,32 @@ function EmpPlanRow({ plan, completed = false }: { plan: EmpPlanSummary; complet
           </button>
         </form>
       </div>
+    </div>
+  )
+}
+
+function IrelandJobsDocumentsRow() {
+  return (
+    <div className="flex flex-col gap-3 rounded-lg border border-emerald-200 bg-emerald-50/50 px-4 py-4 md:flex-row md:items-center md:justify-between">
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 className="text-base font-semibold text-slate-900">{EMP_IRELAND_JOBS_TITLE}</h2>
+          <Badge variant="outline">Documents only</Badge>
+          <Badge variant="secondary">2 locations</Badge>
+        </div>
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-500">
+          <span>{EMP_IRELAND_JOBS_DESCRIPTION}</span>
+          <span>Locations: {EMP_IRELAND_JOB_LOCATIONS.join(' / ')}</span>
+        </div>
+      </div>
+
+      <a
+        href={`/admin/event-management-plans/master-templates?preset=${EMP_IRELAND_SIGN_IN_PRESET_ID}`}
+        className={cn(buttonVariants({ variant: 'outline' }), 'border-emerald-200 bg-white text-emerald-800 hover:bg-emerald-50')}
+      >
+        <Files className="mr-2 h-4 w-4" />
+        Documents
+      </a>
     </div>
   )
 }
@@ -202,13 +234,8 @@ export function EmpWorkspace({ plans }: { plans: EmpPlanSummary[] }) {
           <CardTitle>Plans</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {activePlans.length === 0 ? (
-            <div className="rounded-md border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
-              No active event management plans are in progress.
-            </div>
-          ) : (
-            activePlans.map((plan) => <EmpPlanRow key={plan.id} plan={plan} />)
-          )}
+          <IrelandJobsDocumentsRow />
+          {activePlans.map((plan) => <EmpPlanRow key={plan.id} plan={plan} />)}
         </CardContent>
       </Card>
 

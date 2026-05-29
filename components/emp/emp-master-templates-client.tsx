@@ -39,12 +39,12 @@ import {
   buildSupervisorDeploymentTablePagesFromDeploymentTablePages,
   getDeploymentMatrixSourcePageCount,
   syncDeploymentMatrixEventPagesFromSourcePages,
+  type EmpMasterTemplatePrefillData,
   type EmpMasterTemplatePlanPrefill,
 } from '@/lib/emp/master-template-prefill'
 import { getBbcRadioOneStaffForEvent } from '@/lib/emp/bbc-radio-one-staff'
 import { cn } from '@/lib/utils'
 
-const TEMPLATE_GROUPS = groupEmpMasterTemplatesByCategory()
 const PREFILL_STORAGE_KEY = 'emp-master-template-prefill-v1'
 
 type EmpMasterTemplateTablePagePrefill = {
@@ -152,7 +152,8 @@ function getStaffContactOptions(eventName: string, planTitle = ''): StaffAssignm
   }))
 }
 
-function getPrefillStorageKey(planId?: string) {
+function getPrefillStorageKey(planId?: string, presetId?: string) {
+  if (presetId) return `${PREFILL_STORAGE_KEY}:preset:${presetId}`
   return planId ? `${PREFILL_STORAGE_KEY}:plan:${planId}` : `${PREFILL_STORAGE_KEY}:manual`
 }
 
@@ -387,11 +388,29 @@ function mergeTablePageValues(
 
 export function EmpMasterTemplatesClient({
   initialPlanPrefill = null,
+  initialPresetId = '',
+  initialPresetTitle = '',
+  initialPresetPrefill = null,
+  allowedTemplateIds,
 }: {
   initialPlanPrefill?: EmpMasterTemplatePlanPrefill | null
+  initialPresetId?: string
+  initialPresetTitle?: string
+  initialPresetPrefill?: EmpMasterTemplatePrefillData | null
+  allowedTemplateIds?: string[]
 }) {
-  const initialPrefillData = initialPlanPrefill?.prefillData
-  const [activeTemplateId, setActiveTemplateId] = useState(EMP_VISIBLE_MASTER_TEMPLATES[0]?.id ?? '')
+  const allowedTemplateIdSet = allowedTemplateIds?.length ? new Set(allowedTemplateIds) : null
+  const visibleTemplates = allowedTemplateIdSet
+    ? EMP_VISIBLE_MASTER_TEMPLATES.filter((template) => allowedTemplateIdSet.has(template.id))
+    : EMP_VISIBLE_MASTER_TEMPLATES
+  const templateGroups = groupEmpMasterTemplatesByCategory(visibleTemplates).filter((group) => group.templates.length > 0)
+  const initialPrefillData = initialPlanPrefill?.prefillData || initialPresetPrefill || undefined
+  const hasPresetPrefill = Boolean(initialPresetPrefill)
+  const shouldUseEventProfiles = !hasPresetPrefill
+  const initialTemplateId = visibleTemplates.some((template) => template.id === initialPresetId)
+    ? initialPresetId
+    : visibleTemplates[0]?.id ?? ''
+  const [activeTemplateId, setActiveTemplateId] = useState(initialTemplateId)
   const [eventName, setEventName] = useState(initialPrefillData?.eventName || '')
   const [eventDate, setEventDate] = useState(initialPrefillData?.eventDate || '')
   const [detailsModalOpen, setDetailsModalOpen] = useState(false)
@@ -411,7 +430,10 @@ export function EmpMasterTemplatesClient({
   const [eventProfilesLoaded, setEventProfilesLoaded] = useState(false)
   const [activeEventProfileId, setActiveEventProfileId] = useState('')
   const [isSavingEventProfile, setIsSavingEventProfile] = useState(false)
-  const storageKey = useMemo(() => getPrefillStorageKey(initialPlanPrefill?.planId), [initialPlanPrefill?.planId])
+  const storageKey = useMemo(
+    () => getPrefillStorageKey(initialPlanPrefill?.planId, initialPresetId),
+    [initialPlanPrefill?.planId, initialPresetId]
+  )
   const [loadedStorageKey, setLoadedStorageKey] = useState('')
   const activeEventProfileIdRef = useRef('')
   const autosaveTimerRef = useRef<number | null>(null)
@@ -422,8 +444,8 @@ export function EmpMasterTemplatesClient({
   const lastSharedUpdatedAtRef = useRef('')
 
   const activeTemplate = useMemo<EmpMasterTemplateDefinition | null>(
-    () => EMP_VISIBLE_MASTER_TEMPLATES.find((template) => template.id === activeTemplateId) ?? EMP_VISIBLE_MASTER_TEMPLATES[0] ?? null,
-    [activeTemplateId]
+    () => visibleTemplates.find((template) => template.id === activeTemplateId) ?? visibleTemplates[0] ?? null,
+    [activeTemplateId, visibleTemplates]
   )
 
   const templateInputLabels = (() => {
@@ -445,6 +467,7 @@ export function EmpMasterTemplatesClient({
       ? activeTemplateTablePages.slice(0, getDeploymentMatrixSourcePageCount(activeTemplateTablePages))
       : activeTemplateTablePages
   const activeTemplateEditableRows = getEditableTableRowCount(activeTemplate, activeTemplateTableCells)
+  const prefillSourceTitle = initialPlanPrefill?.planTitle || initialPresetTitle
   const staffAssignmentOptions = useMemo(
     () => getStaffAssignmentOptions(templateTablePageValues['staff-sign-in-sign-out-sheet']),
     [templateTablePageValues]
@@ -512,6 +535,11 @@ export function EmpMasterTemplatesClient({
   }, [])
 
   const loadEventProfiles = useCallback(async () => {
+    if (!shouldUseEventProfiles) {
+      setEventProfilesLoaded(true)
+      return []
+    }
+
     const response = await fetch('/api/emp/master-templates/events', { cache: 'no-store' })
     if (!response.ok) {
       setEventProfilesLoaded(true)
@@ -523,7 +551,7 @@ export function EmpMasterTemplatesClient({
     setEventProfiles(profiles)
     setEventProfilesLoaded(true)
     return profiles
-  }, [])
+  }, [shouldUseEventProfiles])
 
   const persistSharedEventProfile = useCallback(async ({
     prefillData = buildSharedPrefillData(),
@@ -532,6 +560,8 @@ export function EmpMasterTemplatesClient({
     prefillData?: SharedEventPrefillData
     showAlert?: boolean
   } = {}) => {
+    if (!shouldUseEventProfiles) return
+
     const trimmedEventName = String(prefillData.eventName || eventName || '').trim()
     if (!trimmedEventName) {
       if (showAlert) window.alert('Please add an event name before saving.')
@@ -582,13 +612,14 @@ export function EmpMasterTemplatesClient({
       isSavingSharedProfileRef.current = false
       setIsSavingEventProfile(false)
     }
-  }, [buildSharedPrefillData, eventName])
+  }, [buildSharedPrefillData, eventName, shouldUseEventProfiles])
 
   useEffect(() => {
     const stored = parseStoredPrefill(window.localStorage.getItem(storageKey))
     const legacyStored = parseStoredPrefill(window.localStorage.getItem(PREFILL_STORAGE_KEY))
     const matchingLegacyStored =
       !stored
+      && !hasPresetPrefill
       && legacyStored
       && (!initialPlanPrefill || !legacyStored.eventName || legacyStored.eventName === initialPrefillData?.eventName)
         ? legacyStored
@@ -604,13 +635,14 @@ export function EmpMasterTemplatesClient({
     }
 
     setLoadedStorageKey(storageKey)
-  }, [initialPlanPrefill, initialPrefillData?.eventName, storageKey])
+  }, [hasPresetPrefill, initialPlanPrefill, initialPrefillData?.eventName, storageKey])
 
   useEffect(() => {
     loadEventProfiles().catch(() => {})
   }, [loadEventProfiles])
 
   useEffect(() => {
+    if (!shouldUseEventProfiles) return
     if (!eventProfilesLoaded || loadedStorageKey !== storageKey || hasAppliedInitialSharedProfileRef.current) return
 
     const lookupEventName = eventName || initialPrefillData?.eventName || ''
@@ -635,10 +667,12 @@ export function EmpMasterTemplatesClient({
     initialPrefillData?.eventName,
     applySharedEventProfile,
     loadedStorageKey,
+    shouldUseEventProfiles,
     storageKey,
   ])
 
   useEffect(() => {
+    if (!shouldUseEventProfiles) return
     if (!eventProfilesLoaded || loadedStorageKey !== storageKey || !hasAppliedInitialSharedProfileRef.current) return
 
     if (isApplyingSharedProfileRef.current) {
@@ -674,6 +708,7 @@ export function EmpMasterTemplatesClient({
     eventProfilesLoaded,
     buildSharedPrefillData,
     persistSharedEventProfile,
+    shouldUseEventProfiles,
     loadedStorageKey,
     storageKey,
     templateFieldValues,
@@ -682,6 +717,7 @@ export function EmpMasterTemplatesClient({
   ])
 
   useEffect(() => {
+    if (!shouldUseEventProfiles) return
     if (!eventProfilesLoaded || loadedStorageKey !== storageKey) return
 
     const refreshSharedEventProfile = async () => {
@@ -709,7 +745,7 @@ export function EmpMasterTemplatesClient({
       window.clearInterval(intervalId)
       window.removeEventListener('focus', refreshOnFocus)
     }
-  }, [applySharedEventProfile, eventDate, eventName, eventProfilesLoaded, loadEventProfiles, loadedStorageKey, storageKey])
+  }, [applySharedEventProfile, eventDate, eventName, eventProfilesLoaded, loadEventProfiles, loadedStorageKey, shouldUseEventProfiles, storageKey])
 
   useEffect(() => {
     if (loadedStorageKey !== storageKey) return
@@ -922,7 +958,7 @@ export function EmpMasterTemplatesClient({
   }
 
   const selectAllTemplates = () => {
-    setSelectedTemplateIds(EMP_VISIBLE_MASTER_TEMPLATES.map((template) => template.id))
+    setSelectedTemplateIds(visibleTemplates.map((template) => template.id))
   }
 
   const clearTemplateSelection = () => {
@@ -1025,7 +1061,9 @@ export function EmpMasterTemplatesClient({
             <div className="space-y-2">
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-2xl font-bold tracking-tight text-slate-900">Master Templates</h1>
-                <Badge variant="outline">{EMP_VISIBLE_MASTER_TEMPLATES.length} documents</Badge>
+                <Badge variant="outline">
+                  {visibleTemplates.length} {visibleTemplates.length === 1 ? 'document' : 'documents'}
+                </Badge>
               </div>
               <p className="max-w-3xl text-sm text-slate-600">
                 Blank event-day plans, checklists, logs, and briefing sheets ready for live-event printing.
@@ -1045,86 +1083,97 @@ export function EmpMasterTemplatesClient({
           </div>
 
           <div className="grid gap-3 rounded-md border border-emerald-200 bg-white/80 p-3 md:grid-cols-2">
-            {initialPlanPrefill ? (
+            {prefillSourceTitle ? (
               <div className="md:col-span-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-950">
                 <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                   <span>
-                    Using plan history details from <span className="font-semibold">{initialPlanPrefill.planTitle}</span>.
+                    {initialPlanPrefill ? 'Using plan history details from' : 'Using document preset for'}{' '}
+                    <span className="font-semibold">{prefillSourceTitle}</span>.
                   </span>
-                  <a
-                    href={`/admin/event-management-plans/${initialPlanPrefill.planId}`}
-                    className="font-medium text-emerald-800 underline-offset-4 hover:underline"
-                  >
-                    Open EMP
-                  </a>
+                  {initialPlanPrefill ? (
+                    <a
+                      href={`/admin/event-management-plans/${initialPlanPrefill.planId}`}
+                      className="font-medium text-emerald-800 underline-offset-4 hover:underline"
+                    >
+                      Open EMP
+                    </a>
+                  ) : null}
                 </div>
               </div>
             ) : null}
 
-            <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="emp-master-template-event-profile" className="text-xs uppercase tracking-[0.12em] text-slate-600">
-                Saved EMP Event Profile
-              </Label>
-              <div className="flex flex-wrap items-center gap-2">
-                <select
-                  id="emp-master-template-event-profile"
-                  value={activeEventProfileId}
-                  onChange={(event) => applyEventProfile(event.target.value)}
-                  className="h-10 min-w-[260px] rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900"
-                >
-                  <option value="">New event profile</option>
-                  {eventProfiles.map((profile) => (
-                    <option key={profile.id} value={profile.id}>
-                      {profile.event_name}
-                      {profile.event_date ? ` - ${profile.event_date}` : ''}
-                    </option>
-                  ))}
-                </select>
-                <Button type="button" variant="outline" onClick={saveEventProfile} disabled={isSavingEventProfile}>
-                  <Save className="mr-2 h-4 w-4" />
-                  {isSavingEventProfile ? 'Saving...' : 'Save Event'}
-                </Button>
-                <Button type="button" variant="outline" onClick={deleteEventProfile} disabled={!activeEventProfileId}>
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Delete
-                </Button>
+            {hasPresetPrefill ? (
+              <div className="md:col-span-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600">
+                Event name and date are blank. Location is set on each sign-in / sign-out sheet.
               </div>
-            </div>
+            ) : (
+              <>
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="emp-master-template-event-profile" className="text-xs uppercase tracking-[0.12em] text-slate-600">
+                    Saved EMP Event Profile
+                  </Label>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <select
+                      id="emp-master-template-event-profile"
+                      value={activeEventProfileId}
+                      onChange={(event) => applyEventProfile(event.target.value)}
+                      className="h-10 min-w-[260px] rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900"
+                    >
+                      <option value="">New event profile</option>
+                      {eventProfiles.map((profile) => (
+                        <option key={profile.id} value={profile.id}>
+                          {profile.event_name}
+                          {profile.event_date ? ` - ${profile.event_date}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                    <Button type="button" variant="outline" onClick={saveEventProfile} disabled={isSavingEventProfile}>
+                      <Save className="mr-2 h-4 w-4" />
+                      {isSavingEventProfile ? 'Saving...' : 'Save Event'}
+                    </Button>
+                    <Button type="button" variant="outline" onClick={deleteEventProfile} disabled={!activeEventProfileId}>
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Delete
+                    </Button>
+                  </div>
+                </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <Label htmlFor="emp-master-template-event-name" className="text-xs uppercase tracking-[0.12em] text-slate-600">
-                Event Name
-              </Label>
-              <Input
-                id="emp-master-template-event-name"
-                value={eventName}
-                onChange={(event) => {
-                  const value = event.target.value
-                  setEventName(value)
-                  const eventLikeLabels = uniqueTemplateInputLabels.filter((label) => label.toLowerCase().includes('event'))
-                  eventLikeLabels.forEach((label) => updateActiveTemplateField(label, value))
-                }}
-                placeholder="e.g. Footasylum Summer Event"
-                className="h-10 min-h-0 rounded-md bg-white"
-              />
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Label htmlFor="emp-master-template-event-date" className="text-xs uppercase tracking-[0.12em] text-slate-600">
-                Date
-              </Label>
-              <Input
-                id="emp-master-template-event-date"
-                type="date"
-                value={eventDate}
-                onChange={(event) => {
-                  const value = event.target.value
-                  setEventDate(value)
-                  const dateLikeLabels = uniqueTemplateInputLabels.filter((label) => label.toLowerCase().includes('date'))
-                  dateLikeLabels.forEach((label) => updateActiveTemplateField(label, value))
-                }}
-                className="h-10 min-h-0 rounded-md bg-white"
-              />
-            </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Label htmlFor="emp-master-template-event-name" className="text-xs uppercase tracking-[0.12em] text-slate-600">
+                    Event Name
+                  </Label>
+                  <Input
+                    id="emp-master-template-event-name"
+                    value={eventName}
+                    onChange={(event) => {
+                      const value = event.target.value
+                      setEventName(value)
+                      const eventLikeLabels = uniqueTemplateInputLabels.filter((label) => label.toLowerCase().includes('event'))
+                      eventLikeLabels.forEach((label) => updateActiveTemplateField(label, value))
+                    }}
+                    placeholder="e.g. Footasylum Summer Event"
+                    className="h-10 min-h-0 rounded-md bg-white"
+                  />
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Label htmlFor="emp-master-template-event-date" className="text-xs uppercase tracking-[0.12em] text-slate-600">
+                    Date
+                  </Label>
+                  <Input
+                    id="emp-master-template-event-date"
+                    type="date"
+                    value={eventDate}
+                    onChange={(event) => {
+                      const value = event.target.value
+                      setEventDate(value)
+                      const dateLikeLabels = uniqueTemplateInputLabels.filter((label) => label.toLowerCase().includes('date'))
+                      dateLikeLabels.forEach((label) => updateActiveTemplateField(label, value))
+                    }}
+                    className="h-10 min-h-0 rounded-md bg-white"
+                  />
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -1142,7 +1191,7 @@ export function EmpMasterTemplatesClient({
           </div>
 
           <div className="px-3 py-4 xl:min-h-0 xl:overflow-y-auto xl:overscroll-contain">
-            {TEMPLATE_GROUPS.map((group) => (
+            {templateGroups.map((group) => (
               <div key={group.category} className="mb-5 last:mb-0">
                 <div className="px-2 pb-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
                   {group.category}
@@ -1479,7 +1528,7 @@ export function EmpMasterTemplatesClient({
 
           <div className="max-h-[48vh] overflow-auto rounded-md border border-slate-200">
             <div className="divide-y divide-slate-100">
-              {EMP_VISIBLE_MASTER_TEMPLATES.map((template) => {
+              {visibleTemplates.map((template) => {
                 const checked = selectedTemplateIds.includes(template.id)
                 const checkboxId = `emp-bulk-${template.id}`
                 return (

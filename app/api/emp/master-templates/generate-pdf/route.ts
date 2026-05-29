@@ -187,6 +187,7 @@ export async function GET(request: NextRequest) {
     const templateId = String(request.nextUrl.searchParams.get('templateId') || '').trim()
     const planId = String(request.nextUrl.searchParams.get('planId') || '').trim()
     const deploymentOverridesRaw = String(request.nextUrl.searchParams.get('deploymentOverrides') || '').trim()
+    const disposition = request.nextUrl.searchParams.get('disposition') === 'inline' ? 'inline' : 'attachment'
     let prefill = String(request.nextUrl.searchParams.get('prefill') || '')
     const template = getEmpMasterTemplateById(templateId)
 
@@ -224,7 +225,7 @@ export async function GET(request: NextRequest) {
     return new NextResponse(pdfBuffer as unknown as BodyInit, {
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="${template.filename.replace(/"/g, '\\"')}"`,
+        'Content-Disposition': `${disposition}; filename="${template.filename.replace(/"/g, '\\"')}"`,
         'Cache-Control': 'no-store',
       },
     })

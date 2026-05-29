@@ -264,7 +264,51 @@ function getHeaderCardDateLabel(
   const directEventDate = formatHeaderCardDate(prefillValues?.eventDate)
   if (directEventDate) return directEventDate
 
+  const hasLocationOnlyPrefill = Object.entries(prefillValues?.fields || {}).some(([label, value]) => (
+    normalizePrefillLabel(label) === 'location venue' && String(value || '').trim()
+  ))
+  if (hasLocationOnlyPrefill) return ''
+
   return 'Event Date'
+}
+
+function getHeaderCardLocationLabel(prefillValues?: EmpMasterTemplatePrefillValues) {
+  const locationField = Object.entries(prefillValues?.fields || {}).find(([label, value]) => (
+    normalizePrefillLabel(label) === 'location venue' && String(value || '').trim()
+  ))
+
+  return String(locationField?.[1] || '').trim()
+}
+
+function getDocumentDescription(
+  template: EmpMasterTemplateDefinition,
+  prefillValues?: EmpMasterTemplatePrefillValues
+) {
+  return String(prefillValues?.fields?.['Document Description'] || template.description).trim()
+}
+
+function getTableColumnLabel(
+  column: EmpMasterTemplateTable['columns'][number],
+  prefillValues?: EmpMasterTemplatePrefillValues
+) {
+  return String(prefillValues?.fields?.[`Column Label: ${column.key}`] || column.label).trim()
+}
+
+function isTableColumnHidden(
+  column: EmpMasterTemplateTable['columns'][number],
+  prefillValues?: EmpMasterTemplatePrefillValues
+) {
+  return String(prefillValues?.fields?.[`Column Hidden: ${column.key}`] || '').trim().toLowerCase() === 'true'
+}
+
+function getTableEmptyRowCount(
+  template: EmpMasterTemplateTable,
+  prefillValues?: EmpMasterTemplatePrefillValues
+) {
+  const overrideRows = Number.parseInt(String(prefillValues?.fields?.['Table Empty Rows'] || ''), 10)
+  return Number.isFinite(overrideRows) && overrideRows > 0
+    ? overrideRows
+    : template.emptyRows
 }
 
 function MasterTemplateHeader({
@@ -277,6 +321,9 @@ function MasterTemplateHeader({
   const headerFields = getTemplateHeaderFields(template)
   const fieldCount = template.kind === 'incident_form' ? 4 : headerFields.length
   const headerDateLabel = getHeaderCardDateLabel(template, prefillValues)
+  const headerLocationLabel = getHeaderCardLocationLabel(prefillValues)
+  const headerCardMiddleLabel = headerDateLabel || headerLocationLabel
+  const description = getDocumentDescription(template, prefillValues)
 
   return (
     <div className="emp-master-template-header mb-4 border-b border-slate-300 pb-4">
@@ -293,7 +340,7 @@ function MasterTemplateHeader({
               {template.title}
             </h1>
             <p className="mt-1 max-w-[620px] text-[11px] leading-5 text-slate-600">
-              {template.description}
+              {description}
             </p>
           </div>
         </div>
@@ -302,13 +349,16 @@ function MasterTemplateHeader({
           <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-emerald-800">
             KSS NW LTD
           </p>
-          <p className="mt-1 text-sm font-semibold leading-tight text-slate-950">{headerDateLabel}</p>
+          <p className="mt-1 text-sm font-semibold leading-tight text-slate-950">{headerCardMiddleLabel}</p>
           <p className="text-[11px] font-semibold text-slate-600">{template.documentCode}</p>
         </div>
       </div>
 
       {fieldCount > 0 ? (
-        <div className={cn('grid gap-3', getInfoGridClass(fieldCount))}>
+        <div
+          data-field-count={fieldCount}
+          className={cn('emp-master-template-info-grid grid gap-3', getInfoGridClass(fieldCount))}
+        >
           {template.kind === 'incident_form' ? (
             <>
               <div className="rounded-md border border-slate-200 bg-slate-50/70 px-3 py-2.5">
@@ -342,8 +392,11 @@ function MasterTemplateHeader({
                 <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
                   {field.label}
                 </div>
-                <div className="mt-4 flex h-[18px] items-end border-b border-slate-700 pb-0.5 text-[10px] font-medium text-slate-900">
-                  {resolvePrefillValue(field.label, prefillValues)}
+                <div className="relative mt-4 h-[18px]">
+                  <div className="absolute inset-x-0 bottom-0 border-b border-slate-700" />
+                  <div className="absolute inset-x-0 bottom-[3px] truncate text-[10px] font-medium leading-none text-slate-900">
+                    {resolvePrefillValue(field.label, prefillValues)}
+                  </div>
                 </div>
               </div>
             ))
@@ -472,13 +525,16 @@ function TableTemplateDocumentWithPrefill({
   prefillValues?: EmpMasterTemplatePrefillValues
   rowOffset?: number
 }) {
+  const visibleColumns = template.columns.filter((column) => !isTableColumnHidden(column, prefillValues))
+  const emptyRows = getTableEmptyRowCount(template, prefillValues)
+
   return (
     <div className="emp-master-template-table-layout flex min-h-0 flex-1 flex-col">
       <div className="emp-master-template-table-shell min-h-0 flex-1 overflow-hidden rounded-md border border-slate-300">
         <table className="w-full table-fixed border-collapse text-[10px] leading-[1.25]">
           <thead>
             <tr>
-              {template.columns.map((column) => {
+              {visibleColumns.map((column) => {
                 const tone = getToneClasses(column.tone)
                 return (
                   <th
@@ -490,19 +546,19 @@ function TableTemplateDocumentWithPrefill({
                       column.align === 'center' ? 'text-center' : ''
                     )}
                   >
-                    {column.label}
+                    {getTableColumnLabel(column, prefillValues)}
                   </th>
                 )
               })}
             </tr>
           </thead>
           <tbody>
-            {Array.from({ length: template.emptyRows }).map((_, rowIndex) => (
+            {Array.from({ length: emptyRows }).map((_, rowIndex) => (
               <tr
                 key={`${template.id}-row-${rowOffset + rowIndex}`}
                 className={cn('emp-master-template-table-row', template.rowHeightClass || 'h-[31px]')}
               >
-                {template.columns.map((column) => {
+                {visibleColumns.map((column) => {
                   const tone = getToneClasses(column.tone)
                   return (
                     <td

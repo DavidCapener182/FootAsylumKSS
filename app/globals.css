@@ -1320,6 +1320,18 @@ body.fra-print-preview .fra-preview-hide-toolbar {
     flex-shrink: 0 !important;
   }
 
+  .emp-master-template-page--landscape .emp-master-template-info-grid[data-field-count="4"] {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+
+  .emp-master-template-page--landscape .emp-master-template-info-grid[data-field-count="3"] {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  .emp-master-template-page--landscape .emp-master-template-info-grid[data-field-count="2"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
   .cmp-master-template-page--portrait,
   .emp-master-template-page--portrait {
     width: 210mm !important;
