@@ -4,6 +4,7 @@ import {
   EmpSetupRequiredError,
   createEmpDemoPlan,
   createEmpDownloadPlan,
+  createEmpIsleOfWightPlan,
   createEmpPlan,
   createEmpPlanFromBusinessTemplate,
 } from '@/lib/emp/data'
@@ -31,6 +32,8 @@ export async function POST(request: NextRequest) {
         ? await createEmpDemoPlan()
         : kind === 'download'
           ? await createEmpDownloadPlan()
+        : kind === 'isle_of_wight' || kind === 'isle-of-wight'
+          ? await createEmpIsleOfWightPlan()
         : kind === 'business_template' || kind === 'radio_one_template'
           ? await createEmpPlanFromBusinessTemplate()
           : await createEmpPlan()

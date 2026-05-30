@@ -1,12 +1,13 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { FileText, Loader2, Plus, ChevronRight, Sparkles, Trash2, Radio } from 'lucide-react'
+import { FileText, Loader2, Plus, ChevronRight, Sparkles, Trash2, Radio, MapPin } from 'lucide-react'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { EMP_DEMO_EVENT_NAME } from '@/lib/emp/demo-plan'
 import { EMP_DOWNLOAD_EVENT_NAME } from '@/lib/emp/download-plan'
+import { EMP_ISLE_OF_WIGHT_EVENT_NAME } from '@/lib/emp/isle-of-wight-plan'
 import type { EmpPlanSummary } from '@/lib/emp/data'
 import { isRadioOneEmpPlan, splitEmpPlansByHistory } from '@/lib/emp/plan-history'
 import { cn, formatAppDateTime } from '@/lib/utils'
@@ -16,14 +17,14 @@ export function EmpWorkspaceClient({ plans }: { plans: EmpPlanSummary[] }) {
   const [planList, setPlanList] = useState(plans)
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
-  const [pendingAction, setPendingAction] = useState<'new' | 'example' | null>(null)
+  const [pendingAction, setPendingAction] = useState<'new' | 'example' | 'isle_of_wight' | null>(null)
   const { activePlans, historyPlans } = splitEmpPlansByHistory(planList)
 
   const navigateTo = (href: string) => {
     window.location.assign(href)
   }
 
-  const createPlan = async (kind: 'blank' | 'example') => {
+  const createPlan = async (kind: 'blank' | 'example' | 'isle_of_wight') => {
     const response = await fetch('/api/emp/create', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -73,6 +74,21 @@ export function EmpWorkspaceClient({ plans }: { plans: EmpPlanSummary[] }) {
     })
   }
 
+  const handleCreateIsleOfWight = () => {
+    startTransition(async () => {
+      try {
+        setActionError(null)
+        setPendingAction('isle_of_wight')
+        const planId = await createPlan('isle_of_wight')
+        navigateTo(`/admin/event-management-plans/${planId}`)
+      } catch (error: any) {
+        setActionError(error?.message || 'Failed to create Isle of Wight EMP plan')
+      } finally {
+        setPendingAction(null)
+      }
+    })
+  }
+
   const handleDelete = (plan: EmpPlanSummary) => {
     const confirmed = window.confirm(`Delete "${plan.title}"? This will remove the plan and any uploaded source files.`)
     if (!confirmed) return
@@ -116,6 +132,9 @@ export function EmpWorkspaceClient({ plans }: { plans: EmpPlanSummary[] }) {
           ) : null}
           {plan.eventName === EMP_DOWNLOAD_EVENT_NAME ? (
             <Badge variant="secondary">Download</Badge>
+          ) : null}
+          {plan.eventName === EMP_ISLE_OF_WIGHT_EVENT_NAME ? (
+            <Badge variant="secondary">Isle of Wight</Badge>
           ) : null}
           {isRadioOneEmpPlan(plan) ? (
             <Badge variant="secondary">Radio 1</Badge>
@@ -196,6 +215,14 @@ export function EmpWorkspaceClient({ plans }: { plans: EmpPlanSummary[] }) {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <Button type="button" onClick={handleCreateIsleOfWight} disabled={isPending} variant="outline">
+              {isPending && pendingAction === 'isle_of_wight' ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <MapPin className="mr-2 h-4 w-4" />
+              )}
+              Create Isle of Wight EMP
+            </Button>
             <Button type="button" onClick={handleCreateExample} disabled={isPending} variant="outline">
               {isPending && pendingAction === 'example' ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />

@@ -9,6 +9,7 @@ import {
   extractFirstEmpTemplateIsoDate,
   syncDeploymentMatrixEventPagesFromSourcePages,
 } from '@/lib/emp/master-template-prefill'
+import { EMP_ISLE_OF_WIGHT_PLAN_VALUES } from '@/lib/emp/isle-of-wight-plan'
 
 describe('emp master template prefill', () => {
   it('extracts the first usable event date from common EMP date formats', () => {
@@ -415,6 +416,52 @@ describe('emp master template prefill', () => {
         '0:supervisor': 'Nigel Train',
       },
     })
+  })
+
+  it('builds Isle of Wight deployment matrix pages from the detailed schedule rows', () => {
+    const prefill = buildEmpMasterTemplatePrefillFromFieldValues(EMP_ISLE_OF_WIGHT_PLAN_VALUES)
+    const pages = prefill.templateTablePageValues?.['deployment-matrix'] || []
+    const supervisorPages = prefill.templateTablePageValues?.['supervisor-deployment'] || []
+
+    expect(pages).toHaveLength(18)
+    expect(pages[0]).toMatchObject({
+      fields: {
+        Date: 'Saturday 13 June',
+      },
+      tableCells: {
+        '0:zone': 'OTHER DEPLOYMENTS',
+        '0:position': 'COOP - STORE GUARD - SIA - NIGHT',
+        '0:start': '19:00',
+        '0:end': '07:00',
+      },
+    })
+    expect(pages[5]).toMatchObject({
+      fields: {
+        Date: 'Thursday 18 June',
+      },
+      tableCells: {
+        '0:zone': 'BAR DEPLOYMENTS',
+        '0:position': 'EVENT CONTROL - SIA',
+        '0:start': '17:00',
+        '0:end': '01:00',
+        '22:zone': 'OTHER DEPLOYMENTS',
+        '22:position': 'PINK MOON - CAMPSITES DAYS - SUPERVISOR - SIA',
+        '22:supervisor': 'PINK MOON - CAMPSITES DAYS - SUPERVISOR',
+      },
+    })
+    expect(pages[6]).toMatchObject({
+      fields: {
+        Date: 'Thursday 18 June',
+      },
+      tableCells: {
+        '0:zone': 'OTHER DEPLOYMENTS',
+        '0:position': 'PINK MOON - CAMPSITES DAYS - MOON - ENTRANCE - SIA x2',
+        '22:zone': 'OTHER DEPLOYMENTS',
+        '22:position': 'COOP - STORE GUARD - SIA',
+      },
+    })
+    expect(supervisorPages.length).toBeGreaterThan(0)
+    expect(supervisorPages.some((page) => page.fields?.['Supervisor / Zone'] === 'OTHER DEPLOYMENTS PINK MOON - CAMPSITES DAYS - SUPERVISOR - SIA')).toBe(true)
   })
 
   it('applies compact first-day deployment overrides to plan-loaded event pages', () => {

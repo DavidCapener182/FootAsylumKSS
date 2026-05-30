@@ -3,6 +3,7 @@
 import {
   createEmpDemoPlan,
   createEmpDownloadPlan,
+  createEmpIsleOfWightPlan,
   createEmpPlan,
   deleteEmpPlan,
   ensureEmpTemplateSeeded,
@@ -14,6 +15,7 @@ import {
 export {
   createEmpDemoPlan,
   createEmpDownloadPlan,
+  createEmpIsleOfWightPlan,
   createEmpPlan,
   deleteEmpPlan,
   ensureEmpTemplateSeeded,

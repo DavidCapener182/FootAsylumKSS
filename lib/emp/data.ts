@@ -19,6 +19,12 @@ import {
   EMP_DOWNLOAD_SELECTED_ANNEXES,
 } from '@/lib/emp/download-plan'
 import {
+  EMP_ISLE_OF_WIGHT_EVENT_NAME,
+  EMP_ISLE_OF_WIGHT_PLAN_TITLE,
+  EMP_ISLE_OF_WIGHT_PLAN_VALUES,
+  EMP_ISLE_OF_WIGHT_SELECTED_ANNEXES,
+} from '@/lib/emp/isle-of-wight-plan'
+import {
   EMP_BUSINESS_TEMPLATE_VALUES,
   getEmpBusinessTemplatePlanMetadata,
 } from '@/lib/emp/business-template'
@@ -768,6 +774,7 @@ export async function listEmpPlans() {
   const { supabase, profile } = await getEmpUserContext()
   await ensureEmpTemplateSeededForContext(supabase, profile.id)
   await createEmpDownloadPlan()
+  await createEmpIsleOfWightPlan()
 
   const { data, error } = await supabase
     .from('emp_plans')
@@ -902,6 +909,117 @@ const DOWNLOAD_SYNC_IF_MISSING_FIELD_KEYS = new Set([
   'dynamic_escalation_triggers',
 ])
 
+const ISLE_OF_WIGHT_PENDING_SOURCE_PATTERN =
+  /pending source document|to be confirmed|draft deployment source pending|deployment source pending|pending (?:KSS )?deployment schedule|deployment schedule remains pending|deployment schedule.*pending|will be inserted from the deployment document|previous-festival emp scaffold/i
+
+const ISLE_OF_WIGHT_STALE_DEPLOYMENT_SOURCE_PATTERN =
+  /IOWF KSS Security Schedule 2026 V2|147 non-zero KSS deployment rows|peaking at 73|SPONSORS \(RECHARGE\)|STAGES - OTHER|stage-other/i
+
+const ISLE_OF_WIGHT_STALE_DOWNLOAD_SCOPE_PATTERN =
+  /accessibility campsite search|Accessible Campsite A4|Accessible Campsite D|Accessibility Black Campsite|Co-?op shop|Paddock|District X|Donington|Search is carried out only on behalf of and under instruction of the client|Accessibility customers will receive dignified/i
+
+const ISLE_OF_WIGHT_SYNC_IF_MISSING_FIELD_KEYS = new Set([
+  'staffing_by_zone_and_time',
+])
+
+const ISLE_OF_WIGHT_STALE_FIELD_PATTERNS: Record<string, RegExp> = {
+  document_status: /^Draft$/,
+  purpose_scope_summary: /This draft incorporates the supplied IWF ESOP/,
+  operational_hours: /^KSS deployment:? operates to (?:IOWF KSS Security Schedule 2026 V2|E06 Master - IOW26 Security Schedule V1) and Event Control instructions\./,
+  staffing_by_zone_and_time: /^(Saturday 13 June\|SPONSORS \(RECHARGE\)\|COOP Store guard|Thursday 18 June\|CAMPSITES\|Pink Moon C\/Site Supervisor|Tues 16 Jun\|OTHER DEPLOYMENTS\|IQOS)/,
+  named_command_roles: /KSS Deputy \/ Escalation Lead - David Capener/,
+  key_contacts_directory: /KSS Deputy \/ Escalation Lead - David Capener/,
+  contact_directory: /KSS Deputy \/ Escalation Lead - David Capener/,
+  briefing_and_induction: /search consent/,
+  search_screening_roles: /^KSS search\/screening roles are only applicable/,
+  camping_security_roles: /^General campsite security is not identified as KSS scope/,
+  ingress_operations: /^KSS ingress activity is focused on accessibility campsite search/,
+  queue_design: /^Queue design for bars, Co-?op shop and accessibility campsite search/i,
+  search_policy: /^Searching is carried out by licensed security/,
+  accessible_entry_arrangements: /Accessible searches follow the event search level/,
+  emergency_search_zones: /^Emergency search zones for KSS/,
+  hostile_recon_indicators: /observation of search lanes/,
+  appendix_notes: /Search and Screening annex/,
+}
+
+function isEmpIsleOfWightSeedPlan(plan: EmpPlanRow) {
+  const planIdentity = `${clean(plan.title)} ${clean(plan.event_name)}`
+  return (
+    clean(plan.title) === EMP_ISLE_OF_WIGHT_PLAN_TITLE
+    || clean(plan.event_name) === EMP_ISLE_OF_WIGHT_EVENT_NAME
+    || /Isle of Wight Festival|IWF|IOW26|IOW\s*Festival/i.test(planIdentity)
+  )
+}
+
+async function syncIsleOfWightPlanValuesForContext(input: {
+  supabase: ReturnType<typeof createClient>
+  profileId: string
+  templateId: string
+  planId: string
+  nowIso: string
+  mode?: 'all' | 'pending-only'
+}) {
+  const mode = input.mode || 'all'
+  const templateGraph = await loadTemplateGraph(input.supabase, input.templateId)
+  const currentRows = mode === 'pending-only'
+    ? await loadPlanValueRows(input.supabase, input.planId, templateGraph.fields)
+    : []
+  const currentValueByKey = new Map(currentRows.map((row) => [row.fieldKey, clean(row.valueText)]))
+  const shouldSyncAll = mode === 'all' || (mode === 'pending-only' && currentRows.length === 0)
+
+  const upserts = templateGraph.fields
+    .map((field) => {
+      const valueText = clean(EMP_ISLE_OF_WIGHT_PLAN_VALUES[field.key])
+      if (!valueText) return null
+
+      const currentValue = currentValueByKey.get(field.key) || ''
+      const staleFieldPattern = ISLE_OF_WIGHT_STALE_FIELD_PATTERNS[field.key]
+      const shouldSyncField =
+        shouldSyncAll ||
+        (!currentValue && ISLE_OF_WIGHT_SYNC_IF_MISSING_FIELD_KEYS.has(field.key)) ||
+        Boolean(staleFieldPattern?.test(currentValue)) ||
+        (ISLE_OF_WIGHT_STALE_DEPLOYMENT_SOURCE_PATTERN.test(currentValue) && valueText !== currentValue) ||
+        (ISLE_OF_WIGHT_STALE_DOWNLOAD_SCOPE_PATTERN.test(currentValue) && valueText !== currentValue) ||
+        (ISLE_OF_WIGHT_PENDING_SOURCE_PATTERN.test(currentValue) && valueText !== currentValue)
+      if (!shouldSyncField) return null
+
+      return {
+        plan_id: input.planId,
+        field_id: field.id,
+        value_text: valueText,
+        value_source: 'manual',
+        source_document_id: null,
+        source_excerpt: null,
+        updated_by_user_id: input.profileId,
+        updated_at: input.nowIso,
+      }
+    })
+    .filter(Boolean) as Array<Record<string, unknown>>
+
+  if (mode === 'pending-only' && upserts.length === 0) {
+    return
+  }
+
+  if (upserts.length > 0) {
+    const { error: upsertError } = await input.supabase
+      .from('emp_plan_field_values')
+      .upsert(upserts, { onConflict: 'plan_id,field_id' })
+
+    if (upsertError) {
+      throwEmpOperationError('Failed to seed Isle of Wight EMP plan values', upsertError)
+    }
+  }
+
+  await syncPlanSummaryFromValues({
+    supabase: input.supabase,
+    planId: input.planId,
+    updatedByUserId: input.profileId,
+    values: EMP_ISLE_OF_WIGHT_PLAN_VALUES,
+    selectedAnnexes: EMP_ISLE_OF_WIGHT_SELECTED_ANNEXES,
+    includeKssProfileAppendix: false,
+  })
+}
+
 export async function createEmpDownloadPlan() {
   const { supabase, profile } = await getEmpUserContext()
   const template = await ensureEmpTemplateSeededForContext(supabase, profile.id)
@@ -1005,6 +1123,72 @@ export async function createEmpDownloadPlan() {
 
   try {
     await syncDownloadPlanValues(createdPlan.id as string, nowIso, 'all')
+  } catch (error) {
+    await supabase.from('emp_plans').delete().eq('id', createdPlan.id)
+    throw error
+  }
+
+  return createdPlan.id as string
+}
+
+export async function createEmpIsleOfWightPlan() {
+  const { supabase, profile } = await getEmpUserContext()
+  const template = await ensureEmpTemplateSeededForContext(supabase, profile.id)
+
+  const { data: existingPlan, error: existingPlanError } = await supabase
+    .from('emp_plans')
+    .select('id')
+    .eq('template_id', template.id)
+    .eq('title', EMP_ISLE_OF_WIGHT_PLAN_TITLE)
+    .maybeSingle()
+
+  if (existingPlanError) {
+    throwEmpOperationError('Failed to load Isle of Wight EMP plan', existingPlanError)
+  }
+
+  if (existingPlan?.id) {
+    await syncIsleOfWightPlanValuesForContext({
+      supabase,
+      profileId: profile.id,
+      templateId: template.id,
+      planId: existingPlan.id as string,
+      nowIso: new Date().toISOString(),
+      mode: 'pending-only',
+    })
+    return existingPlan.id as string
+  }
+
+  const nowIso = new Date().toISOString()
+  const { data: createdPlan, error: createPlanError } = await supabase
+    .from('emp_plans')
+    .insert({
+      template_id: template.id,
+      title: EMP_ISLE_OF_WIGHT_PLAN_TITLE,
+      event_name: EMP_ISLE_OF_WIGHT_EVENT_NAME,
+      status: 'draft',
+      created_by_user_id: profile.id,
+      updated_by_user_id: profile.id,
+      updated_at: nowIso,
+      document_status: 'Draft',
+      selected_annexes: EMP_ISLE_OF_WIGHT_SELECTED_ANNEXES,
+      include_kss_profile_appendix: false,
+    })
+    .select('id')
+    .single()
+
+  if (createPlanError || !createdPlan) {
+    throwEmpOperationError('Failed to create Isle of Wight EMP plan', createPlanError)
+  }
+
+  try {
+    await syncIsleOfWightPlanValuesForContext({
+      supabase,
+      profileId: profile.id,
+      templateId: template.id,
+      planId: createdPlan.id as string,
+      nowIso,
+      mode: 'all',
+    })
   } catch (error) {
     await supabase.from('emp_plans').delete().eq('id', createdPlan.id)
     throw error
@@ -1125,7 +1309,21 @@ export async function getEmpPlanEditorData(planId: string): Promise<EmpPlanEdito
   const { supabase, profile } = await getEmpUserContext()
   await ensureEmpTemplateSeededForContext(supabase, profile.id)
 
-  const plan = await getPlanOrThrow(supabase, planId)
+  const initialPlan = await getPlanOrThrow(supabase, planId)
+  if (isEmpIsleOfWightSeedPlan(initialPlan)) {
+    await syncIsleOfWightPlanValuesForContext({
+      supabase,
+      profileId: profile.id,
+      templateId: initialPlan.template_id,
+      planId,
+      nowIso: new Date().toISOString(),
+      mode: 'pending-only',
+    })
+  }
+
+  const plan = isEmpIsleOfWightSeedPlan(initialPlan)
+    ? await getPlanOrThrow(supabase, planId)
+    : initialPlan
   const templateGraph = await loadTemplateGraph(supabase, plan.template_id)
   const values = await loadPlanValueRows(supabase, planId, templateGraph.fields)
   const documents = await loadPlanDocuments(supabase, planId)

@@ -4,6 +4,7 @@ import { EmpPreviewDocument } from '@/components/emp/emp-preview-document'
 import { describe, expect, it } from 'vitest'
 import { EMP_DEMO_PLAN_VALUES, EMP_DEMO_SELECTED_ANNEXES } from '@/lib/emp/demo-plan'
 import { EMP_DOWNLOAD_PLAN_VALUES, EMP_DOWNLOAD_SELECTED_ANNEXES } from '@/lib/emp/download-plan'
+import { EMP_ISLE_OF_WIGHT_PLAN_VALUES, EMP_ISLE_OF_WIGHT_SELECTED_ANNEXES } from '@/lib/emp/isle-of-wight-plan'
 import { EMP_MASTER_TEMPLATE_FIELDS } from '@/lib/emp/master-template'
 import { buildEmpPreviewModel, resolveEmpFieldValueMap } from '@/lib/emp/preview'
 
@@ -344,6 +345,120 @@ describe('buildEmpPreviewModel', () => {
     expect(deploymentRows).toContainEqual(expect.arrayContaining(['BARS', 'Hair of the Dog']))
     expect(deploymentRows).not.toContainEqual(expect.arrayContaining(['BARS', 'HAIR OF THE DOG']))
     expect(deploymentRows).not.toContainEqual(expect.arrayContaining(['1 SUP, 2 SIA, 2 ST']))
+  })
+
+  it('renders the Isle of Wight deployment schedule using the detailed deployment table', () => {
+    const isleOfWightFieldValues = resolveEmpFieldValueMap(
+      EMP_MASTER_TEMPLATE_FIELDS,
+      Object.entries(EMP_ISLE_OF_WIGHT_PLAN_VALUES).map(([fieldKey, valueText]) => ({
+        fieldKey,
+        valueText,
+        source: 'manual',
+      }))
+    )
+    const model = buildEmpPreviewModel({
+      fieldValues: isleOfWightFieldValues,
+      selectedAnnexes: EMP_ISLE_OF_WIGHT_SELECTED_ANNEXES,
+      includeKssProfileAppendix: false,
+    })
+    const deploymentTables = model.sections
+      .flatMap((section) => section.blocks)
+      .filter((block): block is Extract<(typeof model.sections)[number]['blocks'][number], { type: 'multi_table' }> => block.type === 'multi_table' && block.deploymentSchedule === true)
+    const deploymentRows = deploymentTables.flatMap((block) => block.rows)
+
+    expect(deploymentTables[0]).toMatchObject({
+      headers: ['Area', 'Position', 'Role', 'Day staff', 'Day start', 'Day end', 'Night staff', 'Night start', 'Night end'],
+      landscape: true,
+    })
+    ;['Thursday 18 June', 'Friday 19 June', 'Saturday 20 June', 'Sunday 21 June', 'Monday 22 June'].forEach((day) => {
+      expect(deploymentTables.find((table) => table.title === day)).toMatchObject({
+        startOnNewPage: true,
+      })
+    })
+    expect(deploymentTables.find((table) => table.title === 'Wednesday 17 June')).not.toMatchObject({
+      startOnNewPage: true,
+    })
+    expect(deploymentRows).toContainEqual(['BAR DEPLOYMENTS', 'EVENT CONTROL', 'SIA', '1', '09:00', '01:00', '', '', ''])
+    expect(deploymentRows).toContainEqual(['BAR DEPLOYMENTS', 'BAR 1 - STAGE RIGHT - FOH', 'SIA', '5', '14:00', '00:00', '', '', ''])
+    expect(deploymentRows).toContainEqual(['OTHER DEPLOYMENTS', 'PINK MOON - CAMPSITES DAYS - MOON - ENTRANCE', 'SIA', '2', '08:00', '20:00', '', '', ''])
+    expect(deploymentRows).toContainEqual(['OTHER DEPLOYMENTS', 'IQOS - COURTYARD', 'SIA', '1', '11:00', '22:00', '', '', ''])
+    expect(model.annexes.map((annex) => annex.title)).toContain('Pink Moon Campsite Security')
+    expect(model.annexes.map((annex) => annex.title)).not.toContain('Search and Screening')
+    expect(model.annexes.map((annex) => annex.title)).not.toContain('Search and Screening - Accessibility Campsite')
+
+    const eventOverview = model.sections.find((section) => section.key === 'event_overview')
+    const operationalHoursTable = eventOverview?.blocks.find(
+      (block): block is Extract<(typeof model.sections)[number]['blocks'][number], { type: 'multi_table' }> =>
+        block.type === 'multi_table' && block.headers.join('|') === 'Operational Phase|Detail'
+    )
+    const commandDiagram = model.sections
+      .find((section) => section.key === 'command_control')
+      ?.blocks
+      .find((block): block is Extract<(typeof model.sections)[number]['blocks'][number], { type: 'diagram'; variant: 'command' }> =>
+        block.type === 'diagram' && block.variant === 'command'
+      )
+
+    expect(operationalHoursTable?.rows).toContainEqual([
+      'Event Control source rota',
+      expect.stringContaining('day shifts 07:00-19:00'),
+    ])
+    expect(operationalHoursTable?.rows.some(([label, detail]) => label.endsWith('07') || detail.startsWith('00-19:00'))).toBe(false)
+    expect(commandDiagram?.control).toContain('Callum Keegan')
+
+    const html = renderToStaticMarkup(createElement(EmpPreviewDocument, { mode: 'preview', model }))
+    expect(html).toContain('V1')
+    expect(html).toContain('Callum Keegan')
+    expect(html).toContain('07:00-19:00')
+    expect(html).toContain('Pink Moon Campsite Security')
+    const renderedPages = html.split('<section').slice(1)
+    const mondayPage = renderedPages.find((page) => page.includes('Monday 22 June'))
+    expect(mondayPage).toBeDefined()
+    expect(mondayPage).not.toContain('Sunday 21 June')
+    expect(mondayPage).not.toContain('Saturday 20 June')
+    expect(html).not.toContain('accessibility campsite search')
+    expect(html).not.toContain('SPONSORS (RECHARGE)')
+    expect(html).not.toContain('STAGES - OTHER')
+  })
+
+  it('replaces stale Download ingress values when rendering Isle of Wight previews', () => {
+    const staleIsleOfWightValues = {
+      ...EMP_ISLE_OF_WIGHT_PLAN_VALUES,
+      ingress_routes_holding_areas:
+        'KSS ingress activity is focused on accessibility campsite search, production/back-of-house interface and assigned bars/Co-op shop areas as they open.',
+      ingress_operations:
+        'KSS ingress activity is focused on accessibility campsite search, production/back-of-house interface and assigned bars/Co-op shop areas as they open. Accessible customers will be processed calmly with suitable space, privacy, companion consideration, medication/medical equipment sensitivity and clear routes onward.',
+      search_policy:
+        'Search is carried out only on behalf of and under instruction of the client. Security staff have no independent power to search; consent will be requested and confirmed.',
+      queue_design:
+        'Queue design for bars, Co-op shop and accessibility campsite search will keep emergency routes, accessible routes, welfare/medical routes, stock routes and service lanes clear.',
+      accessible_entry_arrangements:
+        'Accessibility customers will receive dignified, proportionate search and entry support. Accessibility campsite search will account for mobility aids, medical equipment and carers/companions.',
+    }
+    const isleOfWightFieldValues = resolveEmpFieldValueMap(
+      EMP_MASTER_TEMPLATE_FIELDS,
+      Object.entries(staleIsleOfWightValues).map(([fieldKey, valueText]) => ({
+        fieldKey,
+        valueText,
+        source: 'manual',
+      }))
+    )
+    const model = buildEmpPreviewModel({
+      fieldValues: isleOfWightFieldValues,
+      selectedAnnexes: EMP_ISLE_OF_WIGHT_SELECTED_ANNEXES,
+      includeKssProfileAppendix: false,
+    })
+    const html = renderToStaticMarkup(createElement(EmpPreviewDocument, { mode: 'preview', model }))
+
+    expect(html).toContain('Searching is controlled by the IWF gate/search operation')
+    expect(html).toContain('Ingress routes include A2 from festival car parks')
+    expect(html).toContain('Queue design uses long pedestrian barriers')
+    expect(html).toContain('Separate Accessibility/VIP and Performer entry')
+    expect(html).toContain('Ingress operations focus on keeping lanes clear')
+    expect(html).not.toContain('accessibility campsite search')
+    expect(html).not.toContain('Co-op shop')
+    expect(html).not.toContain('Co-Op shop')
+    expect(html).not.toContain('Search is carried out only on behalf')
+    expect(html).not.toContain('Accessibility customers will receive dignified')
   })
 
   it('adds Download behavioural risk zones and bar-specific queue formats', () => {

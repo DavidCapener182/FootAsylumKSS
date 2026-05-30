@@ -5,6 +5,7 @@ import {
   type EmpAnnexKey,
   type EmpMasterTemplateField,
 } from '@/lib/emp/master-template'
+import { EMP_ISLE_OF_WIGHT_PLAN_VALUES } from '@/lib/emp/isle-of-wight-plan'
 
 export interface EmpResolvedFieldValue {
   key: string
@@ -158,23 +159,45 @@ function clean(value: string | null | undefined) {
   return String(value || '').trim()
 }
 
+function getRawValue(
+  fieldValues: Record<string, EmpResolvedFieldValue>,
+  fieldKey: string
+) {
+  return fieldValues[fieldKey]?.valueText || ''
+}
+
 function isRadioOneBarPlan(fieldValues: Record<string, EmpResolvedFieldValue>, selectedAnnexes: string[]) {
-  const eventAndTitle = `${getValue(fieldValues, 'event_name')} ${getValue(fieldValues, 'plan_title')}`
+  const eventAndTitle = `${getRawValue(fieldValues, 'event_name')} ${getRawValue(fieldValues, 'plan_title')}`
   return selectedAnnexes.includes('bar_operations') && /Radio 1|Big Weekend|R1BW/i.test(eventAndTitle)
 }
 
 function isRadioOneEvent(fieldValues: Record<string, EmpResolvedFieldValue>) {
-  return /Radio 1|Big Weekend|R1BW/i.test(`${getValue(fieldValues, 'event_name')} ${getValue(fieldValues, 'plan_title')}`)
+  return /Radio 1|Big Weekend|R1BW/i.test(`${getRawValue(fieldValues, 'event_name')} ${getRawValue(fieldValues, 'plan_title')}`)
 }
 
 function isDownloadEvent(fieldValues: Record<string, EmpResolvedFieldValue>) {
-  return /Download Festival|DLF26|Donington Park/i.test(`${getValue(fieldValues, 'event_name')} ${getValue(fieldValues, 'plan_title')} ${getValue(fieldValues, 'venue_name')}`)
+  return /Download Festival|DLF26|Donington Park/i.test(`${getRawValue(fieldValues, 'event_name')} ${getRawValue(fieldValues, 'plan_title')} ${getRawValue(fieldValues, 'venue_name')}`)
 }
+
+function isIsleOfWightEvent(fieldValues: Record<string, EmpResolvedFieldValue>) {
+  return /Isle of Wight Festival|IWF|IOW/i.test(`${getRawValue(fieldValues, 'event_name')} ${getRawValue(fieldValues, 'plan_title')} ${getRawValue(fieldValues, 'venue_name')}`)
+}
+
+const ISLE_OF_WIGHT_STALE_DOWNLOAD_VALUE_PATTERN =
+  /accessibility campsite search|Accessible Campsite A4|Accessible Campsite D|Accessibility Black Campsite|Co-?op shop|Paddock|District X|Donington|Search is carried out only on behalf of and under instruction of the client|Accessibility customers will receive dignified/i
 
 function getAnnexPresentation(
   annex: (typeof EMP_ANNEX_DEFINITIONS)[number],
   fieldValues: Record<string, EmpResolvedFieldValue>
 ) {
+  if (isIsleOfWightEvent(fieldValues) && annex.key === 'camping_security') {
+    return {
+      title: 'Pink Moon Campsite Security',
+      description:
+        'Pink Moon entrance, patrol, welfare-recognition, route-preservation and Event Control escalation controls for KSS assigned posts.',
+    }
+  }
+
   if (!isDownloadEvent(fieldValues)) {
     return {
       title: annex.label,
@@ -217,8 +240,12 @@ function getAnnexPresentation(
 }
 
 function getEffectiveSelectedAnnexes(fieldValues: Record<string, EmpResolvedFieldValue>, selectedAnnexes: string[]) {
-  if (!isRadioOneBarPlan(fieldValues, selectedAnnexes)) return selectedAnnexes
-  return selectedAnnexes.filter((annexKey) => !RADIO_ONE_EXCLUDED_ANNEXES.has(annexKey as EmpAnnexKey))
+  let annexes = selectedAnnexes
+  if (isIsleOfWightEvent(fieldValues)) {
+    annexes = annexes.filter((annexKey) => annexKey !== 'search_screening')
+  }
+  if (!isRadioOneBarPlan(fieldValues, annexes)) return annexes
+  return annexes.filter((annexKey) => !RADIO_ONE_EXCLUDED_ANNEXES.has(annexKey as EmpAnnexKey))
 }
 
 function isRadioOnePlan(fieldValues: Record<string, EmpResolvedFieldValue>, selectedAnnexes: string[] = ['bar_operations']) {
@@ -559,6 +586,7 @@ function buildDeploymentScheduleBlocks(
       const standardRows = rows.filter((row) => !/^Coop\b/i.test(row[1] || ''))
       const coOpRows = rows.filter((row) => /^Coop\b/i.test(row[1] || ''))
       const orderedRows = [...standardRows, ...coOpRows]
+      const shouldStartDeploymentDayOnNewPage = orderedRows.length >= 12
       blocks.push({
         type: 'multi_table',
         title: day,
@@ -566,6 +594,7 @@ function buildDeploymentScheduleBlocks(
         rows: orderedRows,
         keepTogether: true,
         compact: true,
+        startOnNewPage: shouldStartDeploymentDayOnNewPage,
         avoidRowSplit: true,
         rowUnitScale: 0.52,
         landscape: true,
@@ -1144,10 +1173,11 @@ function buildEmpOperationalRiskAssessment(fieldValues: Record<string, EmpResolv
 function parseColonRows(value: string | null | undefined) {
   return splitLines(value)
     .map((line) => {
-      const colonIndex = line.indexOf(':')
+      const separatorMatch = line.match(/:\s+/)
+      const colonIndex = typeof separatorMatch?.index === 'number' ? separatorMatch.index : -1
       if (colonIndex === -1) return null
       const label = clean(line.slice(0, colonIndex))
-      const detail = clean(line.slice(colonIndex + 1))
+      const detail = clean(line.slice(colonIndex + separatorMatch![0].length))
       return label && detail ? [label, detail] : null
     })
     .filter(Boolean) as string[][]
@@ -1157,7 +1187,16 @@ function getValue(
   fieldValues: Record<string, EmpResolvedFieldValue>,
   fieldKey: string
 ): string {
-  return fieldValues[fieldKey]?.valueText || ''
+  const valueText = getRawValue(fieldValues, fieldKey)
+  if (
+    isIsleOfWightEvent(fieldValues)
+    && ISLE_OF_WIGHT_STALE_DOWNLOAD_VALUE_PATTERN.test(valueText)
+    && EMP_ISLE_OF_WIGHT_PLAN_VALUES[fieldKey]
+  ) {
+    return EMP_ISLE_OF_WIGHT_PLAN_VALUES[fieldKey]
+  }
+
+  return valueText
 }
 
 function joinRiskControls(...values: Array<string | null | undefined>) {
@@ -1474,14 +1513,23 @@ function buildOperationalRiskRows(
 
   if (selectedAnnexes.includes('camping_security')) {
     const download = isDownloadEvent(fieldValues)
+    const isleOfWight = isIsleOfWightEvent(fieldValues)
     rows.push(
       buildRiskRow(
-        download ? 'Accessibility campsite security and safeguarding' : 'Overnight bar asset protection',
+        download
+          ? 'Accessibility campsite security and safeguarding'
+          : isleOfWight
+            ? 'Pink Moon campsite security and safeguarding'
+            : 'Overnight bar asset protection',
         download
           ? 'Late-night welfare demand, accessibility route obstruction, unauthorised access, safeguarding concern, search escalation, or delayed response in darkness.'
+          : isleOfWight
+            ? 'Late-night welfare demand, unauthorised access, route obstruction, safeguarding concern, asset issue, or delayed response in Pink Moon campsite areas.'
           : 'Late-night welfare demand, noise or antisocial behaviour, perimeter breaches, small fires, unauthorised access, or delayed response in darkness.',
         download
           ? 'Disabled guests, companions, children, vulnerable adults, overnight patrols, welfare teams and campsite staff.'
+          : isleOfWight
+            ? 'Pink Moon guests, campsite staff, KSS patrols, welfare teams and nearby route users.'
           : 'Staff, overnight patrols, welfare teams, asset holders, and adjacent perimeter staff.',
         joinRiskControls(
           getValue(fieldValues, 'camping_security_roles'),
@@ -2358,7 +2406,14 @@ function buildAnnexBlocks(
 
     case 'camping_security':
       return roleBlocks
-        .concat(labeledParagraph(isDownloadEvent(fieldValues) ? 'Accessibility campsite profile' : 'Overnight asset profile', getValue(fieldValues, 'camping_profile')))
+        .concat(labeledParagraph(
+          isDownloadEvent(fieldValues)
+            ? 'Accessibility campsite profile'
+            : isIsleOfWightEvent(fieldValues)
+              ? 'Pink Moon campsite profile'
+              : 'Overnight asset profile',
+          getValue(fieldValues, 'camping_profile')
+        ))
         .concat(isDownloadEvent(fieldValues)
           ? buildDeploymentScheduleBlocks(
               getValue(fieldValues, 'staffing_by_zone_and_time'),

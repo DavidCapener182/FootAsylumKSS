@@ -43,6 +43,7 @@ type EmpMasterTemplateRiskRow = {
 }
 
 type EmpDeploymentMatrixRow = {
+  day?: string
   zone: string
   position: string
   assigned: string
@@ -263,6 +264,45 @@ function parseDeploymentRows(fieldValues: Record<string, string>): EmpDeployment
   const source = getValue(fieldValues, 'staffing_by_zone_and_time')
   if (!source) return []
 
+  const detailedScheduleRows = source
+    .split(/\r?\n/)
+    .map((line) => line.split('|').map((cell) => clean(cell)))
+    .filter((cells) => cells.length >= 14 && cells.slice(0, 14).some(Boolean))
+
+  if (detailedScheduleRows.length) {
+    return detailedScheduleRows.flatMap((cells) => {
+      const [day, area, position, _function, _company, role, dayStaff, dayStart, dayEnd, _dayHours, lateStaff, lateStart, lateEnd] = cells
+      const rows: EmpDeploymentMatrixRow[] = []
+      const addShift = (count: string, start: string, end: string) => {
+        const staffCount = Number.parseFloat(count || '0')
+        if (!Number.isFinite(staffCount) || staffCount <= 0) return
+
+        const normalizedRole = normalizeDeploymentRoleLabel(role)
+        const countLabel = staffCount === 1
+          ? normalizedRole
+          : `${normalizedRole} x${count}`
+        const positionLabel = [position, countLabel].filter(Boolean).join(' - ')
+        const supervisor = /^(su|sup|supervisor)$/i.test(role) || /supervisor/i.test(position)
+          ? position
+          : ''
+
+        rows.push({
+          day,
+          zone: area,
+          position: positionLabel,
+          assigned: '',
+          supervisor,
+          start,
+          end,
+        })
+      }
+
+      addShift(dayStaff, dayStart, dayEnd)
+      addShift(lateStaff, lateStart, lateEnd)
+      return rows
+    })
+  }
+
   return source
     .split(/\r?\n/)
     .flatMap((line) => {
@@ -293,6 +333,19 @@ function parseDeploymentRows(fieldValues: Record<string, string>): EmpDeployment
       }))
     })
     .filter((row) => Boolean(row.zone || row.position))
+}
+
+function normalizeDeploymentRoleLabel(role: string) {
+  const normalized = clean(role).toUpperCase()
+  const labels: Record<string, string> = {
+    SIA: 'SIA',
+    ST: 'Steward',
+    SU: 'Supervisor',
+    SUP: 'Supervisor',
+    MGMT: 'Management',
+  }
+
+  return labels[normalized] || clean(role) || 'Staff'
 }
 
 export function getDeploymentMatrixRowsFromCells(tableCells: Record<string, string> | undefined): EmpDeploymentMatrixRow[] {
@@ -541,6 +594,39 @@ function buildDeploymentMatrixTablePages(
   }
 ) {
   const deploymentRows = parseDeploymentRows(fieldValues)
+  const detailedRowsByDay = groupDeploymentRowsByDay(deploymentRows)
+  if (detailedRowsByDay.length) {
+    const template = getEmpMasterTemplateById('deployment-matrix') as EmpMasterTemplateTable | null
+    const rowsPerPage = template?.kind === 'table' ? template.emptyRows : 23
+    const pages: EmpMasterTemplateTablePagePrefill[] = []
+
+    detailedRowsByDay.forEach(({ day, rows }) => {
+      chunkRows(rows, rowsPerPage).forEach((chunk) => {
+        const tableCells: Record<string, string> = {}
+
+        chunk.forEach((row, rowIndex) => {
+          tableCells[`${rowIndex}:zone`] = row.zone
+          tableCells[`${rowIndex}:position`] = row.position
+          tableCells[`${rowIndex}:assigned`] = row.assigned
+          tableCells[`${rowIndex}:supervisor`] = row.supervisor
+          tableCells[`${rowIndex}:start`] = row.start
+          tableCells[`${rowIndex}:end`] = row.end
+        })
+
+        pages.push({
+          fields: {
+            'Event Name': context.eventName,
+            Date: day,
+            'Prepared By': EMP_DEPLOYMENT_PREPARED_BY,
+          },
+          tableCells,
+        })
+      })
+    })
+
+    return pages
+  }
+
   const dates = getStaffSignInDates(fieldValues, context.eventName, context.planTitle).filter(Boolean)
   const hasBbcRadioOneStaff = getBbcRadioOneStaffForEvent(context.eventName, context.planTitle).length > 0
   if (!deploymentRows.length || !hasBbcRadioOneStaff || dates.length <= 1) return []
@@ -574,6 +660,26 @@ function buildDeploymentMatrixTablePages(
   })
 
   return pages
+}
+
+function groupDeploymentRowsByDay(rows: EmpDeploymentMatrixRow[]) {
+  const order: string[] = []
+  const grouped: Record<string, EmpDeploymentMatrixRow[]> = {}
+
+  rows.forEach((row) => {
+    const day = clean(row.day)
+    if (!day) return
+    if (!grouped[day]) {
+      grouped[day] = []
+      order.push(day)
+    }
+    grouped[day].push(row)
+  })
+
+  return order.map((day) => ({
+    day,
+    rows: grouped[day],
+  }))
 }
 
 function groupDeploymentRowsByZone(rows: ReturnType<typeof parseDeploymentRows>) {
