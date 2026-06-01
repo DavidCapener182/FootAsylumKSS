@@ -8,6 +8,8 @@ export type EmpMasterTemplateNoticeTone = 'info' | 'warning' | 'danger'
 
 export type EmpMasterTemplateTitleTone = 'default' | 'warning' | 'danger'
 
+export type EmpMasterTemplateEventScope = 'radio-one' | 'download-festival'
+
 export type EmpMasterTemplateIconKey =
   | 'shield'
   | 'radio'
@@ -43,6 +45,7 @@ type EmpMasterTemplateBase = {
   notice?: EmpMasterTemplateNotice
   titleTone?: EmpMasterTemplateTitleTone
   hiddenFromDocuments?: boolean
+  eventScope?: EmpMasterTemplateEventScope
 }
 
 export type EmpMasterTemplateField = {
@@ -112,6 +115,7 @@ export type EmpMasterTemplateSuspiciousItemReport = EmpMasterTemplateBase & {
 
 export type EmpMasterTemplateRadioOneDailyBriefBooklet = EmpMasterTemplateBase & {
   kind: 'radio_one_daily_brief_booklet'
+  briefingPack: EmpMasterTemplateEventScope
 }
 
 export type EmpMasterTemplateDefinition =
@@ -567,7 +571,7 @@ export const EMP_MASTER_TEMPLATES: EmpMasterTemplateDefinition[] = [
       },
       {
         type: 'textbox',
-        title: '3. Site Updates, Hot Spots & Queue Pinch Points',
+        title: '3. Site Updates, Hot Spots & Queue Peak Times',
         heightClass: 'h-[98px]',
       },
       {
@@ -644,14 +648,78 @@ export const EMP_MASTER_TEMPLATES: EmpMasterTemplateDefinition[] = [
     filename: '16_Radio_One_Event_Week_Security_Brief_Booklet.pdf',
     orientation: 'portrait',
     kind: 'radio_one_daily_brief_booklet',
+    eventScope: 'radio-one',
+    briefingPack: 'radio-one',
+  },
+  {
+    id: 'download-festival-security-brief',
+    documentCode: 'EMP-MT-16',
+    order: 16,
+    category: 'Briefings',
+    icon: 'message',
+    title: 'Download Festival Security Brief',
+    description:
+      'A4 landscape duplex booklet with eight A5 Download Festival security briefing pages for Download Festival 2026.',
+    filename: '16_Download_Festival_2026_Security_Brief_Booklet.pdf',
+    orientation: 'portrait',
+    kind: 'radio_one_daily_brief_booklet',
+    eventScope: 'download-festival',
+    briefingPack: 'download-festival',
   },
 ]
 
-export const EMP_VISIBLE_MASTER_TEMPLATES = EMP_MASTER_TEMPLATES.filter((template) => !template.hiddenFromDocuments)
+export const EMP_VISIBLE_MASTER_TEMPLATES = EMP_MASTER_TEMPLATES.filter(
+  (template) => !template.hiddenFromDocuments && !template.eventScope
+)
+
+export function getEmpMasterTemplateEventScope(input?: {
+  eventName?: string | null
+  planTitle?: string | null
+}) {
+  const identity = `${input?.eventName || ''} ${input?.planTitle || ''}`.trim()
+  if (/Download Festival|DLF26|Donington Park/i.test(identity)) return 'download-festival' as const
+  if (/Radio\s*1|Radio One|Big Weekend|R1BW/i.test(identity)) return 'radio-one' as const
+  return null
+}
+
+export function getEmpVisibleMasterTemplatesForEvent(input?: {
+  eventName?: string | null
+  planTitle?: string | null
+}) {
+  const eventScope = getEmpMasterTemplateEventScope(input)
+  return EMP_MASTER_TEMPLATES.filter((template) => {
+    if (template.hiddenFromDocuments) return false
+    if (!template.eventScope) return true
+    return Boolean(eventScope && template.eventScope === eventScope)
+  })
+}
 
 export function getEmpMasterTemplateById(templateId: string | null | undefined) {
   const normalizedId = String(templateId || '').trim().toLowerCase()
   return EMP_MASTER_TEMPLATES.find((template) => template.id === normalizedId) ?? null
+}
+
+export function resolveEmpMasterTemplateForEvent(
+  templateId: string | null | undefined,
+  input?: {
+    eventName?: string | null
+    planTitle?: string | null
+  }
+) {
+  const template = getEmpMasterTemplateById(templateId)
+  if (!template) return null
+
+  const eventScope = getEmpMasterTemplateEventScope(input)
+  if (!eventScope || !template.eventScope || template.eventScope === eventScope) {
+    return template
+  }
+
+  return EMP_MASTER_TEMPLATES.find((candidate) =>
+    !candidate.hiddenFromDocuments
+    && candidate.category === template.category
+    && candidate.order === template.order
+    && candidate.eventScope === eventScope
+  ) ?? template
 }
 
 export function groupEmpMasterTemplatesByCategory(

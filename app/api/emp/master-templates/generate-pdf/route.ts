@@ -8,7 +8,11 @@ import {
   buildSupervisorDeploymentTablePagesFromDeploymentMatrixOverrides,
   syncDeploymentMatrixEventPagesFromSourcePages,
 } from '@/lib/emp/master-template-prefill'
-import { getEmpMasterTemplateById, type EmpMasterTemplateDefinition } from '@/lib/emp/master-templates'
+import {
+  getEmpMasterTemplateById,
+  resolveEmpMasterTemplateForEvent,
+  type EmpMasterTemplateDefinition,
+} from '@/lib/emp/master-templates'
 import { launchPuppeteerBrowser } from '@/lib/pdf/puppeteer-browser'
 
 export const dynamic = 'force-dynamic'
@@ -175,6 +179,19 @@ function buildPrefillForTemplate(
   })
 }
 
+function readEventIdentityFromPrefill(prefill: string) {
+  if (!prefill) return {}
+  try {
+    const parsed = JSON.parse(prefill)
+    if (!parsed || typeof parsed !== 'object') return {}
+    return {
+      eventName: typeof parsed.eventName === 'string' ? parsed.eventName : '',
+    }
+  } catch {
+    return {}
+  }
+}
+
 export async function GET(request: NextRequest) {
   let browser: Browser | null = null
 
@@ -189,14 +206,22 @@ export async function GET(request: NextRequest) {
     const deploymentOverridesRaw = String(request.nextUrl.searchParams.get('deploymentOverrides') || '').trim()
     const disposition = request.nextUrl.searchParams.get('disposition') === 'inline' ? 'inline' : 'attachment'
     let prefill = String(request.nextUrl.searchParams.get('prefill') || '')
-    const template = getEmpMasterTemplateById(templateId)
+    let template = getEmpMasterTemplateById(templateId)
 
     if (!template) {
       return NextResponse.json({ error: 'Unknown templateId' }, { status: 400 })
     }
 
+    let planPrefill: Awaited<ReturnType<typeof getEmpMasterTemplatePlanPrefill>> | null = null
     if (!prefill && planId) {
-      const planPrefill = await getEmpMasterTemplatePlanPrefill(planId)
+      planPrefill = await getEmpMasterTemplatePlanPrefill(planId)
+      template = resolveEmpMasterTemplateForEvent(template.id, {
+        eventName: planPrefill.prefillData.eventName,
+        planTitle: planPrefill.planTitle,
+      })
+      if (!template) {
+        return NextResponse.json({ error: 'Unknown templateId' }, { status: 400 })
+      }
       let deploymentOverrides: Array<{
         fields?: Record<string, string>
         tableCells?: Record<string, string>
@@ -214,6 +239,11 @@ export async function GET(request: NextRequest) {
       prefill = buildPrefillForTemplate(template.id, planPrefill.prefillData, {
         deploymentOverrides,
       })
+    } else if (prefill) {
+      template = resolveEmpMasterTemplateForEvent(template.id, readEventIdentityFromPrefill(prefill))
+      if (!template) {
+        return NextResponse.json({ error: 'Unknown templateId' }, { status: 400 })
+      }
     }
 
     browser = await launchPuppeteerBrowser()
@@ -274,16 +304,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No template IDs were provided.' }, { status: 400 })
     }
 
+    const prefill = body.prefill || {}
     const uniqueTemplateIds = Array.from(new Set(templateIds))
-    const selectedTemplates = uniqueTemplateIds
-      .map((templateId) => getEmpMasterTemplateById(templateId))
-      .filter((template): template is EmpMasterTemplateDefinition => Boolean(template))
+    const selectedTemplateMap = new Map<string, EmpMasterTemplateDefinition>()
+    uniqueTemplateIds.forEach((templateId) => {
+      const template = resolveEmpMasterTemplateForEvent(templateId, {
+        eventName: prefill.eventName,
+      })
+      if (template) {
+        selectedTemplateMap.set(template.id, template)
+      }
+    })
+    const selectedTemplates = Array.from(selectedTemplateMap.values())
 
     if (selectedTemplates.length === 0) {
       return NextResponse.json({ error: 'No valid templates were selected.' }, { status: 400 })
     }
 
-    const prefill = body.prefill || {}
     const zip = new JSZip()
     const usedNames = new Map<string, number>()
     browser = await launchPuppeteerBrowser()

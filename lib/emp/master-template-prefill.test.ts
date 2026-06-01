@@ -118,7 +118,7 @@ describe('emp master template prefill', () => {
     expect(prefill.templateFieldValues['suspicious-item-concern-report']).not.toHaveProperty('Date / Time')
     expect(prefill.templateFieldValues['daily-security-brief']).toMatchObject({
       'Event Name & Date': "BBC Radio 1's Big Weekend Sunderland 2026",
-      '3. Site Updates, Hot Spots & Queue Pinch Points': expect.stringContaining('Bars and licensed service areas'),
+      '3. Site Updates, Hot Spots & Queue Peak Times': expect.stringContaining('Bars and licensed service areas'),
     })
     expect(prefill.templateFieldValues['daily-security-brief']).not.toHaveProperty('Duty Security Manager')
     expect(prefill.templateFieldValues['duty-manager-debrief']).toMatchObject({

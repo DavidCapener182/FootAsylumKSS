@@ -528,7 +528,7 @@ export const CMP_MASTER_TEMPLATES: CmpMasterTemplateDefinition[] = [
       },
       {
         type: 'textbox',
-        title: '3. Site Updates, Hot Spots & Queue Pinch Points',
+        title: '3. Site Updates, Hot Spots & Queue Peak Times',
         heightClass: 'h-[98px]',
       },
       {

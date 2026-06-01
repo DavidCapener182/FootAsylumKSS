@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { EMP_DEMO_EVENT_NAME } from '@/lib/emp/demo-plan'
 import { EMP_DOWNLOAD_EVENT_NAME } from '@/lib/emp/download-plan'
 import { EMP_ISLE_OF_WIGHT_EVENT_NAME } from '@/lib/emp/isle-of-wight-plan'
+import { EMP_PARKLIFE_EVENT_NAME } from '@/lib/emp/parklife-plan'
 import type { EmpPlanSummary } from '@/lib/emp/data'
 import { isRadioOneEmpPlan, splitEmpPlansByHistory } from '@/lib/emp/plan-history'
 import { cn, formatAppDateTime } from '@/lib/utils'
@@ -17,14 +18,14 @@ export function EmpWorkspaceClient({ plans }: { plans: EmpPlanSummary[] }) {
   const [planList, setPlanList] = useState(plans)
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
-  const [pendingAction, setPendingAction] = useState<'new' | 'example' | 'isle_of_wight' | null>(null)
+  const [pendingAction, setPendingAction] = useState<'new' | 'example' | 'isle_of_wight' | 'parklife' | null>(null)
   const { activePlans, historyPlans } = splitEmpPlansByHistory(planList)
 
   const navigateTo = (href: string) => {
     window.location.assign(href)
   }
 
-  const createPlan = async (kind: 'blank' | 'example' | 'isle_of_wight') => {
+  const createPlan = async (kind: 'blank' | 'example' | 'isle_of_wight' | 'parklife') => {
     const response = await fetch('/api/emp/create', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -89,6 +90,21 @@ export function EmpWorkspaceClient({ plans }: { plans: EmpPlanSummary[] }) {
     })
   }
 
+  const handleCreateParklife = () => {
+    startTransition(async () => {
+      try {
+        setActionError(null)
+        setPendingAction('parklife')
+        const planId = await createPlan('parklife')
+        navigateTo(`/admin/event-management-plans/${planId}`)
+      } catch (error: any) {
+        setActionError(error?.message || 'Failed to create Parklife EMP plan')
+      } finally {
+        setPendingAction(null)
+      }
+    })
+  }
+
   const handleDelete = (plan: EmpPlanSummary) => {
     const confirmed = window.confirm(`Delete "${plan.title}"? This will remove the plan and any uploaded source files.`)
     if (!confirmed) return
@@ -135,6 +151,9 @@ export function EmpWorkspaceClient({ plans }: { plans: EmpPlanSummary[] }) {
           ) : null}
           {plan.eventName === EMP_ISLE_OF_WIGHT_EVENT_NAME ? (
             <Badge variant="secondary">Isle of Wight</Badge>
+          ) : null}
+          {plan.eventName === EMP_PARKLIFE_EVENT_NAME ? (
+            <Badge variant="secondary">Parklife</Badge>
           ) : null}
           {isRadioOneEmpPlan(plan) ? (
             <Badge variant="secondary">Radio 1</Badge>
@@ -222,6 +241,14 @@ export function EmpWorkspaceClient({ plans }: { plans: EmpPlanSummary[] }) {
                 <MapPin className="mr-2 h-4 w-4" />
               )}
               Create Isle of Wight EMP
+            </Button>
+            <Button type="button" onClick={handleCreateParklife} disabled={isPending} variant="outline">
+              {isPending && pendingAction === 'parklife' ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <MapPin className="mr-2 h-4 w-4" />
+              )}
+              Create Parklife EMP
             </Button>
             <Button type="button" onClick={handleCreateExample} disabled={isPending} variant="outline">
               {isPending && pendingAction === 'example' ? (

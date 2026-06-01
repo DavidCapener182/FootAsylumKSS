@@ -28,7 +28,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
-  EMP_VISIBLE_MASTER_TEMPLATES,
+  getEmpMasterTemplateEventScope,
+  getEmpVisibleMasterTemplatesForEvent,
   groupEmpMasterTemplatesByCategory,
   type EmpMasterTemplateDefinition,
   type EmpMasterTemplateIconKey,
@@ -399,17 +400,17 @@ export function EmpMasterTemplatesClient({
   initialPresetPrefill?: EmpMasterTemplatePrefillData | null
   allowedTemplateIds?: string[]
 }) {
-  const allowedTemplateIdSet = allowedTemplateIds?.length ? new Set(allowedTemplateIds) : null
-  const visibleTemplates = allowedTemplateIdSet
-    ? EMP_VISIBLE_MASTER_TEMPLATES.filter((template) => allowedTemplateIdSet.has(template.id))
-    : EMP_VISIBLE_MASTER_TEMPLATES
-  const templateGroups = groupEmpMasterTemplatesByCategory(visibleTemplates).filter((group) => group.templates.length > 0)
   const initialPrefillData = initialPlanPrefill?.prefillData || initialPresetPrefill || undefined
   const hasPresetPrefill = Boolean(initialPresetPrefill)
   const shouldUseEventProfiles = !hasPresetPrefill
-  const initialTemplateId = visibleTemplates.some((template) => template.id === initialPresetId)
+  const prefillSourceTitle = initialPlanPrefill?.planTitle || initialPresetTitle
+  const initialVisibleTemplates = getEmpVisibleMasterTemplatesForEvent({
+    eventName: initialPrefillData?.eventName,
+    planTitle: prefillSourceTitle,
+  }).filter((template) => !allowedTemplateIds?.length || allowedTemplateIds.includes(template.id))
+  const initialTemplateId = initialVisibleTemplates.some((template) => template.id === initialPresetId)
     ? initialPresetId
-    : visibleTemplates[0]?.id ?? ''
+    : initialVisibleTemplates[0]?.id ?? ''
   const [activeTemplateId, setActiveTemplateId] = useState(initialTemplateId)
   const [eventName, setEventName] = useState(initialPrefillData?.eventName || '')
   const [eventDate, setEventDate] = useState(initialPrefillData?.eventDate || '')
@@ -442,6 +443,27 @@ export function EmpMasterTemplatesClient({
   const isSavingSharedProfileRef = useRef(false)
   const lastSharedPayloadRef = useRef('')
   const lastSharedUpdatedAtRef = useRef('')
+  const allowedTemplateIdSet = useMemo(
+    () => allowedTemplateIds?.length ? new Set(allowedTemplateIds) : null,
+    [allowedTemplateIds]
+  )
+  const visibleTemplates = useMemo(() => {
+    const scopedTemplates = getEmpVisibleMasterTemplatesForEvent({
+      eventName,
+      planTitle: prefillSourceTitle,
+    })
+    return allowedTemplateIdSet
+      ? scopedTemplates.filter((template) => allowedTemplateIdSet.has(template.id))
+      : scopedTemplates
+  }, [allowedTemplateIdSet, eventName, prefillSourceTitle])
+  const eventTemplateScope = useMemo(
+    () => getEmpMasterTemplateEventScope({ eventName, planTitle: prefillSourceTitle }),
+    [eventName, prefillSourceTitle]
+  )
+  const templateGroups = useMemo(
+    () => groupEmpMasterTemplatesByCategory(visibleTemplates).filter((group) => group.templates.length > 0),
+    [visibleTemplates]
+  )
 
   const activeTemplate = useMemo<EmpMasterTemplateDefinition | null>(
     () => visibleTemplates.find((template) => template.id === activeTemplateId) ?? visibleTemplates[0] ?? null,
@@ -467,7 +489,6 @@ export function EmpMasterTemplatesClient({
       ? activeTemplateTablePages.slice(0, getDeploymentMatrixSourcePageCount(activeTemplateTablePages))
       : activeTemplateTablePages
   const activeTemplateEditableRows = getEditableTableRowCount(activeTemplate, activeTemplateTableCells)
-  const prefillSourceTitle = initialPlanPrefill?.planTitle || initialPresetTitle
   const staffAssignmentOptions = useMemo(
     () => getStaffAssignmentOptions(templateTablePageValues['staff-sign-in-sign-out-sheet']),
     [templateTablePageValues]
@@ -480,6 +501,22 @@ export function EmpMasterTemplatesClient({
   useEffect(() => {
     activeEventProfileIdRef.current = activeEventProfileId
   }, [activeEventProfileId])
+
+  useEffect(() => {
+    if (visibleTemplates.some((template) => template.id === activeTemplateId)) return
+
+    const replacementTemplateId =
+      activeTemplateId === 'radio-one-daily-security-brief' && eventTemplateScope === 'download-festival'
+        ? 'download-festival-security-brief'
+        : activeTemplateId === 'download-festival-security-brief' && eventTemplateScope === 'radio-one'
+          ? 'radio-one-daily-security-brief'
+          : ''
+    const replacementTemplate = replacementTemplateId
+      ? visibleTemplates.find((template) => template.id === replacementTemplateId)
+      : null
+
+    setActiveTemplateId(replacementTemplate?.id || visibleTemplates[0]?.id || '')
+  }, [activeTemplateId, eventTemplateScope, visibleTemplates])
 
   const buildSharedPrefillData = useCallback((): SharedEventPrefillData => {
     const syncedTemplateTablePageValues = { ...templateTablePageValues }

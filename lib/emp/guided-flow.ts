@@ -54,17 +54,17 @@ const challengePolicyOptions = [
   { value: 'Client / licence policy TBC', label: 'Client / licence policy TBC' },
 ]
 
-const arrivalPatternOptions = [
-  { value: 'steady', label: 'Steady arrivals' },
-  { value: 'early_peak', label: 'Early/pre-opening peak' },
-  { value: 'headline_peak', label: 'Peak before headline act' },
-  { value: 'multi_wave', label: 'Multiple waves' },
+const areaDemandPatternOptions = [
+  { value: 'steady', label: 'Steady area use' },
+  { value: 'early_peak', label: 'Early area build-up' },
+  { value: 'headline_peak', label: 'Programme-driven area peak' },
+  { value: 'multi_wave', label: 'Multiple area waves' },
 ]
-const arrivalPatternHelp = {
-  steady: 'The EMP will plan for arrivals spread across the opening period.',
-  early_peak: 'The EMP will plan for pre-opening queues or heavy arrival at doors.',
-  headline_peak: 'The EMP will plan for demand building around a headline act, key fixture, or main programme moment.',
-  multi_wave: 'The EMP will plan for several distinct arrival waves across the day.',
+const areaDemandPatternHelp = {
+  steady: 'The EMP will plan for steady occupancy across static and dynamic gathering spaces.',
+  early_peak: 'The EMP will plan for early build-up in holding areas, service points, queues, and welfare interfaces.',
+  headline_peak: 'The EMP will plan for area demand around a headline act, key fixture, or main programme moment.',
+  multi_wave: 'The EMP will plan for several distinct area-use waves across the day.',
 }
 
 const reentryPolicyOptions = [
@@ -104,7 +104,7 @@ const GUIDED_AUTOFILL_RULES: GuidedAutoFillRule[] = [
     values: {
       low: 'Supervisors will use routine queue, circulation, and SIA monitoring to manage normal crowd movement and service demand.',
       medium: 'Supervisors will actively monitor queue frustration, SIA activity at service points, group behaviour, and late-event trigger points.',
-      high: 'Supervisors will use enhanced monitoring of SIA teams and early escalation for crowd pressure, disorder, refusal conflict, welfare vulnerability, and rapid changes at pinch points.',
+      high: 'Supervisors will use enhanced monitoring of SIA teams and early escalation for crowd density, congestion, disorder, refusal conflict, welfare vulnerability, and rapid changes in peak-demand areas.',
     },
   },
   {
@@ -142,7 +142,7 @@ const GUIDED_AUTOFILL_RULES: GuidedAutoFillRule[] = [
     values: {
       none: 'Supervisors will keep historic issues and intelligence under review through client, venue, police, SAG, and previous-event learning updates.',
       low: 'Supervisors will brief low-level previous learning, including minor queues, isolated welfare demand, weather sensitivity, or small route issues.',
-      medium: 'Supervisors will build known previous issues into briefing and supervision, including queue spillback, refusals, transport pressure, welfare demand, or route obstruction.',
+      medium: 'Supervisors will build known previous issues into briefing and supervision, including queue spillback, refusals, transport demand, welfare demand, or route obstruction.',
       high: 'The command lead will set named controls, agreed trigger points, command review, and clear escalation routes for significant historic issues or intelligence.',
     },
   },
@@ -151,18 +151,18 @@ const GUIDED_AUTOFILL_RULES: GuidedAutoFillRule[] = [
     targetKey: 'mood_trigger_notes',
     values: {
       low: 'Supervisors will monitor routine mood triggers including short queue delays, lost persons, minor welfare demand, and local wayfinding issues.',
-      medium: 'Supervisors will monitor delayed opening, bar queue pressure, weather change, headline delay, refusal conflict, route obstruction, and transport disruption.',
-      high: 'Supervisors will use pre-agreed thresholds for queue pressure, disorder, refusal conflict, welfare spikes, weather escalation, route failure, or operational pause.',
+      medium: 'Supervisors will monitor delayed opening, peak bar demand, weather change, headline delay, refusal conflict, route obstruction, and transport disruption.',
+      high: 'Supervisors will use pre-agreed thresholds for peak queue demand, disorder, refusal conflict, welfare spikes, weather escalation, route failure, or operational pause.',
     },
   },
   {
     sourceKey: 'arrival_pattern_type',
     targetKey: 'arrival_pattern_notes',
     values: {
-      steady: 'Supervisors will maintain phase-based readiness checks and monitor arrivals against normal entry and service throughput.',
-      early_peak: 'Supervisors will complete pre-opening readiness checks, queue holding arrangements, and supervisor positioning before doors open.',
-      headline_peak: 'Supervisors will review staffing and queue positions before headline or key programme moments where arrival or bar demand may increase.',
-      multi_wave: 'Supervisors will repeat readiness checks and staffing reviews across each arrival wave and operational phase.',
+      steady: 'Supervisors will monitor static and dynamic gathering spaces against normal footprint, dwell, service and welfare capacity.',
+      early_peak: 'Supervisors will complete readiness checks for holding areas, queue footprints, service points, welfare interfaces and supervisor positions before public demand builds.',
+      headline_peak: 'Supervisors will review staffing and queue positions before headline or key programme moments where area occupancy or bar demand may increase.',
+      multi_wave: 'Supervisors will repeat area footprint, holding capacity and staffing reviews across each demand wave and operational phase.',
     },
   },
   {
@@ -179,8 +179,8 @@ const GUIDED_AUTOFILL_RULES: GuidedAutoFillRule[] = [
     targetKey: 'density_assumption_notes',
     values: {
       low: 'Supervisors will manage routine circulation with standard queue and service-point monitoring.',
-      medium: 'Supervisors will actively monitor dwell and queue pressure around bars, toilets, welfare interfaces, service routes, and KSS-allocated areas.',
-      high: 'The command lead and supervisors will use conservative capacity assumptions, enhanced monitoring, and escalation triggers around peak bar service, pinch points, queues, restricted compounds, and constrained routes.',
+      medium: 'Supervisors will actively monitor dwell and queue demand around bars, toilets, welfare interfaces, service routes, and KSS-allocated areas.',
+      high: 'The command lead and supervisors will use conservative capacity assumptions, enhanced monitoring, and escalation triggers around peak bar service, queues, restricted compounds, and constrained routes.',
     },
   },
   {
@@ -286,7 +286,7 @@ const GUIDED_AUTOFILL_RULES: GuidedAutoFillRule[] = [
     values: {
       low: 'Supervisors will escalate minor disorder, welfare requests, lost persons, short queue delays, refusal support, and route obstruction through normal supervisor routes.',
       medium: 'Supervisors will escalate repeated refusals, queue spillback, assault or disorder, welfare spikes, suspicious items, weather change, route obstruction, and licence breaches through control.',
-      high: 'Supervisors will use enhanced escalation for sustained disorder, repeated ejections, vulnerable person escalation, crowd pressure, route loss, suspicious items, medical major incident, or command request for operational pause.',
+      high: 'Supervisors will use enhanced escalation for sustained disorder, repeated ejections, vulnerable person escalation, unsafe crowd density or congestion, route loss, suspicious items, medical major incident, or command request for operational pause.',
     },
   },
   {
@@ -294,8 +294,8 @@ const GUIDED_AUTOFILL_RULES: GuidedAutoFillRule[] = [
     targetKey: 'show_stop_triggers',
     values: {
       low: 'Supervisors will support an operational pause if directed for isolated life-safety concerns, route obstruction, or command instruction.',
-      medium: 'Supervisors will escalate potential pause triggers including crowd pressure, severe weather, medical incident, fire alarm, route loss, disorder, or emergency service instruction.',
-      high: 'The command lead will pre-brief show stop or operational pause triggers for crowd pressure, major incident, structural concern, suspicious item, severe weather, fire, or police/command instruction.',
+      medium: 'Supervisors will escalate potential pause triggers including unsafe crowd density or congestion, severe weather, medical incident, fire alarm, route loss, disorder, or emergency service instruction.',
+      high: 'The command lead will pre-brief Show Stop or operational pause triggers for unsafe crowd density or congestion, major incident, structural concern, suspicious item, severe weather, fire, or police/command instruction.',
     },
   },
   {
@@ -413,7 +413,7 @@ function crowdBehaviourText(level: string, crowdType: string, notes: string) {
   const base = {
     low: 'Crowd behaviour risk is assessed as low, with routine queuing, circulation, and supervisor monitoring expected to manage normal crowd movement.',
     medium: 'Crowd behaviour risk is assessed as medium, with potential for queue frustration, density around attractions, group behaviour, and late-event trigger points requiring active management.',
-    high: 'Crowd behaviour risk is assessed as high, with increased potential for crowd pressure, disorder, refusal conflict, welfare vulnerability, and rapid escalation at pinch points.',
+    high: 'Crowd behaviour risk is assessed as high, with increased potential for unsafe crowd density or congestion, disorder, refusal conflict, welfare vulnerability, and rapid escalation in peak-demand areas.',
   }[normalized]
   return lines(
     crowdType || base,
@@ -455,7 +455,7 @@ export const EMP_GUIDED_GROUPS: EmpGuidedGroup[] = [
       { key: 'has_bars', label: 'Bars or licensed trading applies', type: 'checkbox', help: 'Adds bar operations wording and the bar operations annex.' },
       { key: 'has_camping', label: 'Overnight bar asset protection applies', type: 'checkbox', help: 'Use where KSS protects bars, stock, compounds, or equipment outside public opening hours.' },
       { key: 'has_vip_backstage', label: 'Restricted compound / accreditation applies', type: 'checkbox', help: 'Use for VIP, backstage, staff compound, production, or accreditation-only areas.' },
-      { key: 'has_front_of_stage', label: 'High-demand bar queue area applies', type: 'checkbox', help: 'Use for any bar or service point expected to create heavy queue pressure.' },
+      { key: 'has_front_of_stage', label: 'High-demand bar queue area applies', type: 'checkbox', help: 'Use for any bar or service point expected to create heavy queue demand.' },
       { key: 'has_traffic_routes', label: 'Service route or pedestrian interface applies', type: 'checkbox', help: 'Use where stock, vehicles, service routes, or pedestrian routes need active separation.' },
       { key: 'has_search_screening', label: 'Dedicated search or screening applies', type: 'checkbox', help: 'Use where KSS has a person, bag, vehicle, or prohibited-items screening role.' },
       { key: 'has_stewarding_deployment', label: 'Include stewarding / queue marshal deployment annex', type: 'checkbox', help: 'Use where the plan needs a detailed stewarding, queue marshal, or wayfinding matrix.' },
@@ -474,7 +474,7 @@ export const EMP_GUIDED_GROUPS: EmpGuidedGroup[] = [
       { key: 'staff_and_contractor_number', label: 'Expected staff / contractor count', type: 'number', placeholder: '650' },
       { key: 'camper_count', label: 'Expected overnight bar asset count, if applicable', type: 'number', placeholder: '0', help: 'Only complete if overnight security, camping, or overnight asset protection is relevant.' },
       { key: 'audience_age_profile', fieldKey: 'audience_age_profile', label: 'Audience age profile', type: 'text', placeholder: 'Mostly 18-35, mixed groups, some families before 18:00' },
-      { key: 'crowd_behaviour_level', label: 'Behaviour / queue pressure level', type: 'select', options: riskLevelOptions, optionHelp: riskLevelHelp },
+      { key: 'crowd_behaviour_level', label: 'Behaviour / queue demand level', type: 'select', options: riskLevelOptions, optionHelp: riskLevelHelp },
       { key: 'crowd_type', label: 'Audience or bar behaviour notes', type: 'textarea', placeholder: 'Example: audience expected to be compliant, but bar queues may become frustrated during act changeovers.', help: 'Optional. Leave blank to use standard wording for the selected level.' },
       { key: 'main_arrival_mode', label: 'Main arrival mode', type: 'select', options: [
         { value: 'mixed', label: 'Mixed transport' },
@@ -515,10 +515,10 @@ export const EMP_GUIDED_GROUPS: EmpGuidedGroup[] = [
       { key: 'emergency_exits_holding_areas', fieldKey: 'emergency_exits_holding_areas', label: 'Emergency exits, holding areas and RV points', type: 'textarea', placeholder: 'Emergency Exit E1 and E2\nHolding area beside welfare tent\nPrimary RV: north service gate' },
       { key: 'site_layout_summary', fieldKey: 'site_layout_summary', label: 'Site layout notes', type: 'textarea', placeholder: 'Example: bars sit on the west side of the arena with queue lanes running parallel to the main circulation route.' },
       { key: 'primary_routes', label: 'Primary service, queue, or pedestrian interface routes', type: 'textarea', placeholder: 'Main circulation route past Bar 2\nStock route from compound to Bar 1\nAccessible route through north lane' },
-      { key: 'arrival_pattern_type', label: 'Arrival pattern', type: 'select', options: arrivalPatternOptions, optionHelp: arrivalPatternHelp },
-      { key: 'arrival_peak_window', label: 'Main arrival peak window', type: 'text', placeholder: '10:00 to 12:00' },
-      { key: 'arrival_pattern_notes', label: 'Arrival pattern controls', type: 'textarea', placeholder: 'Example: Supervisors will complete pre-opening readiness checks and position supervisors before doors open.' },
-      { key: 'movement_pressure_points', label: 'Bar or service pressure points', type: 'textarea', placeholder: 'Example: queue tail at Bar 2 can spill toward toilets; stock route crosses public flow near compound gate.' },
+      { key: 'arrival_pattern_type', label: 'Area demand pattern', type: 'select', options: areaDemandPatternOptions, optionHelp: areaDemandPatternHelp },
+      { key: 'arrival_peak_window', label: 'Main area-demand window', type: 'text', placeholder: '17:00 to 21:00' },
+      { key: 'arrival_pattern_notes', label: 'Static / dynamic area controls', type: 'textarea', placeholder: 'Example: Supervisors will monitor bar footprints, queue tails, welfare handover space and service interfaces against planned holding capacity.' },
+      { key: 'movement_pressure_points', label: 'Bar or service peak-demand areas', type: 'textarea', placeholder: 'Example: queue tail at Bar 2 can spill toward toilets; stock route crosses public flow near compound gate.' },
       { key: 'route_resilience_level', label: 'Secondary route resilience', type: 'select', options: riskLevelOptions, optionHelp: riskLevelHelp },
       { key: 'route_resilience_notes', label: 'Secondary route notes, if specific', type: 'textarea', placeholder: 'Example: secondary route is narrow and unlit after dark; supervisor must confirm route is clear before egress.' },
     ],
@@ -556,7 +556,7 @@ export const EMP_GUIDED_GROUPS: EmpGuidedGroup[] = [
       { key: 'radio_channels_callsigns', fieldKey: 'radio_channels_callsigns', label: 'Radio channels and call signs', type: 'textarea', placeholder: 'Channel 1 - KSS command\nChannel 2 - KSS bar security teams\nCall sign KSS Lead - Name\nCall sign Bar 1 - KSS supervisor name' },
       { key: 'emergency_phrase', label: 'Emergency priority phrase', type: 'text', placeholder: 'Priority priority priority' },
       { key: 'staffing_by_zone_and_time', fieldKey: 'staffing_by_zone_and_time', label: 'Staffing by zone and time', type: 'textarea', placeholder: '10:00-14:00 - Main bar queue - Supervisor x1, SIA x4, stewards x2\n17:00-22:00 - Response - SIA x4 mobile refusal/ejection support' },
-      { key: 'response_teams', fieldKey: 'response_teams', label: 'Response teams and mobile resources', type: 'textarea', placeholder: 'KSS Response Team - SIA x4 - Refusals, welfare support, queue pressure and ejections\nRelief Team - SIA x2 - breaks and contingency' },
+      { key: 'response_teams', fieldKey: 'response_teams', label: 'Response teams and mobile resources', type: 'textarea', placeholder: 'KSS Response Team - SIA x4 - Refusals, welfare support, queue congestion and ejections\nRelief Team - SIA x2 - breaks and contingency' },
       { key: 'reserve_staff_count', label: 'Reserve / contingency staff count', type: 'number', placeholder: '4' },
       { key: 'specialist_teams_and_assets', fieldKey: 'specialist_teams_and_assets', label: 'Specialist teams and assets', type: 'textarea', placeholder: 'Search team, dog team, CCTV support, response vehicle, welfare patrol, body-worn video, metal detection, if used.' },
       { key: 'service_delivery_scope', fieldKey: 'service_delivery_scope', label: 'KSS delivery scope', type: 'textarea', placeholder: 'KSS provides bar queue supervision, refusal/ejection support, bar compound access control, close-down support and incident escalation within allocated areas only.' },
@@ -581,7 +581,7 @@ export const EMP_GUIDED_GROUPS: EmpGuidedGroup[] = [
       { key: 'circulation_risk_level', label: 'Circulation risk level', type: 'select', options: riskLevelOptions, optionHelp: riskLevelHelp },
       { key: 'circulation_controls', fieldKey: 'circulation_controls', label: 'Circulation controls', type: 'textarea', placeholder: 'Example: Supervisors will monitor principal routes, service crossings, accessible routes and emergency corridors around KSS areas.' },
       { key: 'high_density_risk_level', label: 'High-demand bar risk level', type: 'select', options: riskLevelOptions, optionHelp: riskLevelHelp },
-      { key: 'high_density_controls', fieldKey: 'high_density_controls', label: 'High-demand bar controls', type: 'textarea', placeholder: 'Example: KSS supervisors will monitor KSS SIA and stewards, position response teams, monitor queue pressure and escalate if bar demand affects public circulation.' },
+      { key: 'high_density_controls', fieldKey: 'high_density_controls', label: 'High-demand bar controls', type: 'textarea', placeholder: 'Example: KSS supervisors will monitor KSS SIA and stewards, position response teams, monitor queue congestion and escalate if bar demand affects public circulation.' },
       { key: 'internal_queue_risk_level', label: 'Internal queue risk level', type: 'select', options: riskLevelOptions, optionHelp: riskLevelHelp },
       { key: 'internal_queue_controls', fieldKey: 'internal_queue_controls', label: 'Internal queue controls', type: 'textarea', placeholder: 'Example: KSS supervisors will direct KSS SIA and stewards to keep bar, welfare, toilet and stock queues clear of main routes, service lanes and emergency access.' },
       { key: 'transport_interface', fieldKey: 'transport_interface', label: 'Bar close-down / egress interface', type: 'textarea', placeholder: 'Close queue tail before egress peak; keep stock route clear; supervisors confirm bar clear and report to Event Control before stand-down.' },
@@ -618,8 +618,8 @@ export const EMP_GUIDED_GROUPS: EmpGuidedGroup[] = [
       { key: 'secondary_rv_point', label: 'Secondary RV point', type: 'text', placeholder: 'South gate / medical compound / production office' },
       { key: 'casualty_collection_point', label: 'Casualty collection point', type: 'text', placeholder: 'Medical centre, welfare tent, or ambulance loading point' },
       { key: 'shelter_locations', label: 'Shelter locations', type: 'textarea', placeholder: 'Indoor concourse\nCovered market hall\nBack-of-house welfare room\nVehicle holding area for staff only' },
-      { key: 'show_stop_level', label: 'Show stop / pause trigger level', type: 'select', options: riskLevelOptions, optionHelp: riskLevelHelp },
-      { key: 'show_stop_triggers', fieldKey: 'show_stop_triggers', label: 'Show stop / operational pause trigger notes', type: 'textarea', placeholder: 'Crowd pressure, severe weather, medical major incident, fire alarm, suspicious item, structural failure, police instruction.' },
+      { key: 'show_stop_level', label: 'Show Stop / pause trigger level', type: 'select', options: riskLevelOptions, optionHelp: riskLevelHelp },
+      { key: 'show_stop_triggers', fieldKey: 'show_stop_triggers', label: 'Show Stop / operational pause trigger notes', type: 'textarea', placeholder: 'Unsafe crowd density or congestion, severe weather, medical major incident, fire alarm, suspicious item, structural failure, police instruction.' },
       { key: 'ct_threat_level', label: 'CT event-specific threat context', type: 'select', options: riskLevelOptions, optionHelp: riskLevelHelp },
       { key: 'ct_threat_context', label: 'CT notes, if specific', type: 'textarea', placeholder: 'Example: city-centre location, open public realm, hostile vehicle interface, search posture agreed with police/SAG.' },
       { key: 'search_posture', label: 'CT-related search posture', type: 'select', options: searchPostureOptions, optionHelp: searchPostureHelp },
@@ -753,9 +753,9 @@ export function generateEmpFieldValuesFromGuidedAnswers(
   const accessibleLanes = answer(answers, 'accessible_lane_count')
   const laneThroughput = answer(answers, 'lane_throughput')
   const primaryRoutes = answer(answers, 'primary_routes')
-  const arrivalPatternType = answer(answers, 'arrival_pattern_type', 'steady')
-  const arrivalPeakWindow = answer(answers, 'arrival_peak_window')
-  const movementPressurePoints = answer(answers, 'movement_pressure_points')
+  const areaDemandPatternType = answer(answers, 'arrival_pattern_type', 'steady')
+  const areaDemandWindow = answer(answers, 'arrival_peak_window')
+  const movementDemandAreas = answer(answers, 'movement_pressure_points')
   const routeResilienceLevel = levelLabel(answer(answers, 'route_resilience_level'))
   const routeResilienceNotes = answer(answers, 'route_resilience_notes')
   const selectedAnnexes = getGuidedSelectedAnnexes(answers)
@@ -832,7 +832,7 @@ export function generateEmpFieldValuesFromGuidedAnswers(
     {
       low: 'Routine monitoring is expected to be sufficient for normal queue frustration, lost persons, and minor welfare demand.',
       medium: 'Supervisors should watch for delayed gates, headline delays, queues, weather changes, refusals, and transport delay points.',
-      high: 'Control should pre-brief trigger thresholds for bar queue pressure, disorder, refusal conflict, major delays, welfare spikes, weather change, asset-protection concerns, or service-route failure.',
+      high: 'Control should pre-brief trigger thresholds for bar queue congestion, disorder, refusal conflict, major delays, welfare spikes, weather change, asset-protection concerns, or service-route failure.',
     }[levelLabel(answer(answers, 'mood_trigger_level'))],
     answer(answers, 'mood_trigger_notes') && `Event-specific notes: ${answer(answers, 'mood_trigger_notes')}`
   )
@@ -848,31 +848,31 @@ export function generateEmpFieldValuesFromGuidedAnswers(
   values.dim_aliced_design = `The design for ${eventName} should provide sufficient space, barriers, lighting, signage, queueing, service-lane protection, and emergency access for KSS-allocated bars, bar compounds, and selected operating areas.`
   values.dim_aliced_information = `Information should cover wayfinding, opening times, prohibited items, accessible arrangements, welfare points, emergency messaging, and briefing updates so attendees and staff understand how ${eventName} will operate.`
   values.dim_aliced_management = `Management arrangements should define command roles, supervisor ownership, deployment review points, contingency triggers, and decision logging for normal and degraded operations at ${venue}.`
-  values.dim_aliced_activity = `Activity analysis should consider the event programme, audience dwell points, service demand, licensing activity, queues, changeovers, and any programmed moments likely to concentrate crowd movement or attention.`
-  values.dim_aliced_location = `Location factors for ${venue} should consider surrounding land use, transport links, access constraints, weather exposure, lighting, local residents, emergency service access, and any site-specific restrictions.`
+  values.dim_aliced_activity = `Arrival analysis should consider the expected arrival profile, pre-opening dwell, first-contact points, queue readiness, accessible arrival support, and any programme moments likely to concentrate demand before entry or service.`
+  values.dim_aliced_location = `Last-mile factors for ${venue} should consider transport links, local pedestrian routes, pick-up/drop-off points, access constraints, lighting, weather exposure, wayfinding, local residents, emergency service access, and any site-specific restrictions.`
   values.dim_aliced_ingress = `${primaryRoutes || 'KSS access points and queue routes'} should be reviewed against bar demand, holding capacity, accessible support, refusal management, and contingency arrangements.`
-  values.dim_aliced_circulation = `${movementPressurePoints || 'Bar and service pressure points'} should be monitored to prevent queue spillback, route obstruction, counterflow, and loss of emergency access.`
+  values.dim_aliced_circulation = `${movementDemandAreas || 'Bar and service peak-demand areas'} should be monitored to prevent queue spillback, route obstruction, counterflow, and loss of emergency access.`
   values.dim_aliced_egress = `${answer(answers, 'dispersal_routes', 'Close-down and stock movement routes')} should support final service, stock or cash protection, staff clear-down, client handover, and route protection.`
-  values.dim_aliced_dynamics = `Operational dynamics should consider queue build-up, stop-start movement, counterflow, behavioural triggers, information needs, and how staff intervention may alter attendee response around KSS areas during ${eventName}.`
+  values.dim_aliced_dynamics = `Dispersal should consider close-down, final service, campsite or transport return, route resilience, public information, staff handover, and welfare or accessibility support around KSS areas during ${eventName}.`
 
   values.ramp_routes = `${primaryRoutes || 'Primary and secondary routes'} should be assessed for width, lighting, steward positions, accessible alternatives, crossings, and resilience if a route is lost or degraded. Route resilience is assessed as ${routeResilienceLevel}.${routeResilienceNotes ? ` ${routeResilienceNotes}` : ''}`
   values.ramp_arrival = `${
     answer(answers, 'arrival_pattern_notes') || {
-      steady: 'Arrival demand is expected to be steady and should be monitored against normal entry throughput.',
-      early_peak: 'Arrival demand is expected to peak before opening or early in the admission period, requiring gate readiness and queue holding before doors.',
-      headline_peak: 'Arrival demand is expected to peak before headline or key programme moments, requiring flexible staffing and live queue reporting.',
-      multi_wave: 'Arrival demand is expected in multiple waves, requiring repeated readiness checks and staffing review across phases.',
-    }[arrivalPatternType] || 'Arrival demand should be profiled by time, transport mode, ticketing demand, and pre-opening dwell.'
-  }${arrivalPeakWindow ? ` Main arrival peak: ${arrivalPeakWindow}.` : ''}`
-  values.ramp_movement = `${movementPressurePoints || 'Movement pressure points should be identified around bars, stores, welfare handover points, toilets, service routes, and route intersections.'}`
+      steady: 'Static and dynamic gathering spaces are expected to operate with steady occupancy and should be monitored against footprint, dwell, service, welfare and route-protection capacity.',
+      early_peak: 'Static and dynamic gathering spaces should be ready before opening, with holding space, queue footprints, service points, welfare interfaces and supervisor positions confirmed before demand builds.',
+      headline_peak: 'Static and dynamic gathering spaces should be reviewed before headline or key programme moments, with flexible staffing, live area reporting and route protection in place.',
+      multi_wave: 'Static and dynamic gathering spaces should be reviewed across each demand wave, with repeated checks of holding capacity, service points, welfare interfaces and routes.',
+    }[areaDemandPatternType] || 'Static and dynamic gathering spaces should be profiled by footprint, holding capacity, dwell, service demand, accessible provision, welfare and medical interfaces, and route protection.'
+  }${areaDemandWindow ? ` Main peak window for area occupancy and demand: ${areaDemandWindow}.` : ''}`
+  values.ramp_movement = `${movementDemandAreas || 'Movement demand should be identified around bars, stores, welfare handover points, toilets, service routes, and route intersections.'}`
   values.ramp_profile = `The route strategy should reflect ${answer(answers, 'audience_age_profile', 'the expected audience')}, alcohol profile, familiarity with the venue, accessibility needs, group behaviour, and any overnight bar asset demand where allocated.`
 
   values.density_assumptions = lines(
     `Density assumptions are set at a ${levelLabel(answer(answers, 'density_level'))} operating level for planning purposes.`,
     {
-      low: 'The plan assumes routine circulation with limited dwell pressure outside normal queues and service points.',
-      medium: 'The plan assumes moderate dwell and queue pressure around bars, toilets, welfare interfaces, service routes, and KSS-allocated areas.',
-      high: 'The plan assumes elevated density risk around peak bar service, pinch points, queues, restricted bar compounds, and constrained routes.',
+      low: 'The plan assumes routine circulation with limited dwell outside normal queues and service points.',
+      medium: 'The plan assumes moderate dwell and queue demand around bars, toilets, welfare interfaces, service routes, and KSS-allocated areas.',
+      high: 'The plan assumes elevated density risk around peak bar service, queues, restricted bar compounds, and constrained routes.',
     }[levelLabel(answer(answers, 'density_level'))],
     answer(answers, 'density_assumption_notes') && `Event-specific notes: ${answer(answers, 'density_assumption_notes')}`
   )
@@ -903,12 +903,12 @@ export function generateEmpFieldValuesFromGuidedAnswers(
     answer(answers, 'loggist') && `Event control / loggist - ${answer(answers, 'loggist')} - Contact to be confirmed`,
     answer(answers, 'providers')
   )
-  values.reporting_lines = `Staff report to their zone supervisor, supervisors escalate to ${answer(answers, 'control_location', 'Event Control')}, and material issues are escalated to ${answer(answers, 'operational_lead', 'the Operational Lead')}. Immediate escalation is required for life safety, safeguarding, disorder, CT concerns, licence breaches, refusal conflict, asset loss, bar queue pressure, or any issue affecting KSS operations.`
+  values.reporting_lines = `Staff report to their zone supervisor, supervisors escalate to ${answer(answers, 'control_location', 'Event Control')}, and material issues are escalated to ${answer(answers, 'operational_lead', 'the Operational Lead')}. Immediate escalation is required for life safety, safeguarding, disorder, CT concerns, licence breaches, refusal conflict, asset loss, bar queue congestion, or any issue affecting KSS operations.`
   values.control_room_structure = `${answer(answers, 'control_location', 'Event Control')} should hold command, logging, provider liaison, live bar status, incident tracking, refusal tracking, safeguarding handovers, and decision recording functions for ${eventName}.`
   values.briefing_and_induction = `Planning meetings, written briefs, role-specific deployment briefs, inductions, pre-opening checks, final service checks, overnight handover checks, and close-down checks should be completed for ${eventName}. Late changes must be re-briefed through supervisors and control.`
   values.monitoring_and_density_tools = `Live monitoring should combine supervisor observation, route patrols, bar queue reports, refusal logs, welfare and medical feedback, stock or compound checks, control logging, and any available CCTV or counting tools. Technology supports but does not replace live command judgement.`
   values.relief_and_contingency = answer(answers, 'reserve_staff_count')
-    ? `Relief and contingency arrangements include break cover, supervisor-managed redeployment, and a reserve of ${numberLabel(answer(answers, 'reserve_staff_count'), 'staff member', 'staff')} for sickness, bar queue pressure, weather changes, compound issues, or incident reinforcement.`
+    ? `Relief and contingency arrangements include break cover, supervisor-managed redeployment, and a reserve of ${numberLabel(answer(answers, 'reserve_staff_count'), 'staff member', 'staff')} for sickness, bar queue congestion, weather changes, compound issues, or incident reinforcement.`
     : currentValues.relief_and_contingency || ''
   values.escalation_staffing = `Additional staff should be deployed if bar queue times, route obstruction, safeguarding demand, weather degradation, asset-protection concerns, or incident frequency exceed the thresholds agreed by ${answer(answers, 'control_location', 'Event Control')}.`
 
@@ -939,10 +939,10 @@ export function generateEmpFieldValuesFromGuidedAnswers(
   values.lost_vulnerable_person_process = `Lost child or vulnerable person reports are priority incidents. Control circulates descriptions to relevant supervisors, welfare, ingress, medical and response teams, retains the reporting party where safe, and records reunification or handover.`
   values.confidentiality_logging = 'Safeguarding logs must be factual, time-stamped, restricted to those with a direct operational need, and securely handed to the designated safeguarding or welfare lead.'
 
-  values.incident_management = `Incidents at ${eventName} are managed through a graded response prioritising life safety, KSS area stability, vulnerability, communication, and escalation. Incident trigger level is assessed as ${levelLabel(answer(answers, 'incident_risk_level'))}. Event-specific triggers include ${answer(answers, 'incident_triggers', 'disorder, medical or welfare incidents, safeguarding reports, route obstruction, suspicious items, bar queue pressure, refusals, intoxication, asset concerns, and conditions that may affect licence objectives or event continuity')}.`
+  values.incident_management = `Incidents at ${eventName} are managed through a graded response prioritising life safety, KSS area stability, vulnerability, communication, and escalation. Incident trigger level is assessed as ${levelLabel(answer(answers, 'incident_risk_level'))}. Event-specific triggers include ${answer(answers, 'incident_triggers', 'disorder, medical or welfare incidents, safeguarding reports, route obstruction, suspicious items, bar queue congestion, refusals, intoxication, asset concerns, and conditions that may affect licence objectives or event continuity')}.`
   values.risk_assessment_methodology = `The operational risk assessment links the event profile, KSS area analysis, staffing model, selected annexes, emergency interface arrangements, and KSS delivery scope to the hazards most likely to arise at ${eventName}.`
   values.risk_assessment_scope = `The KSS risk assessment covers ${applicableAreas}, including the selected annex functions where applicable.`
-  values.risk_assessment_source_notes = `Event-specific risk review should consider ${answer(answers, 'incident_triggers', 'bar queue pressure, queue overspill, intoxication, vulnerable persons, adverse weather, vehicle or pedestrian interface, route obstruction, suspicious items, refusal conflict, asset protection, and emergency response thresholds')}.`
+  values.risk_assessment_source_notes = `Event-specific risk review should consider ${answer(answers, 'incident_triggers', 'bar queue congestion, queue overspill, intoxication, vulnerable persons, adverse weather, vehicle or pedestrian interface, route obstruction, suspicious items, refusal conflict, asset protection, and emergency response thresholds')}.`
 
   values.emergency_procedures = `Emergency response arrangements for ${eventName} define KSS interface duties for evacuation, partial evacuation, invacuation / lockdown, shelter, operational pause, route protection, and emergency service access, directed through ${answer(answers, 'control_location', 'Event Control')} unless immediate life safety requires action.`
   values.partial_evacuation_procedure = `Part evacuation applies where a single zone, route, or compound becomes unsafe but wider operations can continue. Control identifies the affected area, stops movement into that zone, protects routes, and holds adjoining sectors as required.`

@@ -1,5 +1,8 @@
 import React, { type ReactNode } from 'react'
-import { RadioOneDailySecurityBriefBooklet } from '@/components/emp/radio-one-daily-security-brief-booklet'
+import {
+  DownloadFestivalSecurityBriefBooklet,
+  RadioOneDailySecurityBriefBooklet,
+} from '@/components/emp/radio-one-daily-security-brief-booklet'
 import {
   type EmpMasterTemplateDefinition,
   type EmpMasterTemplateEmergencyActionPlan,
@@ -922,13 +925,22 @@ export function EmpMasterTemplateDocument({
         data-pdf-title={template.title}
         data-pdf-template-id={template.id}
         data-pdf-filename={template.filename}
-        data-pdf-event-name={prefillValues?.eventName || "BBC Radio 1's Big Weekend Sunderland 2026"}
+        data-pdf-event-name={
+          prefillValues?.eventName
+          || (template.briefingPack === 'download-festival'
+            ? 'Download Festival 2026'
+            : "BBC Radio 1's Big Weekend Sunderland 2026")
+        }
         data-pdf-event-date={prefillValues?.eventDate || ''}
         data-pdf-prefill-fields={JSON.stringify(prefillValues?.fields || {})}
         className="emp-master-template-root"
       >
         <div className="emp-master-template-content emp-radio-one-brief-content">
-          <RadioOneDailySecurityBriefBooklet layout={radioOneLayout} />
+          {template.briefingPack === 'download-festival' ? (
+            <DownloadFestivalSecurityBriefBooklet layout={radioOneLayout} />
+          ) : (
+            <RadioOneDailySecurityBriefBooklet layout={radioOneLayout} />
+          )}
         </div>
       </div>
     )

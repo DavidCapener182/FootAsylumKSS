@@ -88,7 +88,7 @@ export interface CmpPreviewModel {
 const FIXED_OBJECTIVES = [
   'Protect the public, staff, contractors, and event participants.',
   'Support safe ingress, circulation, and egress at all times.',
-  'Prevent crime, disorder, crowd pressure, and avoidable disruption.',
+  'Prevent crime, disorder, unsafe crowd density, and avoidable disruption.',
   'Support safeguarding, welfare, medical, and emergency response functions.',
   'Support client, organiser, venue, and licensing objectives through a consistent operational structure.',
 ]
@@ -248,7 +248,12 @@ function getValue(
   fieldValues: Record<string, CmpResolvedFieldValue>,
   fieldKey: string
 ): string {
-  return fieldValues[fieldKey]?.valueText || ''
+  const valueText = fieldValues[fieldKey]?.valueText || ''
+  if (fieldKey !== 'show_stop_triggers') return valueText
+
+  return valueText
+    .replace(/^Show stop,\s*sh(?:op|ow) stop or activity stop triggers include\s+/i, 'Show stop triggers include ')
+    .replace(/^Show stop or local activity stop triggers include\s+/i, 'Show stop triggers include ')
 }
 
 function joinRiskControls(...values: Array<string | null | undefined>) {
@@ -276,7 +281,7 @@ function buildOperationalRiskRows(
   const rows: string[][] = [
     buildRiskRow(
       'Ingress, admission, and queue containment',
-      'Queue pressure, delayed admission, prohibited items, refusal conflict, or poor accessible access.',
+      'Queue congestion, delayed admission, prohibited items, refusal conflict, or poor accessible access.',
       'Waiting attendees, accessible guests, search teams, and route stewards.',
       joinRiskControls(
         getValue(fieldValues, 'ingress_routes_holding_areas'),
@@ -289,7 +294,7 @@ function buildOperationalRiskRows(
     ),
     buildRiskRow(
       'Internal circulation and high-density areas',
-      'Crowd pressure, route obstruction, counterflow, spillback from attractions, or poor visibility of developing density.',
+      'Unsafe crowd density, route obstruction, counterflow, spillback from attractions, or poor visibility of developing density.',
       'Public attendees, stewards, supervisors, performers, and adjacent contractors.',
       joinRiskControls(
         getValue(fieldValues, 'circulation_controls'),
@@ -591,7 +596,7 @@ function buildSectionBlocks(
         .concat(labeledParagraph('Mood and trigger points', getValue(fieldValues, 'mood_and_trigger_points')))
         .concat(
           parseTwoColumnLines(getValue(fieldValues, 'peak_periods')).length
-            ? maybeMultiTable(['Time / Phase', 'Pressure Point'], parseTwoColumnLines(getValue(fieldValues, 'peak_periods')))
+            ? maybeMultiTable(['Time / Phase', 'Operational Focus'], parseTwoColumnLines(getValue(fieldValues, 'peak_periods')))
             : labeledParagraph('Peak periods', getValue(fieldValues, 'peak_periods'))
         )
 
@@ -602,9 +607,9 @@ function buildSectionBlocks(
           type: 'diagram',
           variant: 'crowd_flow',
           stages: [
-            { label: 'Ingress', note: summarizeText(getValue(fieldValues, 'dim_aliced_ingress'), 58) },
-            { label: 'Arena Circulation', note: summarizeText(getValue(fieldValues, 'dim_aliced_circulation'), 58) },
-            { label: 'Main Activity Zones', note: summarizeText(getValue(fieldValues, 'dim_aliced_activity'), 58) },
+            { label: 'Arrival', note: summarizeText(getValue(fieldValues, 'dim_aliced_activity'), 58) },
+            { label: 'Last Mile', note: summarizeText(getValue(fieldValues, 'dim_aliced_location'), 58) },
+            { label: 'Ingress / Circulation', note: summarizeText(getValue(fieldValues, 'dim_aliced_circulation'), 58) },
             { label: 'Egress / Dispersal', note: summarizeText(getValue(fieldValues, 'dim_aliced_egress'), 58) },
           ],
         } as CmpPreviewBlock])
@@ -617,12 +622,12 @@ function buildSectionBlocks(
             ['Design', getValue(fieldValues, 'dim_aliced_design')],
             ['Information', getValue(fieldValues, 'dim_aliced_information')],
             ['Management', getValue(fieldValues, 'dim_aliced_management')],
-            ['Activity', getValue(fieldValues, 'dim_aliced_activity')],
-            ['Location', getValue(fieldValues, 'dim_aliced_location')],
+            ['Arrival', getValue(fieldValues, 'dim_aliced_activity')],
+            ['Last Mile', getValue(fieldValues, 'dim_aliced_location')],
             ['Ingress', getValue(fieldValues, 'dim_aliced_ingress')],
             ['Circulation', getValue(fieldValues, 'dim_aliced_circulation')],
             ['Egress', getValue(fieldValues, 'dim_aliced_egress')],
-            ['Dynamics', getValue(fieldValues, 'dim_aliced_dynamics')],
+            ['Dispersal', getValue(fieldValues, 'dim_aliced_dynamics')],
           ]
         ))
 
@@ -632,7 +637,7 @@ function buildSectionBlocks(
         variant: 'ramp',
         items: [
           { title: 'Routes', value: summarizeText(getValue(fieldValues, 'ramp_routes'), 92) },
-          { title: 'Arrival', value: summarizeText(getValue(fieldValues, 'ramp_arrival'), 92) },
+          { title: 'Areas', value: summarizeText(getValue(fieldValues, 'ramp_arrival'), 92) },
           { title: 'Movement', value: summarizeText(getValue(fieldValues, 'ramp_movement'), 92) },
           { title: 'Profile', value: summarizeText(getValue(fieldValues, 'ramp_profile'), 92) },
         ],
@@ -641,7 +646,7 @@ function buildSectionBlocks(
           ['RAMP Element', 'Assessment Summary'],
           [
             ['Routes', getValue(fieldValues, 'ramp_routes')],
-            ['Arrival', getValue(fieldValues, 'ramp_arrival')],
+            ['Areas', getValue(fieldValues, 'ramp_arrival')],
             ['Movement', getValue(fieldValues, 'ramp_movement')],
             ['Profile', getValue(fieldValues, 'ramp_profile')],
           ]
@@ -819,7 +824,7 @@ function buildSectionBlocks(
             ['Disorder / assault', summarizeText(getValue(fieldValues, 'incident_management'), 140)],
             ['Lost child / vulnerable person', summarizeText(getValue(fieldValues, 'lost_vulnerable_person_process'), 140)],
             ['Medical / welfare', summarizeText(getValue(fieldValues, 'safe_spaces'), 140)],
-            ['Crowd pressure / surge', summarizeText(getValue(fieldValues, 'high_density_controls'), 140)],
+            ['Crowd density / surge', summarizeText(getValue(fieldValues, 'high_density_controls'), 140)],
             ['Suspicious item / CT concern', summarizeText(getValue(fieldValues, 'suspicious_item_protocol'), 140)],
           ]
         )
@@ -853,7 +858,7 @@ function buildSectionBlocks(
               ['Full evacuation', getValue(fieldValues, 'full_evacuation_procedure')],
               ['Invacuation / lockdown', getValue(fieldValues, 'lockdown_invacuation_procedure')],
               ['Shelter', getValue(fieldValues, 'shelter_procedure')],
-              ['Show stop triggers', getValue(fieldValues, 'show_stop_triggers')],
+              ['Show Stop triggers', getValue(fieldValues, 'show_stop_triggers')],
               ['Rendezvous points / emergency holding areas', getValue(fieldValues, 'rendezvous_points')],
               ['Command escalation', getValue(fieldValues, 'command_escalation')],
               ['Emergency search zones / sterile areas', getValue(fieldValues, 'emergency_search_zones')],

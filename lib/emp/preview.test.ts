@@ -196,7 +196,7 @@ describe('buildEmpPreviewModel', () => {
         expect.objectContaining({ hazard: 'Underage or proxy alcohol service' }),
         expect.objectContaining({ hazard: 'Intoxication, disorder or assault near bars' }),
         expect.objectContaining({ hazard: 'Emergency route obstruction by bar queues' }),
-        expect.objectContaining({ hazard: 'Bar close-down and final egress pressure' }),
+        expect.objectContaining({ hazard: 'Bar close-down and final egress demand' }),
       ]),
     })
   })
@@ -339,6 +339,7 @@ describe('buildEmpPreviewModel', () => {
       .filter((block): block is Extract<(typeof model.sections)[number]['blocks'][number], { type: 'multi_table' }> => block.type === 'multi_table' && block.deploymentSchedule === true)
       .flatMap((block) => block.rows)
 
+    expect(model.coverRows).toContainEqual({ label: 'Status', value: 'V1' })
     expect(deploymentRows).toContainEqual(['BARS', 'Bar 1', 'SUP', '1', '12:00', '22:30', '', '', ''])
     expect(deploymentRows).toContainEqual(['BARS', 'Bar 1', 'SIA', '2', '12:00', '22:30', '1', '22:30', '09:30'])
     expect(deploymentRows).toContainEqual(['BARS', 'Bar 1', 'ST', '2', '12:00', '22:30', '', '', ''])
@@ -370,6 +371,7 @@ describe('buildEmpPreviewModel', () => {
       headers: ['Area', 'Position', 'Role', 'Day staff', 'Day start', 'Day end', 'Night staff', 'Night start', 'Night end'],
       landscape: true,
     })
+    expect(model.coverRows).toContainEqual({ label: 'Status', value: 'V1' })
     ;['Thursday 18 June', 'Friday 19 June', 'Saturday 20 June', 'Sunday 21 June', 'Monday 22 June'].forEach((day) => {
       expect(deploymentTables.find((table) => table.title === day)).toMatchObject({
         startOnNewPage: true,
@@ -397,6 +399,15 @@ describe('buildEmpPreviewModel', () => {
       .find((block): block is Extract<(typeof model.sections)[number]['blocks'][number], { type: 'diagram'; variant: 'command' }> =>
         block.type === 'diagram' && block.variant === 'command'
       )
+    const commandBlocks = model.sections.find((section) => section.key === 'command_control')?.blocks || []
+    const commandExternalInterfaces = commandBlocks.find(
+      (block): block is Extract<(typeof commandBlocks)[number], { type: 'bullet_list' }> =>
+        block.type === 'bullet_list' && block.items.some((item) => item.includes('One Circle Events'))
+    )
+    const briefingBlock = commandBlocks.find(
+      (block): block is Extract<(typeof commandBlocks)[number], { type: 'paragraph' }> =>
+        block.type === 'paragraph' && block.text.startsWith('Briefings and inductions:')
+    )
 
     expect(operationalHoursTable?.rows).toContainEqual([
       'Event Control source rota',
@@ -404,6 +415,11 @@ describe('buildEmpPreviewModel', () => {
     ])
     expect(operationalHoursTable?.rows.some(([label, detail]) => label.endsWith('07') || detail.startsWith('00-19:00'))).toBe(false)
     expect(commandDiagram?.control).toContain('Callum Keegan')
+    expect(commandExternalInterfaces).toMatchObject({
+      keepTogether: true,
+      startOnNewPage: true,
+    })
+    expect(briefingBlock).toMatchObject({ keepWithNext: true })
 
     const html = renderToStaticMarkup(createElement(EmpPreviewDocument, { mode: 'preview', model }))
     expect(html).toContain('V1')
@@ -411,7 +427,17 @@ describe('buildEmpPreviewModel', () => {
     expect(html).toContain('07:00-19:00')
     expect(html).toContain('Pink Moon Campsite Security')
     const renderedPages = html.split('<section').slice(1)
+    const relatedDocumentsPage = renderedPages.find((page) => page.includes('Related Documents'))
+    const externalInterfacesPage = renderedPages.find((page) => page.includes('One Circle Events - DPS'))
+    const briefingPage = renderedPages.find((page) => page.includes('Briefings and inductions:'))
     const mondayPage = renderedPages.find((page) => page.includes('Monday 22 June'))
+    expect(relatedDocumentsPage).toBeDefined()
+    expect(relatedDocumentsPage).toContain('1.0 ESOP IWF Introduction and Index 2026 V2')
+    expect(relatedDocumentsPage).toContain('2.0 IWF Risk Assessment 2026 V2')
+    expect(relatedDocumentsPage).toContain('E06 Master - IOW26 Security Schedule V1')
+    expect(externalInterfacesPage).toContain('Events Wellbeing - welfare and lost property.')
+    expect(externalInterfacesPage).toContain('Medical, fire, traffic, accessibility, stewarding and security contractor control teams.')
+    expect(briefingPage).toContain('Monitoring technology and live observation:')
     expect(mondayPage).toBeDefined()
     expect(mondayPage).not.toContain('Sunday 21 June')
     expect(mondayPage).not.toContain('Saturday 20 June')
@@ -614,7 +640,7 @@ describe('buildEmpPreviewModel', () => {
 
   it('splits long EMP content across multiple fixed A4 pages', () => {
     const longText = Array.from({ length: 90 }, (_, index) =>
-      `Operational instruction ${index + 1} confirms that crowd pressure, route resilience, supervisor escalation, and welfare handover actions are fully recorded and implemented in line with event control requirements.`
+      `Operational instruction ${index + 1} confirms that crowd density, route resilience, supervisor escalation, and welfare handover actions are fully recorded and implemented in line with event control requirements.`
     ).join(' ')
 
     const html = renderToStaticMarkup(

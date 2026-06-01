@@ -42,7 +42,32 @@ const mockSupabase = {
         select: vi.fn(() => ({
           eq: vi.fn(() => ({
             single: vi.fn().mockResolvedValue({
-              data: { template_id: 'template-1' },
+              data: {
+                id: 'fra-123',
+                template_id: 'template-1',
+                fa_audit_templates: { category: 'fire_risk_assessment' },
+                fa_stores: {
+                  id: 'store-1',
+                  store_name: 'Bullring Mega',
+                  address_line_1: 'St Martins Market',
+                  city: 'Birmingham',
+                  postcode: 'B5 4BH',
+                  region: 'Midlands',
+                },
+              },
+              error: null,
+            }),
+          })),
+        })),
+      }
+    }
+
+    if (table === 'fa_profiles') {
+      return {
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            single: vi.fn().mockResolvedValue({
+              data: { role: 'admin' },
               error: null,
             }),
           })),

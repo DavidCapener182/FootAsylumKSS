@@ -3,7 +3,9 @@ import {
   EMP_MASTER_TEMPLATES,
   EMP_VISIBLE_MASTER_TEMPLATES,
   getEmpMasterTemplateById,
+  getEmpVisibleMasterTemplatesForEvent,
   groupEmpMasterTemplatesByCategory,
+  resolveEmpMasterTemplateForEvent,
 } from '@/lib/emp/master-templates'
 
 describe('emp master templates', () => {
@@ -43,12 +45,11 @@ describe('emp master templates', () => {
       { id: 'refusal-of-entry-ejection-log', documentCode: 'EMP-MT-12', filename: '12_Refusal_Ejection_Log.pdf' },
       { id: 'suspicious-item-concern-report', documentCode: 'EMP-MT-13', filename: '13_Suspicious_Item_Report.pdf' },
       { id: 'event-control-log', documentCode: 'EMP-MT-17', filename: '17_Event_Control_Log.pdf' },
-      { id: 'radio-one-daily-security-brief', documentCode: 'EMP-MT-16', filename: '16_Radio_One_Event_Week_Security_Brief_Booklet.pdf' },
     ])
   })
 
-  it('contains all seventeen event management documents', () => {
-    expect(EMP_MASTER_TEMPLATES).toHaveLength(17)
+  it('contains event management documents plus festival-scoped briefing packs', () => {
+    expect(EMP_MASTER_TEMPLATES).toHaveLength(18)
     expect(EMP_MASTER_TEMPLATES.map((template) => template.id)).toContain('event-control-log')
   })
 
@@ -77,6 +78,35 @@ describe('emp master templates', () => {
     expect(template?.kind).toBe('radio_one_daily_brief_booklet')
     expect(template?.category).toBe('Briefings')
     expect(template?.filename).toBe('16_Radio_One_Event_Week_Security_Brief_Booklet.pdf')
+    expect(template?.eventScope).toBe('radio-one')
+    if (template?.kind !== 'radio_one_daily_brief_booklet') return
+    expect(template?.briefingPack).toBe('radio-one')
+  })
+
+  it('uses the Download briefing pack for Download Festival master templates', () => {
+    const displayedTemplates = getEmpVisibleMasterTemplatesForEvent({
+      eventName: 'Download Festival 2026',
+      planTitle: 'KSS NW LTD Event Management Plan - Download Festival 2026',
+    })
+    const displayedTemplateIds = displayedTemplates.map((template) => template.id)
+    const resolvedTemplate = resolveEmpMasterTemplateForEvent('radio-one-daily-security-brief', {
+      eventName: 'Download Festival 2026',
+    })
+
+    expect(displayedTemplateIds).toContain('download-festival-security-brief')
+    expect(displayedTemplateIds).not.toContain('radio-one-daily-security-brief')
+    expect(resolvedTemplate?.id).toBe('download-festival-security-brief')
+    expect(resolvedTemplate?.filename).toBe('16_Download_Festival_2026_Security_Brief_Booklet.pdf')
+  })
+
+  it('uses the Radio One briefing pack for Radio One master templates', () => {
+    const displayedTemplates = getEmpVisibleMasterTemplatesForEvent({
+      eventName: "BBC Radio 1's Big Weekend Sunderland 2026",
+    })
+    const displayedTemplateIds = displayedTemplates.map((template) => template.id)
+
+    expect(displayedTemplateIds).toContain('radio-one-daily-security-brief')
+    expect(displayedTemplateIds).not.toContain('download-festival-security-brief')
   })
 
   it('keeps employer agency off the staff sign-in sheet', () => {

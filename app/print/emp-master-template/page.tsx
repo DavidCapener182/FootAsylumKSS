@@ -9,7 +9,7 @@ import {
   buildSupervisorDeploymentTablePagesFromDeploymentMatrixOverrides,
   syncDeploymentMatrixEventPagesFromSourcePages,
 } from '@/lib/emp/master-template-prefill'
-import { getEmpMasterTemplateById } from '@/lib/emp/master-templates'
+import { resolveEmpMasterTemplateForEvent } from '@/lib/emp/master-templates'
 import { cn } from '@/lib/utils'
 
 export const dynamic = 'force-dynamic'
@@ -21,31 +21,10 @@ export default async function EmpMasterTemplatePrintPage({
 }) {
   await requireEmpAccess()
 
-  const template = getEmpMasterTemplateById(searchParams?.templateId)
   const planId = String(searchParams?.planId || '').trim()
-
-  if (!template) {
-    return (
-      <div className="mx-auto max-w-3xl px-4 py-8">
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-4 text-sm text-red-700">
-          Unknown master template.
-        </div>
-      </div>
-    )
-  }
-
-  const pageSize =
-    template.kind === 'radio_one_daily_brief_booklet'
-      ? 'A4 landscape'
-      : template.orientation === 'landscape'
-        ? 'A4 landscape'
-        : 'A4 portrait'
   const prefillRaw = String(searchParams?.prefill || '')
   const deploymentOverridesRaw = String(searchParams?.deploymentOverrides || '')
-  let deploymentOverrides: Array<{
-    fields?: Record<string, string>
-    tableCells?: Record<string, string>
-  }> = []
+  let planPrefill: Awaited<ReturnType<typeof getEmpMasterTemplatePlanPrefill>> | null = null
   let prefillValues: {
     eventName?: string
     eventDate?: string
@@ -67,6 +46,35 @@ export default async function EmpMasterTemplatePrintPage({
       prefillValues = {}
     }
   } else if (planId) {
+    planPrefill = await getEmpMasterTemplatePlanPrefill(planId)
+  }
+
+  const template = resolveEmpMasterTemplateForEvent(searchParams?.templateId, {
+    eventName: prefillValues.eventName || planPrefill?.prefillData.eventName,
+    planTitle: planPrefill?.planTitle,
+  })
+
+  if (!template) {
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-8">
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-4 text-sm text-red-700">
+          Unknown master template.
+        </div>
+      </div>
+    )
+  }
+
+  const pageSize =
+    template.kind === 'radio_one_daily_brief_booklet'
+      ? 'A4 landscape'
+      : template.orientation === 'landscape'
+        ? 'A4 landscape'
+        : 'A4 portrait'
+  let deploymentOverrides: Array<{
+    fields?: Record<string, string>
+    tableCells?: Record<string, string>
+  }> = []
+  if (!prefillRaw && planId && planPrefill) {
     if (deploymentOverridesRaw) {
       try {
         const parsedOverrides = JSON.parse(deploymentOverridesRaw)
@@ -76,7 +84,6 @@ export default async function EmpMasterTemplatePrintPage({
       }
     }
 
-    const planPrefill = await getEmpMasterTemplatePlanPrefill(planId)
     const tablePages = planPrefill.prefillData.templateTablePageValues?.[template.id] || []
     const deploymentMatrixPages = planPrefill.prefillData.templateTablePageValues?.['deployment-matrix'] || []
     const supervisorDeploymentPages = template.id === 'supervisor-deployment' && deploymentOverrides.length

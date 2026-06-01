@@ -145,7 +145,7 @@ describe('buildCmpPreviewModel', () => {
 
   it('splits long CMP content across multiple fixed A4 pages', () => {
     const longText = Array.from({ length: 90 }, (_, index) =>
-      `Operational instruction ${index + 1} confirms that crowd pressure, route resilience, supervisor escalation, and welfare handover actions are fully recorded and implemented in line with event control requirements.`
+      `Operational instruction ${index + 1} confirms that crowd density, route resilience, supervisor escalation, and welfare handover actions are fully recorded and implemented in line with event control requirements.`
     ).join(' ')
 
     const html = renderToStaticMarkup(

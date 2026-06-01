@@ -194,7 +194,7 @@ export const CMP_MASTER_TEMPLATE_SECTIONS: CmpMasterTemplateSection[] = [
     'crowd_profile',
     'Event and Crowd Profile',
     4,
-    'Summarise who is expected to attend, how they are likely to behave, and what factors may influence mood, vulnerability, queue pressure, density, and dispersal.'
+    'Summarise who is expected to attend, how they are likely to behave, and what factors may influence mood, vulnerability, queue demand, density, and dispersal.'
   ),
   section(
     'site_design',
@@ -206,7 +206,7 @@ export const CMP_MASTER_TEMPLATE_SECTIONS: CmpMasterTemplateSection[] = [
     'ramp_assessment',
     'RAMP Assessment',
     6,
-    'Use RAMP to review pedestrian routes, arrival patterns, movement pressures, and the audience profile against the site and surrounding environment.'
+    'Use RAMP to review pedestrian routes, operating areas, movement demand, and the audience profile against the site and surrounding environment.'
   ),
   section(
     'capacity_flow',
@@ -272,7 +272,7 @@ export const CMP_MASTER_TEMPLATE_SECTIONS: CmpMasterTemplateSection[] = [
     'emergency_procedures',
     'Emergency Procedures',
     17,
-    'Record the arrangements for evacuation, partial evacuation, lockdown or invacuation, shelter, show stop, and emergency route protection.'
+    'Record the arrangements for evacuation, partial evacuation, lockdown or invacuation, shelter, Show Stop, and emergency route protection.'
   ),
   section(
     'counter_terrorism',
@@ -383,7 +383,7 @@ export const CMP_MASTER_TEMPLATE_FIELDS: CmpMasterTemplateField[] = [
 
   field('strategic_objectives', 'client_objectives', 'Event-specific objectives or licensing alignment notes', 0, 'textarea', {
     defaultValueText:
-      'Protect the public, staff, contractors, and performers.\nMaintain safe ingress, circulation, and egress.\nPrevent crime, disorder, and unsafe crowd pressure.\nSupport safeguarding, medical, and emergency response functions.\nSupport the client, organiser, and licensing objectives for the event.',
+      'Protect the public, staff, contractors, and performers.\nMaintain safe ingress, circulation, and egress.\nPrevent crime, disorder, and unsafe crowd density or congestion.\nSupport safeguarding, medical, and emergency response functions.\nSupport the client, organiser, and licensing objectives for the event.',
   }),
 
   field('crowd_profile', 'licensed_capacity', 'Licensed capacity', 0, 'text'),
@@ -404,7 +404,7 @@ export const CMP_MASTER_TEMPLATE_FIELDS: CmpMasterTemplateField[] = [
   }),
   field('crowd_profile', 'alcohol_profile', 'Alcohol and behavioural profile', 7, 'textarea', {
     defaultValueText:
-      'The alcohol profile should consider expected levels of intoxication, peak service periods, refusals, queue pressure, conflict potential, and the effect of alcohol on mood, compliance, and egress behaviour.',
+      'The alcohol profile should consider expected levels of intoxication, peak service periods, refusals, queue demand, conflict potential, and the effect of alcohol on mood, compliance, and egress behaviour.',
   }),
   field('crowd_profile', 'camping_profile', 'Camping / overnight profile', 8, 'textarea', {
     defaultValueText:
@@ -412,7 +412,7 @@ export const CMP_MASTER_TEMPLATE_FIELDS: CmpMasterTemplateField[] = [
   }),
   field('crowd_profile', 'historic_issues', 'Historic issues or intelligence', 9, 'textarea', {
     defaultValueText:
-      'Historic issues, intelligence, and previous event learning should be reviewed for recurring congestion, disorder trends, safeguarding themes, transport pinch points, weather sensitivity, and venue-specific vulnerabilities.',
+      'Historic issues, intelligence, and previous event learning should be reviewed for recurring congestion, disorder trends, safeguarding themes, transport peak times, weather sensitivity, and venue-specific vulnerabilities.',
   }),
   field('crowd_profile', 'mood_and_trigger_points', 'Mood, trigger points, and likely crowd reactions', 10, 'textarea', {
     defaultValueText:
@@ -420,7 +420,7 @@ export const CMP_MASTER_TEMPLATE_FIELDS: CmpMasterTemplateField[] = [
   }),
   field('crowd_profile', 'peak_periods', 'Expected peak periods', 11, 'textarea', {
     defaultValueText:
-      'Peak periods typically include pre-opening build-up, first ingress wave, headline acts, bar close where relevant, end-of-show release, and transport-led dispersal pressure.',
+      'Peak periods typically include pre-opening build-up, first ingress wave, headline acts, bar close where relevant, end-of-show release, and transport-led dispersal demand.',
   }),
 
   field('site_design', 'site_layout_summary', 'Site layout summary', 0, 'textarea', {
@@ -457,13 +457,13 @@ export const CMP_MASTER_TEMPLATE_FIELDS: CmpMasterTemplateField[] = [
     defaultValueText:
       'Management arrangements should define command roles, supervision, deployment review points, contingency triggers, and decision logging for both normal and degraded operations.',
   }),
-  field('site_design', 'dim_aliced_activity', 'DIM-ALICED: Activity', 7, 'textarea', {
+  field('site_design', 'dim_aliced_activity', 'DIM-ALICED: Arrival', 7, 'textarea', {
     defaultValueText:
-      'Activity analysis should consider headline acts, service demand, changeovers, ancillary entertainment, licensing activity, and any programmed moments likely to concentrate movement or attention.',
+      'Arrival analysis should consider expected demand by time, transport mode, pre-opening dwell, queue readiness, accessible arrival needs, and how first-contact areas will be supervised.',
   }),
-  field('site_design', 'dim_aliced_location', 'DIM-ALICED: Location', 8, 'textarea', {
+  field('site_design', 'dim_aliced_location', 'DIM-ALICED: Last Mile', 8, 'textarea', {
     defaultValueText:
-      'Location factors should assess transport links, surrounding land use, residential sensitivity, topography, lighting, weather exposure, and emergency service access constraints.',
+      'Last-mile factors should assess local pedestrian routes, transport interchanges, pick-up/drop-off areas, surrounding land use, lighting, weather exposure, wayfinding, and emergency service access constraints.',
   }),
   field('site_design', 'dim_aliced_ingress', 'DIM-ALICED: Ingress', 9, 'textarea', {
     defaultValueText:
@@ -477,22 +477,22 @@ export const CMP_MASTER_TEMPLATE_FIELDS: CmpMasterTemplateField[] = [
     defaultValueText:
       'Egress analysis should cover phased release, route protection, transport coordination, re-entry controls, and the expected behaviour of patrons beyond the site boundary.',
   }),
-  field('site_design', 'dim_aliced_dynamics', 'DIM-ALICED: Dynamics', 12, 'textarea', {
+  field('site_design', 'dim_aliced_dynamics', 'DIM-ALICED: Dispersal', 12, 'textarea', {
     defaultValueText:
-      'Crowd dynamics should consider density build-up, stop-start movement, counterflow, pressure points, behavioural triggers, and how information or intervention may alter crowd response.',
+      'Dispersal analysis should consider phased departure, onward transport, exit capacity, late service close-down, route resilience, public information, and welfare or accessibility support during departure.',
   }),
 
   field('ramp_assessment', 'ramp_routes', 'RAMP: Routes', 0, 'textarea', {
     defaultValueText:
       'Routes analysis should identify primary and secondary pedestrian routes, step-free alternatives, crossings, lighting, steward intervention points, and any sections vulnerable to narrowing or obstruction.',
   }),
-  field('ramp_assessment', 'ramp_arrival', 'RAMP: Arrival', 1, 'textarea', {
+  field('ramp_assessment', 'ramp_arrival', 'RAMP: Areas', 1, 'textarea', {
     defaultValueText:
-      'Arrival analysis should consider arrival profiles over time, transport unloading patterns, pre-event dwell areas, queue formation, and the impact of delayed or compressed admissions.',
+      'Areas analysis should identify static and dynamic spaces where people gather or dwell, including operating areas, holding areas, service points, welfare and medical interfaces, restricted zones, and any places where occupancy may exceed the planned footprint.',
   }),
   field('ramp_assessment', 'ramp_movement', 'RAMP: Movement', 2, 'textarea', {
     defaultValueText:
-      'Movement analysis should consider circulation between attractions, amenities, bars, toilets, welfare, exits, and any two-way flows or pinch points requiring active management.',
+      'Movement analysis should consider circulation between attractions, amenities, bars, toilets, welfare, exits, and any two-way flows or peak-demand areas requiring active management.',
   }),
   field('ramp_assessment', 'ramp_profile', 'RAMP: Profile', 3, 'textarea', {
     defaultValueText:
@@ -548,7 +548,7 @@ export const CMP_MASTER_TEMPLATE_FIELDS: CmpMasterTemplateField[] = [
   }),
   field('command_control', 'reporting_lines', 'Reporting lines and escalation routes', 3, 'textarea', {
     defaultValueText:
-      'Reporting lines should run from staff to zone supervisors to control or operational lead, with immediate escalation for life safety, safeguarding, counter-terrorism, disorder, significant crowd pressure, or route failure.',
+      'Reporting lines should run from staff to zone supervisors to control or operational lead, with immediate escalation for life safety, safeguarding, counter-terrorism, disorder, significant crowd density or congestion, or route failure.',
   }),
   field('command_control', 'external_interfaces', 'External interfaces', 4, 'textarea', {
     defaultValueText: lines(
@@ -600,7 +600,7 @@ export const CMP_MASTER_TEMPLATE_FIELDS: CmpMasterTemplateField[] = [
   }),
   field('deployment_strategy', 'staffing_by_zone_and_time', 'Staffing by zone and time', 3, 'textarea', {
     defaultValueText:
-      'Deployment should be structured by zone, time, and activity, with staffing levels reflecting ingress peaks, internal circulation pressure, headline moments, bar close where relevant, and egress requirements.',
+      'Deployment should be structured by zone, time, and activity, with staffing levels reflecting ingress peaks, internal circulation demand, headline moments, bar close where relevant, and egress requirements.',
   }),
   field('deployment_strategy', 'response_teams', 'Response teams and mobile resources', 4, 'textarea', {
     defaultValueText:
@@ -701,7 +701,7 @@ export const CMP_MASTER_TEMPLATE_FIELDS: CmpMasterTemplateField[] = [
   }),
   field('egress_dispersal', 'dispersal_routes', 'Dispersal routes', 1, 'textarea', {
     defaultValueText:
-      'Primary and secondary dispersal routes should be identified, signed where applicable, observed by staff at pinch points, and reviewed against post-event lighting, weather, and local constraints.',
+      'Primary and secondary dispersal routes should be identified, signed where applicable, observed by staff at peak-demand locations, and reviewed against post-event lighting, weather, and local constraints.',
   }),
   field('egress_dispersal', 'reentry_policy', 'Re-entry policy', 2, 'textarea', {
     defaultValueText:
@@ -770,7 +770,7 @@ export const CMP_MASTER_TEMPLATE_FIELDS: CmpMasterTemplateField[] = [
   }),
   field('risk_assessment', 'risk_assessment_source_notes', 'Source RA notes, key hazards, and trigger points', 2, 'textarea', {
     defaultValueText:
-      'Where an event-specific risk assessment has been uploaded, its hazards, controls, trigger points, and escalation conditions should be reviewed against the live deployment and reflected in the control table below. Particular attention should be given to crowd pressure, queue overspill, intoxication, vulnerable persons, adverse weather, vehicle or pedestrian interface, route loss, suspicious items, and emergency response thresholds.',
+      'Where an event-specific risk assessment has been uploaded, its hazards, controls, trigger points, and escalation conditions should be reviewed against the live deployment and reflected in the control table below. Particular attention should be given to crowd density, queue overspill, intoxication, vulnerable persons, adverse weather, vehicle or pedestrian interface, route loss, suspicious items, and emergency response thresholds.',
   }),
   field('risk_assessment', 'additional_operational_risks', 'Additional operational risks and controls', 3, 'textarea', {
     defaultValueText: lines(
@@ -802,9 +802,9 @@ export const CMP_MASTER_TEMPLATE_FIELDS: CmpMasterTemplateField[] = [
     defaultValueText:
       'Shelter arrangements should define the trigger for weather or environmental shelter, the preferred shelter locations, how movement is controlled to avoid compression, and how welfare, accessibility, and route protection are maintained during the shelter phase.',
   }),
-  field('emergency_procedures', 'show_stop_triggers', 'Show stop / operational pause triggers', 5, 'textarea', {
+  field('emergency_procedures', 'show_stop_triggers', 'Show Stop / operational pause triggers', 5, 'textarea', {
     defaultValueText:
-      'Show stop or operational pause triggers should include crowd pressure, major medical response, severe weather, structural concern, route failure, fire, disorder, or any condition that materially undermines safe operation.',
+      'Show Stop or operational pause triggers should include unsafe crowd density or congestion, major medical response, severe weather, structural concern, route failure, fire, disorder, or any condition that materially undermines safe operation.',
   }),
   field('emergency_procedures', 'rendezvous_points', 'Rendezvous points and emergency holding areas', 6, 'textarea', {
     defaultValueText:

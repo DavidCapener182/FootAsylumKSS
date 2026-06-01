@@ -120,7 +120,7 @@ const EMP_EVENT_CONTROL_QUICK_ACTIONS: QuickActionDefinition[] = [
       { id: 'area', label: 'Area / route', placeholder: 'e.g. South egress route, Campsite exit', required: true },
       { id: 'team', label: 'Team / call sign', placeholder: 'e.g. Egress 1, S3, Gate team' },
       { id: 'position', label: 'Position covered', placeholder: 'e.g. barrier line, gate, crossing point' },
-      { id: 'issues', label: 'Issues or restrictions', type: 'textarea', placeholder: 'Any blocked routes, pinch points, or staffing gaps.' },
+      { id: 'issues', label: 'Issues or restrictions', type: 'textarea', placeholder: 'Any blocked routes, peak-demand areas, or staffing gaps.' },
       { id: 'next_step', label: 'Next action', target: 'action', placeholder: 'e.g. Monitor flow and update Event Control.' },
     ],
   },

@@ -117,4 +117,11 @@ describe('Isle of Wight EMP seed plan', () => {
     expect(planText).not.toContain('District X')
     expect(planText).not.toContain('Search and Screening annex')
   })
+
+  it('defines RAMP areas as static and dynamic gathering spaces', () => {
+    expect(EMP_ISLE_OF_WIGHT_PLAN_VALUES.ramp_arrival).toContain('Static and dynamic gathering spaces')
+    expect(EMP_ISLE_OF_WIGHT_PLAN_VALUES.ramp_arrival.toLowerCase()).not.toContain('arrival')
+    expect(EMP_ISLE_OF_WIGHT_PLAN_VALUES.ramp_arrival.toLowerCase()).not.toContain('pressure')
+    expect(EMP_ISLE_OF_WIGHT_PLAN_VALUES.ramp_movement.toLowerCase()).not.toContain('pressure')
+  })
 })

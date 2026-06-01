@@ -22,9 +22,11 @@ describe('EMP business template', () => {
 
   it('covers template fields and starts with no selected annexes', () => {
     const values = buildEmpBusinessTemplateInitialValues()
+    const documentStatusField = EMP_MASTER_TEMPLATE_FIELDS.find((field) => field.key === 'document_status')
 
     expect(Object.keys(values).sort()).toEqual(EMP_MASTER_TEMPLATE_FIELDS.map((field) => field.key).sort())
     expect(EMP_BUSINESS_TEMPLATE_SELECTED_ANNEXES).toEqual([])
+    expect(documentStatusField?.options).toContain('V1')
   })
 
   it('seeds the standard command and contact structure for new template EMPs', () => {

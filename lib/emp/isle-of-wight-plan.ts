@@ -378,9 +378,9 @@ export const EMP_ISLE_OF_WIGHT_PLAN_VALUES: Record<string, string> = {
     'KSS deployment numbers, post titles, shift times and quantities are aggregated from the staff-shift lines in E06 Master - IOW26 Security Schedule V1.',
     'KSS operates under Isle of Wight Festival Event Control direction and within the IWF Gold, Silver and Bronze command structure.',
     'KSS scope is based on the supplied security plan and deployment schedule, covering bar deployments, Pink Moon, COOP, Sky, Shein, IQOS and Event Control support.',
-    'Search, eviction, safeguarding, crowd management, emergency evacuation, show stop, public messaging and police liaison are governed by IWF source plans, Festival Gold/Silver and Event Control.',
+    'Search, eviction, safeguarding, crowd management, emergency evacuation, Show Stop, public messaging and police liaison are governed by IWF source plans, Festival Gold/Silver and Event Control.',
     'Site plans, queue layouts, bar footprints, sponsor areas, Pink Moon arrangements, search lanes, accessible routes, campsites and production areas may be revised before or during the event.',
-    'Weather, ground condition, welfare demand, security intelligence, transport pressure, ferry disruption or route loss may alter deployment, queue layouts, patrol focus or area priorities.',
+    'Weather, ground condition, welfare demand, security intelligence, transport demand, ferry disruption or route loss may alter deployment, queue layouts, patrol focus or area priorities.',
     'If a named KSS lead, post time or staffing quantity changes operationally, Event Control will be notified and the live deployment sheet supersedes this document for the relevant role or shift.'
   ),
 
@@ -437,9 +437,9 @@ export const EMP_ISLE_OF_WIGHT_PLAN_VALUES: Record<string, string> = {
   camping_profile:
     'The event includes public campsites, Pink Moon, live-in vehicle areas and campsite clearance after the show period. KSS Pink Moon deployment covers supervisor, entrance and patrol positions using the master schedule labels for Moon, Light, Meadow/Lunar, Tipi, Lodges and Lunar Grove posts from Thursday 18 June through Monday 22 June.',
   historic_issues:
-    'Historic IWF planning focuses on arrival/last-mile pressure, Fairlee Road traffic management, campsite ingress, search demand, bar and toilet peaks, Main Stage/Big Top movement, egress and dispersal, welfare demand, safeguarding, crime prevention, prohibited items, intoxication, drugs, weather and transport interfaces.',
+    'Historic IWF planning focuses on arrival and last-mile demand, Fairlee Road traffic management, campsite ingress, search demand, bar and toilet peaks, Main Stage/Big Top movement, egress and dispersal, welfare demand, safeguarding, crime prevention, prohibited items, intoxication, drugs, weather and transport interfaces.',
   mood_and_trigger_points:
-    'Trigger points include delayed arrival, ferry or transport disruption, search delay, bar queue pressure, refusals of service, suspected proxy sales, intoxication, harassment or spiking disclosures, lost persons, accessibility obstruction, adverse weather, headline movements, toilet pressure and Fairlee Road egress pressure.',
+    'Trigger points include delayed arrival, ferry or transport disruption, search delay, bar queue congestion, refusals of service, suspected proxy sales, intoxication, harassment or spiking disclosures, lost persons, accessibility obstruction, adverse weather, headline movements, toilet demand and Fairlee Road egress demand.',
   peak_periods: lines(
     'Thursday 18 June 2026 - public arrival, campsite ingress, ticket/wristband processing and early site opening.',
     'Friday 19 June to Sunday 21 June 2026 - arena opening, bar and sponsor peaks, headline periods and nightly egress.',
@@ -472,11 +472,11 @@ export const EMP_ISLE_OF_WIGHT_PLAN_VALUES: Record<string, string> = {
   dim_aliced_information:
     'Advance entry information is issued to ticket holders. Signage, spoken instruction, social media, event app, big screens, PA systems, loud hailers and staff direction are used for wayfinding, queue preparation, ingress, circulation, egress and dispersal. Event Control may deploy drone live feed during peak demand to support situational awareness.',
   dim_aliced_management:
-    'Management controls include senior IWF staff at key locations, Gate Managers, Event Control CCTV and partner liaison, Security Working Group oversight, Security/Crowd Safety Manager monitoring, daily egress meetings, route sweeps before egress, vehicle lockdown before egress and dynamic redeployment where crowd density, route pressure or transport disruption requires it.',
+    'Management controls include senior IWF staff at key locations, Gate Managers, Event Control CCTV and partner liaison, Security Working Group oversight, Security/Crowd Safety Manager monitoring, daily egress meetings, route sweeps before egress, vehicle lockdown before egress and dynamic redeployment where crowd density, route congestion or transport disruption requires it.',
   dim_aliced_activity:
-    'Key activities affecting KSS are licensed bar operations, sponsor-area operations, Pink Moon operations, queue management, refusal and Challenge 25 support, customer conflict, welfare and safeguarding recognition, suspicious behaviour reporting, egress support, emergency route protection and escalation to Event Control.',
+    'Arrival considerations affecting KSS include public arrival through A2, A3 and A5, campsite entry, bar and sponsor first-contact points, Pink Moon access, queue readiness, accessible arrival support, welfare recognition and early escalation to Event Control.',
   dim_aliced_location:
-    'Seaclose Park and the North Fairlee Farm/Medina College fields include grassed outdoor areas, campsites, stages, tents, bars, sponsor areas, service routes, Fairlee Road interfaces, car park and bus station routes, ferry-linked transport demand and accessible movement requirements.',
+    'Last-mile factors include Seaclose Park, North Fairlee Farm/Medina College fields, Fairlee Road interfaces, car park and bus station routes, ferry-linked transport demand, taxis/private hire/drop-off, pedestrian approaches from Newport and accessible movement requirements.',
   dim_aliced_ingress:
     'Ingress includes soft ticket checks, screening, bag search, pat-down search, ticket check to wristband and enhanced drug-dog screening where applied. A2 and A3 campsite entrances operate Level 3A search arrangements; A5 day entry operates Level 3B. Dedicated no-bag, VIP/guest/accessibility lanes and query lanes are used to protect flow.',
   dim_aliced_circulation:
@@ -484,14 +484,14 @@ export const EMP_ISLE_OF_WIGHT_PLAN_VALUES: Record<string, string> = {
   dim_aliced_egress:
     'Egress planning assumes higher density departure than ingress. Main arena egress is expected around 00:00hrs on Friday/Saturday and 23:00hrs on Sunday. Destination and transport modes are signed to specific exits, PA/loud hailer support is available, Fairlee Road closure and HVM deployment are managed through trigger plans, and Green Gate can split routes to Fairlee Road if demand exceeds capacity.',
   dim_aliced_dynamics:
-    'Dynamic risk is highest where alcohol, fatigue, family groups, accessibility needs, ferry/transport timing, weather, ground conditions, headline movements, toilet/bar demand, campsite return, local resident interfaces and egress pressure combine. KSS supervisors will escalate early rather than allow local queue or welfare issues to become crowd-management issues.',
+    'Dispersal risk is highest where alcohol, fatigue, family groups, accessibility needs, ferry/transport timing, weather, ground conditions, headline movements, toilet/bar demand, campsite return and local resident interfaces combine. KSS supervisors will escalate early rather than allow local queue or welfare issues to become crowd-management issues.',
 
   ramp_routes:
     'Primary routes include A2 car park entrance, A3 bus station entrance, A5 Fairlee Road pedestrian entrance, A6 production/VIP/guest route, Fairlee Road, Red Gate/Quay/Gate A7, campsite routes, bar queues, sponsor/Pink Moon routes, emergency exits and service routes.',
   ramp_arrival:
-    'Arrival planning covers car parks, bus station, local pedestrian routes, private pick-up/drop-off, taxis, ferry-linked demand and Fairlee Road traffic management. Entry staff use signage and spoken instruction to keep lanes clear, prepare customers for search and direct customers to bag, no-bag, accessibility, VIP/performer and query lanes.',
+    'Static and dynamic gathering spaces include car parks, bus station waiting and boarding areas, ferry-linked transport interfaces, Fairlee Road dwell and holding areas, campsite entrances, bar queue areas, sponsor and Pink Moon areas, welfare/medical interfaces, emergency route approaches and Main Arena/Big Top gathering zones. Supervisors use signage, spoken instruction and live reporting to keep each area within its planned footprint.',
   ramp_movement:
-    'Movement pressure will occur during ingress, changes of act, busy food/bar periods, Main Stage/Big Top movements, arena close, campsite return and final dispersal. Routes are mapped in the IWF ingress, circulation and egress plans, with control by Event Control, area managers, security and stewards.',
+    'Peak movement demand is expected during ingress, changes of act, busy food/bar periods, Main Stage/Big Top movements, arena close, campsite return and final dispersal. Routes are mapped in the IWF ingress, circulation and egress plans, with control by Event Control, area managers, security and stewards.',
   ramp_profile:
     'The audience profile is all-age, broadly family-inclusive, predominantly 25+ with an average age around 40, generally compliant but with varying needs. KSS controls must still address intoxication, refusal conflict, vulnerability, safeguarding, lost persons, accessibility needs, anti-social behaviour, drug-related welfare, crime and suspicious activity.',
 
@@ -502,7 +502,7 @@ export const EMP_ISLE_OF_WIGHT_PLAN_VALUES: Record<string, string> = {
   excluded_areas:
     'Excluded areas include areas not allocated to KSS in the deployment schedule, non-KSS campsites, non-KSS production/backstage areas, police/medical/welfare treatment areas, restricted compounds and areas under another contractor control unless Event Control directs support.',
   density_assumptions:
-    'General entertainment and amenities are designed around maximum average density of 2 persons per square metre. Tented venues and defined structures are subject to dynamic capacity assessment and closure/one-in-one-out where required. KSS will intervene before local queues cause route encroachment, barrier pressure, accessibility obstruction or conflict.',
+    'General entertainment and amenities are designed around maximum average density of 2 persons per square metre. Tented venues and defined structures are subject to dynamic capacity assessment and closure/one-in-one-out where required. KSS will intervene before local queues cause route encroachment, barrier loading, accessibility obstruction or conflict.',
   zone_capacities: lines(
     'Licensed capacity - 89,999.',
     'Planned ticket capacity - 60,000 tickets in the Crowd Management Plan.',
@@ -517,13 +517,13 @@ export const EMP_ISLE_OF_WIGHT_PLAN_VALUES: Record<string, string> = {
     'KSS scheduled deployment total - 469 staff-shifts, peaking at 112 on Friday 19, Saturday 20 and Sunday 21 June.'
   ),
   ingress_flow_assumptions:
-    'Ingress flow is controlled by the IWF gate/search plan. KSS will support only where assigned by the deployment schedule or Event Control, preserving bar/sponsor/Pink Moon queues and escalating gate pressure or route conflict observed from assigned posts.',
+    'Ingress flow is controlled by the IWF gate/search plan. KSS will support only where assigned by the deployment schedule or Event Control, preserving bar/sponsor/Pink Moon queues and escalating gate congestion or route conflict observed from assigned posts.',
   egress_flow_assumptions:
     'Egress follows the IWF egress plan, Event Control direction, Fairlee Road closure/HVM trigger plan and destination-specific exit routing. KSS will clear local queues, stop service where instructed, preserve assigned routes and support factual public direction.',
   emergency_clearance_assumptions:
     'Emergency clearance from KSS areas depends on stopping local activity where instructed, protecting routes, opening or moving local barrier lines, supporting vulnerable/disabled persons and reporting route status to Event Control.',
   degraded_route_weather_assumptions:
-    'Wet ground, darkness, fatigue, transport disruption, ferry pressure, crowd frustration or route loss may reduce throughput. KSS will request route support, lighting, matting, barrier changes, holds or redeployment through Event Control where assigned areas become unsafe.',
+    'Wet ground, darkness, fatigue, transport disruption, ferry demand, crowd frustration or route loss may reduce throughput. KSS will request route support, lighting, matting, barrier changes, holds or redeployment through Event Control where assigned areas become unsafe.',
 
   command_structure:
     'KSS command operates through the KSS operational lead, KSS area supervisors and Event Control. The IWF command structure uses Gold (Strategic), Silver (Tactical) and Bronze (Operational) to support interoperability with emergency response agencies. Festival Gold has ultimate critical safety decision responsibility; Festival Silver manages tactical command and control; Festival Bronze attends significant incidents and can be supported by specialist departmental Bronzes.',
@@ -597,7 +597,7 @@ export const EMP_ISLE_OF_WIGHT_PLAN_VALUES: Record<string, string> = {
   control_room_structure:
     'Event Control is managed by the Event Control Manager and reports to Festival Silver. It coordinates partners and stakeholders based in Event Control and across site, manages live incidents, logs decisions and supports operational deployments. Festival Silver chairs daily multi-agency SAG coordination meetings in Event Control using IIMARCH; decisions, actions and rationale are recorded in Ontrack. Physical Event Control co-locates key event departments and external agencies, while Gold/Silver and functional command can continue from separate locations if Event Control is compromised.',
   briefing_and_induction:
-    'All KSS staff will receive an Isle of Wight-specific briefing covering allocated Bars/Sponsors/Pink Moon posts, site layout, radio protocol, minimum operating standards, customer service, suspicious behaviour, Challenge 25 support, prohibited-items awareness, event search boundaries, Ask Angela/AER, anti-harassment and spiking awareness, safeguarding indicators, lost property/welfare route, eviction process, incident logging, emergency routes, show stop messaging and staff welfare.',
+    'All KSS staff will receive an Isle of Wight-specific briefing covering allocated Bars/Sponsors/Pink Moon posts, site layout, radio protocol, minimum operating standards, customer service, suspicious behaviour, Challenge 25 support, prohibited-items awareness, event search boundaries, Ask Angela/AER, anti-harassment and spiking awareness, safeguarding indicators, lost property/welfare route, eviction process, incident logging, emergency routes, Show Stop messaging and staff welfare.',
   monitoring_and_density_tools:
     'Monitoring combines Event Control CCTV, area managers, security supervisors, Security & Crowd Safety Manager, spotters, BDO/covert resources, possible drone live feed, bar/sponsor/Pink Moon supervisor reports, staff observation and dynamic risk assessment.',
 
@@ -609,22 +609,22 @@ export const EMP_ISLE_OF_WIGHT_PLAN_VALUES: Record<string, string> = {
     'Specialist KSS assets include SIA licensed support across bar deployments, Bars Management, Event Control, Pink Moon day/night teams, COOP, Sky, Shein and IQOS. The schedule includes overnight SIA asset protection, day/evening sponsor support, Pink Moon entrance and patrol staffing, and Event Control cover.',
   staffing_by_zone_and_time: lines(...EMP_ISLE_OF_WIGHT_DEPLOYMENT_ROWS),
   response_teams: lines(
-    'KSS response pair/team - support refusals, queue pressure, welfare escalation, route compromise and supervisor requests in assigned areas.',
+    'KSS response pair/team - support refusals, queue congestion, welfare escalation, route compromise and supervisor requests in assigned areas.',
     'Bar response support - support One Circle staff with Challenge 25, proxy sales, signs of intoxication, customer conflict, refusal logging and safe service suspension where assigned.',
-    'Sponsor/Pink Moon response support - support sponsor-area and Pink Moon queue pressure, access control, asset protection, welfare recognition and Event Control escalations where assigned.',
+    'Sponsor/Pink Moon response support - support sponsor-area and Pink Moon queue congestion, access control, asset protection, welfare recognition and Event Control escalations where assigned.',
     'Scheduled support points include Bars Management, Event Control, named bar deployments, COOP, Sky Open House, Shein FOH, IQOS and Pink Moon day/night campsite posts.'
   ),
   relief_and_contingency:
     'Relief and contingency are managed live by KSS supervisors against E06 Master - IOW26 Security Schedule V1. Supervisors will monitor fatigue, welfare impact, breaks and redeployment needs, escalating shortfalls to KSS Lead/Event Control.',
   escalation_staffing:
-    'Escalation staffing may be required for bar queues, sponsor/Pink Moon pressure, refusals, welfare issues, route compromise, egress or emergency support. Additional deployment must be authorised through KSS command and Event Control.',
+    'Escalation staffing may be required for bar queues, sponsor/Pink Moon demand, refusals, welfare issues, route compromise, egress or emergency support. Additional deployment must be authorised through KSS command and Event Control.',
   dynamic_escalation_triggers: lines(
     'Queue tail blocks emergency, accessible, stock or public route.',
     'Bar refusal or proxy-sale concern becomes conflict or welfare issue.',
     'Sponsor/Pink Moon crowd density or customer mood deteriorates.',
     'Person appears vulnerable, intoxicated, distressed, harassed, spiked or at safeguarding risk.',
     'Suspicious behaviour, suspicious item, drone, hostile reconnaissance or crime concern is identified.',
-    'Event Control announces route change, show stop, evacuation, shelter, lockdown or egress trigger.'
+    'Event Control announces route change, Show Stop, evacuation, shelter, lockdown or egress trigger.'
   ),
   bar_operations_roles:
     'KSS bar roles support One Circle bar operations, Challenge 25/refusals, queue control, BOH/stock route protection, anti-harassment/spiking awareness, suspicious behaviour reporting, welfare recognition, asset protection and emergency route preservation.',
@@ -652,7 +652,7 @@ export const EMP_ISLE_OF_WIGHT_PLAN_VALUES: Record<string, string> = {
   accessible_entry_arrangements:
     'Separate Accessibility/VIP and Performer entry is provided and managed through the IWF entry/search operation. KSS staff assigned to bar/sponsor/Pink Moon areas will preserve accessible service points and routes, support welfare handover and escalate adjustment or obstruction issues through supervisors/Event Control.',
   ingress_operations:
-    'Ingress operations focus on keeping lanes clear, directing customers to correct lanes, advising on bags/wristbands/search readiness, preserving query lanes, maintaining CCTV and staff observation, supporting Gate Managers and escalating crowd pressure or welfare concerns to Event Control.',
+    'Ingress operations focus on keeping lanes clear, directing customers to correct lanes, advising on bags/wristbands/search readiness, preserving query lanes, maintaining CCTV and staff observation, supporting Gate Managers and escalating crowd density, congestion or welfare concerns to Event Control.',
   circulation_controls:
     'Circulation controls include free circulation within the perimeter, venue/area manager monitoring, security and steward patrols, CCTV, spotters at key stage areas, drone live feed if deployed by Event Control, barrier adjustment, rebalancing audience distribution and escalation to show-stop protocol in extreme circumstances.',
   high_density_controls:
@@ -696,13 +696,13 @@ export const EMP_ISLE_OF_WIGHT_PLAN_VALUES: Record<string, string> = {
   risk_assessment_methodology:
     'This risk assessment is derived from the supplied IWF ESOP, Risk Assessment, Crowd Management Plan, DIMALICED workbook, Security Plan, Public Facing Document, Alcohol Management Plan and E06 Master - IOW26 Security Schedule V1. KSS-specific risk should be reviewed again if the live deployment sheet changes posts, quantities, shift times or supervisor structure.',
   risk_assessment_scope:
-    'The KSS risk assessment covers Bars, Sponsors and Pink Moon security support, bar queues/refusals, sponsor/Pink Moon queue pressure, welfare recognition, safeguarding escalation, suspicious behaviour, route protection, emergency interface, egress support and incident reporting.',
+    'The KSS risk assessment covers Bars, Sponsors and Pink Moon security support, bar queues/refusals, sponsor/Pink Moon queue congestion, welfare recognition, safeguarding escalation, suspicious behaviour, route protection, emergency interface, egress support and incident reporting.',
   risk_assessment_source_notes:
     'Source documents identify a 23rd-year four-day festival from 18 June 2026 to 21 June 2026 at Seaclose Park, Medina College playing fields and North Fairlee Farm, with anticipated attendance around 60,000 and licensed capacity 89,999. KSS is listed as security contractor for Bars, Sponsors and Pink Moon, and E06 Master - IOW26 Security Schedule V1 gives the detailed KSS deployment table for 13-22 June 2026.',
   additional_operational_risks: lines(
     'Bar refusal conflict - customers, One Circle staff and KSS - Challenge 25 support, calm de-escalation, refusal logging, welfare check and Event Control escalation where conflict or vulnerability emerges.',
     'Proxy sale or underage alcohol concern - under-18s, bar staff and KSS - Challenge 25 checks, proxy-sale awareness, refusal logging, supervisor escalation and no unmanaged handover to ejection.',
-    'Sponsor/Pink Moon queue pressure - customers and staff - queue cap, route protection, barrier adjustment, additional staff request and Event Control escalation.',
+    'Sponsor/Pink Moon queue congestion - customers and staff - queue cap, route protection, barrier adjustment, additional staff request and Event Control escalation.',
     'Safeguarding or vulnerable-person concern during refusal/ejection - child, vulnerable adult or temporarily vulnerable person - pause removal, contact Event Control/Safeguarding/Welfare and record factual security actions.',
     'Suspicious behaviour or hostile reconnaissance - public and staff - report early via KSS supervisor/Event Control using security briefing principles; do not dismiss low-level concerns.',
     'Fairlee Road or transport disruption affecting egress - public, residents and KSS staff - follow Event Control/TMP instructions, protect assigned routes and support factual public messaging.'
@@ -717,7 +717,7 @@ export const EMP_ISLE_OF_WIGHT_PLAN_VALUES: Record<string, string> = {
   lockdown_invacuation_procedure:
     'For lockdown or invacuation, KSS follows Event Control/Festival Silver direction, moves people away from exposed areas where safe, stops entry to assigned areas, keeps radio traffic factual, reports suspicious activity and follows ACT/Run Hide Tell principles.',
   shelter_procedure:
-    'Shelter may be required for severe weather or lightning. KSS identifies local shelter or safe waiting options only under Event Control direction, keeps queues from building at unsafe shelter points, supports disabled/vulnerable persons and reports route or crowd pressure.',
+    'Shelter may be required for severe weather or lightning. KSS identifies local shelter or safe waiting options only under Event Control direction, keeps queues from building at unsafe shelter points, supports disabled/vulnerable persons and reports route congestion or crowd density concerns.',
   show_stop_triggers:
     'Show pause/stop may be used for emergency, crowd management, lightning/storm or evacuation. Pre-programmed messages include requests to make space, look after each other, stop the show, leave by nearest emergency exit/gate and avoid sheltering under trees during storm conditions.',
   rendezvous_points:
@@ -758,7 +758,7 @@ export const EMP_ISLE_OF_WIGHT_PLAN_VALUES: Record<string, string> = {
     'Juveniles are defined by the eviction policy as 17 and under. If a juvenile or vulnerable adult is being considered for eviction, welfare and safeguarding checks must be completed through the Eviction Team, Safeguarding Coordinator, Welfare Manager and Security Coordinator. If no responsible adult can be contacted or abandonment/neglect is suspected, Event Gold and Police/Social Care escalation must be considered through the Security Coordinator route.',
 
   debrief_reporting:
-    'KSS supervisors complete debriefs covering staffing, bar refusals, sponsor/Pink Moon pressure, welfare referrals, safeguarding concerns, Ask Angela/spiking concerns, suspicious behaviour, route issues, incidents, egress and recommendations.',
+    'KSS supervisors complete debriefs covering staffing, bar refusals, sponsor/Pink Moon demand, welfare referrals, safeguarding concerns, Ask Angela/spiking concerns, suspicious behaviour, route issues, incidents, egress and recommendations.',
   close_down_operations:
     'Close-down includes bar/sponsor/Pink Moon queue clear-down, asset checks, stock route protection, welfare route preservation, incident reconciliation and confirmation to Event Control before KSS stands down an area.',
   end_of_shift_reporting:

@@ -5,6 +5,7 @@ import {
   createEmpDemoPlan,
   createEmpDownloadPlan,
   createEmpIsleOfWightPlan,
+  createEmpParklifePlan,
   createEmpPlan,
   createEmpPlanFromBusinessTemplate,
 } from '@/lib/emp/data'
@@ -34,6 +35,8 @@ export async function POST(request: NextRequest) {
           ? await createEmpDownloadPlan()
         : kind === 'isle_of_wight' || kind === 'isle-of-wight'
           ? await createEmpIsleOfWightPlan()
+        : kind === 'parklife' || kind === 'park-life'
+          ? await createEmpParklifePlan()
         : kind === 'business_template' || kind === 'radio_one_template'
           ? await createEmpPlanFromBusinessTemplate()
           : await createEmpPlan()

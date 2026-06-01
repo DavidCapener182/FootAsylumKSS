@@ -44,11 +44,11 @@ const challengePolicyOptions = [
   { value: 'Client / licence policy TBC', label: 'Client / licence policy TBC' },
 ]
 
-const arrivalPatternOptions = [
-  { value: 'steady', label: 'Steady arrivals' },
-  { value: 'early_peak', label: 'Early/pre-opening peak' },
-  { value: 'headline_peak', label: 'Peak before headline act' },
-  { value: 'multi_wave', label: 'Multiple waves' },
+const areaDemandPatternOptions = [
+  { value: 'steady', label: 'Steady area use' },
+  { value: 'early_peak', label: 'Early area build-up' },
+  { value: 'headline_peak', label: 'Programme-driven area peak' },
+  { value: 'multi_wave', label: 'Multiple area waves' },
 ]
 
 const reentryPolicyOptions = [
@@ -120,7 +120,7 @@ function crowdBehaviourText(level: string, crowdType: string, notes: string) {
   const base = {
     low: 'Crowd behaviour risk is assessed as low, with routine queuing, circulation, and supervisor monitoring expected to manage normal crowd movement.',
     medium: 'Crowd behaviour risk is assessed as medium, with potential for queue frustration, density around attractions, group behaviour, and late-event trigger points requiring active management.',
-    high: 'Crowd behaviour risk is assessed as high, with increased potential for crowd pressure, disorder, refusal conflict, welfare vulnerability, and rapid escalation at pinch points.',
+    high: 'Crowd behaviour risk is assessed as high, with increased potential for unsafe crowd density or congestion, disorder, refusal conflict, welfare vulnerability, and rapid escalation in peak-demand areas.',
   }[normalized]
   return lines(
     crowdType || base,
@@ -222,9 +222,9 @@ export const CMP_GUIDED_GROUPS: CmpGuidedGroup[] = [
       { key: 'emergency_exits_holding_areas', fieldKey: 'emergency_exits_holding_areas', label: 'Emergency exits, holding areas and RV points', type: 'textarea' },
       { key: 'site_layout_summary', fieldKey: 'site_layout_summary', label: 'Site layout notes', type: 'textarea' },
       { key: 'primary_routes', label: 'Primary pedestrian routes', type: 'textarea' },
-      { key: 'arrival_pattern_type', label: 'Arrival pattern', type: 'select', options: arrivalPatternOptions },
-      { key: 'arrival_peak_window', label: 'Main arrival peak window', type: 'text', placeholder: '10:00 to 12:00' },
-      { key: 'movement_pressure_points', label: 'Movement pressure points / pinch points', type: 'textarea' },
+      { key: 'arrival_pattern_type', label: 'Area demand pattern', type: 'select', options: areaDemandPatternOptions },
+      { key: 'arrival_peak_window', label: 'Main area-demand window', type: 'text', placeholder: '17:00 to 21:00' },
+      { key: 'movement_pressure_points', label: 'Movement peak-demand areas', type: 'textarea' },
       { key: 'route_resilience_level', label: 'Secondary route resilience', type: 'select', options: riskLevelOptions },
       { key: 'route_resilience_notes', label: 'Secondary route notes, if specific', type: 'textarea' },
     ],
@@ -318,8 +318,8 @@ export const CMP_GUIDED_GROUPS: CmpGuidedGroup[] = [
       { key: 'secondary_rv_point', label: 'Secondary RV point', type: 'text' },
       { key: 'casualty_collection_point', label: 'Casualty collection point', type: 'text' },
       { key: 'shelter_locations', label: 'Shelter locations', type: 'textarea' },
-      { key: 'show_stop_level', label: 'Show stop / pause trigger level', type: 'select', options: riskLevelOptions },
-      { key: 'show_stop_triggers', fieldKey: 'show_stop_triggers', label: 'Show stop / operational pause trigger notes', type: 'textarea' },
+      { key: 'show_stop_level', label: 'Show Stop / pause trigger level', type: 'select', options: riskLevelOptions },
+      { key: 'show_stop_triggers', fieldKey: 'show_stop_triggers', label: 'Show Stop / operational pause trigger notes', type: 'textarea' },
       { key: 'ct_threat_level', label: 'CT event-specific threat context', type: 'select', options: riskLevelOptions },
       { key: 'ct_threat_context', label: 'CT notes, if specific', type: 'textarea' },
       { key: 'search_posture', label: 'CT-related search posture', type: 'select', options: searchPostureOptions },
@@ -406,9 +406,9 @@ export function generateCmpFieldValuesFromGuidedAnswers(
   const accessibleLanes = answer(answers, 'accessible_lane_count')
   const laneThroughput = answer(answers, 'lane_throughput')
   const primaryRoutes = answer(answers, 'primary_routes')
-  const arrivalPatternType = answer(answers, 'arrival_pattern_type', 'steady')
-  const arrivalPeakWindow = answer(answers, 'arrival_peak_window')
-  const movementPressurePoints = answer(answers, 'movement_pressure_points')
+  const areaDemandPatternType = answer(answers, 'arrival_pattern_type', 'steady')
+  const areaDemandWindow = answer(answers, 'arrival_peak_window')
+  const movementDemandAreas = answer(answers, 'movement_pressure_points')
   const routeResilienceLevel = levelLabel(answer(answers, 'route_resilience_level'))
   const routeResilienceNotes = answer(answers, 'route_resilience_notes')
   const selectedAnnexes = getGuidedSelectedAnnexes(answers)
@@ -484,7 +484,7 @@ export function generateCmpFieldValuesFromGuidedAnswers(
     {
       low: 'Routine monitoring is expected to be sufficient for normal queue frustration, lost persons, and minor welfare demand.',
       medium: 'Supervisors should watch for delayed gates, headline delays, queues, weather changes, refusals, and transport delay points.',
-      high: 'Control should pre-brief trigger thresholds for crowd pressure, disorder, refusal conflict, major delays, welfare spikes, weather change, or transport failure.',
+      high: 'Control should pre-brief trigger thresholds for unsafe crowd density or congestion, disorder, refusal conflict, major delays, welfare spikes, weather change, or transport failure.',
     }[levelLabel(answer(answers, 'mood_trigger_level'))],
     answer(answers, 'mood_trigger_notes') && `Event-specific notes: ${answer(answers, 'mood_trigger_notes')}`
   )
@@ -500,31 +500,31 @@ export function generateCmpFieldValuesFromGuidedAnswers(
   values.dim_aliced_design = `The design for ${eventName} should provide sufficient space, barriers, lighting, signage, queueing, route separation, and emergency access for the expected audience and selected operating areas.`
   values.dim_aliced_information = `Information should cover wayfinding, opening times, prohibited items, accessible arrangements, welfare points, emergency messaging, and briefing updates so attendees and staff understand how ${eventName} will operate.`
   values.dim_aliced_management = `Management arrangements should define command roles, supervisor ownership, deployment review points, contingency triggers, and decision logging for normal and degraded operations at ${venue}.`
-  values.dim_aliced_activity = `Activity analysis should consider the event programme, audience dwell points, service demand, licensing activity, queues, changeovers, and any programmed moments likely to concentrate crowd movement or attention.`
-  values.dim_aliced_location = `Location factors for ${venue} should consider surrounding land use, transport links, access constraints, weather exposure, lighting, local residents, emergency service access, and any site-specific restrictions.`
+  values.dim_aliced_activity = `Arrival analysis should consider the expected arrival profile, pre-opening dwell, first-contact points, queue readiness, accessible arrival support, and any programme moments likely to concentrate demand before entry or service.`
+  values.dim_aliced_location = `Last-mile factors for ${venue} should consider transport links, local pedestrian routes, pick-up/drop-off points, access constraints, lighting, weather exposure, wayfinding, local residents, emergency service access, and any site-specific restrictions.`
   values.dim_aliced_ingress = `${primaryRoutes || 'Ingress routes'} should be reviewed against arrival demand, holding capacity, search throughput, accessible entry, ticket resolution, rejection management, and contingency arrangements.`
-  values.dim_aliced_circulation = `${movementPressurePoints || 'Internal circulation routes and pressure points'} should be monitored to prevent queue spillback, route obstruction, counterflow, and loss of emergency access.`
+  values.dim_aliced_circulation = `${movementDemandAreas || 'Internal circulation routes and peak-demand areas'} should be monitored to prevent queue spillback, route obstruction, counterflow, and loss of emergency access.`
   values.dim_aliced_egress = `${answer(answers, 'dispersal_routes', 'Egress and dispersal routes')} should support phased release, transport coordination, route protection, accessible departure, and safe off-site dispersal.`
-  values.dim_aliced_dynamics = `Crowd dynamics should consider density build-up, stop-start movement, counterflow, behavioural triggers, information needs, and how staff intervention may alter crowd response during ${eventName}.`
+  values.dim_aliced_dynamics = `Dispersal should consider phased departure, transport return, route resilience, public information, staff handover, and welfare or accessibility support during ${eventName}.`
 
   values.ramp_routes = `${primaryRoutes || 'Primary and secondary routes'} should be assessed for width, lighting, steward positions, accessible alternatives, crossings, and resilience if a route is lost or degraded. Route resilience is assessed as ${routeResilienceLevel}.${routeResilienceNotes ? ` ${routeResilienceNotes}` : ''}`
   values.ramp_arrival = `${
     {
-      steady: 'Arrival demand is expected to be steady and should be monitored against normal entry throughput.',
-      early_peak: 'Arrival demand is expected to peak before opening or early in the admission period, requiring gate readiness and queue holding before doors.',
-      headline_peak: 'Arrival demand is expected to peak before headline or key programme moments, requiring flexible staffing and live queue reporting.',
-      multi_wave: 'Arrival demand is expected in multiple waves, requiring repeated readiness checks and staffing review across phases.',
-    }[arrivalPatternType] || 'Arrival demand should be profiled by time, transport mode, ticketing demand, and pre-opening dwell.'
-  }${arrivalPeakWindow ? ` Main arrival peak: ${arrivalPeakWindow}.` : ''}`
-  values.ramp_movement = `${movementPressurePoints || 'Movement pressure points should be identified around stages, bars, welfare, toilets, concessions, transport links, and route intersections.'}`
+      steady: 'Static and dynamic gathering spaces are expected to operate with steady occupancy and should be monitored against footprint, dwell, service, welfare and route-protection capacity.',
+      early_peak: 'Static and dynamic gathering spaces should be ready before opening, with holding space, queue footprints, service points, welfare interfaces and supervisor positions confirmed before demand builds.',
+      headline_peak: 'Static and dynamic gathering spaces should be reviewed before headline or key programme moments, with flexible staffing, live area reporting and route protection in place.',
+      multi_wave: 'Static and dynamic gathering spaces should be reviewed across each demand wave, with repeated checks of holding capacity, service points, welfare interfaces and routes.',
+    }[areaDemandPatternType] || 'Static and dynamic gathering spaces should be profiled by footprint, holding capacity, dwell, service demand, accessible provision, welfare and medical interfaces, and route protection.'
+  }${areaDemandWindow ? ` Main peak window for area occupancy and demand: ${areaDemandWindow}.` : ''}`
+  values.ramp_movement = `${movementDemandAreas || 'Movement demand should be identified around stages, bars, welfare, toilets, concessions, transport links, and route intersections.'}`
   values.ramp_profile = `The route strategy should reflect ${answer(answers, 'audience_age_profile', 'the expected audience')}, alcohol profile, familiarity with the venue, accessibility needs, group behaviour, and any camping or overnight demand.`
 
   values.density_assumptions = lines(
     `Density assumptions are set at a ${levelLabel(answer(answers, 'density_level'))} operating level for planning purposes.`,
     {
-      low: 'The plan assumes routine circulation with limited dwell pressure outside normal queues and service points.',
-      medium: 'The plan assumes moderate dwell and queue pressure around attractions, bars, toilets, welfare, ingress, and egress routes.',
-      high: 'The plan assumes elevated density risk around peak programme moments, pinch points, queues, front-of-stage areas, and constrained routes.',
+      low: 'The plan assumes routine circulation with limited dwell outside normal queues and service points.',
+      medium: 'The plan assumes moderate dwell and queue demand around attractions, bars, toilets, welfare, ingress, and egress routes.',
+      high: 'The plan assumes elevated density risk around peak programme moments, queues, front-of-stage areas, and constrained routes.',
     }[levelLabel(answer(answers, 'density_level'))],
     answer(answers, 'density_assumption_notes') && `Event-specific notes: ${answer(answers, 'density_assumption_notes')}`
   )
@@ -555,12 +555,12 @@ export function generateCmpFieldValuesFromGuidedAnswers(
     answer(answers, 'loggist') && `Event control / loggist - ${answer(answers, 'loggist')} - Contact to be confirmed`,
     answer(answers, 'providers')
   )
-  values.reporting_lines = `Staff report to their zone supervisor, supervisors escalate to ${answer(answers, 'control_location', 'Event Control')}, and material issues are escalated to ${answer(answers, 'operational_lead', 'the Operational Lead')}. Immediate escalation is required for life safety, safeguarding, disorder, CT concerns, route failure, crowd pressure, or any issue affecting event continuity.`
+  values.reporting_lines = `Staff report to their zone supervisor, supervisors escalate to ${answer(answers, 'control_location', 'Event Control')}, and material issues are escalated to ${answer(answers, 'operational_lead', 'the Operational Lead')}. Immediate escalation is required for life safety, safeguarding, disorder, CT concerns, route failure, unsafe crowd density or congestion, or any issue affecting event continuity.`
   values.control_room_structure = `${answer(answers, 'control_location', 'Event Control')} should hold command, logging, provider liaison, live route status, incident tracking, and decision recording functions for ${eventName}.`
   values.briefing_and_induction = `Planning meetings, written briefs, role-specific deployment briefs, inductions, pre-opening checks, and pre-egress checks should be completed for ${eventName}. Late changes must be re-briefed through supervisors and control.`
   values.monitoring_and_density_tools = `Live monitoring should combine supervisor observation, route patrols, queue reports, welfare and medical feedback, control logging, and any available CCTV or counting tools. Technology supports but does not replace live command judgement.`
   values.relief_and_contingency = answer(answers, 'reserve_staff_count')
-    ? `Relief and contingency arrangements include break cover, supervisor-managed redeployment, and a reserve of ${numberLabel(answer(answers, 'reserve_staff_count'), 'staff member', 'staff')} for sickness, queue pressure, weather changes, route loss, or incident reinforcement.`
+    ? `Relief and contingency arrangements include break cover, supervisor-managed redeployment, and a reserve of ${numberLabel(answer(answers, 'reserve_staff_count'), 'staff member', 'staff')} for sickness, queue congestion, weather changes, route loss, or incident reinforcement.`
     : currentValues.relief_and_contingency || ''
   values.escalation_staffing = `Additional staff should be deployed if queue times, density, route obstruction, safeguarding demand, weather degradation, or incident frequency exceed the thresholds agreed by ${answer(answers, 'control_location', 'Event Control')}.`
 
@@ -589,12 +589,12 @@ export function generateCmpFieldValuesFromGuidedAnswers(
   values.lost_vulnerable_person_process = `Lost child or vulnerable person reports are priority incidents. Control circulates descriptions to relevant supervisors, welfare, ingress, medical and response teams, retains the reporting party where safe, and records reunification or handover.`
   values.confidentiality_logging = 'Safeguarding logs must be factual, time-stamped, restricted to those with a direct operational need, and securely handed to the designated safeguarding or welfare lead.'
 
-  values.incident_management = `Incidents at ${eventName} are managed through a graded response prioritising life safety, crowd stability, vulnerability, communication, and escalation. Incident trigger level is assessed as ${levelLabel(answer(answers, 'incident_risk_level'))}. Event-specific triggers include ${answer(answers, 'incident_triggers', 'disorder, medical or welfare incidents, safeguarding reports, route obstruction, suspicious items, crowd pressure, and conditions that may affect licence objectives or event continuity')}.`
+  values.incident_management = `Incidents at ${eventName} are managed through a graded response prioritising life safety, crowd stability, vulnerability, communication, and escalation. Incident trigger level is assessed as ${levelLabel(answer(answers, 'incident_risk_level'))}. Event-specific triggers include ${answer(answers, 'incident_triggers', 'disorder, medical or welfare incidents, safeguarding reports, route obstruction, suspicious items, unsafe crowd density or congestion, and conditions that may affect licence objectives or event continuity')}.`
   values.risk_assessment_methodology = `The operational risk assessment links the event profile, route analysis, staffing model, selected annexes, emergency arrangements, and KSS delivery scope to the hazards most likely to arise at ${eventName}.`
   values.risk_assessment_scope = `The KSS risk assessment covers ${applicableAreas}, including the selected annex functions where applicable.`
-  values.risk_assessment_source_notes = `Event-specific risk review should consider ${answer(answers, 'incident_triggers', 'crowd pressure, queue overspill, intoxication, vulnerable persons, adverse weather, vehicle or pedestrian interface, route loss, suspicious items, and emergency response thresholds')}.`
+  values.risk_assessment_source_notes = `Event-specific risk review should consider ${answer(answers, 'incident_triggers', 'crowd density, queue overspill, intoxication, vulnerable persons, adverse weather, vehicle or pedestrian interface, route loss, suspicious items, and emergency response thresholds')}.`
 
-  values.emergency_procedures = `Emergency response arrangements for ${eventName} cover full evacuation, partial evacuation, invacuation / lockdown, shelter, show stop, route protection, and emergency service access, directed through ${answer(answers, 'control_location', 'Event Control')}.`
+  values.emergency_procedures = `Emergency response arrangements for ${eventName} cover full evacuation, partial evacuation, invacuation / lockdown, shelter, Show Stop, route protection, and emergency service access, directed through ${answer(answers, 'control_location', 'Event Control')}.`
   values.partial_evacuation_procedure = `Part evacuation applies where a single zone, route, or compound becomes unsafe but wider operations can continue. Control identifies the affected area, stops movement into that zone, protects routes, and holds adjoining sectors as required.`
   values.full_evacuation_procedure = `Full evacuation is initiated where the incident, threat, or route loss affects the wider site and continued occupation cannot be justified. Supervisors release pre-briefed routes and support disabled or vulnerable attendees.`
   values.lockdown_invacuation_procedure = `Invacuation or lockdown is used where external or localised threat makes open movement unsafe. Staff direct attendees into protected areas, close access points, restrict movement, and report to control until police or emergency direction is received.`

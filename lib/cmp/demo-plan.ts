@@ -67,7 +67,7 @@ export const CMP_DEMO_PLAN_VALUES: Record<string, string> = {
   client_objectives: lines(
     'Deliver a safe, welcoming, and well-managed public event that maintains confidence with the client, licence holder, and responsible authorities.',
     'Maintain safe ingress, circulation, egress, and campsite operations across all event phases.',
-    'Prevent crowd pressure, crime, disorder, and avoidable disruption through proportionate deployment and early intervention.',
+    'Prevent unsafe crowd density, crime, disorder, and avoidable disruption through proportionate deployment and early intervention.',
     'Protect children, vulnerable adults, staff, contractors, and performers through clear safeguarding and welfare pathways.',
     'Maintain effective command, control, communication, and incident logging throughout the live event period.'
   ),
@@ -83,18 +83,18 @@ export const CMP_DEMO_PLAN_VALUES: Record<string, string> = {
   family_presence:
     'Family attendance is expected between 11:00 and 18:00, mainly in the main arena, food court, and welfare zone. Lost child risk is moderate during ingress and peak movement periods. Vulnerability considerations include intoxication, heat exposure, fatigue in the campsite, and disclosures linked to harassment or welfare concerns.',
   alcohol_profile:
-    'Alcohol sales are expected to create the highest behavioural pressure between 17:00 and 22:30. Intoxication risk is highest in bar queue areas, front-of-stage release periods, and campsite returns after headline performances. Refusals and intervention logs are expected to increase after 20:00 and must be monitored by control and supervisors.',
+    'Alcohol sales are expected to create the highest behavioural demand between 17:00 and 22:30. Intoxication risk is highest in bar queue areas, front-of-stage release periods, and campsite returns after headline performances. Refusals and intervention logs are expected to increase after 20:00 and must be monitored by control and supervisors.',
   camping_profile:
     'The campsite opens one day prior to the live event and remains occupied overnight. Key risks include late-night noise complaints, intoxication, small fire incidents, lost property, welfare demand, and unauthorised access between camping and controlled backstage areas.',
   historic_issues:
-    'Comparable events at the venue have identified slow-moving ingress during bag-search peaks, bar queue overspill adjacent to the main east route, pressure at the taxi rank after headline acts, and increased welfare demand due to dehydration and intoxication during hot weather. Previous briefings also noted unauthorised campsite crossover toward the VIP compound when perimeter observation was reduced.',
+    'Comparable events at the venue have identified slow-moving ingress during bag-search peaks, bar queue overspill adjacent to the main east route, taxi-rank congestion after headline acts, and increased welfare demand due to dehydration and intoxication during hot weather. Previous briefings also noted unauthorised campsite crossover toward the VIP compound when perimeter observation was reduced.',
   mood_and_trigger_points:
     'Likely trigger points include delayed gate opening, headline delays or cancellations, prolonged bar queues, visible inconsistency in search procedures, sudden adverse weather, transport delays at the end of the show, or poorly communicated route changes. Crowd mood is expected to remain compliant where messaging is clear and staff intervention is early and consistent.',
   peak_periods: lines(
-    '10:15 to 12:30 - first ingress wave and search lane pressure.',
+    '10:15 to 12:30 - first ingress wave and search lane demand.',
     '16:30 to 18:30 - increased internal circulation to bars, food court, and welfare areas.',
     '20:15 to 22:45 - headline performance density and bar demand peak.',
-    '22:30 to 00:30 - phased egress, taxi rank pressure, shuttle loading, and campsite return.'
+    '22:30 to 00:30 - phased egress, taxi rank demand, shuttle loading, and campsite return.'
   ),
 
   site_layout_summary:
@@ -122,9 +122,9 @@ export const CMP_DEMO_PLAN_VALUES: Record<string, string> = {
   dim_aliced_management:
     'Management arrangements are based on a single control structure operating from Event Control, supported by zone supervisors, a dedicated loggist, mobile response, medical, welfare, and traffic interfaces. Deployment reviews take place pre-opening, mid-afternoon, pre-headline, and pre-egress, with escalation triggers logged by control.',
   dim_aliced_activity:
-    'Headline sets, bar closures, campsite return, and end-of-night dispersal are the primary activity drivers for crowd density and movement. Ancillary activity including merch, food court demand, and sponsor engagement is concentrated in the central arena spine and requires active queue control.',
+    'Arrival considerations include the first public arrival wave, rail and shuttle arrivals, accessible drop-off, pre-opening dwell, ticket and search readiness, queue holding, first-contact welfare recognition and supervisor positioning before opening.',
   dim_aliced_location:
-    'The venue is city-adjacent with strong transport links but constrained by residential streets to the south and a public park boundary to the west. Exposure to wind and heavy rain may reduce route performance, particularly on grassed areas between the arena and campsite.',
+    'Last-mile factors include rail and shuttle interfaces, the temporary taxi rank, east car park pedestrian route, residential streets to the south, the public park boundary to the west, lighting, weather exposure and grassed links between the arena and campsite.',
   dim_aliced_ingress:
     'Ingress is through the east plaza with six standard search lanes, one dedicated accessible lane, and one contingency flex lane. The search plan includes bag checks, ticket validation, prohibited-items surrender, and rejection escalation. Queue capacity has been designed to retain the full expected first-wave load within the external holding area.',
   dim_aliced_circulation:
@@ -132,14 +132,14 @@ export const CMP_DEMO_PLAN_VALUES: Record<string, string> = {
   dim_aliced_egress:
     'Egress will operate through the south boulevard and east plaza under phased release conditions, supported by route stewards and transport marshals. Campsite return remains segregated from off-site dispersal where practicable. Any degraded route condition will trigger reduced flow assumptions and controlled holds.',
   dim_aliced_dynamics:
-    'The principal dynamic risks are density build-up during headline performances, short-term surges at the front-of-stage line, queue spillback at the west bar village, campsite crossover conflict after show close, and concentrated demand at the taxi rank. Control measures focus on early observation, visible intervention, and route preservation.',
+    'Dispersal considerations include phased departure from the arena, campsite return, taxi and shuttle demand, route lighting, welfare support, and maintaining separation between public exit routes, staff routes and service movements after show close.',
 
   ramp_routes:
     'Primary routes include the east ingress plaza, south boulevard egress route, north campsite crossover, west food and bar spine, and the step-free accessible route from the east entrance to the viewing platform and welfare hub. Secondary routes provide resilience through the outer park loop and service-road-supported pedestrian corridor.',
   ramp_arrival:
-    'Arrival is expected to peak between 10:45 and 12:15, with rail and shuttle arrivals driving the first-wave demand. Early campers and day-ticket holders create a staggered arrival profile, but compressed demand is expected where weather, train delays, or artist announcements affect patron behaviour.',
+    'Static and dynamic gathering spaces include the east holding plaza, west bar village, main arena spine, welfare hub, accessible viewing area, campsite crossover, taxi-rank interface and food court dwell areas. Each area requires a defined footprint, holding capacity, clear route ownership and supervisor review during peak times.',
   ramp_movement:
-    'Movement pressure is forecast around the main stage, bar village, welfare hub, accessible platform, and campsite crossover. Counterflow is most likely between the main arena exit and the west service and bar zone after headline performances and therefore requires active steward intervention.',
+    'Peak movement demand is forecast around the main stage, bar village, welfare hub, accessible platform, and campsite crossover. Counterflow is most likely between the main arena exit and the west service and bar zone after headline performances and therefore requires active steward intervention.',
   ramp_profile:
     'The route strategy is designed for a mixed audience including families, disabled patrons, intoxicated adults, late-night campers, and contractor traffic in controlled zones. Route decisions prioritise visibility, lighting, width resilience, and clear steward command points.',
 
@@ -187,7 +187,7 @@ export const CMP_DEMO_PLAN_VALUES: Record<string, string> = {
     'Call signs allocated by zone and role, with all supervisors carrying fallback mobile numbers.'
   ),
   reporting_lines:
-    'All staff report to their zone supervisor. Supervisors escalate to Event Control and the Operational Lead. Immediate escalation is required for life safety issues, crowd pressure, suspected crime, safeguarding, missing persons, CT concerns, route failure, or any incident that could affect the licence objectives or event continuity.',
+    'All staff report to their zone supervisor. Supervisors escalate to Event Control and the Operational Lead. Immediate escalation is required for life safety issues, unsafe crowd density or congestion, suspected crime, safeguarding, missing persons, CT concerns, route failure, or any incident that could affect the licence objectives or event continuity.',
   external_interfaces: lines(
     'Greater Manchester Police liaison point within Event Control during public hours.',
     'Beacon Medical Services lead seated in Event Control from gate opening to final dispersal.',
@@ -227,13 +227,13 @@ export const CMP_DEMO_PLAN_VALUES: Record<string, string> = {
     ),
   response_teams:
     lines(
-      'Arena mobile response - 2 teams of 4 - Reinforce queues, respond to disorder, and protect high-pressure routes.',
+      'Arena mobile response - 2 teams of 4 - Reinforce queues, respond to disorder, and protect high-demand routes.',
       'Front-of-stage pit team - 1 team of 8 - Manage barrier line, extraction, and headline surge intervention.',
       'Campsite response - 1 team of 5 - Support overnight patrols, welfare incidents, and perimeter escalation.',
       'Control reserve unit - 1 team of 4 - Rapid redeployment for adverse weather, route loss, or critical incidents.'
     ),
   relief_and_contingency:
-    'Relief staff are assigned by supervisor to maintain statutory breaks without leaving fixed posts uncovered. A reserve of 12 trained staff is held each day for sickness, queue pressure, adverse weather, and emergency redeployment. Overnight campsite cover includes a relief handover and fatigue check.',
+    'Relief staff are assigned by supervisor to maintain statutory breaks without leaving fixed posts uncovered. A reserve of 12 trained staff is held each day for sickness, queue congestion, adverse weather, and emergency redeployment. Overnight campsite cover includes a relief handover and fatigue check.',
   escalation_staffing:
     'Additional staff are deployed if queue hold time exceeds 20 minutes, bar queue spillback reaches the main west route, campsite noise or welfare incidents rise above forecast, or weather conditions reduce route performance. Further escalation is available through standby reserve and contractor support under Event Control direction.',
   bar_operations_roles:
@@ -267,7 +267,7 @@ export const CMP_DEMO_PLAN_VALUES: Record<string, string> = {
   circulation_controls:
     'Principal pedestrian routes are protected by roaming patrols and fixed observation points at the west bar village, second-stage crossover, welfare junction, and accessible platform approach. Service crossings operate under marshal control and are suspended when public density makes them unsafe.',
   high_density_controls:
-    'The main stage fan is monitored from front-of-stage, FOH, and roaming supervisor positions. Threshold triggers include visible stop-start movement, compression at the front barrier, or lateral pressure toward route edges. Control options include show messaging, area soft-holds, lateral redistribution, reinforcement, and performer liaison through production.',
+    'The main stage fan is monitored from front-of-stage, FOH, and roaming supervisor positions. Threshold triggers include visible stop-start movement, compression at the front barrier, or lateral movement toward route edges. Control options include show messaging, area soft-holds, lateral redistribution, reinforcement, and performer liaison through production.',
   internal_queue_controls:
     'Bar, merchandise, and welfare queues are barriered where necessary and aligned away from main routes. Queue marshals are tasked to prevent cross-route encroachment and to request reinforcement if queue tails threaten emergency access, accessible routes, or the arena spine.',
 
@@ -310,7 +310,7 @@ export const CMP_DEMO_PLAN_VALUES: Record<string, string> = {
   risk_assessment_scope:
     'The KSS risk assessment covers ingress and search, internal circulation, bar-village support, front-of-stage response, campsite operations, VIP and backstage control, transport and dispersal interfaces, safeguarding and welfare support, emergency route protection, and the build and break interfaces that sit within the KSS delivery scope.',
   risk_assessment_source_notes:
-    'The supporting operational risk assessment identifies crowd pressure at the main stage fan, bag-search delay, bar queue spillback, campsite crossover, late-night taxi demand, degraded grass routes in wet weather, and safeguarding demand linked to intoxication and fatigue. These trigger points have been carried into the CMP controls, staffing peaks, route-protection measures, and emergency decision thresholds.',
+    'The supporting operational risk assessment identifies crowd density at the main stage fan, bag-search delay, bar queue spillback, campsite crossover, late-night taxi demand, degraded grass routes in wet weather, and safeguarding demand linked to intoxication and fatigue. These trigger points have been carried into the CMP controls, staffing peaks, route-protection measures, and emergency decision thresholds.',
   additional_operational_risks: lines(
     'Adverse weather and route degradation - Public routes, staff, contractors, and campers - Apply reduced flow assumptions, additional route marshals, ground-condition checks, and phased release or shelter where route performance falls.',
     'Queue overspill at the west bar village - Arena circulation routes, bar customers, and queue teams - Open feeder-lane extension, reinforce queue stewards, hold service if required, and preserve the main west route under supervisor direction.',
@@ -318,7 +318,7 @@ export const CMP_DEMO_PLAN_VALUES: Record<string, string> = {
   ),
 
   emergency_procedures:
-    'Emergency procedures cover full evacuation, partial evacuation, invacuation or lockdown, shelter during weather, show stop, route protection, and emergency service access. Event Control retains the decision log and coordinates messaging through production, PA, radio, and supervisors. Supervisors are responsible for immediate route action and staff accountability within their sectors.',
+    'Emergency procedures cover full evacuation, partial evacuation, invacuation or lockdown, shelter during weather, Show Stop, route protection, and emergency service access. Event Control retains the decision log and coordinates messaging through production, PA, radio, and supervisors. Supervisors are responsible for immediate route action and staff accountability within their sectors.',
   partial_evacuation_procedure:
     'Part evacuation is available where a single zone, route, or compound becomes unsafe but the wider event can continue in a controlled state. Control identifies the affected area, stops movement into that zone, releases the required exit route, assigns supervisors to hold adjoining sectors, and redirects unaffected patrons away from the incident footprint until the area is confirmed safe or escalated to full evacuation.',
   full_evacuation_procedure:
@@ -328,7 +328,7 @@ export const CMP_DEMO_PLAN_VALUES: Record<string, string> = {
   shelter_procedure:
     'Shelter is used for severe weather, lightning risk, environmental hazard, or other conditions where mass external movement could create greater danger than temporary hold-in-place arrangements. Shelter locations are announced by control, route stewards regulate flow to avoid compression, welfare and accessibility support remain active, and supervisors keep emergency corridors and protected exits available throughout the shelter period.',
   show_stop_triggers:
-    'Show stop triggers include crowd compression at the front barrier, major medical intervention requiring route sterilisation, fire or smoke affecting a public zone, severe weather requiring temporary hold or shelter, structural failure, route loss, disorder affecting life safety, or a CT-related concern requiring immediate operational pause.',
+    'Show Stop triggers include crowd compression at the front barrier, major medical intervention requiring route sterilisation, fire or smoke affecting a public zone, severe weather requiring temporary hold or shelter, structural failure, route loss, disorder affecting life safety, or a CT-related concern requiring immediate operational pause.',
   rendezvous_points:
     'RV1 east service yard is the primary emergency services rendezvous. RV2 north outer field supports campsite incidents and overflow marshalling. RV3 south coach park supports transport-side incidents and secondary command regroup. Casualty collection is coordinated from the medical hub unless otherwise directed by medical command.',
   command_escalation:

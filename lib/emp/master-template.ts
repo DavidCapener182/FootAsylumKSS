@@ -206,7 +206,7 @@ export const EMP_MASTER_TEMPLATE_SECTIONS: EmpMasterTemplateSection[] = [
     'ramp_assessment',
     'Bar and Service-Area Queue Analysis',
     6,
-    'Review routes, arrival patterns, movement, and profile factors around bars, service points, stock interfaces, and KSS-allocated areas.'
+    'Review routes, areas, movement, and profile factors around bars, service points, stock interfaces, and KSS-allocated areas.'
   ),
   section(
     'capacity_flow',
@@ -272,7 +272,7 @@ export const EMP_MASTER_TEMPLATE_SECTIONS: EmpMasterTemplateSection[] = [
     'emergency_procedures',
     'Emergency and Evacuation Interface Duties',
     17,
-    'Record the arrangements for evacuation, partial evacuation, lockdown or invacuation, shelter, show stop, and emergency route protection.'
+    'Record the arrangements for evacuation, partial evacuation, lockdown or invacuation, shelter, Show Stop, and emergency route protection.'
   ),
   section(
     'counter_terrorism',
@@ -322,7 +322,7 @@ export const EMP_MASTER_TEMPLATE_FIELDS: EmpMasterTemplateField[] = [
   }),
   field('document_control', 'document_status', 'Document status', 2, 'select', {
     defaultValueText: 'Draft',
-    options: ['Draft', 'For Review', 'Final'],
+    options: ['Draft', 'V1', 'For Review', 'Final'],
   }),
   field('document_control', 'author_name', 'Author', 3, 'text', {
     defaultValueText: 'KSS NW LTD',
@@ -414,7 +414,7 @@ export const EMP_MASTER_TEMPLATE_FIELDS: EmpMasterTemplateField[] = [
   }),
   field('crowd_profile', 'alcohol_profile', 'Alcohol and behavioural profile', 7, 'textarea', {
     defaultValueText:
-      'The alcohol profile should consider expected levels of intoxication, peak bar service periods, refusals, queue pressure, conflict potential, Challenge policy, and the effect of alcohol on compliance and welfare demand.',
+      'The alcohol profile should consider expected levels of intoxication, peak bar service periods, refusals, queue demand, conflict potential, Challenge policy, and the effect of alcohol on compliance and welfare demand.',
   }),
   field('crowd_profile', 'camping_profile', 'Camping / overnight profile', 8, 'textarea', {
     defaultValueText:
@@ -422,7 +422,7 @@ export const EMP_MASTER_TEMPLATE_FIELDS: EmpMasterTemplateField[] = [
   }),
   field('crowd_profile', 'historic_issues', 'Historic issues or intelligence', 9, 'textarea', {
     defaultValueText:
-      'Historic issues, intelligence, and previous event learning should be reviewed for recurring congestion, disorder trends, safeguarding themes, transport pinch points, weather sensitivity, and venue-specific vulnerabilities.',
+      'Historic issues, intelligence, and previous event learning should be reviewed for recurring congestion, disorder trends, safeguarding themes, transport peak times, weather sensitivity, and venue-specific vulnerabilities.',
   }),
   field('crowd_profile', 'mood_and_trigger_points', 'Mood, trigger points, and likely crowd reactions', 10, 'textarea', {
     defaultValueText:
@@ -467,13 +467,13 @@ export const EMP_MASTER_TEMPLATE_FIELDS: EmpMasterTemplateField[] = [
     defaultValueText:
       'Management arrangements should define command roles, supervision, deployment review points, contingency triggers, and decision logging for both normal and degraded operations.',
   }),
-  field('site_design', 'dim_aliced_activity', 'DIM-ALICED: Activity', 7, 'textarea', {
+  field('site_design', 'dim_aliced_activity', 'DIM-ALICED: Arrival', 7, 'textarea', {
     defaultValueText:
-      'Activity analysis should consider headline acts, service demand, changeovers, ancillary entertainment, licensing activity, and any programmed moments likely to concentrate movement or attention.',
+      'Arrival analysis should consider expected demand by time, transport mode, pre-opening dwell, queue readiness, accessible arrival needs, and how first-contact areas will be supervised.',
   }),
-  field('site_design', 'dim_aliced_location', 'DIM-ALICED: Location', 8, 'textarea', {
+  field('site_design', 'dim_aliced_location', 'DIM-ALICED: Last Mile', 8, 'textarea', {
     defaultValueText:
-      'Location factors should assess transport links, surrounding land use, residential sensitivity, topography, lighting, weather exposure, and emergency service access constraints.',
+      'Last-mile factors should assess local pedestrian routes, transport interchanges, pick-up/drop-off areas, surrounding land use, lighting, weather exposure, wayfinding, and emergency service access constraints.',
   }),
   field('site_design', 'dim_aliced_ingress', 'DIM-ALICED: Ingress', 9, 'textarea', {
     defaultValueText:
@@ -487,22 +487,22 @@ export const EMP_MASTER_TEMPLATE_FIELDS: EmpMasterTemplateField[] = [
     defaultValueText:
       'Egress analysis should cover phased release, route protection, transport coordination, re-entry controls, and the expected behaviour of patrons beyond the site boundary.',
   }),
-  field('site_design', 'dim_aliced_dynamics', 'DIM-ALICED: Dynamics', 12, 'textarea', {
+  field('site_design', 'dim_aliced_dynamics', 'DIM-ALICED: Dispersal', 12, 'textarea', {
     defaultValueText:
-      'Crowd dynamics should consider density build-up, stop-start movement, counterflow, pressure points, behavioural triggers, and how information or intervention may alter crowd response.',
+      'Dispersal analysis should consider phased departure, onward transport, exit capacity, late service close-down, route resilience, public information, and welfare or accessibility support during departure.',
   }),
 
   field('ramp_assessment', 'ramp_routes', 'RAMP: Routes', 0, 'textarea', {
     defaultValueText:
       'Routes analysis should identify primary and secondary pedestrian routes, step-free alternatives, crossings, lighting, steward intervention points, and any sections vulnerable to narrowing or obstruction.',
   }),
-  field('ramp_assessment', 'ramp_arrival', 'RAMP: Arrival', 1, 'textarea', {
+  field('ramp_assessment', 'ramp_arrival', 'RAMP: Areas', 1, 'textarea', {
     defaultValueText:
-      'Arrival analysis should consider arrival profiles over time, transport unloading patterns, pre-event dwell areas, queue formation, and the impact of delayed or compressed admissions.',
+      'Areas analysis should identify static and dynamic spaces where people gather or dwell, including operating areas, holding areas, service points, welfare and medical interfaces, restricted zones, and any places where occupancy may exceed the planned footprint.',
   }),
   field('ramp_assessment', 'ramp_movement', 'RAMP: Movement', 2, 'textarea', {
     defaultValueText:
-      'Movement analysis should consider circulation between attractions, amenities, bars, toilets, welfare, exits, and any two-way flows or pinch points requiring active management.',
+      'Movement analysis should consider circulation between attractions, amenities, bars, toilets, welfare, exits, and any two-way flows or peak-demand areas requiring active management.',
   }),
   field('ramp_assessment', 'ramp_profile', 'RAMP: Profile', 3, 'textarea', {
     defaultValueText:
@@ -564,7 +564,7 @@ export const EMP_MASTER_TEMPLATE_FIELDS: EmpMasterTemplateField[] = [
   }),
   field('command_control', 'reporting_lines', 'Reporting lines and escalation routes', 3, 'textarea', {
     defaultValueText:
-      'Reporting lines should run from staff to zone supervisors to KSS control or the operational lead, with immediate escalation for life safety, safeguarding, counter-terrorism, disorder, licence breaches, refusal conflict, asset loss, significant queue pressure, or route obstruction.',
+      'Reporting lines should run from staff to zone supervisors to KSS control or the operational lead, with immediate escalation for life safety, safeguarding, counter-terrorism, disorder, licence breaches, refusal conflict, asset loss, significant queue congestion, or route obstruction.',
   }),
   field('command_control', 'external_interfaces', 'External interfaces', 4, 'textarea', {
     defaultValueText: lines(
@@ -623,7 +623,7 @@ export const EMP_MASTER_TEMPLATE_FIELDS: EmpMasterTemplateField[] = [
   }),
   field('deployment_strategy', 'staffing_by_zone_and_time', 'Staffing by zone and time', 3, 'textarea', {
     defaultValueText:
-      'Deployment should be structured by zone, time, and activity, with staffing levels reflecting bar trading hours, queue pressure, bar compound protection where allocated, final service, handover, and close-down requirements.',
+      'Deployment should be structured by zone, time, and activity, with staffing levels reflecting bar trading hours, queue demand, bar compound protection where allocated, final service, handover, and close-down requirements.',
   }),
   field('deployment_strategy', 'response_teams', 'Response teams and mobile resources', 4, 'textarea', {
     defaultValueText:
@@ -640,7 +640,7 @@ export const EMP_MASTER_TEMPLATE_FIELDS: EmpMasterTemplateField[] = [
   field('deployment_strategy', 'dynamic_escalation_triggers', 'Dynamic escalation triggers', 7, 'textarea', {
     defaultValueText: lines(
       'Queue tail reaches or obstructs an emergency route, accessible route, stock route or main public circulation route.',
-      'Sustained stop-start movement, visible compression, barrier pressure or customer distress develops in a queue.',
+      'Sustained stop-start movement, visible compression, barrier loading or customer distress develops in a queue.',
       'Repeated refusal conflict, intoxication, proxy-purchase attempts or disorder requires response support.',
       'Accessibility route width, buggy movement, search privacy or accessible campsite welfare support is compromised.',
       'Welfare, medical, safeguarding or lost/found person demand exceeds local supervisor capability.',
@@ -804,7 +804,7 @@ export const EMP_MASTER_TEMPLATE_FIELDS: EmpMasterTemplateField[] = [
   }),
   field('risk_assessment', 'risk_assessment_source_notes', 'Source RA notes, key hazards, and trigger points', 2, 'textarea', {
     defaultValueText:
-      'Where an event-specific risk assessment has been uploaded, its hazards, controls, trigger points, and escalation conditions should be reviewed against the live deployment and reflected in the control table below. Particular attention should be given to crowd pressure, queue overspill, intoxication, vulnerable persons, adverse weather, vehicle or pedestrian interface, route loss, suspicious items, and emergency response thresholds.',
+      'Where an event-specific risk assessment has been uploaded, its hazards, controls, trigger points, and escalation conditions should be reviewed against the live deployment and reflected in the control table below. Particular attention should be given to crowd density, queue overspill, intoxication, vulnerable persons, adverse weather, vehicle or pedestrian interface, route loss, suspicious items, and emergency response thresholds.',
   }),
   field('risk_assessment', 'additional_operational_risks', 'Additional operational risks and controls', 3, 'textarea', {
     defaultValueText: lines(
@@ -836,9 +836,9 @@ export const EMP_MASTER_TEMPLATE_FIELDS: EmpMasterTemplateField[] = [
     defaultValueText:
       'Shelter arrangements should define the trigger for weather or environmental shelter, the preferred shelter locations, how movement is controlled to avoid compression, and how welfare, accessibility, and route protection are maintained during the shelter phase.',
   }),
-  field('emergency_procedures', 'show_stop_triggers', 'Show stop / operational pause triggers', 5, 'textarea', {
+  field('emergency_procedures', 'show_stop_triggers', 'Show Stop / operational pause triggers', 5, 'textarea', {
     defaultValueText:
-      'Show stop or operational pause triggers should include crowd pressure, major medical response, severe weather, structural concern, route failure, fire, disorder, or any condition that materially undermines safe operation.',
+      'Show Stop or operational pause triggers should include unsafe crowd density or congestion, major medical response, severe weather, structural concern, route failure, fire, disorder, or any condition that materially undermines safe operation.',
   }),
   field('emergency_procedures', 'rendezvous_points', 'Rendezvous points and emergency holding areas', 6, 'textarea', {
     defaultValueText:

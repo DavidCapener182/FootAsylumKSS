@@ -17,10 +17,17 @@ const mockSupabase = {
     if (table === 'fa_audit_responses') {
       return {
         select: vi.fn(() => ({
-          eq: vi.fn().mockResolvedValue({
-            data: [{ response_json: { fra_pdf_text: 'stored pdf text' } }],
-            error: null,
-          }),
+          eq: vi.fn(() => ({
+            order: vi.fn().mockResolvedValue({
+              data: [{ response_json: { fra_pdf_text: 'stored pdf text' }, created_at: '2026-02-18T00:00:00Z' }],
+              error: null,
+            }),
+            then: (resolve: (value: { data: Array<{ response_json: { fra_pdf_text: string } }>; error: null }) => void) =>
+              resolve({
+                data: [{ response_json: { fra_pdf_text: 'stored pdf text' } }],
+                error: null,
+              }),
+          })),
         })),
       }
     }

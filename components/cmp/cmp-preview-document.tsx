@@ -223,7 +223,7 @@ function RampDiagram({
   return (
     <DiagramShell
       title="RAMP Analysis"
-      subtitle="Routes, arrival, movement, and profile are shown as a single operational planning view."
+      subtitle="Routes, areas, movement, and profile are shown as a single operational planning view."
     >
       <svg viewBox="0 0 720 344" className="h-auto w-full">
         {cards.map((card, index) => (
@@ -263,7 +263,7 @@ function CrowdFlowDiagram({
   return (
     <DiagramShell
       title="Crowd Flow"
-      subtitle="The core route sequence is shown as a simplified flow so ingress, circulation, and dispersal pressure points are easy to read."
+      subtitle="The core route sequence is shown as a simplified flow so ingress, circulation, and dispersal peak-demand areas are easy to read."
     >
       <svg viewBox="0 0 700 220" className="h-auto w-full">
         <defs>
@@ -564,7 +564,7 @@ function CounterTerrorismDiagram({
   return (
     <DiagramShell
       title="Counter-Terrorism"
-      subtitle="Protect Duty and immediate protective actions are summarised visually so staff can read the section quickly under pressure."
+      subtitle="Protect Duty and immediate protective actions are summarised visually so staff can read the section quickly during live operations."
     >
       <svg viewBox="0 0 720 420" className="h-auto w-full">
         {cards.map((card, index) => {

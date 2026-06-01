@@ -307,7 +307,7 @@ function RampDiagram({
   return (
     <DiagramShell
       title="RAMP Analysis"
-      subtitle="Routes, arrival, movement, and profile are shown as a single operational planning view."
+      subtitle="Routes, areas, movement, and profile are shown as a single operational planning view."
     >
       <svg viewBox="0 0 720 240" className="h-auto w-full">
         {cards.map((card, index) => (
@@ -344,7 +344,7 @@ function CrowdFlowDiagram({
   return (
     <DiagramShell
       title="Crowd Flow"
-      subtitle="The core route sequence is shown as a simplified flow so ingress, circulation, and dispersal pressure points are easy to read."
+      subtitle="The core route sequence is shown as a simplified flow so ingress, circulation, and dispersal peak-demand areas are easy to read."
     >
       <svg viewBox="0 0 700 220" className="h-auto w-full">
         <defs>
@@ -707,7 +707,7 @@ function CounterTerrorismDiagram({
   return (
     <DiagramShell
       title="Counter-Terrorism"
-      subtitle="Protect Duty and immediate protective actions are summarised visually so staff can read the section quickly under pressure."
+      subtitle="Protect Duty and immediate protective actions are summarised visually so staff can read the section quickly during live operations."
     >
       <svg viewBox="0 0 720 420" className="h-auto w-full">
         {cards.map((card, index) => {
@@ -916,7 +916,7 @@ function takeParagraphChunk(
 
   return {
     chunk: { ...block, text: head } satisfies EmpPreviewBlock,
-    remainder: { ...block, text: tail } satisfies EmpPreviewBlock,
+    remainder: { ...block, text: tail, startOnNewPage: false, keepWithNext: false } satisfies EmpPreviewBlock,
   }
 }
 
@@ -948,16 +948,21 @@ function takeBulletListChunk(
       return { chunk: null, remainder: block }
     }
     return {
-      chunk: { type: 'bullet_list', items: [head] } satisfies EmpPreviewBlock,
-      remainder: { type: 'bullet_list', items: [tail, ...block.items.slice(1)] } satisfies EmpPreviewBlock,
+      chunk: { ...block, items: [head] } satisfies EmpPreviewBlock,
+      remainder: {
+        ...block,
+        items: [tail, ...block.items.slice(1)],
+        startOnNewPage: false,
+        keepTogether: false,
+      } satisfies EmpPreviewBlock,
     }
   }
 
   const remainderItems = block.items.slice(items.length)
   return {
-    chunk: { type: 'bullet_list', items } satisfies EmpPreviewBlock,
+    chunk: { ...block, items } satisfies EmpPreviewBlock,
     remainder: remainderItems.length
-      ? ({ type: 'bullet_list', items: remainderItems } satisfies EmpPreviewBlock)
+      ? ({ ...block, items: remainderItems, startOnNewPage: false, keepTogether: false } satisfies EmpPreviewBlock)
       : null,
   }
 }
@@ -1214,6 +1219,33 @@ function getBlockOrientation(block: EmpPreviewBlock | undefined): EmpContentPage
   return 'portrait'
 }
 
+function shouldStartBlockOnNewPage(block: EmpPreviewBlock) {
+  return (
+    (block.type === 'paragraph' && block.startOnNewPage)
+    || (block.type === 'subheading' && block.startOnNewPage)
+    || (block.type === 'bullet_list' && block.startOnNewPage)
+    || (block.type === 'multi_table' && block.startOnNewPage)
+  )
+}
+
+function shouldKeepFullBlockWithNext(
+  block: EmpPreviewBlock,
+  nextBlock: EmpPreviewBlock | undefined
+) {
+  if (!nextBlock) return false
+
+  return (
+    (block.type === 'paragraph' && block.keepWithNext)
+    || (
+      block.type === 'subheading'
+      && (
+        (nextBlock.type === 'multi_table' && nextBlock.deploymentSchedule)
+        || (nextBlock.type === 'bullet_list' && nextBlock.keepTogether)
+      )
+    )
+  )
+}
+
 function paginateEmpContent(
   keyPrefix: string,
   title: string,
@@ -1246,10 +1278,7 @@ function paginateEmpContent(
 
     while (currentBlock) {
       const desiredOrientation = getBlockOrientation(currentBlock)
-      const shouldKeepWithNext =
-        currentBlock.type === 'subheading'
-        && nextBlock?.type === 'multi_table'
-        && nextBlock.deploymentSchedule
+      const shouldKeepWithNext = shouldKeepFullBlockWithNext(currentBlock, nextBlock)
       const keepWithNextUnits = shouldKeepWithNext
         ? estimateBlockUnits(currentBlock) + EMP_BLOCK_GAP_UNITS + estimateBlockUnits(nextBlock)
         : 0
@@ -1277,8 +1306,7 @@ function paginateEmpContent(
       }
 
       if (
-        currentBlock.type === 'subheading'
-        && currentBlock.startOnNewPage
+        shouldStartBlockOnNewPage(currentBlock)
         && page.blocks.length > 0
       ) {
         pages.push(page)
@@ -1301,17 +1329,6 @@ function paginateEmpContent(
 
       if (
         currentBlock.type === 'multi_table'
-        && currentBlock.startOnNewPage
-        && page.blocks.length > 0
-      ) {
-        pages.push(page)
-        page = createPage(pages.length, true, desiredOrientation)
-        availableUnits =
-          getPageCapacityUnits(page.orientation) - estimatePageIntroUnits(page.showHeading, page.description)
-      }
-
-      if (
-        currentBlock.type === 'multi_table'
         && currentBlock.deploymentSchedule
         && page.blocks.length > 0
         && countDeploymentRows(page.blocks) > 0
@@ -1325,6 +1342,19 @@ function paginateEmpContent(
 
       if (
         currentBlock.type === 'multi_table'
+        && currentBlock.keepTogether
+        && page.blocks.length > 0
+        && estimateBlockUnits(currentBlock) > availableUnits
+        && estimateBlockUnits(currentBlock) <= getPageCapacityUnits(page.orientation) - estimatePageIntroUnits(false)
+      ) {
+        pages.push(page)
+        page = createPage(pages.length, true, desiredOrientation)
+        availableUnits =
+          getPageCapacityUnits(page.orientation) - estimatePageIntroUnits(page.showHeading, page.description)
+      }
+
+      if (
+        currentBlock.type === 'bullet_list'
         && currentBlock.keepTogether
         && page.blocks.length > 0
         && estimateBlockUnits(currentBlock) > availableUnits
@@ -1712,9 +1742,19 @@ function RiskAssessmentMeta({ riskAssessment }: { riskAssessment: EmpRiskAssessm
           <th>Review Date (12 months from assessment date)</th>
           <td>{riskAssessment.reviewDate}</td>
         </tr>
+        {riskAssessment.scopeNote ? (
+          <tr>
+            <th>Scope note</th>
+            <td colSpan={3}>{riskAssessment.scopeNote}</td>
+          </tr>
+        ) : null}
       </tbody>
     </table>
   )
+}
+
+function riskAssessmentFirstPageRowCount(riskAssessment: EmpRiskAssessmentModel) {
+  return riskAssessment.scopeNote ? 16 : 18
 }
 
 function RiskAssessmentScoringSummary() {
@@ -1848,8 +1888,9 @@ function RiskAssessmentPages({
   riskAssessment: EmpRiskAssessmentModel
   mode: 'preview' | 'print'
 }) {
-  const firstPageRows = riskAssessment.rows.slice(0, 18)
-  const remainingRowChunks = chunkItems(riskAssessment.rows.slice(18), 22)
+  const firstPageRowCount = riskAssessmentFirstPageRowCount(riskAssessment)
+  const firstPageRows = riskAssessment.rows.slice(0, firstPageRowCount)
+  const remainingRowChunks = chunkItems(riskAssessment.rows.slice(firstPageRowCount), 22)
 
   return (
     <>
@@ -1929,7 +1970,7 @@ export function EmpPreviewDocument({
   )
   const riskAssessment = displayModelRiskAssessment(displayModel, output)
   const riskAssessmentPageCount = riskAssessment
-    ? 2 + Math.ceil(Math.max(0, riskAssessment.rows.length - 18) / 22)
+    ? 2 + Math.ceil(Math.max(0, riskAssessment.rows.length - riskAssessmentFirstPageRowCount(riskAssessment)) / 22)
     : 0
   const totalPages = (renderEmpPages ? 1 + sectionPages.length + annexPages.length : 0) + riskAssessmentPageCount
   const coverRowPairs = chunkItems(displayModel.coverRows, 2)

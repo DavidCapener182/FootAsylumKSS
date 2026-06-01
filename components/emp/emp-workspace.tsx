@@ -4,6 +4,7 @@ import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { EMP_DEMO_EVENT_NAME } from '@/lib/emp/demo-plan'
 import { EMP_DOWNLOAD_EVENT_NAME } from '@/lib/emp/download-plan'
+import { EMP_PARKLIFE_EVENT_NAME } from '@/lib/emp/parklife-plan'
 import { EMP_BUSINESS_TEMPLATE_DESCRIPTION } from '@/lib/emp/business-template'
 import type { EmpPlanSummary } from '@/lib/emp/data'
 import {
@@ -31,6 +32,9 @@ function EmpPlanRow({ plan, completed = false }: { plan: EmpPlanSummary; complet
           ) : null}
           {plan.eventName === EMP_DOWNLOAD_EVENT_NAME ? (
             <Badge variant="secondary">Download</Badge>
+          ) : null}
+          {plan.eventName === EMP_PARKLIFE_EVENT_NAME ? (
+            <Badge variant="secondary">Parklife</Badge>
           ) : null}
           {isRadioOneEmpPlan(plan) ? (
             <Badge variant="secondary">Radio 1</Badge>
@@ -161,6 +165,13 @@ export function EmpWorkspace({ plans }: { plans: EmpPlanSummary[] }) {
               <input type="hidden" name="redirectTo" value="/admin/event-management-plans/:planId" />
               <button type="submit" className={cn(buttonVariants({ variant: 'outline' }))}>
                 Create Download EMP
+              </button>
+            </form>
+            <form method="post" action="/api/emp/create" className="inline-flex">
+              <input type="hidden" name="kind" value="parklife" />
+              <input type="hidden" name="redirectTo" value="/admin/event-management-plans/:planId" />
+              <button type="submit" className={cn(buttonVariants({ variant: 'outline' }))}>
+                Create Parklife EMP
               </button>
             </form>
             <form method="post" action="/api/emp/create" className="inline-flex">

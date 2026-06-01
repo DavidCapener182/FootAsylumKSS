@@ -35,10 +35,16 @@ describe('EMP plan history grouping', () => {
       eventName: 'Download Festival 2026',
       status: 'draft',
     }
+    const parklifePlan = {
+      id: 'parklife',
+      title: 'KSS NW LTD Bar Security Operations Plan - Parklife Festival 2026',
+      eventName: 'Parklife Festival 2026',
+      status: 'draft',
+    }
 
-    const groups = splitEmpPlansByHistory([radioOnePlan, downloadPlan])
+    const groups = splitEmpPlansByHistory([radioOnePlan, downloadPlan, parklifePlan])
 
-    expect(groups.activePlans).toEqual([downloadPlan])
+    expect(groups.activePlans).toEqual([downloadPlan, parklifePlan])
     expect(groups.historyPlans).toEqual([radioOnePlan])
   })
 

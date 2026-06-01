@@ -25,6 +25,12 @@ import {
   EMP_ISLE_OF_WIGHT_SELECTED_ANNEXES,
 } from '@/lib/emp/isle-of-wight-plan'
 import {
+  EMP_PARKLIFE_EVENT_NAME,
+  EMP_PARKLIFE_PLAN_TITLE,
+  EMP_PARKLIFE_PLAN_VALUES,
+  EMP_PARKLIFE_SELECTED_ANNEXES,
+} from '@/lib/emp/parklife-plan'
+import {
   EMP_BUSINESS_TEMPLATE_VALUES,
   getEmpBusinessTemplatePlanMetadata,
 } from '@/lib/emp/business-template'
@@ -775,6 +781,7 @@ export async function listEmpPlans() {
   await ensureEmpTemplateSeededForContext(supabase, profile.id)
   await createEmpDownloadPlan()
   await createEmpIsleOfWightPlan()
+  await createEmpParklifePlan()
 
   const { data, error } = await supabase
     .from('emp_plans')
@@ -879,17 +886,20 @@ export async function createEmpPlanFromBusinessTemplate() {
 export const createEmpPlanFromRadioOneTemplate = createEmpPlanFromBusinessTemplate
 
 const DOWNLOAD_STALE_DEPLOYMENT_FIELD_PATTERNS: Record<string, RegExp> = {
+  document_status: /^Draft$/,
   named_command_roles: /KSS Co-Op Supervisor - TBC|KSS Accessibility Campsite Supervisor - TBC|KSS Operational Support - David Capener/,
   radio_channels_callsigns: /^TBC\. Radio channels and call signs will be inserted/,
   reporting_lines: /^KSS staff report to their KSS supervisor\. KSS supervisors escalate to the KSS Operational Lead and Event Control\./,
   specialist_teams_and_assets: /^Specialist KSS assets include SIA search-capable staff, bar support officers, queue marshals, sponsor activation support,/,
   staffing_by_zone_and_time: /^(Campsite ingress - Accessibility campsite search support,|Draft deployment source - supplied FAB \/ Live Nation security schedule screenshots\.|Monday 8 June\|Sponsorship Supervisor\|Day x1)/,
-  response_teams: /^KSS response pair\/team - Support refusals, sponsor activation pressure,/,
+  response_teams: /^KSS response pair\/team - Support refusals, sponsor activation (?:pre(?:ssure)|demand),/,
   service_delivery_scope: /^KSS service delivery covers allocated bars, the Co-Op shop, Paddock, Accessible Campsite A4, Accessible Campsite D,/,
   escalation_staffing: /^Escalation staffing is requested where bar queues or Co-Op shop queues block routes,/,
   front_of_stage_roles: /^For sponsor activations, KSS roles include queue layout,/,
   camping_security_roles: /^KSS camping roles focus on Accessible Campsite A4 and Accessible Campsite D,/,
   circulation_controls: /^KSS protects circulation around bars, Co-Op shop, Paddock and accessibility campsites through fixed observation,/,
+  ramp_arrival: /^(Arrival pre(?:ssure) is expected across|KSS operating areas include)/,
+  ramp_movement: /^Movement pre(?:ssure) will build/,
   egress_operations: /^Egress operations include bar wind-down, queue clear-down, Co-Op shop closure,/,
   emergency_procedures: /^Emergency procedures are directed by the wider Download EMP and Event Control\./,
   partial_evacuation_procedure: /^For partial evacuation of a bar, Co-Op shop, Paddock or accessibility campsite area, KSS stops entry,/,
@@ -937,9 +947,20 @@ const ISLE_OF_WIGHT_STALE_FIELD_PATTERNS: Record<string, RegExp> = {
   queue_design: /^Queue design for bars, Co-?op shop and accessibility campsite search/i,
   search_policy: /^Searching is carried out by licensed security/,
   accessible_entry_arrangements: /Accessible searches follow the event search level/,
+  ramp_arrival: /^(Key areas include|Arrival planning cov(?:ers))/,
+  ramp_movement: /^Movement pre(?:ssure)/,
   emergency_search_zones: /^Emergency search zones for KSS/,
   hostile_recon_indicators: /observation of search lanes/,
   appendix_notes: /Search and Screening annex/,
+}
+
+function isEmpDownloadSeedPlan(plan: EmpPlanRow) {
+  const planIdentity = `${clean(plan.title)} ${clean(plan.event_name)}`
+  return (
+    clean(plan.title) === EMP_DOWNLOAD_PLAN_TITLE
+    || clean(plan.event_name) === EMP_DOWNLOAD_EVENT_NAME
+    || /Download Festival|DLF26/i.test(planIdentity)
+  )
 }
 
 function isEmpIsleOfWightSeedPlan(plan: EmpPlanRow) {
@@ -951,6 +972,96 @@ function isEmpIsleOfWightSeedPlan(plan: EmpPlanRow) {
   )
 }
 
+function isEmpParklifeSeedPlan(plan: EmpPlanRow) {
+  const planIdentity = `${clean(plan.title)} ${clean(plan.event_name)}`
+  return (
+    clean(plan.title) === EMP_PARKLIFE_PLAN_TITLE
+    || clean(plan.event_name) === EMP_PARKLIFE_EVENT_NAME
+    || /Parklife Festival|Pepsi MAX presents Parklife|Heaton Park/i.test(planIdentity)
+  )
+}
+
+const PARKLIFE_STALE_FIELD_PATTERNS: Record<string, RegExp> = {
+  distribution_list: /KSS operational leadership and supervisors/,
+  command_structure: /^KSS bar teams report through KSS supervisors to the KSS operational lead/,
+  named_command_roles: /KSS Operational Lead - TBC|KSS Bar Supervisors - TBC/,
+  reporting_lines: /^KSS staff report to their bar supervisor\. Bar supervisors escalate to the KSS operational lead/,
+  key_contacts_directory: /KSS Operational Lead - TBC|KSS Bar Supervisors - TBC/,
+  contact_directory: /KSS Operational Lead - TBC|KSS Bar Supervisors - TBC/,
+}
+
+function shouldSyncSeedPlanSummaryStatus(plan: Pick<EmpPlanRow, 'document_status'>, expectedStatus: string) {
+  return clean(plan.document_status).toLowerCase() !== clean(expectedStatus).toLowerCase()
+}
+
+async function syncDownloadPlanValuesForContext(input: {
+  supabase: ReturnType<typeof createClient>
+  profileId: string
+  templateId: string
+  planId: string
+  nowIso: string
+  mode?: 'all' | 'stale-only'
+  forceSummary?: boolean
+}) {
+  const mode = input.mode || 'all'
+  const templateGraph = await loadTemplateGraph(input.supabase, input.templateId)
+  const currentRows = mode === 'stale-only'
+    ? await loadPlanValueRows(input.supabase, input.planId, templateGraph.fields)
+    : []
+  const currentValueByKey = new Map(currentRows.map((row) => [row.fieldKey, clean(row.valueText)]))
+  const staleCoOpPattern = /Co-Op-style|Co-Op and other sponsor activation|Co-Op-style activation/i
+  const shouldSyncAll = mode === 'all' || (mode === 'stale-only' && currentRows.length === 0)
+
+  const upserts = templateGraph.fields
+    .map((field) => {
+      const valueText = clean(EMP_DOWNLOAD_PLAN_VALUES[field.key])
+      if (!valueText) return null
+      const currentValue = currentValueByKey.get(field.key) || ''
+      const staleDeploymentPattern = DOWNLOAD_STALE_DEPLOYMENT_FIELD_PATTERNS[field.key]
+      const shouldSyncField =
+        shouldSyncAll ||
+        (!currentValue && DOWNLOAD_SYNC_IF_MISSING_FIELD_KEYS.has(field.key)) ||
+        staleCoOpPattern.test(currentValue) ||
+        Boolean(staleDeploymentPattern?.test(currentValue))
+      if (!shouldSyncField) return null
+
+      return {
+        plan_id: input.planId,
+        field_id: field.id,
+        value_text: valueText,
+        value_source: 'manual',
+        source_document_id: null,
+        source_excerpt: null,
+        updated_by_user_id: input.profileId,
+        updated_at: input.nowIso,
+      }
+    })
+    .filter(Boolean) as Array<Record<string, unknown>>
+
+  if (mode === 'stale-only' && upserts.length === 0 && !input.forceSummary) {
+    return
+  }
+
+  if (upserts.length > 0) {
+    const { error: upsertError } = await input.supabase
+      .from('emp_plan_field_values')
+      .upsert(upserts, { onConflict: 'plan_id,field_id' })
+
+    if (upsertError) {
+      throwEmpOperationError('Failed to seed Download EMP plan values', upsertError)
+    }
+  }
+
+  await syncPlanSummaryFromValues({
+    supabase: input.supabase,
+    planId: input.planId,
+    updatedByUserId: input.profileId,
+    values: EMP_DOWNLOAD_PLAN_VALUES,
+    selectedAnnexes: EMP_DOWNLOAD_SELECTED_ANNEXES,
+    includeKssProfileAppendix: false,
+  })
+}
+
 async function syncIsleOfWightPlanValuesForContext(input: {
   supabase: ReturnType<typeof createClient>
   profileId: string
@@ -958,6 +1069,7 @@ async function syncIsleOfWightPlanValuesForContext(input: {
   planId: string
   nowIso: string
   mode?: 'all' | 'pending-only'
+  forceSummary?: boolean
 }) {
   const mode = input.mode || 'all'
   const templateGraph = await loadTemplateGraph(input.supabase, input.templateId)
@@ -996,7 +1108,7 @@ async function syncIsleOfWightPlanValuesForContext(input: {
     })
     .filter(Boolean) as Array<Record<string, unknown>>
 
-  if (mode === 'pending-only' && upserts.length === 0) {
+  if (mode === 'pending-only' && upserts.length === 0 && !input.forceSummary) {
     return
   }
 
@@ -1020,72 +1132,80 @@ async function syncIsleOfWightPlanValuesForContext(input: {
   })
 }
 
+async function syncParklifePlanValuesForContext(input: {
+  supabase: ReturnType<typeof createClient>
+  profileId: string
+  templateId: string
+  planId: string
+  nowIso: string
+  mode?: 'all' | 'missing-only'
+  forceSummary?: boolean
+}) {
+  const mode = input.mode || 'all'
+  const templateGraph = await loadTemplateGraph(input.supabase, input.templateId)
+  const currentRows = mode === 'missing-only'
+    ? await loadPlanValueRows(input.supabase, input.planId, templateGraph.fields)
+    : []
+  const currentValueByKey = new Map(currentRows.map((row) => [row.fieldKey, clean(row.valueText)]))
+  const shouldSyncAll = mode === 'all' || (mode === 'missing-only' && currentRows.length === 0)
+
+  const upserts = templateGraph.fields
+    .map((field) => {
+      const valueText = clean(EMP_PARKLIFE_PLAN_VALUES[field.key])
+      if (!valueText) return null
+
+      const currentValue = currentValueByKey.get(field.key) || ''
+      const staleFieldPattern = PARKLIFE_STALE_FIELD_PATTERNS[field.key]
+      const shouldSyncField =
+        shouldSyncAll ||
+        !currentValue ||
+        Boolean(staleFieldPattern?.test(currentValue))
+      if (!shouldSyncField) return null
+
+      return {
+        plan_id: input.planId,
+        field_id: field.id,
+        value_text: valueText,
+        value_source: 'manual',
+        source_document_id: null,
+        source_excerpt: null,
+        updated_by_user_id: input.profileId,
+        updated_at: input.nowIso,
+      }
+    })
+    .filter(Boolean) as Array<Record<string, unknown>>
+
+  if (mode === 'missing-only' && upserts.length === 0 && !input.forceSummary) {
+    return
+  }
+
+  if (upserts.length > 0) {
+    const { error: upsertError } = await input.supabase
+      .from('emp_plan_field_values')
+      .upsert(upserts, { onConflict: 'plan_id,field_id' })
+
+    if (upsertError) {
+      throwEmpOperationError('Failed to seed Parklife EMP plan values', upsertError)
+    }
+  }
+
+  await syncPlanSummaryFromValues({
+    supabase: input.supabase,
+    planId: input.planId,
+    updatedByUserId: input.profileId,
+    values: EMP_PARKLIFE_PLAN_VALUES,
+    selectedAnnexes: EMP_PARKLIFE_SELECTED_ANNEXES,
+    includeKssProfileAppendix: false,
+  })
+}
+
 export async function createEmpDownloadPlan() {
   const { supabase, profile } = await getEmpUserContext()
   const template = await ensureEmpTemplateSeededForContext(supabase, profile.id)
 
-  async function syncDownloadPlanValues(planId: string, nowIso: string, mode: 'all' | 'stale-only' = 'all') {
-    const templateGraph = await loadTemplateGraph(supabase, template.id)
-    const currentRows = mode === 'stale-only'
-      ? await loadPlanValueRows(supabase, planId, templateGraph.fields)
-      : []
-    const currentValueByKey = new Map(currentRows.map((row) => [row.fieldKey, clean(row.valueText)]))
-    const staleCoOpPattern = /Co-Op-style|Co-Op and other sponsor activation|Co-Op-style activation/i
-    const shouldSyncAll = mode === 'all' || (mode === 'stale-only' && currentRows.length === 0)
-
-    const upserts = templateGraph.fields
-      .map((field) => {
-        const valueText = clean(EMP_DOWNLOAD_PLAN_VALUES[field.key])
-        if (!valueText) return null
-        const currentValue = currentValueByKey.get(field.key) || ''
-        const staleDeploymentPattern = DOWNLOAD_STALE_DEPLOYMENT_FIELD_PATTERNS[field.key]
-        const shouldSyncField =
-          shouldSyncAll ||
-          (!currentValue && DOWNLOAD_SYNC_IF_MISSING_FIELD_KEYS.has(field.key)) ||
-          staleCoOpPattern.test(currentValue) ||
-          Boolean(staleDeploymentPattern?.test(currentValue))
-        if (!shouldSyncField) return null
-
-        return {
-          plan_id: planId,
-          field_id: field.id,
-          value_text: valueText,
-          value_source: 'manual',
-          source_document_id: null,
-          source_excerpt: null,
-          updated_by_user_id: profile.id,
-          updated_at: nowIso,
-        }
-      })
-      .filter(Boolean) as Array<Record<string, unknown>>
-
-    if (mode === 'stale-only' && upserts.length === 0) {
-      return
-    }
-
-    if (upserts.length > 0) {
-      const { error: upsertError } = await supabase
-        .from('emp_plan_field_values')
-        .upsert(upserts, { onConflict: 'plan_id,field_id' })
-
-      if (upsertError) {
-        throwEmpOperationError('Failed to seed Download EMP plan values', upsertError)
-      }
-    }
-
-    await syncPlanSummaryFromValues({
-      supabase,
-      planId,
-      updatedByUserId: profile.id,
-      values: EMP_DOWNLOAD_PLAN_VALUES,
-      selectedAnnexes: EMP_DOWNLOAD_SELECTED_ANNEXES,
-      includeKssProfileAppendix: false,
-    })
-  }
-
   const { data: existingPlan, error: existingPlanError } = await supabase
     .from('emp_plans')
-    .select('id')
+    .select('id, document_status')
     .eq('template_id', template.id)
     .eq('title', EMP_DOWNLOAD_PLAN_TITLE)
     .maybeSingle()
@@ -1095,7 +1215,18 @@ export async function createEmpDownloadPlan() {
   }
 
   if (existingPlan?.id) {
-    await syncDownloadPlanValues(existingPlan.id as string, new Date().toISOString(), 'stale-only')
+    await syncDownloadPlanValuesForContext({
+      supabase,
+      profileId: profile.id,
+      templateId: template.id,
+      planId: existingPlan.id as string,
+      nowIso: new Date().toISOString(),
+      mode: 'stale-only',
+      forceSummary: shouldSyncSeedPlanSummaryStatus(
+        { document_status: existingPlan.document_status as string | null },
+        EMP_DOWNLOAD_PLAN_VALUES.document_status
+      ),
+    })
     return existingPlan.id as string
   }
 
@@ -1110,7 +1241,7 @@ export async function createEmpDownloadPlan() {
       created_by_user_id: profile.id,
       updated_by_user_id: profile.id,
       updated_at: nowIso,
-      document_status: 'Draft',
+      document_status: EMP_DOWNLOAD_PLAN_VALUES.document_status,
       selected_annexes: EMP_DOWNLOAD_SELECTED_ANNEXES,
       include_kss_profile_appendix: false,
     })
@@ -1122,7 +1253,14 @@ export async function createEmpDownloadPlan() {
   }
 
   try {
-    await syncDownloadPlanValues(createdPlan.id as string, nowIso, 'all')
+    await syncDownloadPlanValuesForContext({
+      supabase,
+      profileId: profile.id,
+      templateId: template.id,
+      planId: createdPlan.id as string,
+      nowIso,
+      mode: 'all',
+    })
   } catch (error) {
     await supabase.from('emp_plans').delete().eq('id', createdPlan.id)
     throw error
@@ -1137,7 +1275,7 @@ export async function createEmpIsleOfWightPlan() {
 
   const { data: existingPlan, error: existingPlanError } = await supabase
     .from('emp_plans')
-    .select('id')
+    .select('id, document_status')
     .eq('template_id', template.id)
     .eq('title', EMP_ISLE_OF_WIGHT_PLAN_TITLE)
     .maybeSingle()
@@ -1154,6 +1292,10 @@ export async function createEmpIsleOfWightPlan() {
       planId: existingPlan.id as string,
       nowIso: new Date().toISOString(),
       mode: 'pending-only',
+      forceSummary: shouldSyncSeedPlanSummaryStatus(
+        { document_status: existingPlan.document_status as string | null },
+        EMP_ISLE_OF_WIGHT_PLAN_VALUES.document_status
+      ),
     })
     return existingPlan.id as string
   }
@@ -1169,7 +1311,7 @@ export async function createEmpIsleOfWightPlan() {
       created_by_user_id: profile.id,
       updated_by_user_id: profile.id,
       updated_at: nowIso,
-      document_status: 'Draft',
+      document_status: EMP_ISLE_OF_WIGHT_PLAN_VALUES.document_status,
       selected_annexes: EMP_ISLE_OF_WIGHT_SELECTED_ANNEXES,
       include_kss_profile_appendix: false,
     })
@@ -1182,6 +1324,76 @@ export async function createEmpIsleOfWightPlan() {
 
   try {
     await syncIsleOfWightPlanValuesForContext({
+      supabase,
+      profileId: profile.id,
+      templateId: template.id,
+      planId: createdPlan.id as string,
+      nowIso,
+      mode: 'all',
+    })
+  } catch (error) {
+    await supabase.from('emp_plans').delete().eq('id', createdPlan.id)
+    throw error
+  }
+
+  return createdPlan.id as string
+}
+
+export async function createEmpParklifePlan() {
+  const { supabase, profile } = await getEmpUserContext()
+  const template = await ensureEmpTemplateSeededForContext(supabase, profile.id)
+
+  const { data: existingPlan, error: existingPlanError } = await supabase
+    .from('emp_plans')
+    .select('id, document_status')
+    .eq('template_id', template.id)
+    .eq('title', EMP_PARKLIFE_PLAN_TITLE)
+    .maybeSingle()
+
+  if (existingPlanError) {
+    throwEmpOperationError('Failed to load Parklife EMP plan', existingPlanError)
+  }
+
+  if (existingPlan?.id) {
+    await syncParklifePlanValuesForContext({
+      supabase,
+      profileId: profile.id,
+      templateId: template.id,
+      planId: existingPlan.id as string,
+      nowIso: new Date().toISOString(),
+      mode: 'missing-only',
+      forceSummary: shouldSyncSeedPlanSummaryStatus(
+        { document_status: existingPlan.document_status as string | null },
+        EMP_PARKLIFE_PLAN_VALUES.document_status
+      ),
+    })
+    return existingPlan.id as string
+  }
+
+  const nowIso = new Date().toISOString()
+  const { data: createdPlan, error: createPlanError } = await supabase
+    .from('emp_plans')
+    .insert({
+      template_id: template.id,
+      title: EMP_PARKLIFE_PLAN_TITLE,
+      event_name: EMP_PARKLIFE_EVENT_NAME,
+      status: 'draft',
+      created_by_user_id: profile.id,
+      updated_by_user_id: profile.id,
+      updated_at: nowIso,
+      document_status: EMP_PARKLIFE_PLAN_VALUES.document_status,
+      selected_annexes: EMP_PARKLIFE_SELECTED_ANNEXES,
+      include_kss_profile_appendix: false,
+    })
+    .select('id')
+    .single()
+
+  if (createPlanError || !createdPlan) {
+    throwEmpOperationError('Failed to create Parklife EMP plan', createPlanError)
+  }
+
+  try {
+    await syncParklifePlanValuesForContext({
       supabase,
       profileId: profile.id,
       templateId: template.id,
@@ -1310,7 +1522,26 @@ export async function getEmpPlanEditorData(planId: string): Promise<EmpPlanEdito
   await ensureEmpTemplateSeededForContext(supabase, profile.id)
 
   const initialPlan = await getPlanOrThrow(supabase, planId)
-  if (isEmpIsleOfWightSeedPlan(initialPlan)) {
+  const isDownloadSeedPlan = isEmpDownloadSeedPlan(initialPlan)
+  const isIsleOfWightSeedPlan = isEmpIsleOfWightSeedPlan(initialPlan)
+  const isParklifeSeedPlan = isEmpParklifeSeedPlan(initialPlan)
+
+  if (isDownloadSeedPlan) {
+    await syncDownloadPlanValuesForContext({
+      supabase,
+      profileId: profile.id,
+      templateId: initialPlan.template_id,
+      planId,
+      nowIso: new Date().toISOString(),
+      mode: 'stale-only',
+      forceSummary: shouldSyncSeedPlanSummaryStatus(
+        initialPlan,
+        EMP_DOWNLOAD_PLAN_VALUES.document_status
+      ),
+    })
+  }
+
+  if (isIsleOfWightSeedPlan) {
     await syncIsleOfWightPlanValuesForContext({
       supabase,
       profileId: profile.id,
@@ -1318,10 +1549,29 @@ export async function getEmpPlanEditorData(planId: string): Promise<EmpPlanEdito
       planId,
       nowIso: new Date().toISOString(),
       mode: 'pending-only',
+      forceSummary: shouldSyncSeedPlanSummaryStatus(
+        initialPlan,
+        EMP_ISLE_OF_WIGHT_PLAN_VALUES.document_status
+      ),
     })
   }
 
-  const plan = isEmpIsleOfWightSeedPlan(initialPlan)
+  if (isParklifeSeedPlan) {
+    await syncParklifePlanValuesForContext({
+      supabase,
+      profileId: profile.id,
+      templateId: initialPlan.template_id,
+      planId,
+      nowIso: new Date().toISOString(),
+      mode: 'missing-only',
+      forceSummary: shouldSyncSeedPlanSummaryStatus(
+        initialPlan,
+        EMP_PARKLIFE_PLAN_VALUES.document_status
+      ),
+    })
+  }
+
+  const plan = isDownloadSeedPlan || isIsleOfWightSeedPlan || isParklifeSeedPlan
     ? await getPlanOrThrow(supabase, planId)
     : initialPlan
   const templateGraph = await loadTemplateGraph(supabase, plan.template_id)

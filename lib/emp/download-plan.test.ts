@@ -10,6 +10,7 @@ describe('Download EMP seed plan', () => {
   it('creates a separate Download plan scope from the bar-only Radio 1 template', () => {
     expect(EMP_DOWNLOAD_EVENT_NAME).toBe('Download Festival 2026')
     expect(EMP_DOWNLOAD_PLAN_TITLE).toContain('Download Festival 2026')
+    expect(EMP_DOWNLOAD_PLAN_VALUES.document_status).toBe('V1')
     expect(EMP_DOWNLOAD_SELECTED_ANNEXES).toEqual([
       'bar_operations',
       'search_screening',
@@ -30,6 +31,13 @@ describe('Download EMP seed plan', () => {
     expect(planText).toContain('Accessible Campsite A4')
     expect(planText).toContain('Accessible Campsite D')
     expect(planText).toContain('accessibility campsite search')
+  })
+
+  it('defines RAMP areas as static and dynamic gathering spaces', () => {
+    expect(EMP_DOWNLOAD_PLAN_VALUES.ramp_arrival).toContain('static and dynamic gathering spaces')
+    expect(EMP_DOWNLOAD_PLAN_VALUES.ramp_arrival.toLowerCase()).not.toContain('arrival')
+    expect(EMP_DOWNLOAD_PLAN_VALUES.ramp_arrival.toLowerCase()).not.toContain('pressure')
+    expect(EMP_DOWNLOAD_PLAN_VALUES.ramp_movement.toLowerCase()).not.toContain('pressure')
   })
 
   it('includes supplied draft deployment schedule detail', () => {
