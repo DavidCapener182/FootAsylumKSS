@@ -1,6 +1,7 @@
 'use server'
 
 import { requirePermission } from '@/lib/permissions'
+import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 
 const MAX_AUDIT_PDF_SIZE_BYTES = 500 * 1024 * 1024
 
@@ -16,7 +17,8 @@ export async function uploadAuditPDF(
   auditNumber: 1 | 2,
   file: File
 ) {
-  const { supabase } = await requirePermission('manageAudits')
+  await requirePermission('manageAudits')
+  const adminSupabase = createAdminSupabaseClient()
 
   // Validate file type
   if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
@@ -33,7 +35,7 @@ export async function uploadAuditPDF(
   const filePath = `store/${storeId}/${fileName}`
 
   // Upload to storage
-  const { error: uploadError } = await supabase.storage
+  const { error: uploadError } = await adminSupabase.storage
     .from('fa-attachments')
     .upload(filePath, file, {
       contentType: 'application/pdf',
@@ -49,14 +51,14 @@ export async function uploadAuditPDF(
     ? 'compliance_audit_1_pdf_path' 
     : 'compliance_audit_2_pdf_path'
 
-  const { error: updateError } = await supabase
+  const { error: updateError } = await adminSupabase
     .from('fa_stores')
     .update({ [pdfColumn]: filePath })
     .eq('id', storeId)
 
   if (updateError) {
     // Clean up uploaded file if DB update fails
-    await supabase.storage.from('fa-attachments').remove([filePath])
+    await adminSupabase.storage.from('fa-attachments').remove([filePath])
     throw new Error(`Failed to update store record: ${updateError.message}`)
   }
 
@@ -73,9 +75,10 @@ export async function getAuditPDFDownloadUrl(filePath: string | null) {
     return null
   }
 
-  const { supabase } = await requirePermission('viewEvidence')
+  await requirePermission('viewEvidence')
+  const adminSupabase = createAdminSupabaseClient()
 
-  const { data, error } = await supabase.storage
+  const { data, error } = await adminSupabase.storage
     .from('fa-attachments')
     .createSignedUrl(filePath, 3600) // 1 hour expiry
 
@@ -96,14 +99,15 @@ export async function deleteAuditPDF(
   storeId: string,
   auditNumber: 1 | 2
 ) {
-  const { supabase } = await requirePermission('manageAudits')
+  await requirePermission('manageAudits')
+  const adminSupabase = createAdminSupabaseClient()
 
   // Get current PDF path
   const pdfColumn = auditNumber === 1 
     ? 'compliance_audit_1_pdf_path' 
     : 'compliance_audit_2_pdf_path'
 
-  const { data: store, error: fetchError } = await supabase
+  const { data: store, error: fetchError } = await adminSupabase
     .from('fa_stores')
     .select(pdfColumn)
     .eq('id', storeId)
@@ -120,7 +124,7 @@ export async function deleteAuditPDF(
   }
 
   // Delete from storage
-  const { error: deleteError } = await supabase.storage
+  const { error: deleteError } = await adminSupabase.storage
     .from('fa-attachments')
     .remove([pdfPath])
 
@@ -129,7 +133,7 @@ export async function deleteAuditPDF(
   }
 
   // Update store record to remove PDF path
-  const { error: updateError } = await supabase
+  const { error: updateError } = await adminSupabase
     .from('fa_stores')
     .update({ [pdfColumn]: null })
     .eq('id', storeId)

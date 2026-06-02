@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requirePermission } from '@/lib/permissions'
+import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 
 const MAX_AUDIT_PDF_SIZE_BYTES = 500 * 1024 * 1024
 
 export async function POST(request: NextRequest) {
   try {
-    const { supabase } = await requirePermission('manageAudits')
+    await requirePermission('manageAudits')
+    const adminSupabase = createAdminSupabaseClient()
 
     const formData = await request.formData()
     const storeId = formData.get('storeId') as string
@@ -31,7 +33,7 @@ export async function POST(request: NextRequest) {
     const filePath = `store/${storeId}/${fileName}`
 
     // Upload to storage
-    const { error: uploadError } = await supabase.storage
+    const { error: uploadError } = await adminSupabase.storage
       .from('fa-attachments')
       .upload(filePath, file, {
         contentType: 'application/pdf',
@@ -47,14 +49,14 @@ export async function POST(request: NextRequest) {
       ? 'compliance_audit_1_pdf_path' 
       : 'compliance_audit_2_pdf_path'
 
-    const { error: updateError } = await supabase
+    const { error: updateError } = await adminSupabase
       .from('fa_stores')
       .update({ [pdfColumn]: filePath })
       .eq('id', storeId)
 
     if (updateError) {
       // Clean up uploaded file if DB update fails
-      await supabase.storage.from('fa-attachments').remove([filePath])
+      await adminSupabase.storage.from('fa-attachments').remove([filePath])
       return NextResponse.json({ error: `Failed to update store record: ${updateError.message}` }, { status: 500 })
     }
 
