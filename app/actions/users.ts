@@ -166,7 +166,7 @@ export async function inviteUserByEmail(
       if (lowerMessage.includes('email address not authorized')) {
         return {
           success: false,
-          message: `Supabase could not send the invite to ${email} because custom SMTP is not configured. The built-in Supabase email sender only sends to project team members. Configure custom SMTP, then send the invitation again.`,
+          message: `Supabase could not send the invite to ${email} using the built-in email sender. The branded Supabase invite template is saved, but the built-in sender may only deliver to addresses Supabase allows for this project.`,
         }
       }
 
