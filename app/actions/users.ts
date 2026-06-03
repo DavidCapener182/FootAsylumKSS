@@ -88,13 +88,19 @@ export async function inviteUserByEmail(
   // Validate email
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
   if (!emailRegex.test(email)) {
-    throw new Error('Invalid email address')
+    return {
+      success: false,
+      message: 'Invalid email address',
+    }
   }
 
   // Validate role
   const validRoles: UserRole[] = ['admin', 'ops', 'readonly', 'client', 'pending']
   if (!validRoles.includes(role)) {
-    throw new Error(`Invalid role: ${role}`)
+    return {
+      success: false,
+      message: `Invalid role: ${role}`,
+    }
   }
 
   try {
@@ -135,7 +141,7 @@ export async function inviteUserByEmail(
     }
 
     // Get the app URL for redirect (use environment variable or default to production URL)
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://foot-asylum-kss.vercel.app'
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://footasylum.kssnwltd.co.uk'
     const redirectTo = `${appUrl}/login/reset-password`
 
     // Invite new user using admin client
@@ -148,7 +154,20 @@ export async function inviteUserByEmail(
     })
 
     if (inviteError) {
-      throw new Error(`Failed to invite user: ${inviteError.message}`)
+      const message = inviteError.message || 'Unknown Supabase Auth error'
+      const lowerMessage = message.toLowerCase()
+
+      if (lowerMessage.includes('email address not authorized')) {
+        return {
+          success: false,
+          message: `Supabase could not send the invite to ${email} because custom SMTP is not configured. The built-in Supabase email sender only sends to project team members. Configure custom SMTP, then send the invitation again.`,
+        }
+      }
+
+      return {
+        success: false,
+        message: `Failed to invite user: ${message}`,
+      }
     }
 
     // Create profile with the intended role using admin client to bypass RLS
@@ -176,7 +195,10 @@ export async function inviteUserByEmail(
       message: `Invitation sent to ${email}. They will receive an email to set their password.`
     }
   } catch (error) {
-    throw new Error(error instanceof Error ? error.message : 'Failed to invite user')
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to invite user',
+    }
   }
 }
 
