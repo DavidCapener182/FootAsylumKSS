@@ -31,6 +31,11 @@ import {
   EMP_PARKLIFE_SELECTED_ANNEXES,
 } from '@/lib/emp/parklife-plan'
 import {
+  EMP_STARTER_FESTIVAL_PLANS,
+  getEmpStarterFestivalPlanByKey,
+  type EmpFestivalStarterPlan,
+} from '@/lib/emp/festival-starter-plans'
+import {
   EMP_BUSINESS_TEMPLATE_VALUES,
   getEmpBusinessTemplatePlanMetadata,
 } from '@/lib/emp/business-template'
@@ -782,6 +787,7 @@ export async function listEmpPlans() {
   await createEmpDownloadPlan()
   await createEmpIsleOfWightPlan()
   await createEmpParklifePlan()
+  await createEmpStarterFestivalPlans()
 
   const { data, error } = await supabase
     .from('emp_plans')
@@ -981,13 +987,111 @@ function isEmpParklifeSeedPlan(plan: EmpPlanRow) {
   )
 }
 
+function getEmpStarterFestivalSeedPlan(plan: EmpPlanRow) {
+  const planIdentity = `${clean(plan.title)} ${clean(plan.event_name)}`
+  return EMP_STARTER_FESTIVAL_PLANS.find((starterPlan) => (
+    clean(plan.title) === starterPlan.planTitle
+    || clean(plan.event_name) === starterPlan.eventName
+    || planIdentity.includes(starterPlan.eventName)
+  )) || null
+}
+
 const PARKLIFE_STALE_FIELD_PATTERNS: Record<string, RegExp> = {
-  distribution_list: /KSS operational leadership and supervisors/,
-  command_structure: /^KSS bar teams report through KSS supervisors to the KSS operational lead/,
-  named_command_roles: /KSS Operational Lead - TBC|KSS Bar Supervisors - TBC/,
-  reporting_lines: /^KSS staff report to their bar supervisor\. Bar supervisors escalate to the KSS operational lead/,
-  key_contacts_directory: /KSS Operational Lead - TBC|KSS Bar Supervisors - TBC/,
-  contact_directory: /KSS Operational Lead - TBC|KSS Bar Supervisors - TBC/,
+  document_version: /^V0\.[1234]$/,
+  document_status: /^Draft$/,
+  issue_date: /^2026-06-01$/,
+  distribution_list: /Bar operator \/ licence holder representative - TBC|Client or organiser representative - TBC|Bar operator \/ licence holder representative/,
+  purpose_scope_summary: /KSS scope is limited to bar-security support/,
+  related_documents: /event management plan - pending issue to KSS|crowd and security management plan - pending issue to KSS|site plan, bar plan and route map - pending issue to KSS|Bar operator risk assessment and operating procedures - pending issue to KSS|supervisor briefing pack|KSS final deployment schedule - to be added (?:when supplied|later)/,
+  operational_assumptions_dependencies: /KSS operates under Parklife Event Control direction|Bar footprints, queue lanes, bar compounds|Deployment numbers, bar names, call signs/,
+  event_type: /^Two-day metropolitan music festival/,
+  venue_address: /M25 0EG/,
+  venue_reference: /Public entry and exit gates are understood/,
+  organiser_name: /Parklife Festival \/ organiser TBC/,
+  client_name: /Parklife Festival \/ bar operator TBC|bar operator or licence holder representative to be confirmed to KSS/,
+  principal_contractor: /Lead event delivery partner TBC/,
+  key_delivery_partners: /KSS NW LTD - bar-security support where allocated|Medical Solutions Ltd - medical provision; WELSafe/,
+  build_dates: /^TBC - to be confirmed from Parklife build schedule/,
+  break_dates: /^TBC - to be confirmed from Parklife break schedule/,
+  public_ingress_time: /with last entry at 17:00 and event finish at 23:00/,
+  operational_hours: /^KSS deployment operates[\s\S]*(Last entry: 17:00 on both days|Bar operating times, last orders and close-down timings|final KSS staffing schedule)/,
+  client_objectives: /Support the bar operator with Challenge policy/,
+  licensed_capacity: /^Overall event capacity and licensed occupancy/,
+  expected_attendance: /^Expected attendance is TBC in client documents/,
+  staff_and_contractor_count: /^KSS staff numbers are TBC|KSS staff numbers remain TBC/,
+  audience_age_profile: /^Parklife is advertised as a 17\+ event/,
+  travel_modes: /arrangements\. KSS will preserve routes around allocated bars/,
+  family_presence: /^The event is 17\+/,
+  alcohol_profile: /^Alcohol demand is expected to be significant/,
+  camping_profile: /^No KSS camping-security scope is identified/,
+  historic_issues: /^Event-specific historic issues and intelligence are pending/,
+  mood_and_trigger_points: /inconsistent ID decisions, adverse weather, lost friends/,
+  peak_periods: /bar operator schedule|Warehouse Project schedule/,
+  site_layout_summary: /Final bar names, grid references and routes are TBC pending|Final KSS bar names and post allocations remain subject/,
+  key_zones: /Allocated bars and licensed service points - TBC|KSS post allocation TBC by deployment sheet/,
+  emergency_exits_holding_areas: /rendezvous points are controlled by the wider Parklife emergency plan\. KSS will keep/,
+  dim_aliced_information: /Challenge policy, refusal process/,
+  dim_aliced_management: /bar operator contact/,
+  dim_aliced_location: /East\/West Gate flows/,
+  ramp_routes: /welfare and medical handover routes, stock routes/,
+  ramp_movement: /food traders, welfare routes, service gates/,
+  ramp_profile: /^The profile includes young adults, 17-year-old attendees/,
+  gross_area: /route interfaces when issued/,
+  density_assumptions: /emergency route compromise or conflict/,
+  zone_capacities: /Emergency and accessible route widths - TBC from site plan|Bar compound capacities - TBC from bar operator|KSS staffing per bar - TBC/,
+  ingress_flow_assumptions: /^KSS does not own public ingress\. Bar queue flow assumptions/,
+  egress_flow_assumptions: /final bar schedule\. KSS will clear queue lanes/,
+  command_structure: /^KSS bar teams report[\s\S]*Parklife Event Control remains/,
+  named_command_roles: /KSS Operational Lead - TBC|KSS Bar Supervisors - TBC|Parklife Event Control - TBC|Bar Operator Lead - TBC to KSS/,
+  radio_channels_callsigns: /^Radio channels and call signs are TBC|Radio channel numbers and KSS call signs are TBC/,
+  reporting_lines: /^KSS staff report to their bar supervisor\. Bar supervisors escalate to the KSS operational lead|Immediate escalation is required/,
+  external_interfaces: /Challenge policy and refusal records|Bar operator \/ licence holder - bar operations/,
+  key_contacts_directory: /KSS Operational Lead - TBC|Parklife Event Control - TBC|Bar Operator Lead - TBC to KSS/,
+  control_room_structure: /decision-making point\. KSS bar supervisors/,
+  briefing_and_induction: /Ask Angela, spiking awareness|bar operator contacts/,
+  monitoring_and_density_tools: /bar operator feedback/,
+  specialist_teams_and_assets: /^Specialist teams and assets are TBC|Final deployment detail will identify/,
+  staffing_by_zone_and_time: /^TBC - final KSS Parklife bar deployment schedule/,
+  response_teams: /^TBC - any KSS response pair\/team|Final response-team numbers/,
+  relief_and_contingency: /^Relief and contingency arrangements are TBC|where the final staffing schedule permits/,
+  service_delivery_scope: /allocated Parklife bar-security support only/,
+  build_break_operations: /^Build and break duties are not confirmed/,
+  escalation_staffing: /asset concerns or emergency support/,
+  dynamic_escalation_triggers: /or a change in threat posture\.$/,
+  bar_operations_roles: /Challenge policy escalation/,
+  search_screening_roles: /^No planned KSS search or screening ownership is identified for Parklife in this bar-only draft\. KSS may support/,
+  vip_backstage_roles: /^No planned KSS VIP or backstage role/,
+  ingress_routes_holding_areas: /Public entry routes are controlled by the wider event plan\.$/,
+  queue_design: /^Bar queue design is TBC|^Final KSS bar queue design is TBC/,
+  accessible_entry_arrangements: /^Accessible route arrangements around bars are TBC/,
+  high_density_controls: /repeated refusals or bar operator request/,
+  transport_interface: /public departure, taxi\/private hire movement, public transport demand/,
+  dispersal_routes: /^Dispersal routes are controlled by the wider Parklife egress plan\. KSS will keep bar close-down routes clear/,
+  safe_spaces: /^Safe space and welfare locations are TBC/,
+  lost_vulnerable_person_process: /^Lost, vulnerable, intoxicated, distressed or isolated persons are escalated to supervisors and Event Control\. KSS should keep/,
+  ask_for_angela_process: /^Any Ask Angela request/,
+  dps_name: /^TBC - to be confirmed/,
+  licensing_conditions: /^Relevant licensing conditions are TBC|support the bar operator with Challenge 25/,
+  incident_management: /and hand over to police, medical, welfare, safeguarding or bar management as required\.$/,
+  risk_assessment_methodology: /supplied Parklife planning information when issued/,
+  risk_assessment_source_notes: /^Source documents are pending|Final hazards, controls, bar locations, bar operator procedures|KSS deployment details will be reconciled/,
+  emergency_procedures: /directed by the wider Parklife EMP and Event Control/,
+  full_evacuation_procedure: /^For full evacuation, KSS follows Event Control instructions and directs customers/,
+  lockdown_invacuation_procedure: /^For lockdown or invacuation, KSS moves customers/,
+  rendezvous_points: /^Rendezvous points are TBC/,
+  emergency_search_zones: /^Emergency search zones and sterile routes are TBC/,
+  hostile_recon_indicators: /bar staff, routes or compounds/,
+  accessibility_team_liaison: /^Accessibility team liaison is TBC/,
+  communications_plan: /Parklife radio plan when issued|Final channel numbers and call signs are TBC/,
+  sitrep_decision_logging: /bar operator concern/,
+  refusal_false_id_protocol: /factual logging\. Event Control must receive|live access to refusal JotForm submissions/,
+  ejection_protocol: /but welfare and safeguarding checks must be completed before removal continues\.$/,
+  ejection_safeguarding: /may be a child, vulnerable adult/,
+  debrief_reporting: /Ask Angela\/spiking concerns/,
+  site_maps_and_route_diagrams: /pending issue to KSS|Final KSS deployment map, bar queue plan and emergency-route extracts|Final KSS deployment allocation will be added/,
+  appendix_notes: /Appendix B - Parklife site map and bar plan - pending|supervisor briefing|radio channel numbers and KSS call sign plan - to be added when issued|Bar operator procedures, alcohol-management details|KSS final deployment schedule - to be added when supplied/,
+  version_history_summary: /^V0\.1 - Initial Parklife Festival 2026 KSS bar-security draft created with deployment details pending\.|final KSS deployment, bar operator procedures and radio details remain pending|V0\.3 - Updated Warehouse Project|V0\.4 - Added MASTER Parklife Manchester/,
+  contact_directory: /KSS Operational Lead - TBC|Parklife Event Control - TBC|Bar Operator Lead - TBC to KSS/,
 }
 
 function shouldSyncSeedPlanSummaryStatus(plan: Pick<EmpPlanRow, 'document_status'>, expectedStatus: string) {
@@ -1197,6 +1301,72 @@ async function syncParklifePlanValuesForContext(input: {
     selectedAnnexes: EMP_PARKLIFE_SELECTED_ANNEXES,
     includeKssProfileAppendix: false,
   })
+}
+
+async function syncStarterFestivalPlanValuesForContext(input: {
+  supabase: ReturnType<typeof createClient>
+  profileId: string
+  templateId: string
+  planId: string
+  nowIso: string
+  starterPlan: EmpFestivalStarterPlan
+  mode?: 'all' | 'missing-only'
+  forceSummary?: boolean
+}) {
+  const mode = input.mode || 'all'
+  const templateGraph = await loadTemplateGraph(input.supabase, input.templateId)
+  const currentRows = mode === 'missing-only'
+    ? await loadPlanValueRows(input.supabase, input.planId, templateGraph.fields)
+    : []
+  const currentValueByKey = new Map(currentRows.map((row) => [row.fieldKey, clean(row.valueText)]))
+  const shouldSyncAll = mode === 'all' || (mode === 'missing-only' && currentRows.length === 0)
+
+  const upserts = templateGraph.fields
+    .map((field) => {
+      const valueText = clean(input.starterPlan.values[field.key])
+      if (!valueText) return null
+
+      const currentValue = currentValueByKey.get(field.key) || ''
+      const shouldSyncField = shouldSyncAll || !currentValue
+      if (!shouldSyncField) return null
+
+      return {
+        plan_id: input.planId,
+        field_id: field.id,
+        value_text: valueText,
+        value_source: 'manual',
+        source_document_id: null,
+        source_excerpt: null,
+        updated_by_user_id: input.profileId,
+        updated_at: input.nowIso,
+      }
+    })
+    .filter(Boolean) as Array<Record<string, unknown>>
+
+  if (mode === 'missing-only' && upserts.length === 0 && !input.forceSummary) {
+    return
+  }
+
+  if (upserts.length > 0) {
+    const { error: upsertError } = await input.supabase
+      .from('emp_plan_field_values')
+      .upsert(upserts, { onConflict: 'plan_id,field_id' })
+
+    if (upsertError) {
+      throwEmpOperationError(`Failed to seed ${input.starterPlan.eventName} EMP plan values`, upsertError)
+    }
+  }
+
+  if (mode === 'all' || input.forceSummary) {
+    await syncPlanSummaryFromValues({
+      supabase: input.supabase,
+      planId: input.planId,
+      updatedByUserId: input.profileId,
+      values: input.starterPlan.values,
+      selectedAnnexes: input.starterPlan.selectedAnnexes,
+      includeKssProfileAppendix: false,
+    })
+  }
 }
 
 export async function createEmpDownloadPlan() {
@@ -1409,6 +1579,117 @@ export async function createEmpParklifePlan() {
   return createdPlan.id as string
 }
 
+async function findExistingStarterFestivalPlan(
+  supabase: ReturnType<typeof createClient>,
+  templateId: string,
+  starterPlan: EmpFestivalStarterPlan
+) {
+  const { data: eventNamePlan, error: eventNameError } = await supabase
+    .from('emp_plans')
+    .select('id, document_status')
+    .eq('template_id', templateId)
+    .eq('event_name', starterPlan.eventName)
+    .maybeSingle()
+
+  if (eventNameError) {
+    throwEmpOperationError(`Failed to load ${starterPlan.eventName} EMP plan`, eventNameError)
+  }
+
+  if (eventNamePlan?.id) {
+    return eventNamePlan
+  }
+
+  const { data: titlePlan, error: titleError } = await supabase
+    .from('emp_plans')
+    .select('id, document_status')
+    .eq('template_id', templateId)
+    .eq('title', starterPlan.planTitle)
+    .maybeSingle()
+
+  if (titleError) {
+    throwEmpOperationError(`Failed to load ${starterPlan.eventName} EMP plan`, titleError)
+  }
+
+  return titlePlan
+}
+
+export async function createEmpStarterFestivalPlan(starterPlan: EmpFestivalStarterPlan) {
+  const { supabase, profile } = await getEmpUserContext()
+  const template = await ensureEmpTemplateSeededForContext(supabase, profile.id)
+  const existingPlan = await findExistingStarterFestivalPlan(supabase, template.id, starterPlan)
+
+  if (existingPlan?.id) {
+    await syncStarterFestivalPlanValuesForContext({
+      supabase,
+      profileId: profile.id,
+      templateId: template.id,
+      planId: existingPlan.id as string,
+      nowIso: new Date().toISOString(),
+      starterPlan,
+      mode: 'missing-only',
+      forceSummary: shouldSyncSeedPlanSummaryStatus(
+        { document_status: existingPlan.document_status as string | null },
+        starterPlan.values.document_status
+      ),
+    })
+    return existingPlan.id as string
+  }
+
+  const nowIso = new Date().toISOString()
+  const { data: createdPlan, error: createPlanError } = await supabase
+    .from('emp_plans')
+    .insert({
+      template_id: template.id,
+      title: starterPlan.planTitle,
+      event_name: starterPlan.eventName,
+      status: 'draft',
+      created_by_user_id: profile.id,
+      updated_by_user_id: profile.id,
+      updated_at: nowIso,
+      document_status: starterPlan.values.document_status,
+      selected_annexes: starterPlan.selectedAnnexes,
+      include_kss_profile_appendix: false,
+    })
+    .select('id')
+    .single()
+
+  if (createPlanError || !createdPlan) {
+    throwEmpOperationError(`Failed to create ${starterPlan.eventName} EMP plan`, createPlanError)
+  }
+
+  try {
+    await syncStarterFestivalPlanValuesForContext({
+      supabase,
+      profileId: profile.id,
+      templateId: template.id,
+      planId: createdPlan.id as string,
+      nowIso,
+      starterPlan,
+      mode: 'all',
+    })
+  } catch (error) {
+    await supabase.from('emp_plans').delete().eq('id', createdPlan.id)
+    throw error
+  }
+
+  return createdPlan.id as string
+}
+
+export async function createEmpStarterFestivalPlanByKey(key: string) {
+  const starterPlan = getEmpStarterFestivalPlanByKey(key)
+  if (!starterPlan) {
+    throw new Error(`Unknown EMP starter festival plan: ${key}`)
+  }
+
+  return createEmpStarterFestivalPlan(starterPlan)
+}
+
+export async function createEmpStarterFestivalPlans() {
+  for (const starterPlan of EMP_STARTER_FESTIVAL_PLANS) {
+    await createEmpStarterFestivalPlan(starterPlan)
+  }
+}
+
 export async function createEmpDemoPlan() {
   const { supabase, profile } = await getEmpUserContext()
   const template = await ensureEmpTemplateSeededForContext(supabase, profile.id)
@@ -1525,6 +1806,7 @@ export async function getEmpPlanEditorData(planId: string): Promise<EmpPlanEdito
   const isDownloadSeedPlan = isEmpDownloadSeedPlan(initialPlan)
   const isIsleOfWightSeedPlan = isEmpIsleOfWightSeedPlan(initialPlan)
   const isParklifeSeedPlan = isEmpParklifeSeedPlan(initialPlan)
+  const starterFestivalSeedPlan = getEmpStarterFestivalSeedPlan(initialPlan)
 
   if (isDownloadSeedPlan) {
     await syncDownloadPlanValuesForContext({
@@ -1571,7 +1853,23 @@ export async function getEmpPlanEditorData(planId: string): Promise<EmpPlanEdito
     })
   }
 
-  const plan = isDownloadSeedPlan || isIsleOfWightSeedPlan || isParklifeSeedPlan
+  if (starterFestivalSeedPlan) {
+    await syncStarterFestivalPlanValuesForContext({
+      supabase,
+      profileId: profile.id,
+      templateId: initialPlan.template_id,
+      planId,
+      nowIso: new Date().toISOString(),
+      starterPlan: starterFestivalSeedPlan,
+      mode: 'missing-only',
+      forceSummary: shouldSyncSeedPlanSummaryStatus(
+        initialPlan,
+        starterFestivalSeedPlan.values.document_status
+      ),
+    })
+  }
+
+  const plan = isDownloadSeedPlan || isIsleOfWightSeedPlan || isParklifeSeedPlan || starterFestivalSeedPlan
     ? await getPlanOrThrow(supabase, planId)
     : initialPlan
   const templateGraph = await loadTemplateGraph(supabase, plan.template_id)

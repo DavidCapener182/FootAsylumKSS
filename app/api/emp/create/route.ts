@@ -8,6 +8,7 @@ import {
   createEmpParklifePlan,
   createEmpPlan,
   createEmpPlanFromBusinessTemplate,
+  createEmpStarterFestivalPlanByKey,
 } from '@/lib/emp/data'
 
 export const dynamic = 'force-dynamic'
@@ -37,6 +38,20 @@ export async function POST(request: NextRequest) {
           ? await createEmpIsleOfWightPlan()
         : kind === 'parklife' || kind === 'park-life'
           ? await createEmpParklifePlan()
+        : kind === 'state_fayre' || kind === 'state-fayre'
+          ? await createEmpStarterFestivalPlanByKey('state_fayre')
+        : kind === 'latitude'
+          ? await createEmpStarterFestivalPlanByKey('latitude')
+        : kind === 'wilderness'
+          ? await createEmpStarterFestivalPlanByKey('wilderness')
+        : kind === 'leeds'
+          ? await createEmpStarterFestivalPlanByKey('leeds')
+        : kind === 'reading'
+          ? await createEmpStarterFestivalPlanByKey('reading')
+        : kind === 'electric_picnic' || kind === 'electric-picnic'
+          ? await createEmpStarterFestivalPlanByKey('electric_picnic')
+        : kind === 'radio_2' || kind === 'radio-2' || kind === 'radio2'
+          ? await createEmpStarterFestivalPlanByKey('radio_2')
         : kind === 'business_template' || kind === 'radio_one_template'
           ? await createEmpPlanFromBusinessTemplate()
           : await createEmpPlan()

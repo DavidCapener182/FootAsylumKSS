@@ -10,7 +10,7 @@ import { EMP_DOWNLOAD_EVENT_NAME } from '@/lib/emp/download-plan'
 import { EMP_ISLE_OF_WIGHT_EVENT_NAME } from '@/lib/emp/isle-of-wight-plan'
 import { EMP_PARKLIFE_EVENT_NAME } from '@/lib/emp/parklife-plan'
 import type { EmpPlanSummary } from '@/lib/emp/data'
-import { isRadioOneEmpPlan, splitEmpPlansByHistory } from '@/lib/emp/plan-history'
+import { isRadioOneEmpPlan, sortActiveEmpPlansByDate, splitEmpPlansByHistory } from '@/lib/emp/plan-history'
 import { cn, formatAppDateTime } from '@/lib/utils'
 
 export function EmpWorkspaceClient({ plans }: { plans: EmpPlanSummary[] }) {
@@ -20,6 +20,7 @@ export function EmpWorkspaceClient({ plans }: { plans: EmpPlanSummary[] }) {
   const [actionError, setActionError] = useState<string | null>(null)
   const [pendingAction, setPendingAction] = useState<'new' | 'example' | 'isle_of_wight' | 'parklife' | null>(null)
   const { activePlans, historyPlans } = splitEmpPlansByHistory(planList)
+  const sortedActivePlans = sortActiveEmpPlansByDate(activePlans)
 
   const navigateTo = (href: string) => {
     window.location.assign(href)
@@ -285,7 +286,7 @@ export function EmpWorkspaceClient({ plans }: { plans: EmpPlanSummary[] }) {
               No active event management plans are in progress.
             </div>
           ) : (
-            activePlans.map((plan) => renderPlanRow(plan))
+            sortedActivePlans.map((plan) => renderPlanRow(plan))
           )}
         </CardContent>
       </Card>

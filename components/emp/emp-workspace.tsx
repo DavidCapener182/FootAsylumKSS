@@ -14,7 +14,7 @@ import {
   EMP_IRELAND_SIGN_IN_PRESET_ID,
 } from '@/lib/emp/ireland-jobs'
 import { EMP_VISIBLE_MASTER_TEMPLATES } from '@/lib/emp/master-templates'
-import { isRadioOneEmpPlan, splitEmpPlansByHistory } from '@/lib/emp/plan-history'
+import { isRadioOneEmpPlan, sortActiveEmpPlansByDate, splitEmpPlansByHistory } from '@/lib/emp/plan-history'
 import { cn, formatAppDateTime } from '@/lib/utils'
 
 function EmpPlanRow({ plan, completed = false }: { plan: EmpPlanSummary; completed?: boolean }) {
@@ -138,6 +138,7 @@ function IrelandJobsDocumentsRow() {
 
 export function EmpWorkspace({ plans }: { plans: EmpPlanSummary[] }) {
   const { activePlans, historyPlans } = splitEmpPlansByHistory(plans)
+  const sortedActivePlans = sortActiveEmpPlansByDate(activePlans)
 
   return (
     <div className="space-y-6">
@@ -246,7 +247,7 @@ export function EmpWorkspace({ plans }: { plans: EmpPlanSummary[] }) {
         </CardHeader>
         <CardContent className="space-y-4">
           <IrelandJobsDocumentsRow />
-          {activePlans.map((plan) => <EmpPlanRow key={plan.id} plan={plan} />)}
+          {sortedActivePlans.map((plan) => <EmpPlanRow key={plan.id} plan={plan} />)}
         </CardContent>
       </Card>
 

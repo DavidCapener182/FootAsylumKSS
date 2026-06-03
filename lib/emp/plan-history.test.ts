@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   isCompletedEmpHistoryPlan,
   isRadioOneEmpPlan,
+  sortActiveEmpPlansByDate,
   splitEmpPlansByHistory,
 } from '@/lib/emp/plan-history'
 
@@ -56,5 +57,73 @@ describe('EMP plan history grouping', () => {
         status: 'completed',
       })
     ).toBe(true)
+  })
+
+  it('sorts active festival plans by nearest 2026 event start date first', () => {
+    const plans = [
+      {
+        id: 'wilderness',
+        title: 'KSS NW LTD Event Management Plan - Wilderness Festival 2026',
+        eventName: 'Wilderness Festival 2026',
+      },
+      {
+        id: 'radio-2',
+        title: 'KSS NW LTD Event Management Plan - BBC Radio 2 in the Park 2026',
+        eventName: 'BBC Radio 2 in the Park 2026',
+      },
+      {
+        id: 'parklife',
+        title: 'KSS NW LTD Bar Security Operations Plan - Parklife Festival 2026',
+        eventName: 'Parklife Festival 2026',
+      },
+      {
+        id: 'electric-picnic',
+        title: 'KSS NW LTD Event Management Plan - Electric Picnic 2026',
+        eventName: 'Electric Picnic 2026',
+      },
+      {
+        id: 'reading',
+        title: 'KSS NW LTD Event Management Plan - Reading Festival 2026',
+        eventName: 'Reading Festival 2026',
+      },
+      {
+        id: 'latitude',
+        title: 'KSS NW LTD Event Management Plan - Latitude Festival 2026',
+        eventName: 'Latitude Festival 2026',
+      },
+      {
+        id: 'download',
+        title: 'KSS NW LTD Event Management Plan - Download Festival 2026',
+        eventName: 'Download Festival 2026',
+      },
+      {
+        id: 'state-fayre',
+        title: 'KSS NW LTD Event Management Plan - State Fayre Festival 2026',
+        eventName: 'State Fayre Festival 2026',
+      },
+      {
+        id: 'leeds',
+        title: 'KSS NW LTD Event Management Plan - Leeds Festival 2026',
+        eventName: 'Leeds Festival 2026',
+      },
+      {
+        id: 'isle-of-wight',
+        title: 'KSS NW LTD Event Management Plan - Isle of Wight Festival 2026',
+        eventName: 'Isle of Wight Festival 2026',
+      },
+    ]
+
+    expect(sortActiveEmpPlansByDate(plans).map((plan) => plan.id)).toEqual([
+      'download',
+      'isle-of-wight',
+      'parklife',
+      'state-fayre',
+      'latitude',
+      'wilderness',
+      'leeds',
+      'reading',
+      'electric-picnic',
+      'radio-2',
+    ])
   })
 })
