@@ -10,6 +10,9 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
+const authCardClassName =
+  'w-full overflow-hidden rounded-[24px] border border-white/60 bg-white/95 shadow-[0_20px_48px_rgba(2,12,27,0.28)] backdrop-blur-md sm:rounded-lg sm:border-0 sm:bg-white sm:shadow-2xl'
+
 function ResetPasswordContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -20,6 +23,9 @@ function ResetPasswordContent() {
   const [success, setSuccess] = useState(false)
   const [linkType, setLinkType] = useState<string | null>(null)
   const [isExpired, setIsExpired] = useState(false)
+  const queryLinkType = searchParams?.get('type') || null
+  const activeLinkType = linkType || queryLinkType
+  const isInvite = activeLinkType === 'invite'
 
   useEffect(() => {
     // Check if we have the necessary tokens in the URL
@@ -119,9 +125,9 @@ function ResetPasswordContent() {
 
   if (success) {
     return (
-      <AuthShell logoSize="compact" desktopLogoPosition="corner">
-          <Card className="w-full rounded-[28px] border border-white/65 bg-white/94 shadow-[0_20px_60px_rgba(2,12,27,0.28)] backdrop-blur-xl sm:rounded-lg sm:border-0 sm:bg-white/95 sm:shadow-2xl sm:backdrop-blur-sm">
-            <CardHeader className="px-5 pt-5 text-center sm:px-6 sm:pt-6">
+      <AuthShell logoSize="compact" desktopLogoPosition="corner" contentClassName="max-w-[calc(100vw-2rem)] sm:max-w-md">
+          <Card className={authCardClassName} data-reset-card>
+            <CardHeader className="px-5 py-6 text-center sm:px-6 sm:py-6">
               <CardTitle className="mb-2 text-2xl font-bold text-slate-900 sm:text-3xl">
                 Password set successfully
               </CardTitle>
@@ -135,26 +141,16 @@ function ResetPasswordContent() {
   }
 
   return (
-    <AuthShell logoSize="compact" desktopLogoPosition="corner">
-        <Card className="w-full rounded-[28px] border border-white/65 bg-white/94 shadow-[0_20px_60px_rgba(2,12,27,0.28)] backdrop-blur-xl sm:rounded-lg sm:border-0 sm:bg-white/95 sm:shadow-2xl sm:backdrop-blur-sm">
+    <AuthShell logoSize="compact" desktopLogoPosition="corner" contentClassName="max-w-[calc(100vw-2rem)] sm:max-w-md">
+        <Card className={authCardClassName} data-reset-card>
           <CardHeader className="px-5 pt-5 text-center sm:px-6 sm:pt-6">
             <CardTitle className="mb-2 text-2xl font-bold text-slate-900 sm:text-3xl">
-              {(() => {
-                const hashParams = new URLSearchParams(window.location.hash.substring(1))
-                const queryParams = new URLSearchParams(window.location.search)
-                const type = hashParams.get('type') || queryParams.get('type')
-                return type === 'invite' ? 'Set your password' : 'Set new password'
-              })()}
+              {isInvite ? 'Set your password' : 'Set new password'}
             </CardTitle>
             <CardDescription className="mx-auto max-w-sm text-sm text-slate-600 sm:text-base">
-              {(() => {
-                const hashParams = new URLSearchParams(window.location.hash.substring(1))
-                const queryParams = new URLSearchParams(window.location.search)
-                const type = hashParams.get('type') || queryParams.get('type')
-                return type === 'invite' 
-                  ? 'Welcome! Please set a password to complete your account setup.'
-                  : 'Enter your new password below'
-              })()}
+              {isInvite
+                ? 'Welcome! Please set a password to complete your account setup.'
+                : 'Enter your new password below'}
             </CardDescription>
           </CardHeader>
           <CardContent className="px-5 pb-5 sm:px-6 sm:pb-6">
@@ -195,12 +191,12 @@ function ResetPasswordContent() {
                 {isExpired && (
                   <div className="space-y-3 pt-2">
                     <p className="text-sm text-muted-foreground">
-                      {linkType === 'invite' 
+                      {activeLinkType === 'invite'
                         ? 'This invitation link has expired. Please contact your administrator to request a new invitation, or use the options below:'
                         : 'This password reset link has expired. Please request a new one:'}
                     </p>
                     <div className="flex flex-col gap-2">
-                      {linkType === 'invite' ? (
+                      {activeLinkType === 'invite' ? (
                         <>
                           <Link href="/login/forgot-password">
                             <Button variant="outline" className="w-full border-[#0e1925] text-[#0e1925] hover:bg-[#0e1925] hover:text-white">
@@ -243,8 +239,8 @@ function ResetPasswordContent() {
 export default function ResetPasswordPage() {
   return (
     <Suspense fallback={
-      <AuthShell logoSize="compact" desktopLogoPosition="corner">
-        <Card className="w-full rounded-[28px] border border-white/65 bg-white/94 backdrop-blur-xl sm:rounded-lg sm:border-0 sm:bg-white/95 sm:shadow-2xl sm:backdrop-blur-sm">
+      <AuthShell logoSize="compact" desktopLogoPosition="corner" contentClassName="max-w-[calc(100vw-2rem)] sm:max-w-md">
+        <Card className={authCardClassName} data-reset-card>
           <CardContent className="flex items-center justify-center py-12">
             <div className="text-center">
               <p className="text-slate-600">Loading...</p>
