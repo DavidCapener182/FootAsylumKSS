@@ -712,7 +712,7 @@ export function AdminClient() {
                 Admin
               </Badge>
               <span className="text-muted-foreground">
-                Full access to all features including this admin page, SafeHub Audit Lab, Crowd Management Plans, and Event Management Plans. Assign sparingly to trusted KSS administrators.
+                Full access to all features including this admin page, SafeHub Audit Lab, and Event Management Plans. Assign sparingly to trusted KSS administrators.
               </span>
             </div>
             <div>
