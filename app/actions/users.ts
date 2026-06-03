@@ -18,6 +18,10 @@ type AuthLookupRecord = {
   last_sign_in_at: string | null
 }
 
+function isHiddenTestUserEmail(email: string | null | undefined) {
+  return email?.toLowerCase().endsWith('@footasylum.local') ?? false
+}
+
 async function getAuthLookupById(): Promise<Map<string, AuthLookupRecord>> {
   const adminClient = createAdminSupabaseClient()
   const lookup = new Map<string, AuthLookupRecord>()
@@ -62,17 +66,19 @@ export async function getAllUsers(): Promise<UserWithProfile[]> {
     throw new Error(`Failed to fetch profiles: ${profilesError.message}`)
   }
 
-  return (profiles || []).map((profile: any) => {
-    const authUser = authLookupById.get(profile.id)
-    return {
-      id: profile.id,
-      email: authUser?.email || 'Email not available',
-      full_name: profile.full_name,
-      role: profile.role,
-      created_at: profile.created_at,
-      last_sign_in_at: authUser?.last_sign_in_at || null,
-    }
-  })
+  return (profiles || [])
+    .map((profile: any) => {
+      const authUser = authLookupById.get(profile.id)
+      return {
+        id: profile.id,
+        email: authUser?.email || 'Email not available',
+        full_name: profile.full_name,
+        role: profile.role,
+        created_at: profile.created_at,
+        last_sign_in_at: authUser?.last_sign_in_at || null,
+      }
+    })
+    .filter((user) => !isHiddenTestUserEmail(user.email))
 }
 
 /**
