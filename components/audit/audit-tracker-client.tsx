@@ -4,8 +4,9 @@ import { useState } from 'react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AuditTable, AuditRow } from './audit-table'
 import { AuditLeagueTable } from './audit-league-table'
+import { AuditImprovementTable } from './audit-improvement-table'
 import { AuditStatsCards } from './audit-stats-cards'
-import { ClipboardCheck, Download, Map, Trophy } from 'lucide-react'
+import { ClipboardCheck, Download, Map, TrendingUp, Trophy } from 'lucide-react'
 import { UserRole } from '@/lib/auth'
 
 interface AuditTrackerClientProps {
@@ -14,7 +15,7 @@ interface AuditTrackerClientProps {
 }
 
 export function AuditTrackerClient({ stores, userRole }: AuditTrackerClientProps) {
-  const [activeView, setActiveView] = useState<'by-area' | 'league'>('by-area')
+  const [activeView, setActiveView] = useState<'by-area' | 'league' | 'improved'>('by-area')
   const [areaFilter, setAreaFilter] = useState<string>('all')
 
   return (
@@ -48,14 +49,14 @@ export function AuditTrackerClient({ stores, userRole }: AuditTrackerClientProps
       </div>
 
       <div className="max-w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm md:rounded-3xl">
-        <Tabs value={activeView} onValueChange={(value) => setActiveView(value as 'by-area' | 'league')} className="w-full">
+        <Tabs value={activeView} onValueChange={(value) => setActiveView(value as 'by-area' | 'league' | 'improved')} className="w-full">
           <div className="border-b border-slate-100 p-4 md:p-6">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="min-w-0 space-y-1">
                 <h2 className="text-lg font-bold text-slate-800 md:text-xl">Detailed Audit Reports</h2>
-                <p className="text-sm leading-5 text-slate-500">Switch between grouped area cards and a ranked league table.</p>
+                <p className="text-sm leading-5 text-slate-500">Switch between grouped area cards, latest rankings, and audit-to-audit movement.</p>
               </div>
-              <TabsList className="grid h-auto min-h-[44px] w-full min-w-0 grid-cols-2 rounded-2xl bg-slate-100 p-1 lg:w-auto lg:min-w-[320px] lg:rounded-xl">
+              <TabsList className="grid h-auto min-h-[44px] w-full min-w-0 grid-cols-3 rounded-2xl bg-slate-100 p-1 lg:w-auto lg:min-w-[500px] lg:rounded-xl">
                 <TabsTrigger
                   value="by-area"
                   className="flex min-h-[44px] min-w-0 items-center justify-center gap-1.5 overflow-hidden rounded-xl px-2 text-xs font-bold text-slate-500 transition-all data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm sm:gap-2 sm:text-sm"
@@ -68,7 +69,16 @@ export function AuditTrackerClient({ stores, userRole }: AuditTrackerClientProps
                   className="flex min-h-[44px] min-w-0 items-center justify-center gap-1.5 overflow-hidden rounded-xl px-2 text-xs font-bold text-slate-500 transition-all data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm sm:gap-2 sm:text-sm"
                 >
                   <Trophy className="h-4 w-4 shrink-0" />
-                  <span className="truncate">League Table</span>
+                  <span className="truncate sm:hidden">League</span>
+                  <span className="hidden truncate sm:inline">League Table</span>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="improved"
+                  className="flex min-h-[44px] min-w-0 items-center justify-center gap-1.5 overflow-hidden rounded-xl px-2 text-xs font-bold text-slate-500 transition-all data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm sm:gap-2 sm:text-sm"
+                >
+                  <TrendingUp className="h-4 w-4 shrink-0" />
+                  <span className="truncate sm:hidden">Improved</span>
+                  <span className="hidden truncate sm:inline">Most Improved</span>
                 </TabsTrigger>
               </TabsList>
             </div>
@@ -81,6 +91,15 @@ export function AuditTrackerClient({ stores, userRole }: AuditTrackerClientProps
 
             <TabsContent value="league" className="mt-0">
               <AuditLeagueTable
+                rows={stores}
+                userRole={userRole}
+                areaFilter={areaFilter}
+                onAreaFilterChange={setAreaFilter}
+              />
+            </TabsContent>
+
+            <TabsContent value="improved" className="mt-0">
+              <AuditImprovementTable
                 rows={stores}
                 userRole={userRole}
                 areaFilter={areaFilter}

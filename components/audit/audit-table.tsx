@@ -71,7 +71,7 @@ type UpcomingActionFlag = {
 }
 
 function getLatestCompletedHSAuditDate(row: AuditRow): Date | null {
-  const candidateDates = [row.compliance_audit_1_date, row.compliance_audit_2_date]
+  const candidateDates = [row.compliance_audit_1_date, row.compliance_audit_2_date, row.compliance_audit_3_date]
     .filter((value): value is string => Boolean(value))
     .map((value) => new Date(value))
     .filter((date) => !Number.isNaN(date.getTime()))
@@ -228,7 +228,7 @@ export function AuditTable({
   // Helper to check if a store has any completed audit.
   // "Hide Completed" should surface stores with no completed audits yet.
   const hasAnyCompletedAudit = (row: AuditRow): boolean => {
-    return hasCompletedAudit(row, 1) || hasCompletedAudit(row, 2)
+    return getCompletedAuditCount(row) > 0
   }
 
   const filtered = useMemo(() => {

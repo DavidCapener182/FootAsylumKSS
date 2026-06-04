@@ -14,6 +14,7 @@ import { UserRole } from '@/lib/auth'
 
 // Helper: Get the most recent audit date
 function getLatestDate(row: AuditRow): string | null {
+  if (row.compliance_audit_3_date) return row.compliance_audit_3_date
   if (row.compliance_audit_2_date) return row.compliance_audit_2_date
   if (row.compliance_audit_1_date) return row.compliance_audit_1_date
   return null
@@ -54,9 +55,7 @@ export function AuditLeagueTable({
   // Helper to check if a store has any completed audit.
   // "Hide Completed" should surface stores with no completed audits yet.
   const hasAnyCompletedAudit = (row: AuditRow): boolean => {
-    const audit1Complete = !!(row.compliance_audit_1_date && row.compliance_audit_1_overall_pct !== null)
-    const audit2Complete = !!(row.compliance_audit_2_date && row.compliance_audit_2_overall_pct !== null)
-    return audit1Complete || audit2Complete
+    return getCompletedAuditCount(row) > 0
   }
 
   // Rank all stores by their latest compliance percentage
