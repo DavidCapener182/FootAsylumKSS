@@ -475,10 +475,24 @@ function parseThreeColumnLines(value: string | null | undefined) {
     .filter(Boolean) as string[][]
 }
 
-function splitThreeColumnLinesToLabels(value: string | null | undefined) {
-  return parseThreeColumnLines(value).map(([first, second]) =>
-    [first, second].filter(Boolean).join(' - ')
-  )
+type CommandRoleRow = [string, string, string]
+
+function parseCommandRoleLines(value: string | null | undefined): CommandRoleRow[] {
+  return splitLines(value)
+    .map((line) => {
+      const [role, lead, ...rest] = splitDashParts(line)
+      return role && lead ? [role, lead, rest.join(' - ')] : null
+    })
+    .filter(Boolean) as CommandRoleRow[]
+}
+
+function commandRoleRowsToDiagramLabels(rows: CommandRoleRow[]) {
+  return rows.map(([role, lead]) => [lead, role].filter(Boolean).join(' - '))
+}
+
+function commandRoleRowsForDiagram(rows: CommandRoleRow[]) {
+  const kssRows = rows.filter(([role]) => /^KSS\b/i.test(role))
+  return kssRows.length ? kssRows : rows
 }
 
 function parseRoleStaffing(role: string) {
@@ -1995,7 +2009,7 @@ function buildSectionBlocks(
         .concat(labeledParagraph('Emergency clearance assumptions', getValue(fieldValues, 'emergency_clearance_assumptions')))
         .concat(labeledParagraph('Degraded route / weather assumptions', getValue(fieldValues, 'degraded_route_weather_assumptions')))
 
-    case 'command_control':
+    case 'command_control': {
       if (radioOne) {
         return labeledParagraph('Command structure', getValue(fieldValues, 'command_structure'))
           .concat(maybeMultiTable(['Role', 'Name', 'Function'], radioOneCommandRows()))
@@ -2011,20 +2025,25 @@ function buildSectionBlocks(
         .concat(labeledParagraph('Briefings, inductions and live observation', 'KSS bar staff complete site induction and bar-specific briefing covering Site Overview V5, mapped bar references, Challenge 25, Peppermint procedures, Event Control escalation, ejection/welfare process, emergency route integrity, medical/welfare locations and staff welfare. Live monitoring uses supervisor observation, queue length, bar operator feedback, Event Control updates and incident/refusal/ejection logs.'))
       }
 
+      const commandRoleRows = parseCommandRoleLines(getValue(fieldValues, 'named_command_roles'))
+      const commandDiagramLabels = commandRoleRowsToDiagramLabels(commandRoleRowsForDiagram(commandRoleRows))
+      const keyContactRows = parseCommandRoleLines(getValue(fieldValues, 'key_contacts_directory'))
+
       return ([{
         type: 'diagram',
         variant: 'command',
-        lead: splitThreeColumnLinesToLabels(getValue(fieldValues, 'named_command_roles'))[0] || summarizeText(getValue(fieldValues, 'command_structure'), 40),
-        control: splitThreeColumnLinesToLabels(getValue(fieldValues, 'named_command_roles'))[1] || 'Event Control',
-        supervisors: splitThreeColumnLinesToLabels(getValue(fieldValues, 'named_command_roles')).slice(2, 6),
+        lead: commandDiagramLabels[0] || summarizeText(getValue(fieldValues, 'command_structure'), 40),
+        control: commandDiagramLabels[1] || 'Event Control',
+        supervisors: commandDiagramLabels.slice(2, 6),
         interfaces: splitList(getValue(fieldValues, 'external_interfaces')).slice(0, 4),
       } as EmpPreviewBlock] as EmpPreviewBlock[])
         .concat(labeledParagraph('Command structure', getValue(fieldValues, 'command_structure')))
         .concat(
-          parseThreeColumnLines(getValue(fieldValues, 'named_command_roles')).length
+          commandRoleRows.length
             ? maybeMultiTable(
                 ['Role', 'Lead', 'Function'],
-                parseThreeColumnLines(getValue(fieldValues, 'named_command_roles'))
+                commandRoleRows,
+                { compact: true, avoidRowSplit: true, rowUnitScale: 0.64 }
               )
             : labeledParagraph('Named command roles', getValue(fieldValues, 'named_command_roles'))
         )
@@ -2039,10 +2058,11 @@ function buildSectionBlocks(
         .concat(labeledParagraph('Reporting lines', getValue(fieldValues, 'reporting_lines')))
         .concat(maybeBullets(getValue(fieldValues, 'external_interfaces'), { keepTogether: true, startOnNewPage: true }))
         .concat(
-          parseThreeColumnLines(getValue(fieldValues, 'key_contacts_directory')).length
+          keyContactRows.length
             ? maybeMultiTable(
                 ['Function', 'Lead', 'Contact'],
-                parseThreeColumnLines(getValue(fieldValues, 'key_contacts_directory'))
+                keyContactRows,
+                { compact: true, avoidRowSplit: true, rowUnitScale: 0.64 }
               )
             : labeledParagraph('Key contacts directory', getValue(fieldValues, 'key_contacts_directory'))
         )
@@ -2051,6 +2071,7 @@ function buildSectionBlocks(
           labeledParagraph('Briefings and inductions', getValue(fieldValues, 'briefing_and_induction'), { keepWithNext: true })
             .concat(labeledParagraph('Monitoring technology and live observation', getValue(fieldValues, 'monitoring_and_density_tools')))
         )
+    }
 
     case 'deployment_strategy':
       return labeledParagraph('Service directory and operational scope', getValue(fieldValues, 'service_delivery_scope'))

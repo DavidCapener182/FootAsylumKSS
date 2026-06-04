@@ -17,7 +17,7 @@ export function ComplianceProgressPanel({ data }: { data: DashboardData }) {
 
   return (
     <Panel title="Compliance Progress" icon={Activity} actionLabel={`${totalStores} stores`}>
-      <div className="space-y-4">
+      <div className="space-y-2.5 sm:space-y-4">
         <ComplianceProgressRow label="Audit 1 Complete" value={audit1Complete} percentage={safeNumber(data.auditStats?.firstAuditPercentage, percent(audit1Complete, totalStores))} tone="success" />
         <ComplianceProgressRow label="Audit 2 Complete" value={audit2Complete} percentage={safeNumber(data.auditStats?.secondAuditPercentage, percent(audit2Complete, totalStores))} tone="success" />
         <ComplianceProgressRow label="Awaiting Second Audit" value={awaitingSecondAudit} percentage={percent(awaitingSecondAudit, totalStores)} tone="info" />
@@ -26,7 +26,7 @@ export function ComplianceProgressPanel({ data }: { data: DashboardData }) {
         <ComplianceProgressRow label="FRA Due Soon" value={fraDueSoon} percentage={percent(fraDueSoon, totalStores)} tone="warning" />
       </div>
 
-      <Link href="/reports" prefetch={false} className="mt-5 inline-flex items-center text-sm font-semibold text-blue-600 hover:text-blue-800">
+      <Link href="/reports" prefetch={false} className="mt-3 inline-flex items-center text-xs font-semibold text-blue-600 hover:text-blue-800 sm:mt-5 sm:text-sm">
         View full compliance report <ChevronRight className="ml-1 h-4 w-4" />
       </Link>
     </Panel>
@@ -48,9 +48,9 @@ function ComplianceProgressRow({
 
   return (
     <div>
-      <div className="mb-2 flex items-center justify-between gap-3 text-sm">
-        <span className="font-medium text-slate-700">{label}</span>
-        <span className="font-semibold text-slate-900">
+      <div className="mb-1.5 flex items-center justify-between gap-3 text-xs sm:mb-2 sm:text-sm">
+        <span className="min-w-0 truncate font-medium text-slate-700">{label}</span>
+        <span className="flex-shrink-0 font-semibold tabular-nums text-slate-900">
           {value} <span className="text-xs font-medium text-slate-500">({clampPercentage(percentage)}%)</span>
         </span>
       </div>

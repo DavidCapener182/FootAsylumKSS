@@ -25,11 +25,11 @@ export function ComplianceByRegionPanel({ data }: { data: DashboardData }) {
       {validRegions.length === 0 ? (
         <EmptyState icon={MapPin} title="Regional compliance data unavailable" description="Region-level compliance will appear once the dashboard receives regional store status data." />
       ) : (
-        <div className="grid gap-5 sm:grid-cols-[180px_1fr] xl:grid-cols-1 2xl:grid-cols-[180px_1fr]">
-          <div className="relative h-44">
+        <div className="grid grid-cols-[112px_minmax(0,1fr)] items-center gap-3 sm:grid-cols-[180px_1fr] sm:gap-5 xl:grid-cols-1 2xl:grid-cols-[180px_1fr]">
+          <div className="relative h-28 sm:h-44">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie data={validRegions} dataKey="inDate" nameKey="name" innerRadius={55} outerRadius={78} paddingAngle={2} strokeWidth={0}>
+                <Pie data={validRegions} dataKey="inDate" nameKey="name" innerRadius="56%" outerRadius="82%" paddingAngle={2} strokeWidth={0}>
                   {validRegions.map((region, index) => (
                     <Cell key={region.name} fill={chartColours[index % chartColours.length]} />
                   ))}
@@ -37,14 +37,14 @@ export function ComplianceByRegionPanel({ data }: { data: DashboardData }) {
               </PieChart>
             </ResponsiveContainer>
             <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-              <p className="text-3xl font-bold text-slate-900">{overall}%</p>
-              <p className="text-xs font-semibold text-slate-500">Overall</p>
+              <p className="text-xl font-bold text-slate-900 sm:text-3xl">{overall}%</p>
+              <p className="text-[10px] font-semibold text-slate-500 sm:text-xs">Overall</p>
             </div>
           </div>
 
-          <div className="min-w-0 space-y-2">
+          <div className="min-w-0 space-y-1.5 sm:space-y-2">
             {validRegions.slice(0, 6).map((region, index) => (
-              <div key={region.name} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 text-xs sm:text-sm">
+              <div key={region.name} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 text-[11px] sm:text-sm">
                 <span className="flex min-w-0 items-center gap-2 text-slate-600">
                   <span className="h-2.5 w-2.5 flex-shrink-0 rounded-full" style={{ backgroundColor: chartColours[index % chartColours.length] }} />
                   <span className="truncate">{region.name}</span>

@@ -17,6 +17,7 @@ import {
   type EmpMasterTemplateTone,
   type EmpMasterTemplateTitleTone,
 } from '@/lib/emp/master-templates'
+import { normalizeStaffSignInTableCells } from '@/lib/emp/master-template-prefill'
 import { cn } from '@/lib/utils'
 
 type EmpMasterTemplatePrefillValues = {
@@ -530,6 +531,9 @@ function TableTemplateDocumentWithPrefill({
 }) {
   const visibleColumns = template.columns.filter((column) => !isTableColumnHidden(column, prefillValues))
   const emptyRows = getTableEmptyRowCount(template, prefillValues)
+  const tableCells = template.id === 'staff-sign-in-sign-out-sheet'
+    ? normalizeStaffSignInTableCells(prefillValues?.tableCells)
+    : prefillValues?.tableCells
 
   return (
     <div className="emp-master-template-table-layout flex min-h-0 flex-1 flex-col">
@@ -572,7 +576,7 @@ function TableTemplateDocumentWithPrefill({
                         column.align === 'center' ? 'text-center' : ''
                       )}
                     >
-                      {prefillValues?.tableCells?.[`${rowOffset + rowIndex}:${column.key}`] || ''}
+                      {tableCells?.[`${rowOffset + rowIndex}:${column.key}`] || ''}
                     </td>
                   )
                 })}

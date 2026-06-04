@@ -14,7 +14,7 @@ export function PriorityStoresPanel({ stores }: { stores: PriorityStore[] }) {
         <EmptyState icon={Store} title="No priority stores" description="No stores currently need follow-up attention." />
       ) : (
         <>
-          <div className="space-y-3 md:hidden">
+          <div className="grid grid-cols-2 gap-2 md:hidden">
             {stores.map((store) => (
               <PriorityStoreCard key={store.id} store={store} />
             ))}
@@ -57,14 +57,14 @@ export function PriorityStoresPanel({ stores }: { stores: PriorityStore[] }) {
 
 function PriorityStoreCard({ store }: { store: PriorityStore }) {
   return (
-    <Link href={store.href || '/stores'} prefetch={false} className="block rounded-2xl border border-slate-100 bg-slate-50 p-4">
-      <div className="flex items-start justify-between gap-3">
-        <p className="font-semibold text-slate-900">{store.name}</p>
-        <span className="text-sm font-bold text-red-600">{store.openActions}</span>
+    <Link href={store.href || '/stores'} prefetch={false} className="block min-w-0 rounded-xl border border-slate-100 bg-slate-50 p-2.5 sm:rounded-2xl sm:p-4">
+      <div className="flex items-start justify-between gap-2">
+        <p className="min-w-0 truncate text-xs font-semibold text-slate-900 sm:text-base">{store.name}</p>
+        <span className="flex-shrink-0 text-xs font-bold text-red-600 sm:text-sm">{store.openActions}</span>
       </div>
-      <div className="mt-3 flex flex-wrap gap-2">
-        <StatusBadge label={store.auditStatus} tone={getStatusTone(store.auditStatus)} />
-        <StatusBadge label={store.fraStatus} tone={getStatusTone(store.fraStatus)} />
+      <div className="mt-2 flex min-w-0 flex-col gap-1 sm:mt-3 sm:flex-row sm:flex-wrap sm:gap-2">
+        <StatusBadge label={store.auditStatus} tone={getStatusTone(store.auditStatus)} className="max-w-full truncate px-1.5 text-[9px] sm:px-2 sm:text-[11px]" />
+        <StatusBadge label={store.fraStatus} tone={getStatusTone(store.fraStatus)} className="max-w-full truncate px-1.5 text-[9px] sm:px-2 sm:text-[11px]" />
       </div>
     </Link>
   )

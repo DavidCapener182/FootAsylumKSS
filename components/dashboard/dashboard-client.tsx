@@ -75,11 +75,11 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
 
       <DashboardHeader onGenerateReport={handleGenerateReport} reportLoading={reportLoading} />
 
-      <div className="space-y-6 px-4 py-5 sm:px-6 lg:px-8">
+      <div className="space-y-3 px-3 py-3 pb-28 sm:space-y-6 sm:px-6 sm:py-5 sm:pb-5 lg:px-8">
         <NeedsAttentionSection data={data} />
         <KpiGrid data={data} />
 
-        <div className="grid gap-6 xl:grid-cols-12">
+        <div className="grid gap-3 md:gap-6 xl:grid-cols-12">
           <div className="xl:col-span-5">
             <ComplianceProgressPanel data={data} />
           </div>
@@ -91,7 +91,7 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
           </div>
         </div>
 
-        <div className="grid gap-6 xl:grid-cols-12">
+        <div className="grid gap-3 md:gap-6 xl:grid-cols-12">
           <div className="xl:col-span-4">
             <RecentActivityPanel activity={Array.isArray(data.recentActivity) ? data.recentActivity : []} />
           </div>

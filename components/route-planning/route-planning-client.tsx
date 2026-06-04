@@ -30,8 +30,16 @@ import {
   X,
 } from 'lucide-react'
 import dynamic from 'next/dynamic'
-import { updateRoutePlannedDate, updateManagerHomeAddress, getRouteOperationalItems, deleteAllRouteVisitTimes, deleteAllRouteOperationalItems } from '@/app/actions/route-planning'
-import { format } from 'date-fns'
+import {
+  completeRoute,
+  deleteAllRouteOperationalItems,
+  deleteAllRouteVisitTimes,
+  getRouteOperationalItems,
+  rescheduleRoute,
+  updateManagerHomeAddress,
+  updateRoutePlannedDate,
+} from '@/app/actions/route-planning'
+import { format, isBefore, parseISO, startOfDay } from 'date-fns'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { RouteDirectionsModal } from './route-directions-modal'
 import { getInternalAreaDisplayName, MULTI_AREA_REGION } from '@/lib/areas'
@@ -98,6 +106,33 @@ function getRouteRegion(stores: Store[]): string | null {
   return null
 }
 
+function getTodayDateInputValue(): string {
+  return format(new Date(), 'yyyy-MM-dd')
+}
+
+function parsePlannedRouteDate(plannedDate: string | null | undefined): Date | null {
+  if (!plannedDate) return null
+
+  const parsedDate = parseISO(plannedDate)
+  if (Number.isNaN(parsedDate.getTime())) return null
+
+  return startOfDay(parsedDate)
+}
+
+function isPlannedRoutePast(plannedDate: string | null | undefined): boolean {
+  const routeDate = parsePlannedRouteDate(plannedDate)
+  if (!routeDate) return false
+
+  return isBefore(routeDate, startOfDay(new Date()))
+}
+
+function formatPlannedRouteDate(plannedDate: string | null | undefined, pattern = 'dd/MM/yyyy'): string {
+  const routeDate = parsePlannedRouteDate(plannedDate)
+  if (!routeDate) return '-'
+
+  return format(routeDate, pattern)
+}
+
 export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
   const router = useRouter()
   const [stores, setStores] = useState(initialData.stores)
@@ -113,6 +148,11 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
   const [selectedStores, setSelectedStores] = useState<Set<string>>(new Set())
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [storeToDelete, setStoreToDelete] = useState<{ id: string; name: string } | null>(null)
+  const [overdueRouteKey, setOverdueRouteKey] = useState<string | null>(null)
+  const [dismissedOverdueRouteKeys, setDismissedOverdueRouteKeys] = useState<Set<string>>(new Set())
+  const [overdueRouteNewDate, setOverdueRouteNewDate] = useState<string>('')
+  const [isOverdueReviewPaused, setIsOverdueReviewPaused] = useState(false)
+  const [isResolvingOverdueRoute, setIsResolvingOverdueRoute] = useState(false)
   
   // Route creation state
   const [routeManager, setRouteManager] = useState<string | undefined>(undefined)
@@ -346,6 +386,54 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
       return dateA.localeCompare(dateB)
     })
   }, [stores, routeStoreOrder])
+
+  const overdueRoutes = useMemo(
+    () => plannedRoutes.filter((group) => isPlannedRoutePast(group.plannedDate)),
+    [plannedRoutes]
+  )
+
+  const activeOverdueRoute = useMemo(() => {
+    if (isOverdueReviewPaused) return null
+
+    if (overdueRouteKey) {
+      return (
+        overdueRoutes.find((group) => {
+          const groupKey = (group as any)._groupKey || getPlannedRouteGroupKey(group.plannedDate, group.managerId)
+          return groupKey === overdueRouteKey
+        }) || null
+      )
+    }
+
+    return (
+      overdueRoutes.find((group) => {
+        const groupKey = (group as any)._groupKey || getPlannedRouteGroupKey(group.plannedDate, group.managerId)
+        return !dismissedOverdueRouteKeys.has(groupKey)
+      }) || null
+    )
+  }, [dismissedOverdueRouteKeys, isOverdueReviewPaused, overdueRouteKey, overdueRoutes])
+
+  const activeOverdueRouteKey = activeOverdueRoute
+    ? (activeOverdueRoute as any)._groupKey ||
+      getPlannedRouteGroupKey(activeOverdueRoute.plannedDate, activeOverdueRoute.managerId)
+    : null
+
+  useEffect(() => {
+    if (overdueRouteKey && !overdueRoutes.some((group) => {
+      const groupKey = (group as any)._groupKey || getPlannedRouteGroupKey(group.plannedDate, group.managerId)
+      return groupKey === overdueRouteKey
+    })) {
+      setOverdueRouteKey(null)
+    }
+  }, [overdueRouteKey, overdueRoutes])
+
+  useEffect(() => {
+    if (!activeOverdueRouteKey) {
+      setOverdueRouteNewDate('')
+      return
+    }
+
+    setOverdueRouteNewDate(getTodayDateInputValue())
+  }, [activeOverdueRouteKey])
 
   const handleDateChange = async (storeId: string, date: string) => {
     setLoading({ ...loading, [storeId]: true })
@@ -857,6 +945,119 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
       setLoading((current) => ({ ...current, [group.stores[0].id]: false }))
     }
   }
+
+  const openOverdueRouteReview = (groupKey: string) => {
+    setOverdueRouteKey(groupKey)
+    setOverdueRouteNewDate(getTodayDateInputValue())
+    setIsOverdueReviewPaused(false)
+  }
+
+  const closeOverdueRouteReview = () => {
+    if (isResolvingOverdueRoute) return
+
+    setOverdueRouteKey(null)
+    setOverdueRouteNewDate('')
+    setIsOverdueReviewPaused(true)
+  }
+
+  const clearResolvedOverdueRoute = (groupKey: string) => {
+    setDismissedOverdueRouteKeys((current) => {
+      const next = new Set(current)
+      next.add(groupKey)
+      return next
+    })
+    setOverdueRouteKey(null)
+    setOverdueRouteNewDate('')
+    setIsOverdueReviewPaused(false)
+  }
+
+  const handleCompleteOverdueRoute = async () => {
+    if (!activeOverdueRoute || !activeOverdueRouteKey) return
+
+    setIsResolvingOverdueRoute(true)
+    const storeIds = activeOverdueRoute.stores.map((store) => store.id)
+
+    try {
+      const result = await completeRoute(storeIds)
+
+      if (result.error) {
+        alert(`Error completing route: ${result.error}`)
+        return
+      }
+
+      if (activeOverdueRoute.managerId && activeOverdueRoute.plannedDate) {
+        const cleanupResults = await Promise.all([
+          deleteAllRouteVisitTimes(activeOverdueRoute.managerId, activeOverdueRoute.plannedDate, activeOverdueRoute.region),
+          deleteAllRouteOperationalItems(activeOverdueRoute.managerId, activeOverdueRoute.plannedDate, activeOverdueRoute.region),
+        ])
+        const cleanupError = cleanupResults.find((cleanupResult) => cleanupResult.error)?.error
+        if (cleanupError) {
+          console.error('Error clearing completed route detail rows:', cleanupError)
+        }
+      }
+
+      const completedStoreIds = new Set(storeIds)
+      setStores((currentStores) =>
+        currentStores.map((store) =>
+          completedStoreIds.has(store.id)
+            ? {
+                ...store,
+                compliance_audit_2_planned_date: null,
+                route_sequence: null,
+              }
+            : store
+        )
+      )
+      clearResolvedOverdueRoute(activeOverdueRouteKey)
+      router.refresh()
+    } catch (error) {
+      console.error('Error completing overdue route:', error)
+      alert('Error completing route. Please try again.')
+    } finally {
+      setIsResolvingOverdueRoute(false)
+    }
+  }
+
+  const handleRescheduleOverdueRoute = async () => {
+    if (!activeOverdueRoute || !activeOverdueRouteKey || !overdueRouteNewDate) return
+
+    if (isPlannedRoutePast(overdueRouteNewDate)) {
+      alert('Choose today or a future date for the route.')
+      return
+    }
+
+    setIsResolvingOverdueRoute(true)
+    const storeIds = activeOverdueRoute.stores.map((store) => store.id)
+
+    try {
+      const result = await rescheduleRoute(storeIds, overdueRouteNewDate)
+
+      if (result.error) {
+        alert(`Error rescheduling route: ${result.error}`)
+        return
+      }
+
+      const rescheduledStoreIds = new Set(storeIds)
+      setStores((currentStores) =>
+        currentStores.map((store) =>
+          rescheduledStoreIds.has(store.id)
+            ? {
+                ...store,
+                compliance_audit_2_planned_date: overdueRouteNewDate,
+              }
+            : store
+        )
+      )
+      clearResolvedOverdueRoute(activeOverdueRouteKey)
+      router.refresh()
+    } catch (error) {
+      console.error('Error rescheduling overdue route:', error)
+      alert('Error rescheduling route. Please try again.')
+    } finally {
+      setIsResolvingOverdueRoute(false)
+    }
+  }
+
   const plannedStoreCount = plannedRoutes.reduce((total, route) => total + route.stores.length, 0)
   const managerCount = profiles.length
   const storesInRouteAreaMissingCoordsCount = storesInRouteArea.length - storesInRouteAreaWithLocations.length
@@ -1499,11 +1700,15 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
                     (group as any)._groupKey ||
                     getPlannedRouteGroupKey(group.plannedDate, group.managerId)
                   const isEditing = editingRouteGroup === groupKey
+                  const isRouteOverdue = isPlannedRoutePast(group.plannedDate)
 
                   return (
                     <div
                       key={groupKey}
-                      className="rounded-[24px] border border-slate-200 bg-slate-50/70 p-4 shadow-sm"
+                      className={cn(
+                        'rounded-[24px] border border-slate-200 bg-slate-50/70 p-4 shadow-sm',
+                        isRouteOverdue && 'border-amber-200 bg-amber-50/60'
+                      )}
                     >
                       <button
                         type="button"
@@ -1523,6 +1728,12 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
                             {group.stores.length} store{group.stores.length === 1 ? '' : 's'}
                           </span>
                         </div>
+                        {isRouteOverdue ? (
+                          <span className="mt-3 inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-amber-700">
+                            <AlertCircle className="h-3.5 w-3.5" />
+                            Past date
+                          </span>
+                        ) : null}
                       </button>
 
                       <div className="mt-4 rounded-[18px] border border-slate-200 bg-white p-3">
@@ -1553,7 +1764,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
                               className="rounded-full bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-700"
                             >
                               {group.plannedDate
-                                ? format(new Date(group.plannedDate), 'dd/MM/yyyy')
+                                ? formatPlannedRouteDate(group.plannedDate)
                                 : 'Set date'}
                             </button>
                           )}
@@ -1649,6 +1860,16 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
                       )}
 
                       <div className="mt-4 flex flex-wrap gap-2">
+                        {isRouteOverdue ? (
+                          <Button
+                            variant="outline"
+                            onClick={() => openOverdueRouteReview(groupKey)}
+                            className="min-h-[44px] flex-1 rounded-2xl border-amber-200 bg-white text-amber-700 hover:bg-amber-50 hover:text-amber-800"
+                          >
+                            <AlertCircle className="mr-2 h-4 w-4" />
+                            Review
+                          </Button>
+                        ) : null}
                         <Button
                           variant="outline"
                           onClick={() => openRouteDirectionsForGroup(group, groupKey)}
@@ -1704,11 +1925,15 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
                   <TableBody>
                     {plannedRoutes.map((group) => {
                       const groupKey = (group as any)._groupKey || getPlannedRouteGroupKey(group.plannedDate, group.managerId)
+                      const isRouteOverdue = isPlannedRoutePast(group.plannedDate)
                       
                       return (
                         <TableRow 
                           key={groupKey}
-                          className="cursor-pointer hover:bg-slate-50"
+                          className={cn(
+                            'cursor-pointer hover:bg-slate-50',
+                            isRouteOverdue && 'bg-amber-50/40 hover:bg-amber-50'
+                          )}
                           onClick={(e) => {
                             // Don't trigger if clicking on buttons or input fields
                             if ((e.target as HTMLElement).closest('button') || (e.target as HTMLElement).closest('input')) {
@@ -1810,9 +2035,17 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
                                 min={new Date().toISOString().split('T')[0]}
                               />
                             ) : (
-                              <span className="cursor-pointer hover:text-blue-600" onClick={() => setEditingRouteGroup(groupKey)} title="Click to edit date">
-                                {group.plannedDate ? format(new Date(group.plannedDate), 'dd/MM/yyyy') : '-'}
-                              </span>
+                              <div className="flex flex-col items-start gap-1.5">
+                                <span className="cursor-pointer hover:text-blue-600" onClick={() => setEditingRouteGroup(groupKey)} title="Click to edit date">
+                                  {group.plannedDate ? formatPlannedRouteDate(group.plannedDate) : '-'}
+                                </span>
+                                {isRouteOverdue ? (
+                                  <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700">
+                                    <AlertCircle className="h-3 w-3" />
+                                    Past date
+                                  </span>
+                                ) : null}
+                              </div>
                             )}
                           </TableCell>
                           <TableCell>
@@ -1828,6 +2061,20 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
                                 </Button>
                               ) : (
                                 <>
+                                  {isRouteOverdue ? (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        openOverdueRouteReview(groupKey)
+                                      }}
+                                      className="h-8 w-8 p-0 text-amber-600 hover:bg-amber-50 hover:text-amber-700"
+                                      title="Review past planned route"
+                                    >
+                                      <AlertCircle className="h-4 w-4" />
+                                    </Button>
+                                  ) : null}
                                   <Button
                                     variant="ghost"
                                     size="sm"
@@ -1863,6 +2110,98 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
       </Card>
       </div>
       </div>
+
+      <Dialog
+        open={Boolean(activeOverdueRoute)}
+        onOpenChange={(open) => {
+          if (!open) closeOverdueRouteReview()
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Review Past Planned Route</DialogTitle>
+            <DialogDescription>
+              This route date has passed. Confirm the route is complete, or move it to a new planned date.
+            </DialogDescription>
+          </DialogHeader>
+
+          {activeOverdueRoute ? (
+            <div className="space-y-4">
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 flex h-9 w-9 flex-none items-center justify-center rounded-full bg-white text-amber-700 shadow-sm">
+                    <AlertCircle className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold text-slate-900">
+                      {activeOverdueRoute.assignedManager?.full_name || 'Unassigned manager'}
+                    </p>
+                    <p className="mt-1 text-sm text-slate-700">
+                      Planned for {formatPlannedRouteDate(activeOverdueRoute.plannedDate, 'EEEE, dd MMMM yyyy')}
+                    </p>
+                    <p className="mt-1 text-xs font-medium text-amber-800">
+                      {getInternalAreaDisplayName(activeOverdueRoute.region, { fallback: 'Unassigned route' })} - {activeOverdueRoute.stores.length} store{activeOverdueRoute.stores.length === 1 ? '' : 's'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Stores</p>
+                <div className="max-h-36 space-y-1.5 overflow-y-auto pr-1">
+                  {activeOverdueRoute.stores.map((store) => (
+                    <div key={store.id} className="flex items-center justify-between gap-3 rounded-lg bg-white px-3 py-2 text-sm">
+                      <span className="font-semibold text-slate-800">{store.store_name}</span>
+                      {getDisplayStoreCode(store.store_code) ? (
+                        <span className="text-xs font-medium text-slate-500">{getDisplayStoreCode(store.store_code)}</span>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label htmlFor="overdue-route-new-date" className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                  Change planned date
+                </label>
+                <Input
+                  id="overdue-route-new-date"
+                  type="date"
+                  value={overdueRouteNewDate}
+                  onChange={(event) => setOverdueRouteNewDate(event.target.value)}
+                  min={getTodayDateInputValue()}
+                  className="min-h-[44px]"
+                />
+              </div>
+            </div>
+          ) : null}
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={closeOverdueRouteReview}
+              disabled={isResolvingOverdueRoute}
+            >
+              Review Later
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleRescheduleOverdueRoute}
+              disabled={isResolvingOverdueRoute || !overdueRouteNewDate}
+              className="border-blue-200 text-blue-700 hover:bg-blue-50 hover:text-blue-800"
+            >
+              {isResolvingOverdueRoute ? 'Saving...' : 'Change Date'}
+            </Button>
+            <Button
+              onClick={handleCompleteOverdueRoute}
+              disabled={isResolvingOverdueRoute}
+              className="bg-emerald-600 text-white hover:bg-emerald-700"
+            >
+              {isResolvingOverdueRoute ? 'Saving...' : 'Route Completed'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Route Directions Modal */}
       {selectedRouteForDirections && (

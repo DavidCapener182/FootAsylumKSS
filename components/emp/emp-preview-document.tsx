@@ -435,10 +435,17 @@ function CommandDiagram({
   ]
   const roleLabelFor = (role: string) => {
     const normalized = role.toLowerCase()
+    if (normalized.includes('kss head of security')) return 'KSS HEAD OF SECURITY'
+    if (normalized.includes('kss operational lead')) return 'KSS OPERATIONAL LEAD'
+    if (normalized.includes('kss operational support')) return 'KSS OPERATIONAL SUPPORT'
+    if (normalized.includes('kss bar supervisor')) return 'KSS BAR SUPERVISORS'
+    if (normalized.includes('event control')) return 'EVENT CONTROL'
+    if (normalized.includes('festival director') || normalized.includes('venue dps')) return 'EVENT COMMAND'
     if (normalized.includes('gold') || normalized.includes('event director gold')) return 'STRATEGIC LEAD'
     if (normalized.includes('silver') || normalized.includes('event director silver')) return 'TACTICAL LEAD'
     if (normalized.includes('event manager')) return 'EVENT BRONZE'
     if (normalized.includes('assistant security')) return 'SECURITY SUPPORT'
+    if (normalized.includes('head of security')) return 'SECURITY COMMAND'
     if (normalized.includes('security manager')) return 'SECURITY BRONZE'
     if (normalized.includes('licensing')) return 'LICENSING LEAD'
     return 'SUPERVISORY LEAD'

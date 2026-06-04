@@ -18,11 +18,11 @@ export function AuditTrackerClient({ stores, userRole }: AuditTrackerClientProps
   const [areaFilter, setAreaFilter] = useState<string>('all')
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
+    <div className="max-w-full space-y-6 overflow-x-hidden">
+      <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:p-6">
         <div className="space-y-5">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div>
+            <div className="min-w-0">
               <div className="mb-1.5 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-lime-600 md:text-xs">
                 <ClipboardCheck size={14} />
                 Compliance Monitoring
@@ -41,40 +41,40 @@ export function AuditTrackerClient({ stores, userRole }: AuditTrackerClientProps
             </button>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+          <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
             <AuditStatsCards stores={stores} selectedArea={areaFilter} />
           </div>
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+      <div className="max-w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm md:rounded-3xl">
         <Tabs value={activeView} onValueChange={(value) => setActiveView(value as 'by-area' | 'league')} className="w-full">
           <div className="border-b border-slate-100 p-4 md:p-6">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div className="space-y-1">
+              <div className="min-w-0 space-y-1">
                 <h2 className="text-lg font-bold text-slate-800 md:text-xl">Detailed Audit Reports</h2>
-                <p className="text-sm text-slate-500">Switch between grouped area cards and a ranked league table.</p>
+                <p className="text-sm leading-5 text-slate-500">Switch between grouped area cards and a ranked league table.</p>
               </div>
-              <TabsList className="grid w-full grid-cols-2 rounded-2xl bg-slate-100 p-1 lg:w-auto lg:min-w-[320px] lg:rounded-xl">
+              <TabsList className="grid h-auto min-h-[44px] w-full min-w-0 grid-cols-2 rounded-2xl bg-slate-100 p-1 lg:w-auto lg:min-w-[320px] lg:rounded-xl">
                 <TabsTrigger
                   value="by-area"
-                  className="flex min-h-[44px] items-center justify-center gap-2 rounded-xl text-sm font-bold text-slate-500 transition-all data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm"
+                  className="flex min-h-[44px] min-w-0 items-center justify-center gap-1.5 overflow-hidden rounded-xl px-2 text-xs font-bold text-slate-500 transition-all data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm sm:gap-2 sm:text-sm"
                 >
-                  <Map className="h-4 w-4" />
-                  By Area
+                  <Map className="h-4 w-4 shrink-0" />
+                  <span className="truncate">By Area</span>
                 </TabsTrigger>
                 <TabsTrigger
                   value="league"
-                  className="flex min-h-[44px] items-center justify-center gap-2 rounded-xl text-sm font-bold text-slate-500 transition-all data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm"
+                  className="flex min-h-[44px] min-w-0 items-center justify-center gap-1.5 overflow-hidden rounded-xl px-2 text-xs font-bold text-slate-500 transition-all data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm sm:gap-2 sm:text-sm"
                 >
-                  <Trophy className="h-4 w-4" />
-                  League Table
+                  <Trophy className="h-4 w-4 shrink-0" />
+                  <span className="truncate">League Table</span>
                 </TabsTrigger>
               </TabsList>
             </div>
           </div>
 
-          <div className="p-4 md:p-6">
+          <div className="min-w-0 p-3 sm:p-4 md:p-6">
             <TabsContent value="by-area" className="mt-0">
               <AuditTable rows={stores} userRole={userRole} areaFilter={areaFilter} onAreaFilterChange={setAreaFilter} />
             </TabsContent>

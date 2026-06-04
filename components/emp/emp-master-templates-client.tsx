@@ -39,11 +39,12 @@ import {
   buildSupervisorDeploymentTablePagesFromDeploymentCells,
   buildSupervisorDeploymentTablePagesFromDeploymentTablePages,
   getDeploymentMatrixSourcePageCount,
+  normalizeStaffSignInTablePages,
   syncDeploymentMatrixEventPagesFromSourcePages,
   type EmpMasterTemplatePrefillData,
   type EmpMasterTemplatePlanPrefill,
 } from '@/lib/emp/master-template-prefill'
-import { getBbcRadioOneStaffForEvent } from '@/lib/emp/bbc-radio-one-staff'
+import { getEmpStaffForEvent } from '@/lib/emp/event-staff'
 import { cn } from '@/lib/utils'
 
 const PREFILL_STORAGE_KEY = 'emp-master-template-prefill-v1'
@@ -146,7 +147,7 @@ function getStaffAssignmentOptions(pages: EmpMasterTemplateTablePagePrefill[] | 
 }
 
 function getStaffContactOptions(eventName: string, planTitle = ''): StaffAssignmentOption[] {
-  return getBbcRadioOneStaffForEvent(eventName, planTitle).map((row) => ({
+  return getEmpStaffForEvent(eventName, planTitle).map((row) => ({
     value: row.staffName,
     label: row.company ? `${row.staffName} (${row.company})` : row.staffName,
     mobileNumber: row.mobileNumber || '',
@@ -273,6 +274,10 @@ function sanitizeTemplateFieldValues(values: Record<string, Record<string, strin
 function sanitizeTablePageValues(values: Record<string, EmpMasterTemplateTablePagePrefill[]>) {
   return Object.fromEntries(
     Object.entries(values).map(([templateId, pages]) => {
+      if (templateId === 'staff-sign-in-sign-out-sheet') {
+        return [templateId, normalizeStaffSignInTablePages(pages)]
+      }
+
       if (templateId === 'deployment-matrix') {
         return [
           templateId,

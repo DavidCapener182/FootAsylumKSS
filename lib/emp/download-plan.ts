@@ -18,7 +18,7 @@ export const EMP_DOWNLOAD_SELECTED_ANNEXES: EmpAnnexKey[] = [
 
 export const EMP_DOWNLOAD_PLAN_VALUES: Record<string, string> = {
   plan_title: EMP_DOWNLOAD_PLAN_TITLE,
-  document_version: 'V1.0',
+  document_version: 'V1',
   document_status: 'V1',
   author_name: 'David Capener - KSS NW LTD',
   approver_name: 'Floyd Allen - KSS NW LTD',
@@ -678,7 +678,7 @@ export const EMP_DOWNLOAD_PLAN_VALUES: Record<string, string> = {
     'Supporting documents - CSMP v3.0, Safeguarding and Welfare Plan v1.2, FAB Safeguarding Policy v2.1'
   ),
   version_history_summary: lines(
-    'V1.0 - Initial Download Festival 2026 KSS EMP created from the KSS EMP framework and Download source documents.'
+    'V1 - Initial Download Festival 2026 KSS EMP created from the KSS EMP framework and Download source documents.'
   ),
   contact_directory: lines(
     'KSS Operational Lead - Floyd Allen - KSS Lead call sign / live contact sheet',

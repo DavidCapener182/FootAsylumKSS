@@ -6,7 +6,8 @@ import { EMP_DEMO_PLAN_VALUES, EMP_DEMO_SELECTED_ANNEXES } from '@/lib/emp/demo-
 import { EMP_DOWNLOAD_PLAN_VALUES, EMP_DOWNLOAD_SELECTED_ANNEXES } from '@/lib/emp/download-plan'
 import { EMP_ISLE_OF_WIGHT_PLAN_VALUES, EMP_ISLE_OF_WIGHT_SELECTED_ANNEXES } from '@/lib/emp/isle-of-wight-plan'
 import { EMP_MASTER_TEMPLATE_FIELDS } from '@/lib/emp/master-template'
-import { buildEmpPreviewModel, resolveEmpFieldValueMap } from '@/lib/emp/preview'
+import { EMP_PARKLIFE_PLAN_VALUES, EMP_PARKLIFE_SELECTED_ANNEXES } from '@/lib/emp/parklife-plan'
+import { buildEmpPreviewModel, resolveEmpFieldValueMap, type EmpPreviewBlock } from '@/lib/emp/preview'
 
 describe('buildEmpPreviewModel', () => {
   const fieldValues = {
@@ -339,6 +340,7 @@ describe('buildEmpPreviewModel', () => {
       .filter((block): block is Extract<(typeof model.sections)[number]['blocks'][number], { type: 'multi_table' }> => block.type === 'multi_table' && block.deploymentSchedule === true)
       .flatMap((block) => block.rows)
 
+    expect(model.coverRows).toContainEqual({ label: 'Version', value: 'V1' })
     expect(model.coverRows).toContainEqual({ label: 'Status', value: 'V1' })
     expect(deploymentRows).toContainEqual(['BARS', 'Bar 1', 'SUP', '1', '12:00', '22:30', '', '', ''])
     expect(deploymentRows).toContainEqual(['BARS', 'Bar 1', 'SIA', '2', '12:00', '22:30', '1', '22:30', '09:30'])
@@ -756,5 +758,55 @@ describe('buildEmpPreviewModel', () => {
     expect(html).toContain('Rating')
     expect(html).toContain('Bar 1')
     expect(html).toMatch(new RegExp('<span class="font-semibold text-slate-500">\\d+</span>'))
+  })
+
+  it('renders Parklife command diagram with the named KSS leads', () => {
+    const parklifeFieldValues = resolveEmpFieldValueMap(
+      EMP_MASTER_TEMPLATE_FIELDS,
+      Object.entries(EMP_PARKLIFE_PLAN_VALUES).map(([fieldKey, valueText]) => ({
+        fieldKey,
+        valueText,
+        source: 'manual',
+      }))
+    )
+    const model = buildEmpPreviewModel({
+      fieldValues: parklifeFieldValues,
+      selectedAnnexes: EMP_PARKLIFE_SELECTED_ANNEXES,
+      includeKssProfileAppendix: false,
+    })
+    const commandDiagram = model.sections
+      .flatMap((section) => section.blocks)
+      .find(
+        (block): block is Extract<EmpPreviewBlock, { type: 'diagram'; variant: 'command' }> =>
+          block.type === 'diagram' && block.variant === 'command'
+      )
+
+    expect(commandDiagram?.lead).toBe('Jack Longthorne - KSS Head of Security')
+    expect(commandDiagram?.control).toBe('David Capener - KSS Operational Lead')
+    expect(commandDiagram?.supervisors).toEqual(
+      [
+        'Laura Parker - KSS Operational Support',
+        'TBC by deployment schedule - KSS Bar Supervisors',
+      ]
+    )
+    expect(commandDiagram?.supervisors).not.toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('Festival Director'),
+        expect.stringContaining('Event Director'),
+      ])
+    )
+
+    const html = renderToStaticMarkup(createElement(EmpPreviewDocument, { mode: 'preview', model }))
+    expect(html).toContain('KSS HEAD OF SECURITY')
+    expect(html).toContain('KSS OPERATIONAL LEAD')
+    expect(html).toContain('Jack Longthorne')
+    expect(html).toContain('David Capener')
+    expect(html).toContain('Laura Parker')
+    expect(html).not.toContain('EVENT COMMAND')
+    expect(html).not.toContain('SUPERVISORY LEAD')
+
+    const renderedPages = html.split('emp-a4-page').slice(1)
+    const pageWithBarOperatorLead = renderedPages.find((page) => page.includes('Bar Operator Lead'))
+    expect(pageWithBarOperatorLead).toContain('Medical / Welfare / Safeguarding contacts')
   })
 })

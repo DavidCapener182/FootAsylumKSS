@@ -7,9 +7,12 @@ import {
   buildSupervisorDeploymentTablePagesFromDeploymentMatrixOverrides,
   extractEmpTemplateIsoDates,
   extractFirstEmpTemplateIsoDate,
+  normalizeStaffSignInTablePages,
   syncDeploymentMatrixEventPagesFromSourcePages,
 } from '@/lib/emp/master-template-prefill'
+import { EMP_DOWNLOAD_PLAN_TITLE } from '@/lib/emp/download-plan'
 import { EMP_ISLE_OF_WIGHT_PLAN_VALUES } from '@/lib/emp/isle-of-wight-plan'
+import { EMP_PARKLIFE_PLAN_TITLE } from '@/lib/emp/parklife-plan'
 
 describe('emp master template prefill', () => {
   it('extracts the first usable event date from common EMP date formats', () => {
@@ -228,6 +231,175 @@ describe('emp master template prefill', () => {
       '0:risk': 'Medium (Amber)',
       '0:action_required': 'Monitor live conditions and escalate if triggers are reached.',
     })
+  })
+
+  it('builds Download Festival sign-in pages from the contractor PNC sheet data', () => {
+    const prefill = buildEmpMasterTemplatePrefillFromFieldValues({
+      event_name: 'Download Festival 2026',
+      show_dates: '10 June 2026 to 15 June 2026',
+      venue_name: 'Donington Park',
+      venue_address: 'Donington Park, Castle Donington, Derby, DE74 2RP',
+      issue_date: '2026-05-07',
+    }, {
+      planTitle: EMP_DOWNLOAD_PLAN_TITLE,
+    })
+
+    const staffPages = prefill.templateTablePageValues?.['staff-sign-in-sign-out-sheet'] || []
+
+    expect(staffPages).toHaveLength(84)
+    expect(staffPages[0]).toMatchObject({
+      fields: {
+        'Event Name / Code': 'Download Festival 2026',
+        Date: 'Wednesday 10/06/2026',
+        'Location / Venue': 'Donington Park, Castle Donington, Derby, DE74 2RP',
+        Company: 'KSS',
+      },
+      tableCells: {
+        '0:staff_name': 'Jack Longthorne',
+        '1:staff_name': 'Floyd Allen',
+        '1:sia_badge_number': '1017 7734 6945 7253',
+        '1:expiry_date': '20/01/2028',
+      },
+    })
+    expect(staffPages[5]).toMatchObject({
+      fields: {
+        Date: 'Wednesday 10/06/2026',
+        Company: 'PNC',
+      },
+      tableCells: {
+        '0:staff_name': 'Sanchez Tyrone Webb',
+        '0:sia_badge_number': '1014 0860 3643 6606',
+      },
+    })
+    expect(staffPages[2]).toMatchObject({
+      fields: {
+        Date: 'Wednesday 10/06/2026',
+        Company: 'AEGEUS (continued)',
+      },
+      tableCells: {
+        '5:staff_name': 'Martin Foster',
+        '5:sia_badge_number': 'STEWARD',
+        '5:expiry_date': 'N/A',
+      },
+    })
+    expect(staffPages[13]).toMatchObject({
+      fields: {
+        Date: 'Wednesday 10/06/2026',
+        Company: 'HDT (continued)',
+      },
+      tableCells: {
+        '9:staff_name': 'Robert Harris',
+        '9:sia_badge_number': 'STEWARD',
+        '9:expiry_date': 'N/A',
+      },
+    })
+    expect(JSON.stringify(staffPages)).not.toMatch(/waiting/i)
+    expect(staffPages[14]).toMatchObject({
+      fields: {
+        Date: 'Thursday 11/06/2026',
+        Company: 'KSS',
+      },
+    })
+    expect(prefill.templateTablePageValues?.['uniform-ppe-allocation-log']).toHaveLength(12)
+    expect(prefill.templateTablePageValues?.['radio-kit-sign-out-sheet']).toHaveLength(12)
+  })
+
+  it('builds Parklife sign-in pages from the supplied PNC sheet data', () => {
+    const prefill = buildEmpMasterTemplatePrefillFromFieldValues({
+      event_name: 'Parklife Festival 2026',
+      show_dates: '20 June 2026 to 21 June 2026',
+      venue_name: 'Heaton Park',
+      venue_address: 'Heaton Park, Middleton Road, Manchester, M25 2SW',
+      issue_date: '2026-06-03',
+    }, {
+      planTitle: EMP_PARKLIFE_PLAN_TITLE,
+    })
+
+    const staffPages = prefill.templateTablePageValues?.['staff-sign-in-sign-out-sheet'] || []
+
+    expect(staffPages).toHaveLength(14)
+    expect(staffPages[0]).toMatchObject({
+      fields: {
+        'Event Name / Code': 'Parklife Festival 2026',
+        Date: 'Saturday 20/06/2026',
+        'Location / Venue': 'Heaton Park, Middleton Road, Manchester, M25 2SW',
+        Company: 'KSS',
+      },
+      tableCells: {
+        '0:staff_name': 'Jack Longthorne',
+        '1:staff_name': 'David Capener',
+        '1:sia_badge_number': '1014 8888 7483 7254',
+        '1:expiry_date': '26/02/2029',
+        '2:staff_name': 'Laura Parker',
+      },
+    })
+    expect(staffPages[1]).toMatchObject({
+      fields: {
+        Date: 'Saturday 20/06/2026',
+        Company: 'STRAZA',
+      },
+      tableCells: {
+        '0:staff_name': 'Abdur Rehman',
+        '0:sia_badge_number': '1014 7982 6493 8600',
+      },
+    })
+    expect(staffPages[3]).toMatchObject({
+      fields: {
+        Date: 'Saturday 20/06/2026',
+        Company: 'GUARD-EX',
+      },
+      tableCells: {
+        '11:staff_name': 'Allston Andrew',
+        '11:sia_badge_number': 'ST',
+        '11:expiry_date': 'N/A',
+      },
+    })
+    expect(staffPages[6]).toMatchObject({
+      fields: {
+        Date: 'Saturday 20/06/2026',
+        Company: 'CJL (continued)',
+      },
+      tableCells: {
+        '0:staff_name': 'Paolo Osei',
+        '1:staff_name': 'Luis Felton',
+        '1:sia_badge_number': 'ST',
+        '1:expiry_date': 'N/A',
+      },
+    })
+    expect(staffPages[7]).toMatchObject({
+      fields: {
+        Date: 'Sunday 21/06/2026',
+        Company: 'KSS',
+      },
+    })
+    expect(prefill.templateTablePageValues?.['uniform-ppe-allocation-log']).toHaveLength(4)
+    expect(prefill.templateTablePageValues?.['radio-kit-sign-out-sheet']).toHaveLength(4)
+  })
+
+  it('normalizes stale waiting licence values on staff sign-in table pages', () => {
+    const pages = normalizeStaffSignInTablePages([
+      {
+        fields: { Company: 'AEGEUS' },
+        tableCells: {
+          '0:staff_name': 'Martin Foster',
+          '0:sia_badge_number': 'WAITING FOR LICENCE APPROVAL',
+          '0:expiry_date': 'WAITING FOR LICENCE APPROVAL',
+          '1:staff_name': 'Robert Harris',
+          '1:sia_badge_number': 'WAITING FOR RENEWAL',
+          '1:expiry_date': 'N/A',
+        },
+      },
+    ])
+
+    expect(pages[0].tableCells).toMatchObject({
+      '0:staff_name': 'Martin Foster',
+      '0:sia_badge_number': 'STEWARD',
+      '0:expiry_date': 'N/A',
+      '1:staff_name': 'Robert Harris',
+      '1:sia_badge_number': 'STEWARD',
+      '1:expiry_date': 'N/A',
+    })
+    expect(JSON.stringify(pages)).not.toMatch(/waiting/i)
   })
 
   it('rebuilds supervisor deployment pages from deployment matrix assignments', () => {

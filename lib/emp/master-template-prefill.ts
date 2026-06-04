@@ -6,11 +6,11 @@ import {
   type EmpMasterTemplateTable,
 } from '@/lib/emp/master-templates'
 import {
-  BBC_RADIO_ONE_2026_SIGN_IN_DATES,
   findEmpStaffByName,
-  getBbcRadioOneStaffForEvent,
+  getEmpStaffForEvent,
+  getEmpStaffSignInDatesForEvent,
   type EmpStaffSignInRow,
-} from '@/lib/emp/bbc-radio-one-staff'
+} from '@/lib/emp/event-staff'
 
 export const EMP_DEPLOYMENT_PREPARED_BY = 'David Capener'
 
@@ -419,7 +419,7 @@ function buildTemplateTableCellValues(
 ) {
   const cells: Record<string, Record<string, string>> = {}
   const riskRows = options.riskAssessmentRows || []
-  const staffRows = getBbcRadioOneStaffForEvent(getValue(fieldValues, 'event_name'), options.planTitle)
+  const staffRows = getEmpStaffForEvent(getValue(fieldValues, 'event_name'), options.planTitle)
 
   riskRows.forEach((row, rowIndex) => {
     setCell(cells, 'security-risk-assessment', rowIndex, 'hazard', row.hazard)
@@ -494,6 +494,41 @@ function groupStaffByCompany(rows: EmpStaffSignInRow[]) {
   return order.map((company) => ({ company, rows: grouped[company] }))
 }
 
+function hasWaitingCredentialValue(value: unknown) {
+  return /\bwaiting\b/i.test(clean(value))
+}
+
+export function normalizeStaffSignInTableCells(tableCells: Record<string, string> | undefined) {
+  const normalizedCells = { ...(tableCells || {}) }
+  const waitingRows = new Set<number>()
+
+  Object.entries(normalizedCells).forEach(([cellKey, value]) => {
+    const [rowIndexText, columnKey] = cellKey.split(':')
+    if (columnKey !== 'sia_badge_number' && columnKey !== 'expiry_date') return
+    if (!hasWaitingCredentialValue(value)) return
+
+    const rowIndex = Number.parseInt(rowIndexText || '', 10)
+    if (Number.isFinite(rowIndex) && rowIndex >= 0) {
+      waitingRows.add(rowIndex)
+    }
+  })
+
+  waitingRows.forEach((rowIndex) => {
+    normalizedCells[`${rowIndex}:sia_badge_number`] = 'STEWARD'
+    normalizedCells[`${rowIndex}:expiry_date`] = 'N/A'
+  })
+
+  return normalizedCells
+}
+
+export function normalizeStaffSignInTablePages(pages: EmpMasterTemplateTablePagePrefill[] | undefined) {
+  return (pages || []).map((page) => ({
+    ...page,
+    fields: page.fields ? { ...page.fields } : page.fields,
+    tableCells: normalizeStaffSignInTableCells(page.tableCells),
+  }))
+}
+
 function getStaffSignInDates(
   fieldValues: Record<string, string>,
   eventName: string,
@@ -505,10 +540,10 @@ function getStaffSignInDates(
     extractEmpTemplateIsoDates(getValue(fieldValues, 'issue_date')),
   ]
   const extractedDates = dateCandidates.find((dates) => dates.length) || []
-  const bbcRadioOneStaff = getBbcRadioOneStaffForEvent(eventName, planTitle)
+  const eventStaffDates = getEmpStaffSignInDatesForEvent(eventName, planTitle)
 
-  if (bbcRadioOneStaff.length && extractedDates.length <= 1) {
-    return BBC_RADIO_ONE_2026_SIGN_IN_DATES
+  if (eventStaffDates.length && extractedDates.length <= 1) {
+    return eventStaffDates
   }
 
   return extractedDates
@@ -521,7 +556,7 @@ function buildStaffSignInTablePages(
     planTitle?: string
   }
 ) {
-  const staffRows = getBbcRadioOneStaffForEvent(context.eventName, context.planTitle)
+  const staffRows = getEmpStaffForEvent(context.eventName, context.planTitle)
   if (!staffRows.length) return []
 
   const template = getEmpMasterTemplateById('staff-sign-in-sign-out-sheet') as EmpMasterTemplateTable | null
@@ -547,7 +582,7 @@ function buildStaffSignInTablePages(
             'Location / Venue': eventAddress,
             Company: chunkIndex > 0 ? `${company} (continued)` : company,
           },
-          tableCells,
+          tableCells: normalizeStaffSignInTableCells(tableCells),
         })
       })
     })
@@ -564,7 +599,7 @@ function buildDailyStaffTablePages(
     planTitle?: string
   }
 ) {
-  const staffRows = getBbcRadioOneStaffForEvent(context.eventName, context.planTitle)
+  const staffRows = getEmpStaffForEvent(context.eventName, context.planTitle)
   if (!staffRows.length) return []
 
   const dates = getStaffSignInDates(fieldValues, context.eventName, context.planTitle).filter(Boolean)
@@ -628,8 +663,8 @@ function buildDeploymentMatrixTablePages(
   }
 
   const dates = getStaffSignInDates(fieldValues, context.eventName, context.planTitle).filter(Boolean)
-  const hasBbcRadioOneStaff = getBbcRadioOneStaffForEvent(context.eventName, context.planTitle).length > 0
-  if (!deploymentRows.length || !hasBbcRadioOneStaff || dates.length <= 1) return []
+  const hasEventStaff = getEmpStaffForEvent(context.eventName, context.planTitle).length > 0
+  if (!deploymentRows.length || !hasEventStaff || dates.length <= 1) return []
 
   const template = getEmpMasterTemplateById('deployment-matrix') as EmpMasterTemplateTable | null
   const rowsPerPage = template?.kind === 'table' ? template.emptyRows : 23

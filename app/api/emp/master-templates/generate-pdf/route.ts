@@ -6,6 +6,7 @@ import { getEmpMasterTemplatePlanPrefill } from '@/lib/emp/data'
 import {
   applyDeploymentMatrixSourcePageOverrides,
   buildSupervisorDeploymentTablePagesFromDeploymentMatrixOverrides,
+  normalizeStaffSignInTablePages,
   syncDeploymentMatrixEventPagesFromSourcePages,
 } from '@/lib/emp/master-template-prefill'
 import {
@@ -158,7 +159,10 @@ function buildPrefillForTemplate(
     }>
   } = {}
 ) {
-  const tablePages = prefill.templateTablePageValues?.[templateId] || []
+  const rawTablePages = prefill.templateTablePageValues?.[templateId] || []
+  const tablePages = templateId === 'staff-sign-in-sign-out-sheet'
+    ? normalizeStaffSignInTablePages(rawTablePages)
+    : rawTablePages
   const deploymentMatrixPages = prefill.templateTablePageValues?.['deployment-matrix'] || []
   const supervisorDeploymentPages = templateId === 'supervisor-deployment' && options.deploymentOverrides?.length
     ? buildSupervisorDeploymentTablePagesFromDeploymentMatrixOverrides(deploymentMatrixPages, options.deploymentOverrides)

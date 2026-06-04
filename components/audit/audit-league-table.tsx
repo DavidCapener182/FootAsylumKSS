@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button'
 import { getInternalAreaDisplayName } from '@/lib/areas'
 import { cn, getDisplayStoreCode } from '@/lib/utils'
-import { AuditRow, pctBadge, formatDate, getLatestPct } from './audit-table-helpers'
+import { AuditRow, pctBadge, formatDate, getCompletedAuditCount, getLatestPct } from './audit-table-helpers'
 import { StoreActionsModal } from './store-actions-modal'
 import { Eye, EyeOff, Search } from 'lucide-react'
 import { UserRole } from '@/lib/auth'
@@ -128,14 +128,14 @@ export function AuditLeagueTable({
   )
 
   return (
-    <div className="space-y-4">
+    <div className="max-w-full space-y-4 overflow-x-hidden">
       {/* Controls */}
-      <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-slate-50/50 p-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <div className="relative w-full sm:w-72">
+      <div className="flex min-w-0 flex-col gap-4 rounded-2xl border border-slate-200 bg-slate-50/50 p-3 sm:p-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="relative w-full min-w-0 sm:w-72">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <Input
-              placeholder="Search store name or code..."
+              placeholder="Search stores"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="min-h-[44px] bg-white pl-9"
@@ -185,7 +185,7 @@ export function AuditLeagueTable({
             Reset
           </Button>
         </div>
-      <div className="text-sm text-slate-500">
+        <div className="text-sm text-slate-500">
           Showing {rankedStores.length} of {rows.length} stores
         </div>
       </div>
@@ -203,8 +203,74 @@ export function AuditLeagueTable({
         </div>
       ) : null}
 
-      {/* Table Container */}
-      <div className="rounded-xl border bg-white shadow-sm overflow-hidden flex flex-col">
+      <div className="space-y-2 md:hidden">
+        {rankedStores.length === 0 ? (
+          <div className="rounded-2xl border bg-white px-4 py-8 text-center text-sm text-muted-foreground">
+            No stores found matching your filters.
+          </div>
+        ) : (
+          rankedStores.map((row, index) => {
+            const rank = index + 1
+            const isTopThree = rank <= 3
+
+            return (
+              <article
+                key={`mobile-league-${row.id}`}
+                className={cn(
+                  'rounded-2xl border bg-white p-3.5 shadow-sm',
+                  isTopThree && 'border-emerald-200 bg-emerald-50/50'
+                )}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex min-w-0 items-start gap-3">
+                    <div
+                      className={cn(
+                        'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xs font-black',
+                        isTopThree ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'
+                      )}
+                    >
+                      #{rank}
+                    </div>
+                    <div className="min-w-0">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenStoreActionsModal(row)}
+                        className="max-w-full truncate text-left text-sm font-semibold text-slate-900 underline-offset-2 hover:text-blue-700 hover:underline"
+                        title="Open store actions"
+                      >
+                        {row.store_name}
+                      </button>
+                      <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5 text-[11px] text-slate-500">
+                        <span className="rounded-md bg-slate-100 px-1.5 py-0.5 font-mono">
+                          {getDisplayStoreCode(row.store_code) || '—'}
+                        </span>
+                        <span className="min-w-0 truncate">
+                          {getInternalAreaDisplayName(row.region, { fallback: '—' })}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="shrink-0">{pctBadge(row.latestPct)}</div>
+                </div>
+
+                <div className="mt-3 grid grid-cols-2 gap-2 border-t border-slate-200/80 pt-3 text-xs">
+                  <div>
+                    <p className="font-semibold uppercase tracking-wide text-slate-400">Latest</p>
+                    <p className="mt-1 text-slate-700">{formatDate(row.latestDate)}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-semibold uppercase tracking-wide text-slate-400">Audits</p>
+                    <p className="mt-1 font-mono text-slate-700">{getCompletedAuditCount(row)}</p>
+                  </div>
+                </div>
+              </article>
+            )
+          })
+        )}
+      </div>
+
+      {/* Desktop Table Container */}
+      <div className="hidden rounded-xl border bg-white shadow-sm overflow-hidden md:flex flex-col">
         {/* Fixed Header - OUTSIDE scroll container on desktop, INSIDE on mobile */}
         <div className="hidden md:block border-b bg-white overflow-x-auto">
           <Table className="w-full border-separate border-spacing-0" style={{ tableLayout: 'fixed' }}>
@@ -247,7 +313,7 @@ export function AuditLeagueTable({
             <TableBody>
               {rankedStores.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="md:col-span-7 text-center text-muted-foreground py-10">
+                  <TableCell colSpan={7} className="text-center text-muted-foreground py-10">
                     No stores found matching your filters.
                   </TableCell>
                 </TableRow>
@@ -304,12 +370,7 @@ export function AuditLeagueTable({
                         {pctBadge(row.latestPct)}
                       </TableCell>
                       <TableCell className="hidden border-b bg-white text-center font-mono text-xs text-muted-foreground group-hover:bg-slate-50 md:table-cell">
-                        {(() => {
-                          let count = 0
-                          if (row.compliance_audit_1_date && row.compliance_audit_1_overall_pct !== null) count++
-                          if (row.compliance_audit_2_date && row.compliance_audit_2_overall_pct !== null) count++
-                          return count
-                        })()}
+                        {getCompletedAuditCount(row)}
                       </TableCell>
                     </TableRow>
                   )

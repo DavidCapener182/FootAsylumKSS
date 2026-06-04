@@ -114,6 +114,15 @@ function isWithinMonths(dateValue: string | null, months: number): boolean {
   return Date.now() <= deadline.getTime()
 }
 
+function getAreaAccordionId(groupKey: string, index: number): string {
+  const slug = groupKey
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+
+  return `audit-area-${slug || 'unassigned'}-${index}`
+}
+
 export function AuditTable({ 
   rows, 
   userRole, 
@@ -158,6 +167,7 @@ export function AuditTable({
   const [storeActionsModalOpen, setStoreActionsModalOpen] = useState(false)
   const [storeActionsRow, setStoreActionsRow] = useState<AuditRow | null>(null)
   const [storeActionCounts, setStoreActionCounts] = useState<Record<string, number>>({})
+  const [expandedMobileAreas, setExpandedMobileAreas] = useState<Set<string>>(() => new Set())
   const canManageAudits = can(userRole, 'manageAudits')
 
   useEffect(() => {
@@ -353,6 +363,18 @@ export function AuditTable({
     setSearch('')
     setArea('all')
     setHideCompleted(false)
+  }
+
+  const toggleMobileArea = (groupKey: string) => {
+    setExpandedMobileAreas((prev) => {
+      const next = new Set(prev)
+      if (next.has(groupKey)) {
+        next.delete(groupKey)
+      } else {
+        next.add(groupKey)
+      }
+      return next
+    })
   }
 
   const handleAddAudit = (row: AuditRow) => {
@@ -981,28 +1003,49 @@ export function AuditTable({
             No audit data found matching your filters.
           </div>
         ) : (
-          grouped.map(([groupKey, areaRows]) => {
+          grouped.map(([groupKey, areaRows], groupIndex) => {
             const validScores = areaRows
               .map((row) => getLatestPct(row))
               .filter((score): score is number => score !== null)
             const totalScore = validScores.reduce((acc, cur) => acc + cur, 0)
             const calculatedAverage = validScores.length > 0 ? totalScore / validScores.length : null
+            const isCollapsed = !expandedMobileAreas.has(groupKey)
+            const areaLabel = getInternalAreaDisplayName(groupKey, { fallback: groupKey })
+            const accordionId = getAreaAccordionId(groupKey, groupIndex)
 
             return (
-              <div key={`mob-${groupKey}`} className="space-y-2.5">
-                <div className="mobile-group-bar flex items-center justify-between rounded-xl border px-3 py-2">
-                  <span className="text-sm font-semibold text-slate-800">
-                    {getInternalAreaDisplayName(groupKey, { fallback: groupKey })}
-                  </span>
-                  <div className="flex items-center gap-2">
+              <section key={`mob-${groupKey}`} className="space-y-2.5">
+                <button
+                  type="button"
+                  onClick={() => toggleMobileArea(groupKey)}
+                  aria-expanded={!isCollapsed}
+                  aria-controls={accordionId}
+                  className="mobile-group-bar flex min-h-[56px] w-full items-center justify-between rounded-xl border px-3 py-2 text-left shadow-sm transition-colors active:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+                >
+                  <div className="min-w-0">
+                    <span className="block truncate text-sm font-semibold text-slate-800">
+                      {areaLabel}
+                    </span>
+                    <span className="mt-0.5 block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                      {areaRows.length} store{areaRows.length === 1 ? '' : 's'}
+                    </span>
+                  </div>
+                  <div className="ml-3 flex shrink-0 items-center gap-2">
                     <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                       Avg
                     </span>
                     {pctBadge(calculatedAverage)}
+                    <ChevronDown
+                      className={cn(
+                        'h-4 w-4 text-slate-500 transition-transform duration-200',
+                        !isCollapsed && 'rotate-180'
+                      )}
+                      aria-hidden="true"
+                    />
                   </div>
-                </div>
+                </button>
 
-                <div className="space-y-2.5">
+                <div id={accordionId} className={cn('space-y-2.5', isCollapsed && 'hidden')}>
                   {areaRows.map((row) => {
                     const nextAudit = getNextAuditNumber(row)
                     const upcomingActionFlag = getUpcomingActionFlag(row)
@@ -1134,7 +1177,7 @@ export function AuditTable({
                     )
                   })}
                 </div>
-              </div>
+              </section>
             )
           })
         )}

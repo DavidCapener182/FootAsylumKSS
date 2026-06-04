@@ -55,6 +55,36 @@ describe('EmpMasterTemplateDocument', () => {
     expect(html).toContain('Malahide Castle')
   })
 
+  it('renders waiting licence sign-in values as steward rows', () => {
+    const template = getEmpMasterTemplateById('staff-sign-in-sign-out-sheet')
+    expect(template).not.toBeNull()
+
+    const html = renderToStaticMarkup(
+      <EmpMasterTemplateDocument
+        template={template!}
+        prefillValues={{
+          eventName: 'Download Festival 2026',
+          eventDate: '2026-06-10',
+          tablePages: [
+            {
+              fields: { Company: 'AEGEUS' },
+              tableCells: {
+                '0:staff_name': 'Martin Foster',
+                '0:sia_badge_number': 'WAITING FOR LICENCE APPROVAL',
+                '0:expiry_date': 'WAITING FOR LICENCE APPROVAL',
+              },
+            },
+          ],
+        }}
+      />
+    )
+
+    expect(html).toContain('Martin Foster')
+    expect(html).toContain('STEWARD')
+    expect(html).toContain('N/A')
+    expect(html).not.toMatch(/waiting/i)
+  })
+
   it('uses PSA badge number only for the Ireland sign-in preset', () => {
     const template = getEmpMasterTemplateById(EMP_IRELAND_SIGN_IN_TEMPLATE_ID)
     expect(template).not.toBeNull()
