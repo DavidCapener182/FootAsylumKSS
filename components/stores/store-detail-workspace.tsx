@@ -290,8 +290,8 @@ export function StoreDetailWorkspace({ store, incidents, actions, userRole, crmD
   }
 
   return (
-    <div className="space-y-6">
-      <nav className="flex items-center gap-2 text-sm text-slate-400">
+    <div className="space-y-3 sm:space-y-6">
+      <nav className="flex items-center gap-2 text-xs text-slate-400 sm:text-sm">
         <Link href="/stores" className="transition-colors hover:text-blue-600">
           Stores / CRM
         </Link>
@@ -299,15 +299,15 @@ export function StoreDetailWorkspace({ store, incidents, actions, userRole, crmD
         <span className="font-medium text-slate-900">{store.store_name}</span>
       </nav>
 
-      <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex flex-col items-start justify-between gap-6 p-5 md:flex-row md:items-center md:p-6">
-          <div className="flex items-center gap-5">
-            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
-              <Store size={32} />
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm sm:rounded-2xl">
+        <div className="flex flex-col items-start justify-between gap-3 p-3 sm:gap-5 sm:p-5 md:flex-row md:items-center md:p-6">
+          <div className="flex items-center gap-3 sm:gap-5">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 sm:h-16 sm:w-16 sm:rounded-2xl">
+              <Store size={24} />
             </div>
             <div>
-              <div className="mb-1 flex flex-wrap items-center gap-3">
-                <h1 className="text-2xl font-bold tracking-tight md:text-3xl">{store.store_name}</h1>
+              <div className="mb-1 flex flex-wrap items-center gap-2 sm:gap-3">
+                <h1 className="text-xl font-bold tracking-tight sm:text-2xl md:text-3xl">{store.store_name}</h1>
                 <span
                   className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
                     store.is_active ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'
@@ -320,7 +320,7 @@ export function StoreDetailWorkspace({ store, incidents, actions, userRole, crmD
                   {complianceLevel.label} · {complianceLevel.summary}
                 </span>
               </div>
-              <div className="flex flex-wrap items-center gap-3 text-sm text-slate-500">
+              <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 sm:gap-3 sm:text-sm">
                 <span className="rounded bg-slate-100 px-2 py-0.5 font-mono text-slate-700">
                   {store.store_code || 'No code'}
                 </span>
@@ -338,20 +338,20 @@ export function StoreDetailWorkspace({ store, incidents, actions, userRole, crmD
             </div>
           </div>
 
-          <div className="grid w-full grid-cols-3 gap-3 border-t border-slate-100 pt-4 md:w-auto md:min-w-[420px] md:border-t-0 md:pt-0">
-            <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
+          <div className="grid w-full grid-cols-3 gap-2 border-t border-slate-100 pt-3 md:w-auto md:min-w-[420px] md:border-t-0 md:pt-0">
+            <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 sm:rounded-2xl sm:px-4 sm:py-3">
               <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">Audit</p>
               <p className="text-lg font-black text-slate-900">
                 {typeof latestAuditScore === 'number' ? `${latestAuditScore.toFixed(1)}%` : '—'}
               </p>
             </div>
-            <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
+            <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 sm:rounded-2xl sm:px-4 sm:py-3">
               <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">Open Actions</p>
               <p className={`text-lg font-black ${overdueActions.length > 0 ? 'text-rose-600' : 'text-blue-600'}`}>
                 {ongoingActions.length}
               </p>
             </div>
-            <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
+            <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 sm:rounded-2xl sm:px-4 sm:py-3">
               <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">FRA</p>
               <div className="pt-0.5">{renderFRAStatusBadge(fraStatus, fraDaysUntilDue)}</div>
             </div>
@@ -359,7 +359,7 @@ export function StoreDetailWorkspace({ store, incidents, actions, userRole, crmD
         </div>
       </div>
 
-      <div className="no-scrollbar flex gap-8 overflow-x-auto border-b border-slate-200">
+      <div className="no-scrollbar flex gap-4 overflow-x-auto border-b border-slate-200 sm:gap-8">
         {['Overview', 'Store CRM', 'Store Actions', 'Operational Data', 'Incidents & Safety', 'Audit History'].map((tab) => {
           const value = tab.toLowerCase()
           const isActive = activeTab === value
@@ -368,7 +368,7 @@ export function StoreDetailWorkspace({ store, incidents, actions, userRole, crmD
             <button
               key={tab}
               onClick={() => setActiveTab(value)}
-              className={`relative whitespace-nowrap pb-4 text-sm font-semibold transition-all ${
+              className={`relative whitespace-nowrap pb-3 text-sm font-semibold transition-all sm:pb-4 ${
                 isActive ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'
               }`}
             >
@@ -380,38 +380,38 @@ export function StoreDetailWorkspace({ store, incidents, actions, userRole, crmD
       </div>
 
       {activeTab === 'overview' ? (
-        <div className="space-y-6">
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="space-y-3 sm:space-y-6">
+          <div className="grid grid-cols-2 gap-2 sm:gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-5">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Overall Compliance</p>
-                  <p className="mt-2 text-2xl font-black text-slate-900">{complianceLevel.label}</p>
-                  <p className="mt-1 text-sm text-slate-500">{complianceLevel.summary}</p>
+                  <p className="mt-1 text-xl font-black text-slate-900 sm:mt-2 sm:text-2xl">{complianceLevel.label}</p>
+                  <p className="mt-1 hidden text-sm text-slate-500 sm:block">{complianceLevel.summary}</p>
                 </div>
-                <ShieldCheck className="h-8 w-8 text-slate-400" />
+                <ShieldCheck className="h-6 w-6 text-slate-400 sm:h-8 sm:w-8" />
               </div>
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-5">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Audit Lifecycle</p>
                   <div className="mt-2">
                     <StatusBadge type="audit" status={auditLifecycle.status} label={auditLifecycle.label} />
                   </div>
-                  <p className="mt-2 text-sm text-slate-500">{auditLifecycle.description}</p>
+                  <p className="mt-2 hidden text-sm text-slate-500 sm:block">{auditLifecycle.description}</p>
                 </div>
-                <ClipboardList className="h-8 w-8 text-blue-400" />
+                <ClipboardList className="h-6 w-6 text-blue-400 sm:h-8 sm:w-8" />
               </div>
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-5">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Fire Risk Assessment</p>
                   <div className="mt-2">{renderFRAStatusBadge(fraStatus, fraDaysUntilDue)}</div>
-                  <p className="mt-2 text-sm text-slate-500">
+                  <p className="mt-2 hidden text-sm text-slate-500 sm:block">
                     {fraStatus === 'required'
                       ? 'No FRA has been recorded after audit activity.'
                       : fraNextDueDate
@@ -419,32 +419,32 @@ export function StoreDetailWorkspace({ store, incidents, actions, userRole, crmD
                         : 'No review date available.'}
                   </p>
                 </div>
-                <Flame className="h-8 w-8 text-orange-400" />
+                <Flame className="h-6 w-6 text-orange-400 sm:h-8 sm:w-8" />
               </div>
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-5">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Action Control</p>
-                  <p className={`mt-2 text-2xl font-black ${overdueActions.length > 0 ? 'text-rose-600' : 'text-slate-900'}`}>
+                  <p className={`mt-1 text-xl font-black sm:mt-2 sm:text-2xl ${overdueActions.length > 0 ? 'text-rose-600' : 'text-slate-900'}`}>
                     {overdueActions.length}
                   </p>
-                  <p className="mt-1 text-sm text-slate-500">
+                  <p className="mt-1 hidden text-sm text-slate-500 sm:block">
                     {overdueActions.length === 1 ? 'overdue action' : 'overdue actions'} · {ongoingActions.length} open
                   </p>
                 </div>
-                <CheckSquare2 className="h-8 w-8 text-emerald-400" />
+                <CheckSquare2 className="h-6 w-6 text-emerald-400 sm:h-8 sm:w-8" />
               </div>
             </div>
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-3">
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm lg:col-span-2">
-              <div className="mb-4 flex items-center justify-between gap-3">
+          <div className="grid gap-3 sm:gap-6 lg:grid-cols-3">
+            <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-5 lg:col-span-2">
+              <div className="mb-3 flex items-center justify-between gap-3 sm:mb-4">
                 <div>
-                  <h3 className="text-lg font-bold text-slate-900">Compliance Priorities</h3>
-                  <p className="text-sm text-slate-500">The next items that need operational attention for this store.</p>
+                  <h3 className="text-base font-bold text-slate-900 sm:text-lg">Compliance Priorities</h3>
+                  <p className="hidden text-sm text-slate-500 sm:block">The next items that need operational attention for this store.</p>
                 </div>
                 <TrendingUp className="h-5 w-5 text-slate-400" />
               </div>
@@ -472,7 +472,7 @@ export function StoreDetailWorkspace({ store, incidents, actions, userRole, crmD
                     tone: fraStatus === 'overdue' ? 'text-rose-700' : fraStatus === 'due' || fraStatus === 'required' ? 'text-orange-700' : 'text-emerald-700',
                   },
                 ].map((item) => (
-                  <div key={item.title} className="py-4 first:pt-0 last:pb-0">
+                  <div key={item.title} className="py-3 first:pt-0 last:pb-0 sm:py-4">
                     <p className={`text-sm font-bold ${item.tone}`}>{item.title}</p>
                     <p className="mt-1 text-sm text-slate-600">{item.body}</p>
                   </div>
@@ -480,9 +480,9 @@ export function StoreDetailWorkspace({ store, incidents, actions, userRole, crmD
               </div>
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h3 className="text-lg font-bold text-slate-900">Store Summary</h3>
-              <div className="mt-4 space-y-3 text-sm">
+            <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-5">
+              <h3 className="text-base font-bold text-slate-900 sm:text-lg">Store Summary</h3>
+              <div className="mt-3 space-y-2.5 text-sm sm:mt-4 sm:space-y-3">
                 <div className="flex justify-between gap-4 border-b border-slate-100 pb-3">
                   <span className="text-slate-500">Latest audit</span>
                   <span className="font-bold text-slate-900">{typeof latestAuditScore === 'number' ? `${latestAuditScore.toFixed(1)}%` : '—'}</span>
@@ -526,12 +526,12 @@ export function StoreDetailWorkspace({ store, incidents, actions, userRole, crmD
       ) : null}
 
       {activeTab === 'store actions' ? (
-        <div className="space-y-6">
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-3 sm:space-y-6">
+          <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
               <div>
-                <h3 className="text-lg font-bold text-slate-900">Store Actions</h3>
-                <p className="text-sm text-slate-500">
+                <h3 className="text-base font-bold text-slate-900 sm:text-lg">Store Actions</h3>
+                <p className="hidden text-sm text-slate-500 sm:block">
                   Add direct store actions from flagged audit text or review existing open/completed tasks.
                 </p>
                 <p className="mt-2 text-xs text-slate-500">
@@ -559,16 +559,16 @@ export function StoreDetailWorkspace({ store, incidents, actions, userRole, crmD
             ) : null}
           </div>
 
-          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="border-b border-slate-200 bg-slate-50/50 px-6 py-4">
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm sm:rounded-2xl">
+            <div className="border-b border-slate-200 bg-slate-50/50 px-3 py-3 sm:px-6 sm:py-4">
               <h4 className="font-bold text-slate-900">Action List</h4>
             </div>
             <div className="divide-y divide-slate-100">
               {actions.length === 0 ? (
-                <div className="p-6 text-sm text-slate-500">No actions logged for this store.</div>
+                <div className="p-3 text-sm text-slate-500 sm:p-6">No actions logged for this store.</div>
               ) : (
                 actions.map((action) => (
-                  <div key={action.id} className="space-y-3 p-5">
+                  <div key={action.id} className="space-y-2.5 p-3 sm:space-y-3 sm:p-5">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <p className="text-sm font-semibold text-slate-900">
                         {action.source_type === 'store' ? getStoreActionListTitle(action) : action.title || 'Untitled action'}
@@ -614,11 +614,11 @@ export function StoreDetailWorkspace({ store, incidents, actions, userRole, crmD
       ) : null}
 
       {activeTab === 'operational data' ? (
-        <div className="grid grid-cols-1 gap-8 md:grid-cols-12">
-          <div className="flex h-[500px] flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-sm md:col-span-8">
-            <div className="mb-6 flex items-start justify-between gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:gap-6 md:grid-cols-12 md:gap-8">
+          <div className="flex h-[360px] flex-col rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:h-[500px] sm:rounded-2xl sm:p-6 md:col-span-8">
+            <div className="mb-3 flex items-start justify-between gap-3 sm:mb-6">
               <div>
-                <h3 className="text-lg font-bold">Location Details</h3>
+                <h3 className="text-base font-bold sm:text-lg">Location Details</h3>
                 <p className="text-sm text-slate-500">{fullAddress || 'No address available'}</p>
               </div>
               {mapsNavigationUrl ? (
@@ -652,12 +652,12 @@ export function StoreDetailWorkspace({ store, incidents, actions, userRole, crmD
             </div>
           </div>
 
-          <div className="space-y-6 md:col-span-4">
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-              <h3 className="mb-4 text-lg font-bold">Audit Performance</h3>
-              <div className="rounded-2xl border border-green-100 bg-green-50 p-4 text-center">
+          <div className="space-y-3 sm:space-y-6 md:col-span-4">
+            <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-6">
+              <h3 className="mb-3 text-base font-bold sm:mb-4 sm:text-lg">Audit Performance</h3>
+              <div className="rounded-xl border border-green-100 bg-green-50 p-3 text-center sm:rounded-2xl sm:p-4">
                 <p className="mb-1 text-xs font-bold uppercase tracking-widest text-green-600">Latest Audit Score</p>
-                <p className={`text-5xl font-black ${typeof latestAuditScore === 'number' ? getScoreColor(latestAuditScore) : 'text-slate-700'}`}>
+                <p className={`text-3xl font-black sm:text-5xl ${typeof latestAuditScore === 'number' ? getScoreColor(latestAuditScore) : 'text-slate-700'}`}>
                   {typeof latestAuditScore === 'number' ? `${latestAuditScore.toFixed(2)}%` : '—'}
                 </p>
                 {auditEntries[0]?.date ? (
@@ -667,7 +667,7 @@ export function StoreDetailWorkspace({ store, incidents, actions, userRole, crmD
                 ) : null}
               </div>
 
-              <div className="mt-6 space-y-4">
+              <div className="mt-3 space-y-3 sm:mt-6 sm:space-y-4">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                   <span className="text-sm text-slate-500">Historical Average</span>
                   <span className="text-sm font-bold">
@@ -687,24 +687,24 @@ export function StoreDetailWorkspace({ store, incidents, actions, userRole, crmD
       ) : null}
 
       {activeTab === 'incidents & safety' ? (
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="space-y-3 sm:space-y-6">
+          <div className="grid grid-cols-3 gap-2 sm:gap-6">
+            <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-6">
               <p className="mb-1 text-xs font-bold uppercase text-slate-400">Open Cases</p>
-              <p className="text-3xl font-bold">{ongoingIncidents.length}</p>
+              <p className="text-2xl font-bold sm:text-3xl">{ongoingIncidents.length}</p>
             </div>
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-6">
               <p className="mb-1 text-xs font-bold uppercase text-slate-400">Total Reported</p>
-              <p className="text-3xl font-bold">{incidents.length}</p>
+              <p className="text-2xl font-bold sm:text-3xl">{incidents.length}</p>
             </div>
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-6">
               <p className="mb-1 text-xs font-bold uppercase text-slate-400">Severity Index</p>
-              <p className={`text-3xl font-bold ${severityIndex.className}`}>{severityIndex.label}</p>
+              <p className={`text-2xl font-bold sm:text-3xl ${severityIndex.className}`}>{severityIndex.label}</p>
             </div>
           </div>
 
-          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50/50 px-6 py-4">
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm sm:rounded-2xl">
+            <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50/50 px-3 py-3 sm:px-6 sm:py-4">
               <h3 className="font-bold">Closed History</h3>
               <Link href="/reports" className="text-sm font-bold text-blue-600 hover:underline">
                 Export Logs
@@ -713,10 +713,10 @@ export function StoreDetailWorkspace({ store, incidents, actions, userRole, crmD
 
             <div className="divide-y divide-slate-100">
               {completedIncidents.length === 0 ? (
-                <div className="p-6 text-sm text-slate-500">No closed incidents available for this store.</div>
+                <div className="p-3 text-sm text-slate-500 sm:p-6">No closed incidents available for this store.</div>
               ) : (
                 completedIncidents.map((incident) => (
-                  <div key={incident.id} className="flex flex-col gap-6 p-6 transition-colors hover:bg-slate-50 sm:flex-row">
+                  <div key={incident.id} className="flex flex-col gap-3 p-3 transition-colors hover:bg-slate-50 sm:flex-row sm:gap-6 sm:p-6">
                     <div className="shrink-0">
                       <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-500">
                         <AlertCircle size={20} />
@@ -753,15 +753,15 @@ export function StoreDetailWorkspace({ store, incidents, actions, userRole, crmD
       ) : null}
 
       {activeTab === 'audit history' ? (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h3 className="mb-4 text-lg font-bold">Audit Timeline</h3>
+        <div className="grid grid-cols-1 gap-3 sm:gap-6 lg:grid-cols-2">
+          <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-6">
+            <h3 className="mb-3 text-base font-bold sm:mb-4 sm:text-lg">Audit Timeline</h3>
             <div className="space-y-3">
               {auditEntries.length === 0 ? (
                 <p className="text-sm text-slate-500">No audit rounds logged yet.</p>
               ) : (
                 auditEntries.map((audit) => (
-                  <div key={audit.auditNumber} className="rounded-xl border border-slate-100 p-4">
+                  <div key={audit.auditNumber} className="rounded-xl border border-slate-100 p-3 sm:p-4">
                     <div className="flex items-center justify-between gap-3">
                       <p className="font-semibold text-slate-900">Audit {audit.auditNumber}</p>
                       <p className={`text-lg font-bold ${getScoreColor(audit.score || 0)}`}>
@@ -777,10 +777,10 @@ export function StoreDetailWorkspace({ store, incidents, actions, userRole, crmD
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h3 className="mb-4 text-lg font-bold">Compliance Snapshot</h3>
-            <div className="space-y-4">
-              <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
+          <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-6">
+            <h3 className="mb-3 text-base font-bold sm:mb-4 sm:text-lg">Compliance Snapshot</h3>
+            <div className="space-y-3 sm:space-y-4">
+              <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 sm:p-4">
                 <p className="text-xs uppercase tracking-wide text-slate-500">Fire Risk Assessment</p>
                 <p className="mt-1 text-2xl font-bold text-slate-900">
                   {typeof store.fire_risk_assessment_pct === 'number'
@@ -794,7 +794,7 @@ export function StoreDetailWorkspace({ store, incidents, actions, userRole, crmD
                 </p>
               </div>
 
-              <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
+              <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 sm:p-4">
                 <p className="text-xs uppercase tracking-wide text-slate-500">Store Actions</p>
                 <p className="mt-1 text-2xl font-bold text-slate-900">{actions.length}</p>
                 <p className="mt-1 text-xs text-slate-500">
@@ -802,7 +802,7 @@ export function StoreDetailWorkspace({ store, incidents, actions, userRole, crmD
                 </p>
               </div>
 
-              <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
+              <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 sm:p-4">
                 <p className="text-xs uppercase tracking-wide text-slate-500">Incident Summary</p>
                 <p className="mt-1 text-2xl font-bold text-slate-900">{incidents.length}</p>
                 <p className="mt-1 text-xs text-slate-500">

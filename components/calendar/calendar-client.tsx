@@ -231,40 +231,40 @@ export function CalendarClient({ initialData }: CalendarClientProps) {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+    <div className="space-y-3 sm:space-y-6">
+      <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-5 md:p-6">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <div className="mb-1.5 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-lime-600 md:text-xs">
               <CalendarIcon size={14} />
               Calendar Overview
             </div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">{format(currentDate, 'MMMM yyyy')}</h1>
-            <p className="mt-1 max-w-xl text-sm leading-6 text-slate-500">
+            <h1 className="text-xl font-bold tracking-tight text-slate-950 sm:text-3xl">{format(currentDate, 'MMMM yyyy')}</h1>
+            <p className="mt-1 hidden max-w-xl text-sm leading-6 text-slate-500 sm:block">
               Monthly schedule for planned visits and completed compliance activity across your managed regions.
             </p>
           </div>
 
-          <div className="grid w-full grid-cols-3 gap-3 lg:w-auto">
-            <div className="rounded-2xl border border-blue-100 bg-blue-50/50 p-4 text-center">
+          <div className="grid w-full grid-cols-3 gap-2 sm:gap-3 lg:w-auto">
+            <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-2.5 text-center sm:rounded-2xl sm:p-4">
               <p className="text-[10px] font-bold uppercase tracking-wider text-blue-700">Routes</p>
-              <p className="mt-1 text-2xl font-bold leading-none text-blue-700">{totalPlannedRoutes}</p>
+              <p className="mt-1 text-xl font-bold leading-none text-blue-700 sm:text-2xl">{totalPlannedRoutes}</p>
             </div>
-            <div className="rounded-2xl border border-emerald-100 bg-emerald-50/50 p-4 text-center">
+            <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-2.5 text-center sm:rounded-2xl sm:p-4">
               <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">Completed</p>
-              <p className="mt-1 text-2xl font-bold leading-none text-emerald-700">{totalCompletedStores}</p>
+              <p className="mt-1 text-xl font-bold leading-none text-emerald-700 sm:text-2xl">{totalCompletedStores}</p>
             </div>
-            <div className="rounded-2xl border border-teal-100 bg-teal-50/50 p-4 text-center">
+            <div className="rounded-xl border border-teal-100 bg-teal-50/50 p-2.5 text-center sm:rounded-2xl sm:p-4">
               <p className="text-[10px] font-bold uppercase tracking-wider text-teal-700">Active Days</p>
-              <p className="mt-1 text-2xl font-bold leading-none text-teal-700">{activeDays}</p>
+              <p className="mt-1 text-xl font-bold leading-none text-teal-700 sm:text-2xl">{activeDays}</p>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:p-6">
-        <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <h2 className="flex items-center gap-2 text-lg font-bold text-slate-800">
+      <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-4 md:p-6">
+        <div className="mb-3 flex flex-col gap-3 md:mb-6 md:flex-row md:items-center md:justify-between">
+          <h2 className="flex items-center gap-2 text-base font-bold text-slate-800 sm:text-lg">
             <Users size={18} className="text-blue-500" />
             Manager Capacity
           </h2>
@@ -302,7 +302,7 @@ export function CalendarClient({ initialData }: CalendarClientProps) {
                 style={{ width: `${Math.min(100, topManager.utilizationPct)}%` }}
               />
             </div>
-            <div className="flex flex-wrap items-center gap-4 text-xs font-medium text-slate-500">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-medium text-slate-500 sm:gap-x-4">
               <span className="flex items-center gap-1.5">
                 <Navigation size={12} /> {topManager.storeStops} stops • {topManager.estimatedHours}h across {topManager.activeDays}{' '}
                 day{topManager.activeDays === 1 ? '' : 's'}
@@ -318,10 +318,10 @@ export function CalendarClient({ initialData }: CalendarClientProps) {
         )}
       </div>
 
-      <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex flex-col gap-4 border-b border-slate-100 p-4 md:p-6 lg:flex-row lg:items-center lg:justify-between">
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm sm:rounded-3xl">
+        <div className="flex flex-col gap-3 border-b border-slate-100 p-3 sm:p-4 md:p-6 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex w-full items-center gap-4 lg:w-auto">
-            <h2 className="flex-1 text-xl font-bold text-slate-800 lg:flex-none">{format(currentDate, 'MMMM yyyy')}</h2>
+            <h2 className="flex-1 text-lg font-bold text-slate-800 sm:text-xl lg:flex-none">{format(currentDate, 'MMMM yyyy')}</h2>
             <div className="flex gap-1">
               <button
                 type="button"
@@ -432,8 +432,8 @@ export function CalendarClient({ initialData }: CalendarClientProps) {
           ) : (
             <div className="divide-y divide-slate-100">
               {daysWithEvents.map((day) => (
-                <div key={`mob-${day.dateStr}`} className="bg-white p-4">
-                  <div className="mb-4 flex items-center gap-3">
+                <div key={`mob-${day.dateStr}`} className="bg-white p-3">
+                  <div className="mb-3 flex items-center gap-3">
                     <div
                       className={`flex h-10 w-10 flex-col items-center justify-center rounded-xl ${
                         isToday(day.date) ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-700'
@@ -447,7 +447,7 @@ export function CalendarClient({ initialData }: CalendarClientProps) {
                     ) : null}
                   </div>
 
-                  <div className="space-y-3">
+                  <div className="space-y-2.5">
                     {day.plannedRoutes.map((route, idx) => (
                       <CalendarDayEvent
                         key={`mob-planned-${day.dateStr}-${route.key}-${idx}`}

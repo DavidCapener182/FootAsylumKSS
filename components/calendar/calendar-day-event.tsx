@@ -35,7 +35,7 @@ export function CalendarDayEvent({ type, data, date, onClick, isMobile = false }
         <button
           type="button"
           onClick={onClick}
-          className="flex w-full items-start gap-3 rounded-xl border border-blue-200 bg-blue-50 p-3 text-left shadow-sm transition-colors hover:bg-blue-100"
+          className="flex w-full items-start gap-2 rounded-xl border border-blue-200 bg-blue-50 p-2.5 text-left shadow-sm transition-colors hover:bg-blue-100"
           title={`${routeName} - ${routeDetails}`}
         >
           <span className="mt-0.5">
@@ -43,9 +43,9 @@ export function CalendarDayEvent({ type, data, date, onClick, isMobile = false }
           </span>
           <span className="flex-1">
             <span className="mb-1 flex items-start justify-between gap-2">
-              <span className="text-sm font-bold text-blue-800">{routeName}</span>
+              <span className="line-clamp-1 text-xs font-bold text-blue-800 sm:text-sm">{routeName}</span>
             </span>
-            <span className="flex items-center gap-1 text-xs text-blue-700/90">
+            <span className="flex items-center gap-1 text-[11px] text-blue-700/90 sm:text-xs">
               <Users size={10} />
               {routeDetails}
             </span>
@@ -92,7 +92,7 @@ export function CalendarDayEvent({ type, data, date, onClick, isMobile = false }
         type="button"
         onClick={onClick}
         className={cn(
-          'flex w-full items-start gap-3 rounded-xl border p-3 text-left shadow-sm transition-colors',
+          'flex w-full items-start gap-2 rounded-xl border p-2.5 text-left shadow-sm transition-colors',
           borderClass,
           bgClass,
           hasFailedAudit ? 'hover:bg-red-100' : 'hover:bg-emerald-100'
@@ -102,12 +102,12 @@ export function CalendarDayEvent({ type, data, date, onClick, isMobile = false }
         <span className="mt-0.5">{icon}</span>
         <span className="flex-1">
           <span className="mb-1 flex items-start justify-between gap-2">
-            <span className={cn('text-sm font-bold', textClass)}>{store.storeName}</span>
+            <span className={cn('line-clamp-1 text-xs font-bold sm:text-sm', textClass)}>{store.storeName}</span>
             {score ? (
               <span className={cn('rounded bg-white/60 px-1.5 py-0.5 text-xs font-bold', textClass)}>{score}</span>
             ) : null}
           </span>
-          <span className={cn('flex items-center gap-1 text-xs opacity-80', textClass)}>
+          <span className={cn('flex items-center gap-1 text-[11px] opacity-80 sm:text-xs', textClass)}>
             <Users size={10} />
             {store.managerName || 'Unassigned'}
           </span>

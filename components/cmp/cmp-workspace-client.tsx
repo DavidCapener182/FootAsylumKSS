@@ -99,17 +99,17 @@ export function CmpWorkspaceClient({ plans }: { plans: CmpPlanSummary[] }) {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 rounded-lg border border-emerald-200 bg-emerald-50 p-6">
+    <div className="space-y-3 sm:space-y-6">
+      <div className="flex flex-col gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 sm:gap-4 sm:rounded-2xl sm:p-6">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="space-y-1">
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900">Crowd Management Plans</h1>
-            <p className="text-sm text-slate-600">
+            <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Crowd Management Plans</h1>
+            <p className="hidden text-sm text-slate-600 sm:block">
               Admin-only KSS workspace for crowd management and security operations plans.
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" onClick={handleCreateExample} disabled={isPending} variant="outline">
+          <div className="grid w-full grid-cols-1 gap-2 min-[420px]:grid-cols-2 md:w-auto md:flex md:flex-wrap">
+            <Button type="button" onClick={handleCreateExample} disabled={isPending} variant="outline" className="w-full md:w-auto">
               {isPending && pendingAction === 'example' ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
@@ -117,7 +117,7 @@ export function CmpWorkspaceClient({ plans }: { plans: CmpPlanSummary[] }) {
               )}
               Create Example Event
             </Button>
-            <Button type="button" onClick={handleCreate} disabled={isPending} className="bg-emerald-700 hover:bg-emerald-800">
+            <Button type="button" onClick={handleCreate} disabled={isPending} className="w-full bg-emerald-700 hover:bg-emerald-800 md:w-auto">
               {isPending && pendingAction === 'new' ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
@@ -138,7 +138,7 @@ export function CmpWorkspaceClient({ plans }: { plans: CmpPlanSummary[] }) {
         <CardHeader>
           <CardTitle>Plan History</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-3 sm:space-y-4">
           {planList.length === 0 ? (
             <div className="rounded-md border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
               No crowd management plans have been created yet.
@@ -147,7 +147,7 @@ export function CmpWorkspaceClient({ plans }: { plans: CmpPlanSummary[] }) {
             planList.map((plan) => (
               <div
                 key={plan.id}
-                className="flex flex-col gap-3 rounded-lg border border-slate-200 px-4 py-4 md:flex-row md:items-center md:justify-between"
+                className="flex flex-col gap-3 rounded-xl border border-slate-200 px-3 py-3 md:flex-row md:items-center md:justify-between md:px-4 md:py-4"
               >
                 <div className="space-y-2">
                   <div className="flex flex-wrap items-center gap-2">
@@ -181,17 +181,17 @@ export function CmpWorkspaceClient({ plans }: { plans: CmpPlanSummary[] }) {
                   </div>
                 </div>
 
-                <div className="flex flex-wrap gap-2">
+                <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
                   <a
                     href={`/admin/crowd-management-plans/${plan.id}`}
-                    className={cn(buttonVariants({ variant: 'outline' }))}
+                    className={cn(buttonVariants({ variant: 'outline' }), 'w-full sm:w-auto')}
                   >
                     <FileText className="mr-2 h-4 w-4" />
                     Edit
                   </a>
                   <a
                     href={`/admin/crowd-management-plans/${plan.id}/preview`}
-                    className={cn(buttonVariants({ variant: 'default' }))}
+                    className={cn(buttonVariants({ variant: 'default' }), 'w-full sm:w-auto')}
                   >
                     Preview
                     <ChevronRight className="ml-2 h-4 w-4" />
@@ -201,7 +201,7 @@ export function CmpWorkspaceClient({ plans }: { plans: CmpPlanSummary[] }) {
                     variant="outline"
                     onClick={() => handleDelete(plan)}
                     disabled={isPending && deleteTargetId === plan.id}
-                    className="border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
+                    className="w-full border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800 sm:w-auto"
                   >
                     {isPending && deleteTargetId === plan.id ? (
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />

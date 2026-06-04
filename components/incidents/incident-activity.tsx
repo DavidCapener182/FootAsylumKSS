@@ -126,7 +126,7 @@ function resolveActorName(
 export function IncidentActivity({ activityLog, userMap, incidentActorOverrideName }: IncidentActivityProps) {
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 sm:space-y-4">
       <Card>
         <CardHeader>
           <CardTitle>Activity Log</CardTitle>
@@ -135,20 +135,20 @@ export function IncidentActivity({ activityLog, userMap, incidentActorOverrideNa
           {activityLog.length === 0 ? (
             <p className="text-muted-foreground">No activity recorded yet.</p>
           ) : (
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
               {activityLog.map((activity) => {
                 const changedFields = getChangedFields(activity.details)
                 const entityTypeLabel = formatEntityType(activity.entity_type)
                 const actorName = resolveActorName(activity, userMap, incidentActorOverrideName)
                 
                 return (
-                  <div key={activity.id} className="relative pl-6 border-l-2 border-slate-200">
+                  <div key={activity.id} className="relative border-l-2 border-slate-200 pl-4 sm:pl-6">
                     <div className="absolute -left-1.5 top-1.5 h-3 w-3 rounded-full border-2 border-white bg-indigo-500 shadow-sm" />
                     
                     <div className="space-y-2">
                       <div className="flex items-start justify-between gap-4">
                         <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
+                            <div className="mb-1 flex flex-wrap items-center gap-1.5 sm:gap-2">
                             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
                               {format(new Date(activity.created_at), 'MMM dd, HH:mm')}
                             </span>

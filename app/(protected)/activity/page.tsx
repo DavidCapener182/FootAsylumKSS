@@ -547,16 +547,16 @@ export default async function ActivityPage() {
   const dayGroups = Object.entries(activitiesByDay).sort((a, b) => b[0].localeCompare(a[0]))
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
-        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+    <div className="flex flex-col gap-3 sm:gap-6">
+      <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-5 md:p-6">
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div className="min-w-0">
             <div className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-lime-600">
               <ShieldCheck className="h-3.5 w-3.5" />
               System Audit Trail
             </div>
-            <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">Recent Activity</h1>
-            <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
+            <h1 className="mt-1 text-xl font-bold tracking-tight text-slate-950 sm:mt-2 sm:text-3xl">Recent Activity</h1>
+            <p className="mt-1 hidden max-w-2xl text-sm leading-6 text-slate-500 sm:block">
               Live timeline of audit, FRA, store, action and planning updates across the platform.
             </p>
           </div>
@@ -566,29 +566,29 @@ export default async function ActivityPage() {
           </div>
         </div>
 
-        <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:mt-5 sm:gap-3 md:grid-cols-4">
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 sm:rounded-2xl sm:p-4">
             <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Events</p>
             <p className="mt-1 text-2xl font-bold text-slate-950">{totalActivities}</p>
           </div>
-          <div className="rounded-2xl border border-emerald-100 bg-emerald-50/50 p-4">
+          <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-3 sm:rounded-2xl sm:p-4">
             <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">Created</p>
             <p className="mt-1 text-2xl font-bold text-emerald-700">{actionCounts.created}</p>
           </div>
-          <div className="rounded-2xl border border-blue-100 bg-blue-50/50 p-4">
+          <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-3 sm:rounded-2xl sm:p-4">
             <p className="text-[10px] font-bold uppercase tracking-wider text-blue-700">Updated</p>
             <p className="mt-1 text-2xl font-bold text-blue-700">{actionCounts.updated}</p>
           </div>
-          <div className="rounded-2xl border border-teal-100 bg-teal-50/50 p-4">
+          <div className="rounded-xl border border-teal-100 bg-teal-50/50 p-3 sm:rounded-2xl sm:p-4">
             <p className="text-[10px] font-bold uppercase tracking-wider text-teal-700">Active Users</p>
             <p className="mt-1 text-2xl font-bold text-teal-700">{activeUsers}</p>
           </div>
         </div>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
-        <Card className="overflow-hidden rounded-2xl border-slate-200 bg-white shadow-sm">
-          <CardHeader className="border-b border-slate-200 bg-slate-50/60 px-4 py-4 md:px-6 md:py-5">
+      <div className="grid gap-3 sm:gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
+        <Card className="overflow-hidden rounded-xl border-slate-200 bg-white shadow-sm sm:rounded-2xl">
+          <CardHeader className="border-b border-slate-200 bg-slate-50/60 px-3 py-3 sm:px-4 sm:py-4 md:px-6 md:py-5">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <Activity className="h-4 w-4 text-blue-600" />
@@ -600,26 +600,26 @@ export default async function ActivityPage() {
             </div>
           </CardHeader>
 
-          <CardContent className="p-4 md:p-5">
+          <CardContent className="p-3 sm:p-4 md:p-5">
             {dayGroups.length === 0 ? (
               <div className="flex min-h-[280px] flex-col items-center justify-center rounded-xl border border-slate-200 bg-slate-50/70 text-slate-500">
                 <Activity className="mb-3 h-8 w-8 text-slate-300" />
                 <p className="text-sm italic">No recent activity</p>
               </div>
             ) : (
-              <div className="space-y-6">
-                {dayGroups.map(([day, dayActivities]) => (
-                  <section key={day} className="space-y-3">
-                    <div className="flex items-center justify-between">
+              <div className="space-y-3 sm:space-y-6">
+                {dayGroups.map(([day, dayActivities], dayIndex) => (
+                  <details key={day} className="space-y-2 sm:space-y-3" open={dayIndex === 0}>
+                    <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-2">
                       <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">
                         {format(new Date(day), 'EEEE, d MMM yyyy')}
                       </p>
                       <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                         {dayActivities.length} event{dayActivities.length !== 1 ? 's' : ''}
                       </span>
-                    </div>
+                    </summary>
 
-                    <div className="space-y-3">
+                    <div className="space-y-2 sm:space-y-3">
                       {dayActivities.map((activity: any) => {
                         const changedFields = getChangedFields(activity.details)
                         const entityDisplayName = activity.entityName
@@ -627,7 +627,7 @@ export default async function ActivityPage() {
                         return (
                           <article
                             key={activity.id}
-                            className={`rounded-xl border border-slate-200 border-l-4 bg-white p-3 shadow-sm md:p-4 ${getActionCardAccent(activity.action)}`}
+                            className={`rounded-xl border border-slate-200 border-l-4 bg-white p-2 shadow-sm sm:p-3 md:p-4 ${getActionCardAccent(activity.action)}`}
                           >
                             <div className="flex flex-wrap items-start justify-between gap-2">
                               <div className="flex min-w-0 flex-wrap items-center gap-1.5 md:gap-2">
@@ -650,9 +650,12 @@ export default async function ActivityPage() {
                             </div>
 
                             {activity.action === 'UPDATED' && changedFields.length > 0 && (
-                              <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50/80 p-3">
-                                <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">Changes</p>
-                                <div className="mt-2 space-y-1.5">
+                              <details className="mt-2 overflow-hidden rounded-lg border border-slate-200 bg-slate-50/80 sm:mt-3">
+                                <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2.5 py-2 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
+                                  <span>Changes</span>
+                                  <span>{changedFields.length} field{changedFields.length !== 1 ? 's' : ''}</span>
+                                </summary>
+                                <div className="space-y-1.5 px-2.5 pb-2.5">
                                   {changedFields.slice(0, 4).map((change, idx) => (
                                     <p key={idx} className="text-xs text-slate-600">
                                       <span className="font-semibold text-slate-700">{formatFieldName(change.field)}:</span>{' '}
@@ -671,11 +674,11 @@ export default async function ActivityPage() {
                                     +{changedFields.length - 4} more change{changedFields.length - 4 !== 1 ? 's' : ''}
                                   </p>
                                 )}
-                              </div>
+                              </details>
                             )}
 
                             {activity.action === 'CREATED' && (
-                              <p className="mt-3 text-xs text-slate-600">
+                              <p className="mt-2 text-xs text-slate-600 sm:mt-3">
                                 New {formatEntityType(activity.entity_type).toLowerCase()} recorded
                                 {entityDisplayName ? (
                                   <span className="ml-1 font-semibold text-emerald-700">{entityDisplayName}</span>
@@ -684,7 +687,7 @@ export default async function ActivityPage() {
                             )}
 
                             {activity.action === 'CLOSED' && (
-                              <p className="mt-3 text-xs text-slate-600">
+                              <p className="mt-2 text-xs text-slate-600 sm:mt-3">
                                 {formatEntityType(activity.entity_type)} closed
                                 {entityDisplayName ? (
                                   <span className="ml-1 font-semibold text-amber-700">{entityDisplayName}</span>
@@ -693,12 +696,12 @@ export default async function ActivityPage() {
                             )}
 
                             {activity.action === 'DELETED' && entityDisplayName && (
-                              <p className="mt-3 text-xs font-medium text-rose-600">
+                              <p className="mt-2 text-xs font-medium text-rose-600 sm:mt-3">
                                 Deleted {formatEntityType(activity.entity_type).toLowerCase()}: {entityDisplayName}
                               </p>
                             )}
 
-                            <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-2">
+                            <div className="mt-2 flex items-center justify-between border-t border-slate-100 pt-2 sm:mt-3">
                               {(() => {
                                 const actorName = resolveActivityActorName(activity, userMap)
                                 return (
@@ -718,7 +721,7 @@ export default async function ActivityPage() {
                         )
                       })}
                     </div>
-                  </section>
+                  </details>
                 ))}
               </div>
             )}
@@ -726,14 +729,14 @@ export default async function ActivityPage() {
         </Card>
 
         <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1 xl:block xl:space-y-4 xl:overflow-visible xl:pb-0">
-          <Card className="min-w-[280px] shrink-0 snap-start rounded-2xl border-slate-200 bg-white shadow-sm xl:min-w-0">
+          <Card className="min-w-[260px] shrink-0 snap-start rounded-xl border-slate-200 bg-white shadow-sm sm:rounded-2xl xl:min-w-0">
             <CardHeader className="border-b border-slate-200 bg-slate-50/60 pb-3">
               <CardTitle className="flex items-center gap-2 text-sm font-bold text-slate-800">
                 <Sparkles className="h-4 w-4 text-amber-500" />
                 Action Breakdown
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3 p-4">
+            <CardContent className="space-y-2.5 p-3 sm:space-y-3 sm:p-4">
               {[
                 { label: 'Created', value: actionCounts.created, color: 'bg-emerald-500' },
                 { label: 'Updated', value: actionCounts.updated, color: 'bg-blue-500' },
@@ -759,14 +762,14 @@ export default async function ActivityPage() {
             </CardContent>
           </Card>
 
-          <Card className="min-w-[240px] shrink-0 snap-start rounded-2xl border-slate-200 bg-white shadow-sm xl:min-w-0">
+          <Card className="min-w-[220px] shrink-0 snap-start rounded-xl border-slate-200 bg-white shadow-sm sm:rounded-2xl xl:min-w-0">
             <CardHeader className="border-b border-slate-200 bg-slate-50/60 pb-3">
               <CardTitle className="flex items-center gap-2 text-sm font-bold text-slate-800">
                 <Layers3 className="h-4 w-4 text-indigo-500" />
                 Entity Activity
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2 p-4">
+            <CardContent className="space-y-2 p-3 sm:p-4">
               {sortedEntityCounts.length === 0 ? (
                 <p className="text-xs italic text-slate-500">No entity activity</p>
               ) : (
@@ -782,14 +785,14 @@ export default async function ActivityPage() {
             </CardContent>
           </Card>
 
-          <Card className="min-w-[240px] shrink-0 snap-start rounded-2xl border-slate-200 bg-white shadow-sm xl:min-w-0">
+          <Card className="min-w-[220px] shrink-0 snap-start rounded-xl border-slate-200 bg-white shadow-sm sm:rounded-2xl xl:min-w-0">
             <CardHeader className="border-b border-slate-200 bg-slate-50/60 pb-3">
               <CardTitle className="flex items-center gap-2 text-sm font-bold text-slate-800">
                 <UserRound className="h-4 w-4 text-slate-600" />
                 Top Contributors
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2 p-4">
+            <CardContent className="space-y-2 p-3 sm:p-4">
               {topUsers.length === 0 ? (
                 <p className="text-xs italic text-slate-500">No user activity</p>
               ) : (

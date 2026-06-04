@@ -1065,54 +1065,54 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
   const canCreateRoute = Boolean(routeManager && routeDate && routeSelectedStores.size > 0 && routeSelectedStores.size <= routeStopLimit && !isCreatingRoute)
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
+    <div className="space-y-3 sm:space-y-6">
+      <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-5 md:p-6">
         <div>
-          <div className="mb-5 flex flex-col items-start justify-between gap-3 md:flex-row md:items-center">
+          <div className="mb-3 flex flex-col items-start justify-between gap-3 sm:mb-5 md:flex-row md:items-center">
             <div>
               <div className="mb-1.5 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-lime-600 md:text-xs">
                 <Navigation size={14} /> Route Optimization
               </div>
-              <h1 className="mb-1 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">Route Planning</h1>
-              <p className="max-w-2xl text-sm leading-6 text-slate-500">
+              <h1 className="mb-1 text-xl font-bold tracking-tight text-slate-950 sm:text-3xl">Route Planning</h1>
+              <p className="hidden max-w-2xl text-sm leading-6 text-slate-500 sm:block">
                 Build daily compliance routes, optimize store selection, and track planned rounds by area and manager.
               </p>
             </div>
-            <button className="flex min-h-[44px] items-center gap-2 rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-slate-800">
+            <button className="flex min-h-[40px] items-center gap-2 rounded-xl bg-slate-950 px-3 py-2 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-slate-800 sm:min-h-[44px] sm:px-4 sm:text-sm">
               Live Planner
               <Navigation size={14} className="ml-1" />
             </button>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-            <div className="flex flex-col justify-between rounded-2xl border border-blue-100 bg-blue-50/50 p-4">
+          <div className="grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-4">
+            <div className="flex flex-col justify-between rounded-xl border border-blue-100 bg-blue-50/50 p-3 sm:rounded-2xl sm:p-4">
               <div className="mb-2 flex items-center gap-2 text-blue-700">
                 <StoreIcon size={14} />
                 <span className="text-[10px] font-bold uppercase md:text-xs">Available Stores</span>
               </div>
               <p className="text-2xl font-bold text-blue-700 md:text-3xl">{availableStoreCount}</p>
-              <p className="mt-1 text-[11px] text-blue-700/70">Unplanned stores eligible for audit routing</p>
+              <p className="mt-1 hidden text-[11px] text-blue-700/70 sm:block">Unplanned stores eligible for audit routing</p>
             </div>
 
-            <div className="flex flex-col justify-between rounded-2xl border border-emerald-100 bg-emerald-50/50 p-4">
+            <div className="flex flex-col justify-between rounded-xl border border-emerald-100 bg-emerald-50/50 p-3 sm:rounded-2xl sm:p-4">
               <div className="mb-2 flex items-center gap-2 text-emerald-700">
                 <MapIcon size={14} />
                 <span className="text-[10px] font-bold uppercase md:text-xs">Planned Routes</span>
               </div>
               <p className="text-2xl font-bold text-emerald-700 md:text-3xl">{plannedRouteCount}</p>
-              <p className="mt-1 text-[11px] text-emerald-700/70">Date and manager route groups</p>
+              <p className="mt-1 hidden text-[11px] text-emerald-700/70 sm:block">Date and manager route groups</p>
             </div>
 
-            <div className="flex flex-col justify-between rounded-2xl border border-teal-100 bg-teal-50/50 p-4">
+            <div className="flex flex-col justify-between rounded-xl border border-teal-100 bg-teal-50/50 p-3 sm:rounded-2xl sm:p-4">
               <div className="mb-2 flex items-center gap-2 text-teal-700">
                 <CheckCircle2 size={14} />
                 <span className="text-[10px] font-bold uppercase md:text-xs">Planned Stores</span>
               </div>
               <p className="text-2xl font-bold text-teal-700 md:text-3xl">{plannedStoreCount}</p>
-              <p className="mt-1 text-[11px] text-teal-700/70">Stores already assigned to routes</p>
+              <p className="mt-1 hidden text-[11px] text-teal-700/70 sm:block">Stores already assigned to routes</p>
             </div>
 
-            <div className="flex flex-col justify-between rounded-2xl border border-amber-100 bg-amber-50/50 p-4">
+            <div className="flex flex-col justify-between rounded-xl border border-amber-100 bg-amber-50/50 p-3 sm:rounded-2xl sm:p-4">
               <div className="mb-2 flex items-center gap-2 text-amber-700">
                 <Users size={14} />
                 <span className="text-[10px] font-bold uppercase md:text-xs">Managers</span>
@@ -1123,17 +1123,17 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
-        <div className="space-y-6 lg:col-span-7">
-          <Card className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <CardHeader className="border-b border-slate-100 p-4 md:p-6">
+      <div className="grid grid-cols-1 gap-3 sm:gap-6 lg:grid-cols-12 lg:gap-8">
+        <div className="space-y-3 sm:space-y-6 lg:col-span-7">
+          <Card className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm sm:rounded-2xl">
+            <CardHeader className="border-b border-slate-100 p-3 sm:p-4 md:p-6">
           <CardTitle className="text-lg flex items-center gap-2 text-slate-800">
             <Plus className="h-5 w-5" />
             Create New Route
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4 p-4 md:space-y-6 md:p-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <CardContent className="space-y-3 p-3 sm:space-y-4 sm:p-4 md:space-y-6 md:p-6">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3 md:gap-4">
             <div className="space-y-2">
               <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-slate-500">
                 <Home className="h-4 w-4" />
@@ -1302,8 +1302,8 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
             )}
           </div>
 
-          <details className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50/80 md:hidden">
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
+          <details className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50/80 md:hidden">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5">
               <span className="flex items-center gap-2 text-sm font-semibold text-slate-800">
                 <Settings2 className="h-4 w-4 text-blue-500" />
                 Optimizer Constraints
@@ -1313,7 +1313,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
               </span>
             </summary>
 
-            <div className="space-y-3 border-t border-slate-200 bg-white px-4 py-4">
+            <div className="space-y-2.5 border-t border-slate-200 bg-white px-3 py-3">
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-slate-600">Stop limit</label>
@@ -1414,7 +1414,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
 
           {/* Store Selection for Route */}
           {storesInRouteArea.length > 0 && (
-            <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-4">
+            <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-3 sm:space-y-4 sm:p-4">
               <div className="mb-3 flex flex-col gap-3 border-b border-slate-100 pb-2 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                   <h3 className="text-sm font-bold text-slate-800">
@@ -1496,7 +1496,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
                             if (isDisabled) return
                             handleRouteStoreToggle(store.id)
                           }}
-                          className={`flex items-start gap-3 rounded-xl border p-3 transition-all ${
+                          className={`flex items-start gap-2.5 rounded-xl border p-2.5 transition-all sm:gap-3 sm:p-3 ${
                             isDisabled
                               ? 'cursor-not-allowed border-slate-100 bg-slate-50 opacity-50'
                               : isSelected
@@ -1543,7 +1543,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
                   )
                 })}
               </div>
-              <div className="sticky bottom-3 z-20 mt-3 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-lg shadow-slate-200/70 backdrop-blur">
+              <div className="sticky bottom-3 z-20 mt-3 rounded-xl border border-slate-200 bg-white/95 p-3 shadow-lg shadow-slate-200/70 backdrop-blur sm:rounded-2xl">
                 <div className="mb-2 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                   <span className="text-sm font-semibold text-slate-800">
                     {routeSelectedStores.size > 0
@@ -1580,13 +1580,13 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
       </Card>
     </div>
 
-      <div className="space-y-6 lg:col-span-5">
+      <div className="space-y-3 sm:space-y-6 lg:col-span-5">
       {/* Map */}
       <details
-        className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm md:hidden"
+        className="group overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm sm:rounded-2xl md:hidden"
         open={Boolean(routeArea || routeSelectedStores.size > 0)}
       >
-        <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-4 text-left">
+        <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-3 text-left sm:px-4 sm:py-4">
           <MapPin className="h-5 w-5 text-emerald-500" />
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold text-slate-800">Store Locations Map</p>
@@ -1599,7 +1599,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
           </div>
           <ChevronDown className="h-4 w-4 text-slate-400 transition-transform duration-200 group-open:rotate-180" />
         </summary>
-        <div className="border-t border-slate-200 p-4 pt-4">
+        <div className="border-t border-slate-200 p-3 pt-3 sm:p-4 sm:pt-4">
           <div
             className="relative h-[320px] w-full overflow-hidden rounded-[20px] border border-slate-200"
             style={{ zIndex: 0 }}
@@ -1671,8 +1671,8 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
       </Card>
 
       {/* Planned Routes Table */}
-      <Card className="bg-white shadow-sm border-slate-200 rounded-2xl overflow-hidden">
-        <CardHeader className="border-b border-slate-200 bg-white p-4 md:p-6">
+      <Card className="overflow-hidden rounded-xl border-slate-200 bg-white shadow-sm sm:rounded-2xl">
+        <CardHeader className="border-b border-slate-200 bg-white p-3 sm:p-4 md:p-6">
           <CardTitle className="text-lg flex items-center gap-2 text-slate-800">
             <Calendar className="h-5 w-5 text-blue-500" />
             Planned Routes
@@ -1681,7 +1681,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
             </span>
           </CardTitle>
         </CardHeader>
-        <CardContent className="p-4 md:p-6">
+        <CardContent className="p-3 sm:p-4 md:p-6">
           {plannedRoutes.length === 0 ? (
             <div className="rounded-xl border-2 border-dashed border-slate-100 bg-slate-50/50 py-12 text-center">
               <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-400">
@@ -1694,7 +1694,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
             </div>
           ) : (
             <>
-              <div className="space-y-3 md:hidden">
+              <div className="space-y-2.5 md:hidden">
                 {plannedRoutes.map((group) => {
                   const groupKey =
                     (group as any)._groupKey ||
@@ -1706,7 +1706,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
                     <div
                       key={groupKey}
                       className={cn(
-                        'rounded-[24px] border border-slate-200 bg-slate-50/70 p-4 shadow-sm',
+                        'rounded-xl border border-slate-200 bg-slate-50/70 p-3 shadow-sm sm:rounded-2xl sm:p-4',
                         isRouteOverdue && 'border-amber-200 bg-amber-50/60'
                       )}
                     >
@@ -1771,7 +1771,10 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
                         </div>
                       </div>
 
-                      <div className="mt-4 space-y-2">
+                      <details className="mt-4 space-y-2" open={isEditing}>
+                        <summary className="cursor-pointer list-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          Route stops ({group.stores.length})
+                        </summary>
                         {group.stores.map((store) => {
                           const isStoreLoading = loading[store.id]
                           const currentOrder =
@@ -1841,7 +1844,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
                             </div>
                           )
                         })}
-                      </div>
+                      </details>
 
                       {routeOperationalItems[groupKey] && routeOperationalItems[groupKey].length > 0 && (
                         <div className="mt-4 rounded-[18px] border border-slate-200 bg-white p-3">

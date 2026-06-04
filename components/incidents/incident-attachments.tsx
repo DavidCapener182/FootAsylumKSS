@@ -38,10 +38,10 @@ export function IncidentAttachments({ incidentId, attachments }: IncidentAttachm
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 sm:space-y-4">
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <CardTitle>Attachments</CardTitle>
             <div>
               <input
@@ -51,7 +51,7 @@ export function IncidentAttachments({ incidentId, attachments }: IncidentAttachm
                 multiple
                 onChange={handleFileUpload}
               />
-              <Button asChild disabled={isUploading}>
+              <Button asChild disabled={isUploading} className="w-full sm:w-auto">
                 <label htmlFor="file-upload" className="cursor-pointer">
                   <Upload className="h-4 w-4 mr-2" />
                   {isUploading ? 'Uploading...' : 'Upload Evidence'}
@@ -64,8 +64,8 @@ export function IncidentAttachments({ incidentId, attachments }: IncidentAttachm
           {attachments.length === 0 ? (
             <p className="text-muted-foreground">No attachments uploaded yet.</p>
           ) : (
-            <div className="rounded-md border">
-              <Table>
+            <div className="overflow-x-auto rounded-md border">
+              <Table className="min-w-[760px]">
                 <TableHeader>
                   <TableRow>
                     <TableHead>File Name</TableHead>
@@ -102,4 +102,3 @@ export function IncidentAttachments({ incidentId, attachments }: IncidentAttachm
     </div>
   )
 }
-

@@ -160,17 +160,17 @@ export function FRATrackerClient({ stores, userRole }: FRATrackerClientProps) {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
-        <div className="space-y-5">
+    <div className="space-y-3 sm:space-y-6">
+      <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-5 md:p-6">
+        <div className="space-y-3 sm:space-y-5">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
               <div className="mb-1.5 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-amber-600 md:text-xs">
                 <Flame size={14} />
                 Fire Compliance Monitoring
               </div>
-              <h1 className="text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">Fire Risk Assessment</h1>
-              <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
+              <h1 className="text-xl font-bold tracking-tight text-slate-950 sm:text-3xl">Fire Risk Assessment</h1>
+              <p className="mt-1 hidden max-w-2xl text-sm leading-6 text-slate-500 sm:block">
                 Track Fire Risk Assessments for stores that have completed audits. FRAs must be renewed every 12 months.
               </p>
             </div>
@@ -185,28 +185,28 @@ export function FRATrackerClient({ stores, userRole }: FRATrackerClientProps) {
             </button>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+          <div className="grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-3">
             <FRAStatsCards stores={stores} selectedArea={areaFilter} />
           </div>
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-100 p-4 md:p-6">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm sm:rounded-3xl">
+        <div className="border-b border-slate-100 p-3 sm:p-4 md:p-6">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="space-y-1">
               <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-orange-600">
                 <AlertTriangle className="h-4 w-4" />
                 Attention Required
               </div>
-              <h2 className="text-lg font-bold text-slate-900 md:text-xl">FRA follow-ups to prioritise</h2>
-              <p className="text-sm text-slate-500">Overdue, due soon and required assessments are grouped before the main tracker.</p>
+              <h2 className="text-base font-bold text-slate-900 sm:text-lg md:text-xl">FRA follow-ups to prioritise</h2>
+              <p className="hidden text-sm text-slate-500 sm:block">Overdue, due soon and required assessments are grouped before the main tracker.</p>
             </div>
             <div className="grid grid-cols-3 gap-2 text-center sm:min-w-[360px]">
               <button
                 type="button"
                 onClick={() => setActiveView('required')}
-                className="rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-rose-800 transition hover:bg-rose-100"
+                className="rounded-xl border border-rose-200 bg-rose-50 px-2 py-2 text-rose-800 transition hover:bg-rose-100 sm:rounded-2xl sm:px-3"
               >
                 <div className="text-lg font-black tabular-nums">{attentionStats.overdue}</div>
                 <div className="text-[11px] font-bold uppercase tracking-wide">Overdue</div>
@@ -214,7 +214,7 @@ export function FRATrackerClient({ stores, userRole }: FRATrackerClientProps) {
               <button
                 type="button"
                 onClick={() => setActiveView('required')}
-                className="rounded-2xl border border-orange-200 bg-orange-50 px-3 py-2 text-orange-800 transition hover:bg-orange-100"
+                className="rounded-xl border border-orange-200 bg-orange-50 px-2 py-2 text-orange-800 transition hover:bg-orange-100 sm:rounded-2xl sm:px-3"
               >
                 <div className="text-lg font-black tabular-nums">{attentionStats.required}</div>
                 <div className="text-[11px] font-bold uppercase tracking-wide">Required</div>
@@ -222,7 +222,7 @@ export function FRATrackerClient({ stores, userRole }: FRATrackerClientProps) {
               <button
                 type="button"
                 onClick={() => setActiveView('required')}
-                className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-amber-800 transition hover:bg-amber-100"
+                className="rounded-xl border border-amber-200 bg-amber-50 px-2 py-2 text-amber-800 transition hover:bg-amber-100 sm:rounded-2xl sm:px-3"
               >
                 <div className="text-lg font-black tabular-nums">{attentionStats.due}</div>
                 <div className="text-[11px] font-bold uppercase tracking-wide">Due Soon</div>
@@ -232,19 +232,19 @@ export function FRATrackerClient({ stores, userRole }: FRATrackerClientProps) {
         </div>
 
         {attentionRows.length > 0 ? (
-          <div className="grid gap-3 p-4 md:grid-cols-2 md:p-6 xl:grid-cols-3">
+          <div className="grid grid-cols-2 gap-2 p-3 sm:gap-3 sm:p-4 md:grid-cols-2 md:p-6 xl:grid-cols-3">
             {attentionRows.slice(0, 6).map(({ row, status, daysUntilDue, nextDueDate }) => (
-              <div key={row.id} className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+              <div key={row.id} className="rounded-xl border border-slate-200 bg-slate-50/70 p-2.5 sm:rounded-2xl sm:p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <h3 className="truncate text-sm font-bold text-slate-900">{row.store_name}</h3>
+                    <h3 className="truncate text-xs font-bold text-slate-900 sm:text-sm">{row.store_name}</h3>
                     <p className="mt-0.5 text-xs text-slate-500">
                       {[row.store_code, row.region].filter(Boolean).join(' · ') || 'Store details pending'}
                     </p>
                   </div>
                   {statusBadge(status, daysUntilDue)}
                 </div>
-                <div className="mt-4 flex items-center gap-2 text-xs text-slate-600">
+                <div className="mt-2 flex items-center gap-2 text-[11px] text-slate-600 sm:mt-4 sm:text-xs">
                   <CalendarClock className="h-4 w-4 text-slate-400" />
                   <span>
                     {status === 'required'
@@ -256,20 +256,20 @@ export function FRATrackerClient({ stores, userRole }: FRATrackerClientProps) {
             ))}
           </div>
         ) : (
-          <div className="flex items-center gap-3 p-4 text-sm text-emerald-700 md:p-6">
+          <div className="flex items-center gap-3 p-3 text-sm text-emerald-700 sm:p-4 md:p-6">
             <CheckCircle2 className="h-5 w-5" />
             <span>No overdue, due soon or required FRAs are currently showing.</span>
           </div>
         )}
       </div>
 
-      <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm sm:rounded-3xl">
         <Tabs value={activeView} onValueChange={(value) => setActiveView(value as 'required' | 'completed')} className="w-full">
-          <div className="border-b border-slate-100 p-4 md:p-6">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="border-b border-slate-100 p-3 sm:p-4 md:p-6">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div className="space-y-1">
-                <h2 className="text-lg font-bold text-slate-800 md:text-xl">Fire Risk Assessment Tracker</h2>
-                <p className="text-sm text-slate-500">Move between outstanding FRA work and completed assessments without leaving mobile view.</p>
+                <h2 className="text-base font-bold text-slate-800 sm:text-lg md:text-xl">Fire Risk Assessment Tracker</h2>
+                <p className="hidden text-sm text-slate-500 sm:block">Move between outstanding FRA work and completed assessments without leaving mobile view.</p>
               </div>
               <TabsList className="grid w-full grid-cols-2 rounded-2xl bg-slate-100 p-1 lg:w-auto lg:min-w-[320px] lg:rounded-xl">
                 <TabsTrigger
@@ -290,7 +290,7 @@ export function FRATrackerClient({ stores, userRole }: FRATrackerClientProps) {
             </div>
           </div>
 
-          <div className="p-4 md:p-6">
+          <div className="p-3 sm:p-4 md:p-6">
             <TabsContent value="required" className="mt-0">
               <FRATable rows={stores} userRole={userRole} areaFilter={areaFilter} onAreaFilterChange={setAreaFilter} />
             </TabsContent>

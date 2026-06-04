@@ -84,10 +84,10 @@ export default function NewIncidentPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3 sm:space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">New Incident</h1>
-        <p className="text-muted-foreground mt-1">Report a new incident</p>
+        <h1 className="text-xl font-bold sm:text-3xl">New Incident</h1>
+        <p className="mt-1 hidden text-muted-foreground sm:block">Report a new incident</p>
       </div>
 
       <Card>
@@ -96,7 +96,7 @@ export default function NewIncidentPage() {
         </CardHeader>
         <CardContent>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3 sm:space-y-4">
               <FormField
                 control={form.control}
                 name="store_id"

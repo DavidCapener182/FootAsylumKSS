@@ -386,20 +386,20 @@ export function StoreCrmPanel({
   const resolutionPct = clampPercent(actionResolutionPct)
 
   return (
-    <div className="grid grid-cols-1 gap-8 md:grid-cols-12">
-      <div className="space-y-6 md:col-span-8">
+    <div className="grid grid-cols-1 gap-3 sm:gap-6 md:grid-cols-12 md:gap-8">
+      <div className="space-y-3 sm:space-y-6 md:col-span-8">
         {!isAvailable ? (
-          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 shadow-sm">
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 shadow-sm sm:rounded-2xl sm:p-4">
             <p className="font-semibold">Store CRM is unavailable in this Supabase project.</p>
             <p className="mt-1">{unavailableMessage}</p>
           </div>
         ) : null}
 
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm sm:rounded-2xl">
           <div className="flex overflow-x-auto border-b border-slate-200 bg-slate-50/50">
             <button
               onClick={() => setActiveSubTab('contacts')}
-              className={`whitespace-nowrap px-6 py-4 text-sm font-medium ${
+              className={`whitespace-nowrap px-3 py-3 text-sm font-medium sm:px-6 sm:py-4 ${
                 activeSubTab === 'contacts'
                   ? 'border-b-2 border-blue-600 bg-white text-blue-600'
                   : 'text-slate-500 hover:text-slate-700'
@@ -412,7 +412,7 @@ export function StoreCrmPanel({
             </button>
             <button
               onClick={() => setActiveSubTab('notes')}
-              className={`whitespace-nowrap px-6 py-4 text-sm font-medium ${
+              className={`whitespace-nowrap px-3 py-3 text-sm font-medium sm:px-6 sm:py-4 ${
                 activeSubTab === 'notes'
                   ? 'border-b-2 border-blue-600 bg-white text-blue-600'
                   : 'text-slate-500 hover:text-slate-700'
@@ -423,7 +423,7 @@ export function StoreCrmPanel({
             </button>
             <button
               onClick={() => setActiveSubTab('tracker')}
-              className={`whitespace-nowrap px-6 py-4 text-sm font-medium ${
+              className={`whitespace-nowrap px-3 py-3 text-sm font-medium sm:px-6 sm:py-4 ${
                 activeSubTab === 'tracker'
                   ? 'border-b-2 border-blue-600 bg-white text-blue-600'
                   : 'text-slate-500 hover:text-slate-700'
@@ -434,15 +434,15 @@ export function StoreCrmPanel({
             </button>
           </div>
 
-          <div className="p-6">
+          <div className="p-3 sm:p-6">
             {activeSubTab === 'contacts' && (
-              <div className="space-y-4">
-                <div className="mb-4 flex items-center justify-between gap-3">
-                  <h3 className="text-lg font-bold">Primary Contacts</h3>
+              <div className="space-y-3 sm:space-y-4">
+                <div className="mb-3 flex flex-col gap-2 sm:mb-4 sm:flex-row sm:items-center sm:justify-between">
+                  <h3 className="text-base font-bold sm:text-lg">Primary Contacts</h3>
                   {canEditCrm ? (
                     <button
                       onClick={() => setShowContactForm((prev) => !prev)}
-                      className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-blue-700"
+                      className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-blue-700 sm:w-auto"
                     >
                       <Plus size={16} /> {showContactForm ? 'Cancel' : 'Add Contact'}
                     </button>
@@ -450,7 +450,7 @@ export function StoreCrmPanel({
                 </div>
 
                 {showContactForm && canEditCrm && (
-                  <form onSubmit={handleCreateContact} className="mb-4 grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <form onSubmit={handleCreateContact} className="mb-3 grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:mb-4 sm:p-4">
                     <div className="grid gap-3 sm:grid-cols-2">
                       <Input
                         placeholder="Contact name"
@@ -512,7 +512,7 @@ export function StoreCrmPanel({
                       onChange={(event) => setContactForm((prev) => ({ ...prev, notes: event.target.value }))}
                     />
                     {contactError && <p className="text-xs text-red-600">{contactError}</p>}
-                    <Button type="submit" className="w-fit" disabled={isSavingContact}>
+                    <Button type="submit" className="w-full sm:w-fit" disabled={isSavingContact}>
                       {isSavingContact ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...
@@ -524,22 +524,22 @@ export function StoreCrmPanel({
                   </form>
                 )}
 
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 sm:gap-4">
                   {displayContacts.length === 0 ? (
-                    <div className="rounded-xl border border-slate-100 p-4 text-sm text-slate-500 sm:col-span-2">
+                    <div className="rounded-xl border border-slate-100 p-3 text-sm text-slate-500 sm:col-span-2 sm:p-4">
                       {contactsEmptyMessage}
                     </div>
                   ) : (
                     displayContacts.map((contact) => (
                       <div
                         key={contact.id}
-                        className={`group relative rounded-xl border p-4 transition-all ${
+                        className={`group relative rounded-xl border p-3 transition-all sm:p-4 ${
                           contact.isReadOnly
                             ? 'border-emerald-100 bg-emerald-50/40 hover:border-emerald-200'
                             : 'border-slate-100 hover:border-blue-200 hover:bg-blue-50/30'
                         }`}
                       >
-                        <div className="mb-3 flex justify-between gap-3">
+                        <div className="mb-2 flex justify-between gap-2 sm:mb-3 sm:gap-3">
                           <div>
                             <p className="flex items-center gap-2 font-bold text-slate-900">
                               {contact.contact_name}
@@ -588,13 +588,13 @@ export function StoreCrmPanel({
             )}
 
             {activeSubTab === 'notes' && (
-              <div className="space-y-4">
-                <div className="mb-4 flex items-center justify-between gap-3">
-                  <h3 className="text-lg font-bold">Recent Store Notes</h3>
+              <div className="space-y-3 sm:space-y-4">
+                <div className="mb-3 flex flex-col gap-2 sm:mb-4 sm:flex-row sm:items-center sm:justify-between">
+                  <h3 className="text-base font-bold sm:text-lg">Recent Store Notes</h3>
                   {canEditCrm ? (
                     <button
                       onClick={() => setShowNoteForm((prev) => !prev)}
-                      className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-blue-700"
+                      className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-blue-700 sm:w-auto"
                     >
                       <Plus size={16} /> {showNoteForm ? 'Cancel' : 'New Note'}
                     </button>
@@ -602,7 +602,7 @@ export function StoreCrmPanel({
                 </div>
 
                 {showNoteForm && canEditCrm && (
-                  <form onSubmit={handleCreateNote} className="mb-4 grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <form onSubmit={handleCreateNote} className="mb-3 grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:mb-4 sm:p-4">
                     <div className="grid gap-3 sm:grid-cols-2">
                       <select
                         className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm"
@@ -630,7 +630,7 @@ export function StoreCrmPanel({
                       required
                     />
                     {noteError && <p className="text-xs text-red-600">{noteError}</p>}
-                    <Button type="submit" className="w-fit" disabled={isSavingNote}>
+                    <Button type="submit" className="w-full sm:w-fit" disabled={isSavingNote}>
                       {isSavingNote ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...
@@ -644,7 +644,7 @@ export function StoreCrmPanel({
 
                 <div className="space-y-3">
                   {notes.length === 0 ? (
-                    <div className="rounded-xl border border-slate-100 p-4 text-sm text-slate-500">
+                    <div className="rounded-xl border border-slate-100 p-3 text-sm text-slate-500 sm:p-4">
                       {notesEmptyMessage}
                     </div>
                   ) : (
@@ -655,7 +655,7 @@ export function StoreCrmPanel({
                       return (
                         <div
                           key={note.id}
-                          className="flex gap-4 rounded-xl border border-slate-100 p-4 transition-all hover:shadow-sm"
+                          className="flex gap-3 rounded-xl border border-slate-100 p-3 transition-all hover:shadow-sm sm:gap-4 sm:p-4"
                         >
                           <div
                             className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
@@ -709,13 +709,13 @@ export function StoreCrmPanel({
             )}
 
             {activeSubTab === 'tracker' && (
-              <div className="space-y-4">
-                <div className="mb-4 flex items-center justify-between gap-3">
-                  <h3 className="text-lg font-bold">Communication Log</h3>
+              <div className="space-y-3 sm:space-y-4">
+                <div className="mb-3 flex flex-col gap-2 sm:mb-4 sm:flex-row sm:items-center sm:justify-between">
+                  <h3 className="text-base font-bold sm:text-lg">Communication Log</h3>
                   {canEditCrm ? (
                     <button
                       onClick={() => setShowTrackerForm((prev) => !prev)}
-                      className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-blue-700"
+                      className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-blue-700 sm:w-auto"
                     >
                       <Plus size={16} /> {showTrackerForm ? 'Cancel' : 'Track Activity'}
                     </button>
@@ -725,7 +725,7 @@ export function StoreCrmPanel({
                 {showTrackerForm && canEditCrm && (
                   <form
                     onSubmit={handleCreateTrackerEntry}
-                    className="mb-4 grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4"
+                    className="mb-3 grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:mb-4 sm:p-4"
                   >
                     <div className="grid gap-3 sm:grid-cols-2">
                       <select
@@ -798,7 +798,7 @@ export function StoreCrmPanel({
                       }
                     />
                     {trackerError && <p className="text-xs text-red-600">{trackerError}</p>}
-                    <Button type="submit" className="w-fit" disabled={isSavingTracker}>
+                    <Button type="submit" className="w-full sm:w-fit" disabled={isSavingTracker}>
                       {isSavingTracker ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...
@@ -812,7 +812,7 @@ export function StoreCrmPanel({
 
                 <div className="space-y-3">
                   {trackerEntries.length === 0 ? (
-                    <div className="rounded-xl border border-slate-100 p-4 text-sm text-slate-500">
+                    <div className="rounded-xl border border-slate-100 p-3 text-sm text-slate-500 sm:p-4">
                       {trackerEmptyMessage}
                     </div>
                   ) : (
@@ -823,14 +823,14 @@ export function StoreCrmPanel({
                       return (
                         <div
                           key={entry.id}
-                          className="group flex items-center gap-4 rounded-xl border border-slate-100 bg-slate-50/50 p-4 transition-all hover:border-blue-100 hover:bg-white"
+                          className="group flex flex-col items-start gap-3 rounded-xl border border-slate-100 bg-slate-50/50 p-3 transition-all hover:border-blue-100 hover:bg-white sm:flex-row sm:items-center sm:gap-4 sm:p-4"
                         >
                           <div className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-lg border border-slate-200 bg-white">
                             <span className="text-[10px] font-bold text-slate-400">{format(interactionDate, 'MMM').toUpperCase()}</span>
                             <span className="text-lg font-bold leading-none text-blue-600">{format(interactionDate, 'd')}</span>
                           </div>
-                          <div className="flex-1">
-                            <div className="flex justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:gap-3">
                               <h4 className="font-bold text-slate-900">{entry.subject}</h4>
                               <span className="rounded bg-slate-200 px-2 text-xs font-semibold text-slate-600">
                                 {friendlyInteractionType(entry.interaction_type)}
@@ -871,9 +871,9 @@ export function StoreCrmPanel({
         </div>
       </div>
 
-      <div className="space-y-6 md:col-span-4">
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h3 className="mb-4 flex items-center gap-2 text-lg font-bold">
+      <div className="space-y-3 sm:space-y-6 md:col-span-4">
+        <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-6">
+          <h3 className="mb-3 flex items-center gap-2 text-base font-bold sm:mb-4 sm:text-lg">
             <History size={18} className="text-blue-500" />
             Quick Actions
           </h3>
@@ -887,7 +887,7 @@ export function StoreCrmPanel({
               <Link
                 key={action.label}
                 href={action.href}
-                className="group flex w-full items-center justify-between rounded-xl p-3 text-left text-sm font-medium text-slate-700 transition-all hover:bg-blue-50"
+                className="group flex w-full items-center justify-between rounded-xl px-2 py-2.5 text-left text-sm font-medium text-slate-700 transition-all hover:bg-blue-50 sm:p-3"
               >
                 {action.label}
                 <ChevronRight size={14} className="text-slate-300 group-hover:text-blue-500" />
@@ -896,7 +896,7 @@ export function StoreCrmPanel({
           </div>
         </div>
 
-        <div className="relative overflow-hidden rounded-xl bg-[#0f172a] p-4 text-white shadow-xl shadow-slate-200 md:rounded-2xl md:p-6">
+        <div className="relative overflow-hidden rounded-xl bg-[#0f172a] p-3 text-white shadow-xl shadow-slate-200 md:rounded-2xl md:p-6">
           <div className="relative z-10">
             <h3 className="mb-1 text-base font-bold md:text-lg">Operational Health</h3>
             <p className="mb-4 text-[11px] text-slate-400 md:mb-6 md:text-xs">Real-time status tracking</p>
@@ -922,7 +922,6 @@ export function StoreCrmPanel({
               </div>
             </div>
           </div>
-          <div className="absolute -bottom-4 -right-4 h-32 w-32 rounded-full bg-blue-500/10 blur-2xl" />
         </div>
       </div>
     </div>

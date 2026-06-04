@@ -187,16 +187,16 @@ export default async function StoresPage() {
   const activeRate = totalStores > 0 ? Math.round((activeStores / totalStores) * 100) : 0
 
   return (
-    <div className="flex min-h-screen flex-col gap-6 bg-slate-50 px-4 py-5 sm:px-6 lg:px-8">
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
-        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+    <div className="flex min-h-screen flex-col gap-3 bg-slate-50 px-0 py-0 sm:gap-6 sm:px-6 sm:py-5 lg:px-8">
+      <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-5 md:p-6">
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div className="min-w-0">
             <div className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-lime-600">
               <ShieldCheck className="h-3.5 w-3.5" />
               Store Network
             </div>
-            <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">Store Directory</h1>
-            <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
+            <h1 className="mt-1 text-xl font-bold tracking-tight text-slate-950 sm:mt-2 sm:text-3xl">Store Directory</h1>
+            <p className="mt-1 hidden max-w-2xl text-sm leading-6 text-slate-500 sm:block">
               Review store compliance profiles, audit progress, FRA status and follow-up actions across the estate.
             </p>
           </div>
@@ -214,21 +214,21 @@ export default async function StoresPage() {
           )}
         </div>
 
-        <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:mt-5 sm:gap-3 md:grid-cols-4">
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 sm:rounded-2xl sm:p-4">
             <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Total Stores</p>
             <p className="mt-1 text-2xl font-bold text-slate-950">{totalStores}</p>
-            <p className="mt-1 text-[11px] text-slate-500">Visible canonical stores</p>
+            <p className="mt-1 hidden text-[11px] text-slate-500 sm:block">Visible canonical stores</p>
           </div>
-          <div className="rounded-2xl border border-emerald-100 bg-emerald-50/50 p-4">
+          <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-3 sm:rounded-2xl sm:p-4">
             <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">Active</p>
             <p className="mt-1 text-2xl font-bold text-emerald-700">{activeStores}</p>
           </div>
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 sm:rounded-2xl sm:p-4">
             <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Inactive</p>
             <p className="mt-1 text-2xl font-bold text-slate-700">{inactiveStores}</p>
           </div>
-          <div className="rounded-2xl border border-teal-100 bg-teal-50/50 p-4">
+          <div className="rounded-xl border border-teal-100 bg-teal-50/50 p-3 sm:rounded-2xl sm:p-4">
             <p className="text-[10px] font-bold uppercase tracking-wider text-teal-700">Active Rate</p>
             <p className="mt-1 text-2xl font-bold text-teal-700">{activeRate}%</p>
           </div>

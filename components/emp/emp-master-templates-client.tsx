@@ -1096,29 +1096,29 @@ export function EmpMasterTemplatesClient({
   }
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-6">
-        <div className="space-y-4">
+    <div className="space-y-3 sm:space-y-6">
+      <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 sm:rounded-2xl sm:p-6">
+        <div className="space-y-3 sm:space-y-4">
           <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
             <div className="space-y-2">
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-2xl font-bold tracking-tight text-slate-900">Master Templates</h1>
+                <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Master Templates</h1>
                 <Badge variant="outline">
                   {visibleTemplates.length} {visibleTemplates.length === 1 ? 'document' : 'documents'}
                 </Badge>
               </div>
-              <p className="max-w-3xl text-sm text-slate-600">
+              <p className="hidden max-w-3xl text-sm text-slate-600 sm:block">
                 Blank event-day plans, checklists, logs, and briefing sheets ready for live-event printing.
               </p>
             </div>
             <a
               href={buildTemplateHref('/api/emp/master-templates/generate-pdf')}
-              className={cn(buttonVariants({ variant: 'default' }), 'bg-emerald-700 hover:bg-emerald-800')}
+              className={cn(buttonVariants({ variant: 'default' }), 'w-full bg-emerald-700 hover:bg-emerald-800 md:w-auto')}
             >
               <Download className="mr-2 h-4 w-4" />
               Download Active PDF
             </a>
-            <Button type="button" variant="outline" onClick={openBulkModal}>
+            <Button type="button" variant="outline" onClick={openBulkModal} className="w-full md:w-auto">
               <Printer className="mr-2 h-4 w-4" />
               Select Documents
             </Button>
@@ -1154,12 +1154,12 @@ export function EmpMasterTemplatesClient({
                   <Label htmlFor="emp-master-template-event-profile" className="text-xs uppercase tracking-[0.12em] text-slate-600">
                     Saved EMP Event Profile
                   </Label>
-                  <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
                     <select
                       id="emp-master-template-event-profile"
                       value={activeEventProfileId}
                       onChange={(event) => applyEventProfile(event.target.value)}
-                      className="h-10 min-w-[260px] rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900"
+                      className="h-10 w-full min-w-0 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 sm:min-w-[260px] sm:w-auto"
                     >
                       <option value="">New event profile</option>
                       {eventProfiles.map((profile) => (
@@ -1169,11 +1169,11 @@ export function EmpMasterTemplatesClient({
                         </option>
                       ))}
                     </select>
-                    <Button type="button" variant="outline" onClick={saveEventProfile} disabled={isSavingEventProfile}>
+                    <Button type="button" variant="outline" onClick={saveEventProfile} disabled={isSavingEventProfile} className="w-full sm:w-auto">
                       <Save className="mr-2 h-4 w-4" />
                       {isSavingEventProfile ? 'Saving...' : 'Save Event'}
                     </Button>
-                    <Button type="button" variant="outline" onClick={deleteEventProfile} disabled={!activeEventProfileId}>
+                    <Button type="button" variant="outline" onClick={deleteEventProfile} disabled={!activeEventProfileId} className="w-full sm:w-auto">
                       <Trash2 className="mr-2 h-4 w-4" />
                       Delete
                     </Button>
@@ -1220,19 +1220,19 @@ export function EmpMasterTemplatesClient({
         </div>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)] xl:items-start">
+      <div className="grid gap-3 sm:gap-6 xl:grid-cols-[320px_minmax(0,1fr)] xl:items-start">
         <aside className="overflow-hidden rounded-lg border border-slate-200 bg-white xl:sticky xl:top-6 xl:flex xl:max-h-[calc(100vh-3rem)] xl:flex-col">
-          <div className="border-b border-slate-200 px-5 py-5">
+          <div className="border-b border-slate-200 px-3 py-3 sm:px-5 sm:py-5">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
               Event Management
             </p>
-            <h2 className="mt-2 text-lg font-semibold text-slate-950">Event Documents</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-600">
+            <h2 className="mt-1 text-base font-semibold text-slate-950 sm:mt-2 sm:text-lg">Event Documents</h2>
+            <p className="mt-2 hidden text-sm leading-6 text-slate-600 sm:block">
               Choose a master document, then print or download the PDF when you need it.
             </p>
           </div>
 
-          <div className="px-3 py-4 xl:min-h-0 xl:overflow-y-auto xl:overscroll-contain">
+          <div className="px-2 py-3 sm:px-3 sm:py-4 xl:min-h-0 xl:overflow-y-auto xl:overscroll-contain">
             {templateGroups.map((group) => (
               <div key={group.category} className="mb-5 last:mb-0">
                 <div className="px-2 pb-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
@@ -1250,7 +1250,7 @@ export function EmpMasterTemplatesClient({
                         type="button"
                         onClick={() => setActiveTemplateId(template.id)}
                         className={cn(
-                          'flex w-full items-start gap-3 rounded-md border px-3 py-3 text-left transition-colors',
+                          'flex w-full items-start gap-2 rounded-md border px-2.5 py-2.5 text-left transition-colors sm:gap-3 sm:px-3 sm:py-3',
                           isActive
                             ? 'border-emerald-200 bg-emerald-50'
                             : 'border-transparent bg-white hover:border-slate-200 hover:bg-slate-50'
@@ -1279,12 +1279,12 @@ export function EmpMasterTemplatesClient({
           </div>
         </aside>
 
-        <div className="space-y-4">
-          <section className="rounded-lg border border-slate-200 bg-white p-5">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="space-y-3 sm:space-y-4">
+          <section className="rounded-xl border border-slate-200 bg-white p-3 sm:p-5">
+            <div className="flex flex-col gap-3 sm:gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div className="space-y-2">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="text-2xl font-bold tracking-tight text-slate-950">{activeTemplate.title}</h2>
+                  <h2 className="text-xl font-bold tracking-tight text-slate-950 sm:text-2xl">{activeTemplate.title}</h2>
                   <Badge variant="outline">{activeTemplate.category}</Badge>
                   <Badge variant="secondary">
                     {activeTemplate.kind === 'radio_one_daily_brief_booklet'
@@ -1298,8 +1298,8 @@ export function EmpMasterTemplatesClient({
                 <p className="text-sm font-medium text-slate-500">{activeTemplate.filename}</p>
               </div>
 
-              <div className="flex flex-wrap gap-2">
-                <Button type="button" variant="outline" onClick={() => setDetailsModalOpen(true)}>
+              <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
+                <Button type="button" variant="outline" onClick={() => setDetailsModalOpen(true)} className="w-full sm:w-auto">
                   <Edit3 className="mr-2 h-4 w-4" />
                   Edit Document Details
                 </Button>
@@ -1307,14 +1307,14 @@ export function EmpMasterTemplatesClient({
                   href={buildTemplateHref('/print/emp-master-template')}
                   target="_blank"
                   rel="noreferrer"
-                  className={cn(buttonVariants({ variant: 'outline' }))}
+                  className={cn(buttonVariants({ variant: 'outline' }), 'w-full sm:w-auto')}
                 >
                   <Printer className="mr-2 h-4 w-4" />
                   Print / Save as PDF
                 </a>
                 <a
                   href={buildTemplateHref('/api/emp/master-templates/generate-pdf')}
-                  className={cn(buttonVariants({ variant: 'default' }), 'bg-emerald-700 hover:bg-emerald-800')}
+                  className={cn(buttonVariants({ variant: 'default' }), 'w-full bg-emerald-700 hover:bg-emerald-800 sm:w-auto')}
                 >
                   <Download className="mr-2 h-4 w-4" />
                   Download PDF
@@ -1327,7 +1327,7 @@ export function EmpMasterTemplatesClient({
             <div className="border-b border-slate-200 bg-slate-50 px-4 py-3 text-xs font-medium text-slate-500">
               Live Preview
             </div>
-            <div className="overflow-auto bg-slate-200 p-4 md:p-6">
+            <div className="overflow-auto bg-slate-200 p-2 sm:p-4 md:p-6">
               <EmpMasterTemplateDocument
                 template={activeTemplate}
                 prefillValues={getPrefillPayloadForActiveTemplate()}

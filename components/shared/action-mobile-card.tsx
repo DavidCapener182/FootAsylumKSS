@@ -39,12 +39,12 @@ export function ActionMobileCard({ action, canManageActions = true }: ActionMobi
 
   return (
     <>
-      <Card className={`p-3 hover:shadow-sm transition-shadow ${isOverdue ? 'bg-rose-50/30 border-rose-200' : 'border-slate-200'}`}>
-        <div className="flex flex-col gap-2.5">
+      <Card className={`p-2.5 transition-shadow hover:shadow-sm sm:p-3 ${isOverdue ? 'bg-rose-50/30 border-rose-200' : 'border-slate-200'}`}>
+        <div className="flex flex-col gap-2 sm:gap-2.5">
           
           {/* Top Row: Title & View Button */}
           <div className="flex items-start justify-between gap-2">
-            <div className="flex-1 min-w-0 pr-2">
+            <div className="min-w-0 flex-1 pr-2">
               <h3 className="font-semibold text-slate-900 text-sm leading-tight mb-1">{displayTitle}</h3>
               {isStoreAction ? (
                 <span className="font-mono text-xs font-medium text-slate-500 bg-slate-50 px-2 py-0.5 rounded border border-slate-100 inline-block">
@@ -72,7 +72,7 @@ export function ActionMobileCard({ action, canManageActions = true }: ActionMobi
           </div>
 
           {/* Bento Grid: Status, Priority, Due Date */}
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
             {/* Status - 1 column */}
             <div className="flex flex-col">
               <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Status</p>
@@ -103,7 +103,7 @@ export function ActionMobileCard({ action, canManageActions = true }: ActionMobi
           </div>
 
           {/* Bottom Row: Assigned To & Actions */}
-          <div className="flex items-center justify-between pt-2 border-t border-slate-100 mt-0.5">
+          <div className="mt-0.5 flex items-center justify-between border-t border-slate-100 pt-2">
             {/* Assigned To */}
             <div className="flex items-center gap-1.5 flex-1 min-w-0">
               {assigneeName ? (

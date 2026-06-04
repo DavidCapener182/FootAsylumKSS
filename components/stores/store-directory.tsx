@@ -92,9 +92,9 @@ export function StoreDirectory({ stores }: StoreDirectoryProps) {
   }, [filteredStores])
 
   return (
-    <Card className="overflow-hidden rounded-2xl border-slate-200 bg-white shadow-sm">
-      <CardHeader className="border-b border-slate-200 bg-slate-50/60 px-4 py-4 md:px-6 md:py-5">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+    <Card className="overflow-hidden rounded-xl border-slate-200 bg-white shadow-sm sm:rounded-2xl">
+      <CardHeader className="border-b border-slate-200 bg-slate-50/60 px-3 py-3 sm:px-4 sm:py-4 md:px-6 md:py-5">
+        <div className="flex flex-col gap-2.5 md:flex-row md:items-center md:justify-between">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <CardTitle className="text-sm font-bold text-slate-800 md:text-base">Store Directory</CardTitle>
@@ -106,7 +106,7 @@ export function StoreDirectory({ stores }: StoreDirectoryProps) {
               <Layers3 className="h-3 w-3" />
               {areaCount} {areaCount === 1 ? 'area' : 'areas'}
             </div>
-            <div className="mt-2 ml-2 inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+            <div className="ml-1 mt-2 inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 sm:ml-2">
               <ShieldCheck className="h-3 w-3" />
               {attentionCount} visible stores need attention
             </div>
@@ -127,7 +127,7 @@ export function StoreDirectory({ stores }: StoreDirectoryProps) {
 
       <CardContent className="p-0">
         {/* Mobile Card View */}
-        <div className="space-y-4 p-4 md:hidden">
+        <div className="space-y-3 p-3 md:hidden">
           {groupedStores.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-xl border border-slate-200 bg-slate-50/70 py-12 text-slate-500">
               <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-slate-100">
@@ -140,8 +140,8 @@ export function StoreDirectory({ stores }: StoreDirectoryProps) {
             </div>
           ) : (
             groupedStores.map((group) => (
-              <section key={group.area} className="space-y-2.5">
-                <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+              <details key={group.area} className="space-y-2" open={Boolean(searchQuery.trim())}>
+                <summary className="flex cursor-pointer list-none items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-700">
                     {group.area === 'Unassigned'
                       ? group.area
@@ -150,13 +150,13 @@ export function StoreDirectory({ stores }: StoreDirectoryProps) {
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                     {group.stores.length} stores
                   </p>
-                </div>
-                <div className="space-y-3">
+                </summary>
+                <div className="grid grid-cols-2 gap-2.5">
                   {group.stores.map((store) => (
                     <StoreMobileCard key={store.id} store={store} />
                   ))}
                 </div>
-              </section>
+              </details>
             ))
           )}
         </div>

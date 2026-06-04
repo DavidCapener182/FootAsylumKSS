@@ -31,11 +31,11 @@ export function IncidentMobileCard({ incident }: IncidentMobileCardProps) {
   const childInvolved = Boolean(personMeta.child_involved ?? personMeta.childInvolved)
 
   return (
-    <Card className="p-3 hover:shadow-sm transition-shadow border-slate-200">
-      <div className="flex flex-col gap-2.5">
+    <Card className="border-slate-200 p-2.5 transition-shadow hover:shadow-sm sm:p-3">
+      <div className="flex flex-col gap-2 sm:gap-2.5">
         
         {/* Top Row: Identity & Actions */}
-        <div className="flex items-start justify-between">
+        <div className="flex items-start justify-between gap-2">
           <div className="flex flex-col gap-0.5 min-w-0 pr-2">
             <Link href={`/incidents/${incident.id}`} className="block">
               <span className="font-mono text-sm font-bold text-indigo-600 hover:text-indigo-700 transition-colors">
@@ -64,7 +64,7 @@ export function IncidentMobileCard({ incident }: IncidentMobileCardProps) {
         </div>
 
         {/* Middle Row: Badges & Date */}
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center justify-between gap-2">
            <div className="flex items-center gap-2 overflow-hidden">
               <StatusBadge status={incident.severity} type="severity" />
               <StatusBadge status={incident.status} type="incident" />
@@ -75,7 +75,7 @@ export function IncidentMobileCard({ incident }: IncidentMobileCardProps) {
         </div>
 
         {/* Bottom Row: Footer Info */}
-        <div className="flex items-center justify-between pt-2 border-t border-slate-50 mt-0.5">
+        <div className="mt-0.5 flex items-center justify-between border-t border-slate-50 pt-2">
            <div className="flex flex-col gap-1 max-w-[60%]">
              <span className="text-xs text-slate-600 font-medium truncate">
                {category}

@@ -847,9 +847,9 @@ export function EmpEventControlLogClient({ initialData }: { initialData: EmpEven
   }
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+    <div className="space-y-3 sm:space-y-6">
+      <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-6">
+        <div className="flex flex-col gap-3 sm:gap-4 xl:flex-row xl:items-start xl:justify-between">
           <div className="space-y-3">
             <a
               href="/admin/event-management-plans"
@@ -860,19 +860,19 @@ export function EmpEventControlLogClient({ initialData }: { initialData: EmpEven
             </a>
             <div className="space-y-1">
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-2xl font-bold tracking-tight text-slate-950">Event Control Log</h1>
+                <h1 className="text-xl font-bold tracking-tight text-slate-950 sm:text-2xl">Event Control Log</h1>
                 <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-700">
                   {initialData.plan.eventName || 'Event not set'}
                 </Badge>
               </div>
-              <p className="max-w-3xl text-sm leading-6 text-slate-600">
+              <p className="hidden max-w-3xl text-sm leading-6 text-slate-600 sm:block">
                 {initialData.plan.title}
               </p>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-medium text-slate-600">
+          <div className="grid grid-cols-1 gap-2 min-[430px]:grid-cols-2 xl:flex xl:flex-wrap xl:items-center">
+            <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-center text-xs font-medium text-slate-600 sm:px-4">
               Updated: {formatAppDateTime(lastUpdated, {
                 day: '2-digit',
                 month: '2-digit',
@@ -885,7 +885,7 @@ export function EmpEventControlLogClient({ initialData }: { initialData: EmpEven
             </div>
             <div
               className={cn(
-                'rounded-full border px-4 py-2 text-xs font-medium',
+                'rounded-full border px-3 py-2 text-center text-xs font-medium sm:px-4',
                 liveSyncError
                   ? 'border-red-200 bg-red-50 text-red-700'
                   : 'border-emerald-200 bg-emerald-50 text-emerald-700'
@@ -898,53 +898,53 @@ export function EmpEventControlLogClient({ initialData }: { initialData: EmpEven
                   ? `Live sync: ${formatAppTime(liveSyncAt, { second: '2-digit' }, liveSyncAt)}`
                   : 'Live sync on'}
             </div>
-            <Button type="button" variant="outline" onClick={refreshEntries} disabled={isPending}>
+            <Button type="button" variant="outline" onClick={refreshEntries} disabled={isPending} className="w-full xl:w-auto">
               {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
               Refresh
             </Button>
-            <a href={printHref} target="_blank" rel="noreferrer" className={cn(buttonVariants({ variant: 'outline' }))}>
+            <a href={printHref} target="_blank" rel="noreferrer" className={cn(buttonVariants({ variant: 'outline' }), 'w-full xl:w-auto')}>
               <Printer className="mr-2 h-4 w-4" />
               Print
             </a>
-            <a href={pdfHref} className={cn(buttonVariants({ variant: 'default' }), 'bg-emerald-700 hover:bg-emerald-800')}>
+            <a href={pdfHref} className={cn(buttonVariants({ variant: 'default' }), 'w-full bg-emerald-700 hover:bg-emerald-800 xl:w-auto')}>
               <Download className="mr-2 h-4 w-4" />
               Download PDF
             </a>
           </div>
         </div>
 
-        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:mt-5 sm:gap-3 xl:grid-cols-4">
+          <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 sm:px-4 sm:py-3">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Total entries</p>
-            <p className="mt-1 text-2xl font-bold text-slate-950">{stats.total}</p>
+            <p className="mt-1 text-xl font-bold text-slate-950 sm:text-2xl">{stats.total}</p>
           </div>
-          <div className="rounded-md border border-blue-200 bg-blue-50 px-4 py-3">
+          <div className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 sm:px-4 sm:py-3">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-blue-700">Open</p>
-            <p className="mt-1 text-2xl font-bold text-blue-950">{stats.open}</p>
+            <p className="mt-1 text-xl font-bold text-blue-950 sm:text-2xl">{stats.open}</p>
           </div>
-          <div className="rounded-md border border-sky-200 bg-sky-50 px-4 py-3">
+          <div className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 sm:px-4 sm:py-3">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-sky-700">Monitoring</p>
-            <p className="mt-1 text-2xl font-bold text-sky-950">{stats.monitoring}</p>
+            <p className="mt-1 text-xl font-bold text-sky-950 sm:text-2xl">{stats.monitoring}</p>
           </div>
-          <div className="rounded-md border border-rose-200 bg-rose-50 px-4 py-3">
+          <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 sm:px-4 sm:py-3">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-rose-700">High priority</p>
-            <p className="mt-1 text-2xl font-bold text-rose-950">{stats.high}</p>
+            <p className="mt-1 text-xl font-bold text-rose-950 sm:text-2xl">{stats.high}</p>
           </div>
         </div>
       </div>
 
-      <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 md:flex-row md:items-start md:justify-between">
+      <section className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:p-5">
+        <div className="flex flex-col gap-3 border-b border-slate-200 pb-3 sm:pb-4 md:flex-row md:items-start md:justify-between">
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <Radio className="h-5 w-5 text-emerald-700" />
-              <h2 className="text-lg font-semibold text-slate-950">Add radio message</h2>
+              <h2 className="text-base font-semibold text-slate-950 sm:text-lg">Add radio message</h2>
             </div>
-            <p className="text-sm text-slate-500">
+            <p className="hidden text-sm text-slate-500 sm:block">
               Record the source, occurrence, action, priority, and current status while the message is fresh.
             </p>
           </div>
-          <Button type="button" variant="outline" onClick={() => setQuickActionsOpen(true)} className="shrink-0">
+          <Button type="button" variant="outline" onClick={() => setQuickActionsOpen(true)} className="w-full shrink-0 md:w-auto">
             <ListChecks className="mr-2 h-4 w-4" />
             Quick actions
           </Button>
@@ -961,7 +961,7 @@ export function EmpEventControlLogClient({ initialData }: { initialData: EmpEven
           ))}
         </datalist>
 
-        <div className="mt-5 grid gap-4 lg:grid-cols-6">
+        <div className="mt-3 grid gap-3 sm:mt-5 sm:gap-4 lg:grid-cols-6">
           <div className="space-y-2 lg:col-span-2 xl:col-span-1">
             <div className="flex items-center justify-between gap-2">
               <Label htmlFor="event-control-logged-at">Time</Label>
@@ -1048,7 +1048,7 @@ export function EmpEventControlLogClient({ initialData }: { initialData: EmpEven
           </div>
         </div>
 
-        <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_220px]">
+        <div className="mt-3 grid gap-3 sm:mt-4 sm:gap-4 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_220px]">
           <div className="space-y-2">
             <Label htmlFor="event-control-occurrence">Occurrence</Label>
             <Textarea
@@ -1090,10 +1090,10 @@ export function EmpEventControlLogClient({ initialData }: { initialData: EmpEven
         {error ? <div className="mt-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
       </section>
 
-      <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-        <div className="flex flex-col gap-4 border-b border-slate-200 bg-slate-50 px-5 py-4 xl:flex-row xl:items-center xl:justify-between">
+      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="flex flex-col gap-3 border-b border-slate-200 bg-slate-50 px-3 py-3 sm:px-5 sm:py-4 xl:flex-row xl:items-center xl:justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-slate-950">Control log</h2>
+            <h2 className="text-base font-semibold text-slate-950 sm:text-lg">Control log</h2>
             <p className="mt-1 text-sm text-slate-500">
               Showing {filteredEntries.length} of {entries.length} entries.
             </p>
@@ -1133,7 +1133,7 @@ export function EmpEventControlLogClient({ initialData }: { initialData: EmpEven
         </div>
 
         {filteredEntries.length === 0 ? (
-          <div className="px-5 py-14 text-center">
+          <div className="px-3 py-8 text-center sm:px-5 sm:py-14">
             <p className="text-sm font-medium text-slate-700">No matching log entries.</p>
             <p className="mt-1 text-sm text-slate-500">Add the first radio message above or clear the current filters.</p>
           </div>
@@ -1240,7 +1240,7 @@ export function EmpEventControlLogClient({ initialData }: { initialData: EmpEven
 
       <Sheet open={quickActionsOpen} onOpenChange={setQuickActionsOpen}>
         <SheetContent className="overflow-y-auto bg-white p-0 text-slate-900 sm:w-[520px]">
-          <div className="border-b border-slate-200 px-5 py-5">
+          <div className="border-b border-slate-200 px-3 py-3 sm:px-5 sm:py-5">
             <div className="flex items-center gap-2">
               <ListChecks className="h-5 w-5 text-emerald-700" />
               <SheetTitle className="text-lg font-semibold text-slate-950">Quick actions</SheetTitle>
@@ -1250,7 +1250,7 @@ export function EmpEventControlLogClient({ initialData }: { initialData: EmpEven
             </SheetDescription>
           </div>
 
-          <div className="space-y-4 px-5 py-5">
+          <div className="space-y-3 px-3 py-3 sm:space-y-4 sm:px-5 sm:py-5">
             <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-2">

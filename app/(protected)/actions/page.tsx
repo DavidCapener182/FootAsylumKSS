@@ -838,18 +838,18 @@ export default async function ActionsPage({
   ]
 
   return (
-    <div className="flex min-h-screen flex-col gap-6 bg-slate-50 px-4 py-5 sm:px-6 lg:px-8">
+    <div className="flex min-h-screen flex-col gap-3 bg-slate-50 px-0 py-0 sm:gap-6 sm:px-6 sm:py-5 lg:px-8">
       
       {/* Header Section */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
-      <div className="flex flex-col justify-between gap-4 md:flex-row md:items-start">
+      <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-5 md:p-6">
+      <div className="flex flex-col justify-between gap-3 md:flex-row md:items-start">
         <div className="space-y-1 flex-1 min-w-0">
           <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-lime-600">
             <CheckSquare2 className="h-4 w-4" />
             Action Management
           </div>
-          <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">Actions</h1>
-          <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
+          <h1 className="mt-1 text-xl font-bold tracking-tight text-slate-950 sm:mt-2 sm:text-3xl">Actions</h1>
+          <p className="mt-1 hidden max-w-2xl text-sm leading-6 text-slate-500 sm:block">
             Track audit, FRA and store follow-up actions, monitor due dates, and manage completion evidence.
           </p>
         </div>
@@ -915,26 +915,26 @@ export default async function ActionsPage({
         </Card>
       </div>
 
-      <div className="grid gap-2 md:grid-cols-5">
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
         {quickViews.map((view) => {
           const isActive = filters.view === view.id
           return (
             <Link
               key={view.id}
               href={view.href}
-              className={`rounded-2xl border p-4 transition ${
+              className={`min-w-0 rounded-xl border p-2.5 transition sm:rounded-2xl sm:p-4 ${
                 isActive
                   ? 'border-slate-900 bg-slate-900 text-white shadow-sm'
                   : 'border-slate-200 bg-white text-slate-800 hover:border-slate-300 hover:bg-slate-50'
               }`}
             >
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-sm font-bold">{view.title}</p>
+              <div className="flex items-center justify-between gap-2">
+                <p className="min-w-0 text-xs font-bold leading-tight sm:text-sm">{view.title}</p>
                 <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${isActive ? 'bg-white/15 text-white' : 'bg-slate-100 text-slate-700'}`}>
                   {view.count}
                 </span>
               </div>
-              <p className={`mt-1 text-xs ${isActive ? 'text-white/70' : 'text-slate-500'}`}>{view.detail}</p>
+              <p className={`mt-1 hidden text-xs sm:block ${isActive ? 'text-white/70' : 'text-slate-500'}`}>{view.detail}</p>
             </Link>
           )
         })}
@@ -942,17 +942,17 @@ export default async function ActionsPage({
 
       {/* Main Table Card */}
       <Card className="shadow-sm border-slate-200 bg-white overflow-hidden">
-        <CardHeader className="border-b bg-slate-50/40 px-4 py-4 md:px-6">
-          <div className="space-y-4">
+        <CardHeader className="border-b bg-slate-50/40 px-3 py-3 sm:px-4 sm:py-4 md:px-6">
+          <div className="space-y-3 sm:space-y-4">
             <div className="flex items-center justify-between gap-4">
-              <CardTitle className="text-base font-semibold text-slate-800">
+              <CardTitle className="text-sm font-semibold text-slate-800 sm:text-base">
                 Action Items {overdueCount > 0 && <span className="text-rose-600">({overdueCount} overdue)</span>}
               </CardTitle>
               {hasActiveFilters ? (
                 <span className="text-xs text-slate-500">Filtered results</span>
               ) : null}
             </div>
-            <p className="text-xs text-slate-500">
+            <p className="hidden text-xs text-slate-500 sm:block">
               Grouped by store/reference. Blank date fields mean no date filter is active.
             </p>
             <div className={`inline-flex w-fit rounded-full px-2.5 py-1 text-[11px] font-semibold ${
@@ -963,7 +963,7 @@ export default async function ActionsPage({
               {dateFilterSummary}
             </div>
 
-            <form method="get" className="space-y-3 md:hidden">
+            <form method="get" className="space-y-2.5 md:hidden">
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <Input
@@ -974,8 +974,8 @@ export default async function ActionsPage({
                 />
               </div>
 
-              <details open={hasActiveFilters} className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50/80">
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
+              <details open={hasActiveFilters} className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50/80">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5">
                   <span className="flex items-center gap-2 text-sm font-semibold text-slate-800">
                     <SlidersHorizontal className="h-4 w-4 text-slate-500" />
                     Filters
@@ -985,7 +985,7 @@ export default async function ActionsPage({
                   </span>
                 </summary>
 
-                <div className="space-y-3 border-t border-slate-200 bg-white px-4 py-4">
+                <div className="space-y-2.5 border-t border-slate-200 bg-white px-3 py-3">
                   <select
                     name="store_question"
                     defaultValue={searchParams.store_question || 'all'}
@@ -1148,7 +1148,7 @@ export default async function ActionsPage({
         </CardHeader>
         <CardContent className="p-0">
           {/* Mobile Card View */}
-          <div className="md:hidden p-4 space-y-4">
+          <div className="space-y-2.5 p-3 md:hidden">
             {actions.length === 0 ? (
               <div className="flex flex-col items-center justify-center text-slate-500 py-12">
                 <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center mb-3">
@@ -1169,7 +1169,7 @@ export default async function ActionsPage({
                       <span className="text-[11px] text-slate-500">{group.actions.length} tasks</span>
                     </div>
                   </summary>
-                  <div className="border-t p-3 space-y-3">
+                  <div className="space-y-2.5 border-t p-2.5">
                     {group.actions.map((action: any) => (
                       <ActionMobileCard key={action.id} action={action} canManageActions={canManageActions} />
                     ))}

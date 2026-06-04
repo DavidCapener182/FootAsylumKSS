@@ -230,24 +230,24 @@ export default async function GdprPage() {
   await requireAuth()
 
   return (
-    <div className="space-y-6">
-      <section className="rounded-2xl border border-slate-200 bg-gradient-to-r from-slate-900 to-slate-800 p-6 text-white">
+    <div className="space-y-3 sm:space-y-6">
+      <section className="rounded-xl border border-slate-200 bg-gradient-to-r from-slate-900 to-slate-800 p-4 text-white sm:rounded-2xl sm:p-6">
         <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-slate-200">
           <ShieldCheck className="h-3.5 w-3.5" /> GDPR Policy
         </div>
-        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">GDPR Data-Point Policy</h1>
-        <p className="mt-2 max-w-4xl text-sm text-slate-300 sm:text-base">
+        <h1 className="text-xl font-bold tracking-tight sm:text-3xl">GDPR Data-Point Policy</h1>
+        <p className="mt-2 hidden max-w-4xl text-sm text-slate-300 sm:block sm:text-base">
           This policy defines GDPR handling for each core data point used in the platform, including purpose,
           lawful basis, access scope, retention expectation, and control requirements.
         </p>
         <p className="mt-3 text-xs text-slate-400">Last updated: 5 March 2026</p>
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 md:hidden">
-        <div className="space-y-3">
+      <section className="rounded-xl border border-slate-200 bg-white p-3 md:hidden">
+        <div className="space-y-2.5">
           {POLICY_ROWS.map((row) => (
-            <details key={row.dataPoint} className="group rounded-[22px] border border-slate-200 bg-slate-50/70">
-              <summary className="flex cursor-pointer list-none items-start gap-3 p-4 text-left">
+            <details key={row.dataPoint} className="group rounded-xl border border-slate-200 bg-slate-50/70">
+              <summary className="flex cursor-pointer list-none items-start gap-3 p-3 text-left">
                 <div className="min-w-0 flex-1">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
                     Data Point
@@ -257,7 +257,7 @@ export default async function GdprPage() {
                 </div>
                 <ChevronDown className="mt-0.5 h-4 w-4 flex-shrink-0 text-slate-400 transition-transform duration-200 group-open:rotate-180" />
               </summary>
-              <div className="space-y-3 border-t border-slate-200 px-4 py-4 text-sm text-slate-700">
+              <div className="space-y-2.5 border-t border-slate-200 px-3 py-3 text-sm text-slate-700">
                 <div>
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Fields</p>
                   <p className="mt-1">{row.fields}</p>
@@ -334,19 +334,19 @@ export default async function GdprPage() {
         </div>
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 md:hidden">
-        <h2 className="text-lg font-semibold text-slate-900">Full Written GDPR Policy</h2>
-        <p className="mt-2 text-sm text-slate-600">
+      <section className="rounded-xl border border-slate-200 bg-white p-3 md:hidden">
+        <h2 className="text-base font-semibold text-slate-900">Full Written GDPR Policy</h2>
+        <p className="mt-2 hidden text-sm text-slate-600 sm:block">
           The following clauses set out the full policy text to accompany the matrix and support client/legal review.
         </p>
-        <div className="mt-4 space-y-3">
+        <div className="mt-3 space-y-2.5">
           {FULL_POLICY.map((section, index) => (
             <details
               key={section.title}
-              className="group rounded-[22px] border border-slate-200 bg-slate-50/60"
+              className="group rounded-xl border border-slate-200 bg-slate-50/60"
               open={index === 0}
             >
-              <summary className="flex cursor-pointer list-none items-start gap-3 p-4 text-left">
+              <summary className="flex cursor-pointer list-none items-start gap-3 p-3 text-left">
                 <div className="min-w-0 flex-1">
                   <h3 className="text-sm font-semibold text-slate-900">{section.title}</h3>
                   <p className="mt-1 text-xs text-slate-500">
@@ -356,7 +356,7 @@ export default async function GdprPage() {
                 </div>
                 <ChevronDown className="mt-0.5 h-4 w-4 flex-shrink-0 text-slate-400 transition-transform duration-200 group-open:rotate-180" />
               </summary>
-              <div className="space-y-2 border-t border-slate-200 px-4 py-4 text-sm text-slate-700">
+              <div className="space-y-2 border-t border-slate-200 px-3 py-3 text-sm text-slate-700">
                 {section.paragraphs.map((paragraph) => (
                   <p key={paragraph}>{paragraph}</p>
                 ))}

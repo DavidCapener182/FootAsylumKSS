@@ -60,14 +60,14 @@ export function IncidentActions({ incidentId, actions, profiles }: IncidentActio
   const [open, setOpen] = useState(false)
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 sm:space-y-4">
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <CardTitle>Actions</CardTitle>
             <Dialog open={open} onOpenChange={setOpen}>
               <DialogTrigger asChild>
-                <Button>
+                <Button className="w-full sm:w-auto">
                   <Plus className="h-4 w-4 mr-2" />
                   New Action
                 </Button>
@@ -85,8 +85,8 @@ export function IncidentActions({ incidentId, actions, profiles }: IncidentActio
           {actions.length === 0 ? (
             <p className="text-muted-foreground">No actions created yet.</p>
           ) : (
-            <div className="rounded-md border">
-              <Table>
+            <div className="overflow-x-auto rounded-md border">
+              <Table className="min-w-[720px]">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Title</TableHead>
@@ -120,5 +120,4 @@ export function IncidentActions({ incidentId, actions, profiles }: IncidentActio
     </div>
   )
 }
-
 

@@ -49,7 +49,7 @@ export function AuditStatsCards({ stores, selectedArea }: AuditStatsCardsProps) 
 
   return (
     <>
-      <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:col-span-2 md:col-span-1 md:p-5">
+      <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:col-span-2 sm:rounded-2xl md:col-span-1 md:p-5">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="break-words text-[10px] font-bold uppercase tracking-wide text-slate-500 md:text-xs md:tracking-wider">
@@ -63,7 +63,7 @@ export function AuditStatsCards({ stores, selectedArea }: AuditStatsCardsProps) 
         </div>
       </div>
       
-      <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:p-5">
+      <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl md:p-5">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="break-words text-[10px] font-bold uppercase tracking-wide text-slate-500 md:text-xs md:tracking-wider">
@@ -77,7 +77,7 @@ export function AuditStatsCards({ stores, selectedArea }: AuditStatsCardsProps) 
         </div>
       </div>
 
-      <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:p-5">
+      <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl md:p-5">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="break-words text-[10px] font-bold uppercase tracking-wide text-slate-500 md:text-xs md:tracking-wider">

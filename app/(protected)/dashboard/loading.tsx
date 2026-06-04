@@ -18,7 +18,7 @@ export default function DashboardLoading() {
         </div>
       </div>
 
-      <div className="space-y-6 px-4 py-5 sm:px-6 lg:px-8">
+      <div className="space-y-3 px-3 py-3 pb-28 sm:space-y-6 sm:px-6 sm:py-5 sm:pb-5 lg:px-8">
         <section>
           <Skeleton className="mb-3 h-5 w-44" />
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
@@ -34,13 +34,13 @@ export default function DashboardLoading() {
           ))}
         </div>
 
-        <div className="grid gap-6 xl:grid-cols-12">
+        <div className="grid gap-3 md:gap-6 xl:grid-cols-12">
           <Skeleton className="h-96 xl:col-span-5" />
           <Skeleton className="h-96 xl:col-span-4" />
           <Skeleton className="h-96 xl:col-span-3" />
         </div>
 
-        <div className="grid gap-6 xl:grid-cols-12">
+        <div className="grid gap-3 md:gap-6 xl:grid-cols-12">
           <Skeleton className="h-80 xl:col-span-4" />
           <Skeleton className="h-80 xl:col-span-4" />
           <Skeleton className="h-80 xl:col-span-4" />

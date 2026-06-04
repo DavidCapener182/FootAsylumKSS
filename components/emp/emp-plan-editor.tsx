@@ -612,8 +612,8 @@ export function EmpPlanEditor({ initialData }: { initialData: EmpPlanEditorData 
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+    <div className="space-y-3 sm:space-y-6">
+      <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:gap-4 sm:rounded-2xl sm:p-6">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-slate-500">
@@ -622,20 +622,20 @@ export function EmpPlanEditor({ initialData }: { initialData: EmpPlanEditorData 
                 Back to EMP workspace
               </a>
             </div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900">{editorData.plan.title}</h1>
+            <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">{editorData.plan.title}</h1>
             <p className="text-sm text-slate-500">{editorData.template.title}</p>
-            <p className="max-w-3xl text-sm leading-6 text-slate-600">
+            <p className="hidden max-w-3xl text-sm leading-6 text-slate-600 sm:block">
               This is the KSS master EMP. Generic operational wording is prefilled so you only need
               to confirm or replace the event-specific detail, then review the report preview before
               export.
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={persist} disabled={saving}>
+          <div className="grid w-full grid-cols-1 gap-2 min-[420px]:grid-cols-2 md:w-auto md:flex md:flex-wrap">
+            <Button variant="outline" onClick={persist} disabled={saving} className="w-full md:w-auto">
               {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
               Save
             </Button>
-            <Button variant="outline" onClick={handleExtract} disabled={extracting || editorData.documents.length === 0}>
+            <Button variant="outline" onClick={handleExtract} disabled={extracting || editorData.documents.length === 0} className="w-full md:w-auto">
               {extracting ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
@@ -645,14 +645,14 @@ export function EmpPlanEditor({ initialData }: { initialData: EmpPlanEditorData 
             </Button>
             <a
               href={`/admin/event-management-plans/${editorData.plan.id}/preview`}
-              className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow hover:bg-primary/90"
+              className="inline-flex h-10 w-full items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow hover:bg-primary/90 md:w-auto"
             >
               Preview
               <Download className="ml-2 h-4 w-4" />
             </a>
             <a
               href={`/admin/event-management-plans/${editorData.plan.id}/event-control-log`}
-              className="inline-flex h-10 items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm hover:bg-accent hover:text-accent-foreground"
+              className="inline-flex h-10 w-full items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm hover:bg-accent hover:text-accent-foreground md:w-auto"
             >
               <Radio className="mr-2 h-4 w-4" />
               Event Control
@@ -661,7 +661,7 @@ export function EmpPlanEditor({ initialData }: { initialData: EmpPlanEditorData 
               href={`/print/emp-report?planId=${editorData.plan.id}`}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex h-10 items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm hover:bg-accent hover:text-accent-foreground"
+              className="inline-flex h-10 w-full items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm hover:bg-accent hover:text-accent-foreground md:w-auto"
             >
               Print
             </a>
@@ -682,17 +682,17 @@ export function EmpPlanEditor({ initialData }: { initialData: EmpPlanEditorData 
                 text is added automatically and optional annexes stay off until selected here.
               </p>
             </div>
-            <Button type="button" onClick={generateGuidedWording}>
+            <Button type="button" onClick={generateGuidedWording} className="w-full md:w-auto">
               <Sparkles className="mr-2 h-4 w-4" />
               Generate / Update Plan Wording
             </Button>
           </div>
         </CardHeader>
-        <CardContent className="space-y-5">
+        <CardContent className="space-y-3 sm:space-y-5">
           {EMP_GUIDED_GROUPS.map((group) => (
             <details
               key={group.key}
-              className="rounded-lg border border-slate-200 bg-slate-50 p-4"
+              className="rounded-xl border border-slate-200 bg-slate-50 p-3 sm:p-4"
               open={group.key === 'event_identity'}
             >
               <summary className="cursor-pointer select-none">
@@ -711,7 +711,7 @@ export function EmpPlanEditor({ initialData }: { initialData: EmpPlanEditorData 
         <CardHeader>
           <CardTitle>Source Documents</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-3 sm:space-y-4">
           <div className="grid gap-3 md:grid-cols-[220px_minmax(0,1fr)_auto]">
             <div className="space-y-2">
               <Label htmlFor="emp-document-kind">Source document kind</Label>
@@ -727,7 +727,7 @@ export function EmpPlanEditor({ initialData }: { initialData: EmpPlanEditorData 
                   </option>
                 ))}
               </select>
-              <p className="text-xs leading-5 text-slate-500">
+              <p className="hidden text-xs leading-5 text-slate-500 sm:block">
                 Use this area for text-bearing source material that should inform extraction and
                 reviewed plan fields. Maps and route images are attached directly inside the
                 relevant EMP sections below.
@@ -743,7 +743,7 @@ export function EmpPlanEditor({ initialData }: { initialData: EmpPlanEditorData 
               />
             </div>
             <div className="flex items-end">
-              <Button onClick={handleUpload} disabled={uploading || !uploadFile}>
+              <Button onClick={handleUpload} disabled={uploading || !uploadFile} className="w-full md:w-auto">
                 {uploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
                 Upload
               </Button>
@@ -752,7 +752,7 @@ export function EmpPlanEditor({ initialData }: { initialData: EmpPlanEditorData 
 
           <div className="space-y-3">
             {sourceDocuments.length === 0 ? (
-              <div className="rounded-md border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-500">
+              <div className="rounded-md border border-dashed border-slate-200 bg-slate-50 px-3 py-4 text-sm text-slate-500 sm:px-4 sm:py-6">
                 No source documents uploaded yet.
               </div>
             ) : (
@@ -766,13 +766,13 @@ export function EmpPlanEditor({ initialData }: { initialData: EmpPlanEditorData 
         <CardHeader>
           <CardTitle>Annexes and Supporting Appendix</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-3 sm:space-y-4">
           <div className="grid gap-3 md:grid-cols-2">
             {EMP_ANNEX_DEFINITIONS.map((annex) => {
               const checked = selectedAnnexes.includes(annex.key)
               const guidedAnswerKey = EMP_ANNEX_GUIDED_ANSWER_KEYS[annex.key]
               return (
-                <label key={annex.key} className="flex gap-3 rounded-md border border-slate-200 px-4 py-3">
+                <label key={annex.key} className="flex gap-3 rounded-md border border-slate-200 px-3 py-3 sm:px-4">
                   <input
                     type="checkbox"
                     className="mt-1"
@@ -797,7 +797,7 @@ export function EmpPlanEditor({ initialData }: { initialData: EmpPlanEditorData 
             })}
           </div>
 
-          <label className="flex gap-3 rounded-md border border-slate-200 px-4 py-3">
+          <label className="flex gap-3 rounded-md border border-slate-200 px-3 py-3 sm:px-4">
             <input
               type="checkbox"
               className="mt-1"

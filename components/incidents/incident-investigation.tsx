@@ -19,9 +19,9 @@ export function IncidentInvestigation({ incident, investigation }: IncidentInves
   if (!investigation) {
     return (
       <Card>
-        <CardContent className="pt-6">
+        <CardContent className="pt-3 sm:pt-6">
           <p className="text-muted-foreground">No investigation has been created yet.</p>
-          <Button className="mt-4" onClick={() => setOpen(true)}>
+          <Button className="mt-3 w-full sm:mt-4 sm:w-auto" onClick={() => setOpen(true)}>
             Create Investigation
           </Button>
           <Dialog open={open} onOpenChange={setOpen}>
@@ -38,16 +38,16 @@ export function IncidentInvestigation({ incident, investigation }: IncidentInves
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 sm:space-y-4">
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <CardTitle>Investigation Details</CardTitle>
             <StatusBadge status={investigation.status} type="investigation" />
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+        <CardContent className="space-y-3 sm:space-y-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
             <div>
               <div className="text-sm font-medium text-muted-foreground">Type</div>
               <div>{investigation.investigation_type.split('_').map((w: string) => 
@@ -100,7 +100,7 @@ export function IncidentInvestigation({ incident, investigation }: IncidentInves
             </div>
           )}
 
-          <Button onClick={() => setOpen(true)}>Edit Investigation</Button>
+          <Button className="w-full sm:w-auto" onClick={() => setOpen(true)}>Edit Investigation</Button>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogContent className="max-w-2xl">
               <DialogHeader>
@@ -114,5 +114,4 @@ export function IncidentInvestigation({ incident, investigation }: IncidentInves
     </div>
   )
 }
-
 

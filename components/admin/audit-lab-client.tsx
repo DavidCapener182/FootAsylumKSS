@@ -687,8 +687,8 @@ export function AuditLabClient() {
           />
         </TabsContent>
 
-        <TabsContent value="dashboard" className="mt-6">
-          <div className="space-y-6">
+        <TabsContent value="dashboard" className="mt-3 sm:mt-6">
+          <div className="space-y-3 sm:space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle>Compare Store Audits</CardTitle>
@@ -1156,7 +1156,7 @@ function TemplatesLibraryView({
   }
 
   return (
-    <div className="max-w-full space-y-6 overflow-x-hidden">
+    <div className="max-w-full space-y-3 overflow-x-hidden sm:space-y-6">
       {/* Actions */}
       <div className="flex max-w-full flex-wrap gap-3">
         <Button onClick={onCreateNew} className="w-full justify-center bg-indigo-600 hover:bg-indigo-700 sm:w-auto">
@@ -1217,7 +1217,7 @@ function TemplatesLibraryView({
           </CardContent>
         </Card>
       ) : (
-        <div className="grid max-w-full grid-cols-1 gap-4 md:grid-cols-2 md:gap-6 lg:grid-cols-3">
+        <div className="grid max-w-full grid-cols-1 gap-3 md:grid-cols-2 md:gap-6 lg:grid-cols-3">
           {visibleTemplates.map((template) => {
             const theme = getTemplateTheme(template.category)
             return (
@@ -1226,7 +1226,7 @@ function TemplatesLibraryView({
               className={cn('w-full min-w-0 max-w-full overflow-hidden hover:shadow-lg transition-shadow cursor-pointer', theme.card)}
               onClick={() => onTemplateClick(template.id)}
             >
-              <CardHeader className={cn('rounded-t-lg p-4 md:p-6', theme.header)}>
+              <CardHeader className={cn('rounded-t-lg p-3 md:p-6', theme.header)}>
                 <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                   <CardTitle className="min-w-0 break-words text-lg font-extrabold tracking-tight text-slate-900 sm:text-xl">
                     {getTemplateDisplayTitle(template)}
@@ -1236,7 +1236,7 @@ function TemplatesLibraryView({
                   </Badge>
                 </div>
               </CardHeader>
-              <CardContent className="p-4 pt-0 md:p-6 md:pt-0">
+              <CardContent className="p-3 pt-0 md:p-6 md:pt-0">
                 {getTemplateDisplayDescription(template) && (
                   <p className="mb-4 text-sm text-slate-600">{getTemplateDisplayDescription(template)}</p>
                 )}
@@ -1254,7 +1254,7 @@ function TemplatesLibraryView({
               className="w-full min-w-0 max-w-full cursor-pointer overflow-hidden border-l-4 border-l-teal-500 transition-shadow hover:shadow-lg"
               onClick={handleStartNewStoreFRA}
             >
-              <CardHeader className="rounded-t-lg bg-teal-50/70 p-4 md:p-6">
+              <CardHeader className="rounded-t-lg bg-teal-50/70 p-3 md:p-6">
                 <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                   <CardTitle className="min-w-0 break-words text-lg font-extrabold tracking-tight text-slate-900 sm:text-xl">
                     {NEW_STORE_FRA_TEMPLATE_TITLE}
@@ -1264,7 +1264,7 @@ function TemplatesLibraryView({
                   </Badge>
                 </div>
               </CardHeader>
-              <CardContent className="p-4 pt-0 md:p-6 md:pt-0">
+              <CardContent className="p-3 pt-0 md:p-6 md:pt-0">
                 <p className="mb-4 text-sm text-slate-600">
                   Pre-opening Fire Risk Assessment for new stores before they open to the public.
                 </p>

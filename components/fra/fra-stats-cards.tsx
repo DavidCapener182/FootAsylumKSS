@@ -56,7 +56,7 @@ export function FRAStatsCards({ stores, selectedArea }: FRAStatsCardsProps) {
 
   return (
     <>
-      <div className="col-span-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:col-span-1 md:p-5">
+      <div className="col-span-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl md:col-span-1 md:p-5">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 md:text-xs md:tracking-wider">
@@ -70,7 +70,7 @@ export function FRAStatsCards({ stores, selectedArea }: FRAStatsCardsProps) {
         </div>
       </div>
       
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:p-5">
+      <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl md:p-5">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 md:text-xs md:tracking-wider">
@@ -84,7 +84,7 @@ export function FRAStatsCards({ stores, selectedArea }: FRAStatsCardsProps) {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:p-5">
+      <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl md:p-5">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 md:text-xs md:tracking-wider">
