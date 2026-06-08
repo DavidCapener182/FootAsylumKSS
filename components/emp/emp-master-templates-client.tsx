@@ -432,6 +432,7 @@ export function EmpMasterTemplatesClient({
   )
   const [selectedTemplateIds, setSelectedTemplateIds] = useState<string[]>([])
   const [isBulkDownloading, setIsBulkDownloading] = useState(false)
+  const [isActiveDownloading, setIsActiveDownloading] = useState(false)
   const [eventProfiles, setEventProfiles] = useState<EmpMasterTemplateEventProfile[]>([])
   const [eventProfilesLoaded, setEventProfilesLoaded] = useState(false)
   const [activeEventProfileId, setActiveEventProfileId] = useState('')
@@ -1013,6 +1014,54 @@ export function EmpMasterTemplatesClient({
     })
   }
 
+  const downloadBlobResponse = async (response: Response, fallbackFilename: string) => {
+    const blob = await response.blob()
+    const contentDisposition = response.headers.get('Content-Disposition') || ''
+    const filenameMatch = contentDisposition.match(/filename="([^"]+)"/i)
+    const filename = filenameMatch?.[1] || fallbackFilename
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = filename
+    document.body.appendChild(anchor)
+    anchor.click()
+    anchor.remove()
+    URL.revokeObjectURL(url)
+  }
+
+  const downloadActivePdf = async () => {
+    if (isActiveDownloading) return
+    setIsActiveDownloading(true)
+    try {
+      const response = await fetch('/api/emp/master-templates/generate-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          downloadMode: 'single',
+          templateIds: [activeTemplate.id],
+          prefill: {
+            eventName: eventName.trim(),
+            eventDate,
+            templateFieldValues,
+            templateTableCellValues,
+            templateTablePageValues,
+          },
+        }),
+      })
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}))
+        throw new Error(payload?.error || 'Failed to prepare PDF for download')
+      }
+
+      await downloadBlobResponse(response, activeTemplate.filename)
+    } catch (error: any) {
+      window.alert(error?.message || 'Failed to prepare PDF for download')
+    } finally {
+      setIsActiveDownloading(false)
+    }
+  }
+
   const downloadSelectedPdfs = async () => {
     if (!selectedTemplateIds.length || isBulkDownloading) return
     setIsBulkDownloading(true)
@@ -1037,18 +1086,7 @@ export function EmpMasterTemplatesClient({
         throw new Error(payload?.error || 'Failed to prepare selected PDFs for download')
       }
 
-      const blob = await response.blob()
-      const contentDisposition = response.headers.get('Content-Disposition') || ''
-      const filenameMatch = contentDisposition.match(/filename="([^"]+)"/i)
-      const filename = filenameMatch?.[1] || 'emp-master-templates.zip'
-      const url = URL.createObjectURL(blob)
-      const anchor = document.createElement('a')
-      anchor.href = url
-      anchor.download = filename
-      document.body.appendChild(anchor)
-      anchor.click()
-      anchor.remove()
-      URL.revokeObjectURL(url)
+      await downloadBlobResponse(response, 'emp-master-templates.zip')
     } catch (error: any) {
       window.alert(error?.message || 'Failed to prepare selected PDFs for download')
     } finally {
@@ -1312,13 +1350,15 @@ export function EmpMasterTemplatesClient({
                   <Printer className="mr-2 h-4 w-4" />
                   Print / Save as PDF
                 </a>
-                <a
-                  href={buildTemplateHref('/api/emp/master-templates/generate-pdf')}
-                  className={cn(buttonVariants({ variant: 'default' }), 'w-full bg-emerald-700 hover:bg-emerald-800 sm:w-auto')}
+                <Button
+                  type="button"
+                  onClick={downloadActivePdf}
+                  disabled={isActiveDownloading}
+                  className="w-full bg-emerald-700 hover:bg-emerald-800 sm:w-auto"
                 >
                   <Download className="mr-2 h-4 w-4" />
-                  Download PDF
-                </a>
+                  {isActiveDownloading ? 'Preparing PDF...' : 'Download PDF'}
+                </Button>
               </div>
             </div>
           </section>
