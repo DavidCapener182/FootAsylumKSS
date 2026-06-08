@@ -289,6 +289,7 @@ export async function POST(request: NextRequest) {
 
     const body = (await request.json().catch(() => ({}))) as {
       templateIds?: unknown
+      downloadMode?: unknown
       prefill?: {
         eventName?: string
         eventDate?: string
@@ -325,10 +326,32 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No valid templates were selected.' }, { status: 400 })
     }
 
-    const zip = new JSZip()
-    const usedNames = new Map<string, number>()
+    const downloadMode = body.downloadMode === 'single' ? 'single' : 'archive'
+    if (downloadMode === 'single' && selectedTemplates.length !== 1) {
+      return NextResponse.json({ error: 'A single PDF download must include exactly one valid template.' }, { status: 400 })
+    }
+
     browser = await launchPuppeteerBrowser()
 
+    if (downloadMode === 'single') {
+      const template = selectedTemplates[0]
+      const prefillJson = buildPrefillForTemplate(template.id, prefill)
+      const pdfBuffer = await renderTemplatePdf(request, template, prefillJson, browser)
+
+      await browser.close()
+      browser = null
+
+      return new NextResponse(pdfBuffer as unknown as BodyInit, {
+        headers: {
+          'Content-Type': 'application/pdf',
+          'Content-Disposition': `attachment; filename="${template.filename.replace(/"/g, '\\"')}"`,
+          'Cache-Control': 'no-store',
+        },
+      })
+    }
+
+    const zip = new JSZip()
+    const usedNames = new Map<string, number>()
     for (const template of selectedTemplates) {
       const prefillJson = buildPrefillForTemplate(template.id, prefill)
       const pdfBuffer = await renderTemplatePdf(request, template, prefillJson, browser)
