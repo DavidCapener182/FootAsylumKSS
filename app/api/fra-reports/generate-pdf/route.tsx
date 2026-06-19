@@ -219,6 +219,7 @@ export async function GET(request: NextRequest) {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="${filename.replace(/"/g, '\\"')}"`,
+        'Cache-Control': 'no-store, max-age=0',
       },
     })
   } catch (error: any) {

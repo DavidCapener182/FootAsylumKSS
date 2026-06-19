@@ -210,9 +210,9 @@ interface FRAReportViewProps {
 type UploadMode = 'append' | 'replace'
 type PlaceholderPhoto = { file_path: string; public_url: string; comment?: string }
 
-const MAX_UPLOAD_IMAGE_DIMENSION = 1800
-const MAX_UPLOAD_IMAGE_BYTES = 2 * 1024 * 1024
-const COMPRESSION_QUALITIES = [0.78, 0.68, 0.58]
+const MAX_UPLOAD_IMAGE_DIMENSION = 700
+const MAX_UPLOAD_IMAGE_BYTES = 650 * 1024
+const COMPRESSION_QUALITIES = [0.72, 0.62, 0.52, 0.42]
 
 function inferImageMimeType(fileName: string): string {
   const ext = fileName.split('.').pop()?.toLowerCase() || ''
@@ -833,6 +833,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
 
     const isGrid = (maxPhotos ?? 5) > 1
     const isContain = fit === 'contain'
+    const forceContain = showHeaderFooter || isContain
     const multiPhotoCardWidthClass = fullHeight
       ? 'w-full print:w-auto'
       : 'w-[220px] print:w-auto'
@@ -844,20 +845,38 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
           : 'w-full max-w-lg'
       : multiPhotoCardWidthClass
     const imageWrapperClass = fullHeight && photos.length === 1
-      ? 'w-full h-[420px] overflow-hidden rounded border border-slate-300'
+      ? 'w-full h-[420px] overflow-hidden rounded border border-slate-300 bg-slate-50'
       : isPortrait
-        ? `aspect-[3/4] w-full overflow-hidden ${compact ? 'max-w-[220px]' : ''}`
-        : ''
+        ? `aspect-[3/4] w-full overflow-hidden rounded bg-slate-50 ${compact ? 'max-w-[220px]' : ''}`
+        : 'w-full h-48 overflow-hidden rounded bg-slate-50'
     const imageClass = fullHeight && photos.length === 1
-      ? 'w-full h-full object-cover rounded border-0 print:object-cover print:w-full print:h-full'
+      ? 'fra-report-photo w-full h-full object-contain rounded border-0 print:object-contain print:w-full print:h-full'
       : isPortrait
-      ? `w-full h-full ${isContain ? 'object-contain' : 'object-cover'} rounded border border-slate-300 print:object-contain print:w-full print:h-full`
-      : `w-full h-48 ${isContain ? 'object-contain' : 'object-cover'} rounded border border-slate-300 print:object-contain print:w-full print:h-full`
+      ? `fra-report-photo w-full h-full ${forceContain ? 'object-contain' : 'object-cover'} rounded border border-slate-300 print:object-contain print:w-full print:h-full`
+      : `fra-report-photo w-full h-full ${forceContain ? 'object-contain' : 'object-cover'} rounded border border-slate-300 print:object-contain print:w-full print:h-full`
     const emptyClass = fullHeight
       ? 'border-2 border-dashed border-slate-300 rounded p-4 h-[420px] w-full flex flex-col items-center justify-center text-slate-400 text-sm fra-photo-block'
       : isPortrait
         ? `border-2 border-dashed border-slate-300 rounded p-4 aspect-[3/4] w-full flex flex-col items-center justify-center text-slate-400 text-sm fra-photo-block ${compact ? 'max-w-[220px]' : ''}`
         : 'border-2 border-dashed border-slate-300 rounded p-4 h-48 flex flex-col items-center justify-center text-slate-400 text-sm fra-photo-block'
+    const pdfImageFrameStyle: React.CSSProperties | undefined = showHeaderFooter
+      ? {
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: '#f8fafc',
+        }
+      : undefined
+    const pdfImageStyle: React.CSSProperties | undefined = showHeaderFooter
+      ? {
+          width: '100%',
+          height: '100%',
+          maxWidth: '100%',
+          maxHeight: '100%',
+          objectFit: 'contain',
+          objectPosition: 'center center',
+        }
+      : undefined
 
     return (
       <div
@@ -882,11 +901,12 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
           <div className={photos.length === 1 ? 'flex justify-center' : stacked ? 'flex flex-col items-center gap-2' : `flex flex-wrap justify-center gap-2 ${isGrid ? 'fra-photo-grid' : ''}`}>
             {photos.map((photo: PlaceholderPhoto, idx: number) => (
               <div key={idx} className={`relative fra-photo-block ${photoCardWidthClass}`}>
-                <div className={`relative ${imageWrapperClass}`}>
+                <div className={`relative fra-photo-image-frame ${imageWrapperClass}`} style={pdfImageFrameStyle}>
                 <img 
                   src={photo.public_url || photo.file_path} 
                   alt={`${label} ${idx + 1}`}
                   className={imageClass}
+                  style={pdfImageStyle}
                 />
                 <button
                   type="button"
@@ -993,6 +1013,52 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
           </div>
         )}
       </div>
+    )
+  }
+
+  const VisualRecordPhoto = ({ placeholderId, label }: { placeholderId: string; label: string }) => {
+    const photo = placeholderPhotos[placeholderId]?.[0]
+    if (!photo) {
+      if (showHeaderFooter) return null
+      return <PhotoPlaceholder placeholderId={placeholderId} label={label} maxPhotos={1} fit="contain" />
+    }
+
+    const frameStyle: React.CSSProperties = {
+      width: '100%',
+      height: showHeaderFooter ? '58mm' : 280,
+      minHeight: showHeaderFooter ? '58mm' : 280,
+      maxHeight: showHeaderFooter ? '58mm' : 280,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      overflow: 'hidden',
+      backgroundColor: '#f8fafc',
+      border: '1px solid #cbd5e1',
+      borderRadius: 4,
+      boxSizing: 'border-box',
+    }
+
+    const imageStyle: React.CSSProperties = {
+      display: 'block',
+      width: '100%',
+      height: '100%',
+      maxWidth: '100%',
+      maxHeight: '100%',
+      objectFit: 'contain',
+      objectPosition: 'center center',
+    }
+
+    return (
+      <figure className="fra-visual-record-photo">
+        <div style={frameStyle}>
+          <img
+            src={photo.public_url || photo.file_path}
+            alt={label}
+            style={imageStyle}
+          />
+        </div>
+        <figcaption className="text-xs mt-1 text-slate-600 print:block">{label}</figcaption>
+      </figure>
     )
   }
 
@@ -1868,22 +1934,10 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
         </div>
         <h2 className="text-xl font-semibold mb-4">Fire Safety Equipment – Visual Record</h2>
         <div className="fra-keep grid grid-cols-2 gap-4 fra-visual-record-grid">
-          <div>
-            <PhotoPlaceholder placeholderId="fire-alarm-panel" label="Fire alarm control panel" maxPhotos={1} aspect="portrait" />
-            <p className="text-xs mt-1 text-slate-600 print:block">Fire alarm control panel</p>
-          </div>
-          <div>
-            <PhotoPlaceholder placeholderId="emergency-lighting-switch" label="Emergency lighting test switch" maxPhotos={1} aspect="portrait" />
-            <p className="text-xs mt-1 text-slate-600 print:block">Emergency lighting test switch</p>
-          </div>
-          <div>
-            <PhotoPlaceholder placeholderId="fire-doors" label="Typical fire door" maxPhotos={1} aspect="portrait" />
-            <p className="text-xs mt-1 text-slate-600 print:block">Typical fire door</p>
-          </div>
-          <div>
-            <PhotoPlaceholder placeholderId="fire-extinguisher" label="Portable fire extinguisher (rear stockroom)" maxPhotos={1} aspect="portrait" />
-            <p className="text-xs mt-1 text-slate-600 print:block">Portable fire extinguisher (rear stockroom)</p>
-          </div>
+          <VisualRecordPhoto placeholderId="fire-alarm-panel" label="Fire alarm control panel" />
+          <VisualRecordPhoto placeholderId="emergency-lighting-switch" label="Emergency lighting test switch" />
+          <VisualRecordPhoto placeholderId="fire-doors" label="Typical fire door" />
+          <VisualRecordPhoto placeholderId="fire-extinguisher" label="Portable fire extinguisher (rear stockroom)" />
         </div>
       </div>
 

@@ -5,6 +5,13 @@ export type EmpStaffSignInRow = {
   expiryDate: string
   mobileNumber?: string
   dateOfBirth?: string
+  position?: string
+  area?: string
+  signInDates?: string[]
+  shiftStart?: string
+  shiftEnd?: string
+  shiftStartByDate?: Record<string, string>
+  shiftEndByDate?: Record<string, string>
 }
 
 export const BBC_RADIO_ONE_2026_SIGN_IN_DATES = [

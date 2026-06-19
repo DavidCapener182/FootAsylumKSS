@@ -8,6 +8,7 @@ import {
   extractEmpTemplateIsoDates,
   extractFirstEmpTemplateIsoDate,
   normalizeStaffSignInTablePages,
+  refreshStaffSignInTablePagesForEvent,
   syncDeploymentMatrixEventPagesFromSourcePages,
 } from '@/lib/emp/master-template-prefill'
 import { EMP_DOWNLOAD_PLAN_TITLE } from '@/lib/emp/download-plan'
@@ -304,7 +305,7 @@ describe('emp master template prefill', () => {
     expect(prefill.templateTablePageValues?.['radio-kit-sign-out-sheet']).toHaveLength(12)
   })
 
-  it('builds Parklife sign-in pages from the supplied PNC sheet data', () => {
+  it('builds Parklife sign-in pages from the subcontractor master sheet data', () => {
     const prefill = buildEmpMasterTemplatePrefillFromFieldValues({
       event_name: 'Parklife Festival 2026',
       show_dates: '20 June 2026 to 21 June 2026',
@@ -317,63 +318,126 @@ describe('emp master template prefill', () => {
 
     const staffPages = prefill.templateTablePageValues?.['staff-sign-in-sign-out-sheet'] || []
 
-    expect(staffPages).toHaveLength(14)
+    expect(staffPages).toHaveLength(10)
     expect(staffPages[0]).toMatchObject({
       fields: {
         'Event Name / Code': 'Parklife Festival 2026',
         Date: 'Saturday 20/06/2026',
         'Location / Venue': 'Heaton Park, Middleton Road, Manchester, M25 2SW',
         Company: 'KSS',
+        'Column Label: shift_start': 'Wristband Number',
+        'Column Label: shift_end': 'Hi-Viz Number',
       },
       tableCells: {
         '0:staff_name': 'Jack Longthorne',
         '1:staff_name': 'David Capener',
-        '1:sia_badge_number': '1014 8888 7483 7254',
-        '1:expiry_date': '26/02/2029',
-        '2:staff_name': 'Laura Parker',
+        '2:staff_name': 'Laura Paker',
       },
     })
+    expect(staffPages[0].tableCells?.['1:sia_badge_number']).toBeUndefined()
+    expect(staffPages[0].tableCells?.['1:expiry_date']).toBeUndefined()
+    expect(staffPages[0].tableCells?.['0:shift_start']).toBeUndefined()
+    expect(staffPages[0].tableCells?.['0:shift_end']).toBeUndefined()
     expect(staffPages[1]).toMatchObject({
       fields: {
         Date: 'Saturday 20/06/2026',
-        Company: 'STRAZA',
+        Company: 'CJL',
+        'Column Label: shift_start': 'Wristband Number',
+        'Column Label: shift_end': 'Hi-Viz Number',
       },
       tableCells: {
-        '0:staff_name': 'Abdur Rehman',
-        '0:sia_badge_number': '1014 7982 6493 8600',
+        '0:staff_name': 'Leanne Reeves',
+        '11:staff_name': 'Luke Charnley - Sat',
+        '13:staff_name': 'Alan Fairclough',
       },
     })
     expect(staffPages[3]).toMatchObject({
       fields: {
         Date: 'Saturday 20/06/2026',
-        Company: 'GUARD-EX',
+        Company: 'STRAZA',
       },
       tableCells: {
-        '11:staff_name': 'Allston Andrew',
-        '11:sia_badge_number': 'ST',
-        '11:expiry_date': 'N/A',
+        '0:staff_name': 'Levy',
+        '1:staff_name': 'Owen Agbonlahor',
+        '2:staff_name': 'Chiemeka',
+        '12:staff_name': 'Hamza Hussain',
       },
     })
-    expect(staffPages[6]).toMatchObject({
+    expect(staffPages[4]).toMatchObject({
       fields: {
         Date: 'Saturday 20/06/2026',
-        Company: 'CJL (continued)',
+        Company: 'GUARDEX',
       },
       tableCells: {
-        '0:staff_name': 'Paolo Osei',
-        '1:staff_name': 'Luis Felton',
-        '1:sia_badge_number': 'ST',
-        '1:expiry_date': 'N/A',
+        '0:staff_name': 'Saqib Baig',
+        '1:staff_name': 'Ibrahim Ali Khan',
+        '12:staff_name': 'Hadier Ali',
       },
     })
-    expect(staffPages[7]).toMatchObject({
+    expect(staffPages[5]).toMatchObject({
       fields: {
         Date: 'Sunday 21/06/2026',
         Company: 'KSS',
       },
+      tableCells: {
+        '0:staff_name': 'Jack Longthorne',
+      },
+    })
+    expect(staffPages[6]).toMatchObject({
+      fields: {
+        Date: 'Sunday 21/06/2026',
+        Company: 'CJL',
+      },
+      tableCells: {
+        '11:staff_name': 'Paolo Osei - Sunday',
+      },
     })
     expect(prefill.templateTablePageValues?.['uniform-ppe-allocation-log']).toHaveLength(4)
     expect(prefill.templateTablePageValues?.['radio-kit-sign-out-sheet']).toHaveLength(4)
+  })
+
+  it('refreshes stale Parklife staff sign-in pages from the subcontractor source', () => {
+    const pages = refreshStaffSignInTablePagesForEvent([
+      {
+        fields: {
+          'Event Name / Code': 'Parklife Festival 2026',
+          Date: 'Saturday 20/06/2026',
+          'Location / Venue': 'Heaton Park, Middleton Road, Manchester, M25 2SW',
+          Company: 'STRAZA',
+        },
+        tableCells: {
+          '0:staff_name': 'Legacy Removed Name 1',
+          '1:staff_name': 'Legacy Removed Name 2',
+          '2:staff_name': 'Legacy Removed Name 3',
+        },
+      },
+    ], {
+      eventName: 'Parklife Festival 2026',
+      planTitle: EMP_PARKLIFE_PLAN_TITLE,
+    })
+
+    const serializedPages = JSON.stringify(pages)
+
+    expect(pages).toHaveLength(10)
+    expect(pages[3]).toMatchObject({
+      fields: {
+        Date: 'Saturday 20/06/2026',
+        Company: 'STRAZA',
+        'Column Label: shift_start': 'Wristband Number',
+        'Column Label: shift_end': 'Hi-Viz Number',
+      },
+      tableCells: {
+        '0:staff_name': 'Levy',
+        '1:staff_name': 'Owen Agbonlahor',
+        '2:staff_name': 'Chiemeka',
+        '3:staff_name': 'Muhammad Yousaf',
+      },
+    })
+    expect(pages[3].tableCells?.['3:sia_badge_number']).toBeUndefined()
+    expect(pages[3].tableCells?.['3:expiry_date']).toBeUndefined()
+    expect(pages[3].tableCells?.['0:shift_start']).toBeUndefined()
+    expect(pages[3].tableCells?.['0:shift_end']).toBeUndefined()
+    expect(serializedPages).not.toContain('Legacy Removed Name')
   })
 
   it('normalizes stale waiting licence values on staff sign-in table pages', () => {

@@ -39,7 +39,7 @@ import {
   buildSupervisorDeploymentTablePagesFromDeploymentCells,
   buildSupervisorDeploymentTablePagesFromDeploymentTablePages,
   getDeploymentMatrixSourcePageCount,
-  normalizeStaffSignInTablePages,
+  refreshStaffSignInTablePagesForEvent,
   syncDeploymentMatrixEventPagesFromSourcePages,
   type EmpMasterTemplatePrefillData,
   type EmpMasterTemplatePlanPrefill,
@@ -271,11 +271,25 @@ function sanitizeTemplateFieldValues(values: Record<string, Record<string, strin
   return sanitized
 }
 
-function sanitizeTablePageValues(values: Record<string, EmpMasterTemplateTablePagePrefill[]>) {
+function sanitizeTablePageValues(
+  values: Record<string, EmpMasterTemplateTablePagePrefill[]>,
+  context: {
+    eventName?: string
+    planTitle?: string
+    templateFieldValues?: Record<string, Record<string, string>>
+  } = {}
+) {
   return Object.fromEntries(
     Object.entries(values).map(([templateId, pages]) => {
       if (templateId === 'staff-sign-in-sign-out-sheet') {
-        return [templateId, normalizeStaffSignInTablePages(pages)]
+        return [
+          templateId,
+          refreshStaffSignInTablePagesForEvent(pages, {
+            eventName: context.eventName,
+            planTitle: context.planTitle,
+            fields: context.templateFieldValues?.[templateId],
+          }),
+        ]
       }
 
       if (templateId === 'deployment-matrix') {
@@ -365,9 +379,14 @@ function mergeTemplateTableCellValues(
 
 function mergeTablePageValues(
   base: Record<string, EmpMasterTemplateTablePagePrefill[]>,
-  overrides: Record<string, EmpMasterTemplateTablePagePrefill[]> | undefined
+  overrides: Record<string, EmpMasterTemplateTablePagePrefill[]> | undefined,
+  context: {
+    eventName?: string
+    planTitle?: string
+    templateFieldValues?: Record<string, Record<string, string>>
+  } = {}
 ) {
-  if (!overrides || typeof overrides !== 'object') return sanitizeTablePageValues(base)
+  if (!overrides || typeof overrides !== 'object') return sanitizeTablePageValues(base, context)
 
   return sanitizeTablePageValues(Object.fromEntries(
     Array.from(new Set([...Object.keys(base), ...Object.keys(overrides)])).map((templateId) => {
@@ -389,7 +408,7 @@ function mergeTablePageValues(
         })),
       ]
     })
-  ))
+  ), context)
 }
 
 export function EmpMasterTemplatesClient({
@@ -428,7 +447,11 @@ export function EmpMasterTemplatesClient({
     sanitizeTemplateTableCellValues(initialPrefillData?.templateTableCellValues || {})
   )
   const [templateTablePageValues, setTemplateTablePageValues] = useState<Record<string, EmpMasterTemplateTablePagePrefill[]>>(
-    sanitizeTablePageValues(initialPrefillData?.templateTablePageValues || {})
+    sanitizeTablePageValues(initialPrefillData?.templateTablePageValues || {}, {
+      eventName: initialPrefillData?.eventName,
+      planTitle: prefillSourceTitle,
+      templateFieldValues: initialPrefillData?.templateFieldValues,
+    })
   )
   const [selectedTemplateIds, setSelectedTemplateIds] = useState<string[]>([])
   const [isBulkDownloading, setIsBulkDownloading] = useState(false)
@@ -526,6 +549,16 @@ export function EmpMasterTemplatesClient({
 
   const buildSharedPrefillData = useCallback((): SharedEventPrefillData => {
     const syncedTemplateTablePageValues = { ...templateTablePageValues }
+    if (Array.isArray(syncedTemplateTablePageValues['staff-sign-in-sign-out-sheet'])) {
+      syncedTemplateTablePageValues['staff-sign-in-sign-out-sheet'] = refreshStaffSignInTablePagesForEvent(
+        syncedTemplateTablePageValues['staff-sign-in-sign-out-sheet'],
+        {
+          eventName,
+          planTitle: prefillSourceTitle,
+          fields: templateFieldValues['staff-sign-in-sign-out-sheet'],
+        }
+      )
+    }
     if (Array.isArray(syncedTemplateTablePageValues['deployment-matrix'])) {
       syncedTemplateTablePageValues['deployment-matrix'] = syncDeploymentMatrixEventPagesFromSourcePages(
         syncedTemplateTablePageValues['deployment-matrix']
@@ -539,7 +572,23 @@ export function EmpMasterTemplatesClient({
       templateTableCellValues,
       templateTablePageValues: syncedTemplateTablePageValues,
     }
-  }, [eventDate, eventName, templateFieldValues, templateTableCellValues, templateTablePageValues])
+  }, [eventDate, eventName, prefillSourceTitle, templateFieldValues, templateTableCellValues, templateTablePageValues])
+
+  useEffect(() => {
+    const currentPages = templateTablePageValues['staff-sign-in-sign-out-sheet'] || []
+    const refreshedPages = refreshStaffSignInTablePagesForEvent(currentPages, {
+      eventName,
+      planTitle: prefillSourceTitle,
+      fields: templateFieldValues['staff-sign-in-sign-out-sheet'],
+    })
+
+    if (JSON.stringify(refreshedPages) === JSON.stringify(currentPages)) return
+
+    setTemplateTablePageValues((previous) => ({
+      ...previous,
+      'staff-sign-in-sign-out-sheet': refreshedPages,
+    }))
+  }, [eventName, prefillSourceTitle, templateFieldValues, templateTablePageValues])
 
   const applySharedEventProfile = useCallback((profile: EmpMasterTemplateEventProfile) => {
     const prefill = profile.prefill_data || {}
@@ -555,7 +604,11 @@ export function EmpMasterTemplatesClient({
         : {}
     const nextTemplateTablePageValues =
       prefill.templateTablePageValues && typeof prefill.templateTablePageValues === 'object'
-        ? sanitizeTablePageValues(prefill.templateTablePageValues)
+        ? sanitizeTablePageValues(prefill.templateTablePageValues, {
+            eventName: nextEventName,
+            planTitle: prefillSourceTitle,
+            templateFieldValues: nextTemplateFieldValues,
+          })
         : {}
 
     isApplyingSharedProfileRef.current = true
@@ -575,7 +628,7 @@ export function EmpMasterTemplatesClient({
     setTemplateFieldValues(nextTemplateFieldValues)
     setTemplateTableCellValues(nextTemplateTableCellValues)
     setTemplateTablePageValues(nextTemplateTablePageValues)
-  }, [])
+  }, [prefillSourceTitle])
 
   const loadEventProfiles = useCallback(async () => {
     if (!shouldUseEventProfiles) {
@@ -672,13 +725,31 @@ export function EmpMasterTemplatesClient({
     if (parsed) {
       if (typeof parsed.eventName === 'string') setEventName(parsed.eventName)
       if (typeof parsed.eventDate === 'string') setEventDate(parsed.eventDate)
+      const parsedEventName = typeof parsed.eventName === 'string'
+        ? parsed.eventName
+        : initialPrefillData?.eventName || ''
+      const parsedTemplateFieldValues =
+        parsed.templateFieldValues && typeof parsed.templateFieldValues === 'object'
+          ? sanitizeTemplateFieldValues(parsed.templateFieldValues)
+          : initialPrefillData?.templateFieldValues
       setTemplateFieldValues((previous) => mergeTemplateValueRecords(previous, parsed.templateFieldValues))
       setTemplateTableCellValues((previous) => mergeTemplateTableCellValues(previous, parsed.templateTableCellValues))
-      setTemplateTablePageValues((previous) => mergeTablePageValues(previous, parsed.templateTablePageValues))
+      setTemplateTablePageValues((previous) => mergeTablePageValues(previous, parsed.templateTablePageValues, {
+        eventName: parsedEventName,
+        planTitle: prefillSourceTitle,
+        templateFieldValues: parsedTemplateFieldValues,
+      }))
     }
 
     setLoadedStorageKey(storageKey)
-  }, [hasPresetPrefill, initialPlanPrefill, initialPrefillData?.eventName, storageKey])
+  }, [
+    hasPresetPrefill,
+    initialPlanPrefill,
+    initialPrefillData?.eventName,
+    initialPrefillData?.templateFieldValues,
+    prefillSourceTitle,
+    storageKey,
+  ])
 
   useEffect(() => {
     loadEventProfiles().catch(() => {})
@@ -956,7 +1027,13 @@ export function EmpMasterTemplatesClient({
     const rawTablePages = templateTablePageValues[templateId] || []
     const tablePages = templateId === 'deployment-matrix'
       ? syncDeploymentMatrixEventPagesFromSourcePages(rawTablePages)
-      : rawTablePages
+      : templateId === 'staff-sign-in-sign-out-sheet'
+        ? refreshStaffSignInTablePagesForEvent(rawTablePages, {
+            eventName,
+            planTitle: prefillSourceTitle,
+            fields: templateFieldValues[templateId],
+          })
+        : rawTablePages
     const prefillPayload = {
       eventName: eventName.trim(),
       eventDate,

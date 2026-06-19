@@ -4,6 +4,69 @@ import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { mapHSAuditToFRAData } from '@/app/actions/fra-reports'
 
 export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
+
+const PDF_PHOTO_MAX_EDGE = 520
+const PDF_PHOTO_JPEG_QUALITY = 45
+const REPORT_PHOTO_MAX_EDGE = 700
+
+type CanvasModule = {
+  createCanvas: (width: number, height: number) => {
+    getContext: (contextType: '2d') => {
+      fillStyle: string
+      fillRect: (x: number, y: number, width: number, height: number) => void
+      drawImage: (image: unknown, x: number, y: number, width: number, height: number) => void
+    }
+    toBuffer: (mime: 'image/jpeg', quality?: number) => Buffer
+  }
+  loadImage: (input: Buffer) => Promise<{ width: number; height: number }>
+}
+
+let canvasModule: CanvasModule | null = null
+
+function getCanvasModule(): CanvasModule {
+  if (canvasModule) return canvasModule
+  // Keep this native optional dependency out of Next's server bundle graph.
+  const runtimeRequire = new Function('moduleName', 'return require(moduleName)') as (moduleName: string) => CanvasModule
+  canvasModule = runtimeRequire('@napi-rs/canvas')
+  return canvasModule
+}
+
+async function compactImageForPdf(sourceUrl: string): Promise<string | null> {
+  try {
+    const response = await fetch(sourceUrl)
+    if (!response.ok) {
+      console.warn('FRA PDF photo compression skipped; image fetch failed:', response.status)
+      return null
+    }
+
+    const input = Buffer.from(await response.arrayBuffer())
+    if (!input.length) return null
+
+    const { createCanvas, loadImage } = getCanvasModule()
+    const image = await loadImage(input)
+    const sourceWidth = image.width || 0
+    const sourceHeight = image.height || 0
+    if (sourceWidth <= 0 || sourceHeight <= 0) return null
+
+    const scale = Math.min(1, PDF_PHOTO_MAX_EDGE / Math.max(sourceWidth, sourceHeight))
+    const width = Math.max(1, Math.round(sourceWidth * scale))
+    const height = Math.max(1, Math.round(sourceHeight * scale))
+    const canvas = createCanvas(width, height)
+    const context = canvas.getContext('2d')
+    context.fillStyle = '#f8fafc'
+    context.fillRect(0, 0, width, height)
+    context.drawImage(image, 0, 0, width, height)
+
+    const output = canvas.toBuffer('image/jpeg', PDF_PHOTO_JPEG_QUALITY)
+    if (!output.length) return null
+
+    return `data:image/jpeg;base64,${output.toString('base64')}`
+  } catch (error) {
+    console.warn('FRA PDF photo compression skipped:', error)
+    return null
+  }
+}
 
 /**
  * Load FRA placeholder photos from storage (fa-attachments) for this instance.
@@ -19,9 +82,9 @@ async function loadPlaceholderPhotos(
   const result: Record<string, { file_path: string; public_url: string; comment?: string }[]> = {}
   const prefix = `fra/${instanceId}/photos`
   const forPdf = options?.forPdf === true
-  const transformWidth = forPdf ? 900 : 1600
-  const transformHeight = forPdf ? 900 : 1600
-  const transformQuality = forPdf ? 45 : 70
+  const transformWidth = forPdf ? PDF_PHOTO_MAX_EDGE : REPORT_PHOTO_MAX_EDGE
+  const transformHeight = forPdf ? PDF_PHOTO_MAX_EDGE : REPORT_PHOTO_MAX_EDGE
+  const transformQuality = forPdf ? PDF_PHOTO_JPEG_QUALITY : 62
   let storageClient = supabase
   try {
     storageClient = createAdminSupabaseClient() as any
@@ -80,9 +143,10 @@ async function loadPlaceholderPhotos(
 
           // Fallback to original if image transforms are unavailable for this file/project.
           if (transformed?.signedUrl) {
+            const pdfDataUrl = forPdf ? await compactImageForPdf(transformed.signedUrl) : null
             return {
               file_path: filePath,
-              public_url: transformed.signedUrl,
+              public_url: pdfDataUrl || transformed.signedUrl,
               comment: commentByFilePath.get(filePath) || '',
             }
           }
@@ -95,9 +159,12 @@ async function loadPlaceholderPhotos(
             .from('fa-attachments')
             .createSignedUrl(filePath, 120)
 
+          const signedUrl = signed?.signedUrl ?? ''
+          const pdfDataUrl = forPdf && signedUrl ? await compactImageForPdf(signedUrl) : null
+
           return {
             file_path: filePath,
-            public_url: signed?.signedUrl ?? '',
+            public_url: pdfDataUrl || signedUrl,
             comment: commentByFilePath.get(filePath) || '',
           }
         })

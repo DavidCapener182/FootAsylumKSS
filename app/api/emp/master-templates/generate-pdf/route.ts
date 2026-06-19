@@ -7,6 +7,7 @@ import {
   applyDeploymentMatrixSourcePageOverrides,
   buildSupervisorDeploymentTablePagesFromDeploymentMatrixOverrides,
   normalizeStaffSignInTablePages,
+  refreshStaffSignInTablePagesForEvent,
   syncDeploymentMatrixEventPagesFromSourcePages,
 } from '@/lib/emp/master-template-prefill'
 import {
@@ -157,11 +158,17 @@ function buildPrefillForTemplate(
       fields?: Record<string, string>
       tableCells?: Record<string, string>
     }>
+    planTitle?: string
   } = {}
 ) {
   const rawTablePages = prefill.templateTablePageValues?.[templateId] || []
   const tablePages = templateId === 'staff-sign-in-sign-out-sheet'
-    ? normalizeStaffSignInTablePages(rawTablePages)
+    ? refreshStaffSignInTablePagesForEvent(normalizeStaffSignInTablePages(rawTablePages), {
+        eventName: prefill.eventName,
+        eventDate: prefill.eventDate,
+        planTitle: options.planTitle,
+        fields: prefill.templateFieldValues?.[templateId],
+      })
     : rawTablePages
   const deploymentMatrixPages = prefill.templateTablePageValues?.['deployment-matrix'] || []
   const supervisorDeploymentPages = templateId === 'supervisor-deployment' && options.deploymentOverrides?.length
@@ -242,6 +249,7 @@ export async function GET(request: NextRequest) {
 
       prefill = buildPrefillForTemplate(template.id, planPrefill.prefillData, {
         deploymentOverrides,
+        planTitle: planPrefill.planTitle,
       })
     } else if (prefill) {
       template = resolveEmpMasterTemplateForEvent(template.id, readEventIdentityFromPrefill(prefill))

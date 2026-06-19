@@ -494,6 +494,19 @@ function groupStaffByCompany(rows: EmpStaffSignInRow[]) {
   return order.map((company) => ({ company, rows: grouped[company] }))
 }
 
+function staffRowAppliesToDate(row: EmpStaffSignInRow, eventDate: string) {
+  return !row.signInDates?.length || row.signInDates.includes(eventDate)
+}
+
+function getStaffShiftValue(row: EmpStaffSignInRow, field: 'shiftStart' | 'shiftEnd', eventDate: string) {
+  const byDate = field === 'shiftStart' ? row.shiftStartByDate : row.shiftEndByDate
+  return clean(byDate?.[eventDate] || row[field])
+}
+
+function isParklifeSignInContext(context: { eventName: string; planTitle?: string }) {
+  return /Parklife Festival|Parklife 2026|Heaton Park/i.test(`${context.eventName} ${context.planTitle || ''}`)
+}
+
 function hasWaitingCredentialValue(value: unknown) {
   return /\bwaiting\b/i.test(clean(value))
 }
@@ -527,6 +540,48 @@ export function normalizeStaffSignInTablePages(pages: EmpMasterTemplateTablePage
     fields: page.fields ? { ...page.fields } : page.fields,
     tableCells: normalizeStaffSignInTableCells(page.tableCells),
   }))
+}
+
+export function refreshStaffSignInTablePagesForEvent(
+  pages: EmpMasterTemplateTablePagePrefill[] | undefined,
+  context: {
+    eventName?: string
+    eventDate?: string
+    planTitle?: string
+    fields?: Record<string, string>
+  } = {}
+) {
+  const normalizedPages = normalizeStaffSignInTablePages(pages)
+  const pageFields = normalizedPages.find((page) => page.fields && Object.keys(page.fields).length > 0)?.fields || {}
+  const eventName =
+    clean(context.eventName)
+    || clean(context.fields?.['Event Name / Code'])
+    || clean(pageFields['Event Name / Code'])
+    || clean(context.planTitle)
+  const planTitle = clean(context.planTitle)
+
+  if (!isParklifeSignInContext({ eventName, planTitle })) {
+    return normalizedPages
+  }
+
+  const eventAddress =
+    clean(context.fields?.['Location / Venue'])
+    || clean(pageFields['Location / Venue'])
+  const fieldValues = {
+    event_name: eventName,
+    show_dates:
+      clean(context.fields?.Date)
+      || clean(pageFields.Date)
+      || clean(context.eventDate),
+    venue_name: eventAddress,
+    venue_address: eventAddress,
+  }
+  const refreshedPages = buildStaffSignInTablePages(fieldValues, {
+    eventName,
+    planTitle,
+  })
+
+  return refreshedPages.length ? refreshedPages : normalizedPages
 }
 
 function getStaffSignInDates(
@@ -563,16 +618,21 @@ function buildStaffSignInTablePages(
   const rowsPerPage = template?.kind === 'table' ? template.emptyRows : 14
   const dates = getStaffSignInDates(fieldValues, context.eventName, context.planTitle).filter(Boolean)
   const eventAddress = getEventAddress(fieldValues)
+  const isParklife = isParklifeSignInContext(context)
   const pages: EmpMasterTemplateTablePagePrefill[] = []
 
   dates.forEach((eventDate) => {
-    groupStaffByCompany(staffRows).forEach(({ company, rows }) => {
+    groupStaffByCompany(staffRows.filter((row) => staffRowAppliesToDate(row, eventDate))).forEach(({ company, rows }) => {
       chunkRows(rows, rowsPerPage).forEach((chunk, chunkIndex) => {
         const tableCells: Record<string, string> = {}
         chunk.forEach((row, rowIndex) => {
           tableCells[`${rowIndex}:staff_name`] = row.staffName
-          tableCells[`${rowIndex}:sia_badge_number`] = row.siaBadgeNumber
-          tableCells[`${rowIndex}:expiry_date`] = row.expiryDate
+          if (!isParklife) {
+            tableCells[`${rowIndex}:sia_badge_number`] = row.siaBadgeNumber
+            tableCells[`${rowIndex}:expiry_date`] = row.expiryDate
+            tableCells[`${rowIndex}:shift_start`] = getStaffShiftValue(row, 'shiftStart', eventDate)
+            tableCells[`${rowIndex}:shift_end`] = getStaffShiftValue(row, 'shiftEnd', eventDate)
+          }
         })
 
         pages.push({
@@ -581,6 +641,10 @@ function buildStaffSignInTablePages(
             Date: formatIsoDateWithWeekday(eventDate),
             'Location / Venue': eventAddress,
             Company: chunkIndex > 0 ? `${company} (continued)` : company,
+            ...(isParklife ? {
+              'Column Label: shift_start': 'Wristband Number',
+              'Column Label: shift_end': 'Hi-Viz Number',
+            } : {}),
           },
           tableCells: normalizeStaffSignInTableCells(tableCells),
         })

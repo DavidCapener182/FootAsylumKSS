@@ -7,6 +7,7 @@ import { getEmpMasterTemplatePlanPrefill } from '@/lib/emp/data'
 import {
   applyDeploymentMatrixSourcePageOverrides,
   buildSupervisorDeploymentTablePagesFromDeploymentMatrixOverrides,
+  refreshStaffSignInTablePagesForEvent,
   syncDeploymentMatrixEventPagesFromSourcePages,
 } from '@/lib/emp/master-template-prefill'
 import { resolveEmpMasterTemplateForEvent } from '@/lib/emp/master-templates'
@@ -106,6 +107,18 @@ export default async function EmpMasterTemplatePrintPage({
     prefillValues = {
       ...prefillValues,
       tablePages: syncDeploymentMatrixEventPagesFromSourcePages(prefillValues.tablePages),
+    }
+  }
+
+  if (template.id === 'staff-sign-in-sign-out-sheet') {
+    prefillValues = {
+      ...prefillValues,
+      tablePages: refreshStaffSignInTablePagesForEvent(prefillValues.tablePages, {
+        eventName: prefillValues.eventName,
+        eventDate: prefillValues.eventDate,
+        planTitle: planPrefill?.planTitle,
+        fields: prefillValues.fields,
+      }),
     }
   }
 
