@@ -1,4 +1,4 @@
-import { ArrowLeft, ClipboardList, Eye, FileText, type LucideIcon } from 'lucide-react'
+import { ArrowLeft, CalendarCheck, ClipboardList, Eye, FileText, Radio, type LucideIcon } from 'lucide-react'
 
 export type EmpChromeNavItem = {
   href: string
@@ -37,6 +37,14 @@ export function getEmpPageTitle(pathname?: string | null): string {
     return 'Preview & Export'
   }
 
+  if (currentPath.endsWith('/event-control-log')) {
+    return 'Event Control'
+  }
+
+  if (currentPath.endsWith('/event-day')) {
+    return 'Event Day Operations'
+  }
+
   return 'Plan Builder'
 }
 
@@ -44,14 +52,18 @@ export function getEmpNavItems(pathname?: string | null): EmpChromeNavItem[] {
   const currentPath = String(pathname || '')
   const match = isEmpMasterTemplatesPath(currentPath)
     ? null
-    : currentPath.match(/^\/admin\/event-management-plans\/([^/]+)(\/preview)?$/)
+    : currentPath.match(/^\/admin\/event-management-plans\/([^/]+)(?:\/(preview|event-control-log|event-day))?$/)
   const currentPlanHref = match ? `/admin/event-management-plans/${match[1]}` : null
   const previewHref = match ? `${currentPlanHref}/preview` : null
+  const eventControlHref = match ? `${currentPlanHref}/event-control-log` : null
+  const eventDayHref = match ? `${currentPlanHref}/event-day` : null
 
   return [
     { href: EMP_WORKSPACE_HREF, label: 'EMP Workspace', icon: ClipboardList },
     { href: EMP_MASTER_TEMPLATES_HREF, label: 'Master Templates', icon: FileText },
     ...(currentPlanHref ? [{ href: currentPlanHref, label: 'Plan Builder', icon: FileText }] : []),
+    ...(eventControlHref ? [{ href: eventControlHref, label: 'Event Control', icon: Radio }] : []),
+    ...(eventDayHref ? [{ href: eventDayHref, label: 'Event Day', icon: CalendarCheck }] : []),
     ...(previewHref ? [{ href: previewHref, label: 'Preview & Export', icon: Eye }] : []),
     { href: '/admin', label: 'Back to Admin', icon: ArrowLeft },
   ]
@@ -65,6 +77,10 @@ export function isEmpNavItemActive(pathname: string | null | undefined, href: st
   }
 
   if (href === '/admin') {
+    return currentPath === href
+  }
+
+  if (/^\/admin\/event-management-plans\/[^/]+$/.test(href)) {
     return currentPath === href
   }
 

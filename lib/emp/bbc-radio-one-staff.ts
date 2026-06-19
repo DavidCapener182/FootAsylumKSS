@@ -4,6 +4,7 @@ export type EmpStaffSignInRow = {
   siaBadgeNumber: string
   expiryDate: string
   mobileNumber?: string
+  dateOfBirth?: string
 }
 
 export const BBC_RADIO_ONE_2026_SIGN_IN_DATES = [

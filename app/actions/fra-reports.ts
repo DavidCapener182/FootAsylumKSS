@@ -2256,17 +2256,26 @@ The premises is a mid-unit with adjoining retail occupancies to either side.`
     historyOfFires: enforcementAction?.value === 'None' ? 'No reported fire-related incidents in the previous 12 months.' : 'No reported fire-related incidents in the previous 12 months.',
 
     // Fire Alarm System
-    fireAlarmDescription: `The premises is protected by an electronic fire detection and alarm system installed in accordance with BS 5839-1:2017 and the Regulatory Reform (Fire Safety) Order 2005, Article 13(1)(a). The system is a Grade A, Category L1, plus Type M fire alarm system, which aligns with Footasylum Ltd's standard specification for retail premises.
+    fireAlarmDescription: isPreOpeningAssessment
+      ? `The premises is being provided with an electronic fire detection and alarm system intended to align with BS 5839-1:2017 and the Regulatory Reform (Fire Safety) Order 2005, Article 13(1)(a). The system specification is a Grade A, Category L1, plus Type M fire alarm system, in line with Footasylum Ltd's standard specification for retail premises.
+At the time of the pre-opening inspection, the fire alarm panel, associated equipment and smoke detector heads were still subject to installation, commissioning and final handover verification. The system must be fully commissioned, tested, fault-free and supported by handover records before public trading commences.
+Manual call points are being provided throughout the premises and should be confirmed as visible, accessible, correctly signed and unobstructed once fit-out materials and contractor equipment have been removed.`
+      : `The premises is protected by an electronic fire detection and alarm system installed in accordance with BS 5839-1:2017 and the Regulatory Reform (Fire Safety) Order 2005, Article 13(1)(a). The system is a Grade A, Category L1, plus Type M fire alarm system, which aligns with Footasylum Ltd's standard specification for retail premises.
 The fire alarm system is fully operational and provides automatic fire detection coverage throughout all areas of the premises. Smoke detector units are positioned throughout the sales floor and back-of-house areas to provide early warning of fire and to maximise evacuation time in the event of an emergency.
 Manual call points are provided throughout the premises and are positioned in accordance with BS 5839 requirements for a normal risk environment.`,
     fireAlarmPanelLocation: firePanelLocation?.value || firePanelLocation?.comment || 'To be confirmed',
     fireAlarmPanelLocationComment: !firePanelLocation?.value && !firePanelLocation?.comment ? 'Please add fire panel location' : null,
     fireAlarmPanelFaults: panelFaultsText,
     fireAlarmPanelFaultsComment: !firePanelFaults?.value && !firePanelFaults?.comment ? 'Please verify panel status' : null,
-    fireAlarmMaintenance: fireAlarmMaintenance?.comment || 'Fire alarm servicing is completed at six-monthly intervals, in line with statutory and British Standard requirements.',
+    fireAlarmMaintenance: fireAlarmMaintenance?.comment || (isPreOpeningAssessment
+      ? 'Fire alarm commissioning, cause-and-effect checks, handover certification and the site testing regime must be completed and recorded before opening. Routine weekly testing should then be implemented from opening.'
+      : 'Fire alarm servicing is completed at six-monthly intervals, in line with statutory and British Standard requirements.'),
 
     // Emergency Lighting
-    emergencyLightingDescription: `Emergency escape lighting is installed throughout the premises in accordance with BS 5266-1 to illuminate escape routes and exits in the event of a failure of the normal lighting supply.
+    emergencyLightingDescription: isPreOpeningAssessment
+      ? `Emergency escape lighting is being provided throughout the premises to illuminate escape routes and exits in the event of a failure of the normal lighting supply.
+At the time of the pre-opening assessment, final commissioning evidence and monthly test arrangements were still to be confirmed. Emergency lighting installation, testing and handover records must be verified before public opening.`
+      : `Emergency escape lighting is installed throughout the premises in accordance with BS 5266-1 to illuminate escape routes and exits in the event of a failure of the normal lighting supply.
 The emergency lighting system was observed to be operational at the time of assessment.`,
     emergencyLightingTestSwitchLocation: emergencyLightingSwitchLocation?.value || emergencyLightingSwitchLocation?.comment || 'To be confirmed',
     emergencyLightingTestSwitchLocationComment: !emergencyLightingSwitchLocation?.value && !emergencyLightingSwitchLocation?.comment ? 'Please add emergency lighting test switch location' : null,
@@ -2375,7 +2384,9 @@ Sprinkler heads are installed throughout the premises in accordance with the ori
         || ((fireFindings.escape_routes_obstructed || fireFindings.fire_exits_obstructed)
           ? obstructedRoutesEvidenceText
           : 'Escape routes were clearly identifiable and generally maintained free from obstruction.')
-      const detectionFinding = 'The premises is provided with appropriate fire detection and alarm systems, emergency lighting, fire-fighting equipment and clearly defined escape routes. These systems were observed to be in place and operational, supporting safe evacuation in the event of a fire.'
+      const detectionFinding = isPreOpeningAssessment
+        ? 'The premises is in pre-opening fit-out. Fire detection and alarm systems, emergency lighting, manual call points, fire-fighting equipment and escape-route arrangements were visible or in progress, but final commissioning, handover evidence and fault-free confirmation must be completed before public trading commences.'
+        : 'The premises is provided with appropriate fire detection and alarm systems, emergency lighting, fire-fighting equipment and clearly defined escape routes. These systems were observed to be in place and operational, supporting safe evacuation in the event of a fire.'
       const fireDoorsFinding = (fireFindings.fire_doors_held_open || fireFindings.fire_doors_blocked)
         ? `Fire doors were observed held open and/or obstructed, which can compromise compartmentation performance during an emergency. ${escapeSentence}`
         : fireFindings.fire_door_integrity_issues
@@ -2389,6 +2400,9 @@ Sprinkler heads are installed throughout the premises in accordance with the ori
         if (fireFindings.emergency_lighting_tests_current === false) findings.push('monthly emergency lighting testing was not evidenced as current')
         if (fireFindings.extinguishers_serviced_current === false) findings.push('fire extinguisher servicing was not evidenced as current')
         if (fireFindings.recent_fire_drill_within_6_months === false) findings.push('a compliant fire drill within the last 6 months was not evidenced')
+        if (findings.length === 0 && isPreOpeningAssessment) {
+          return 'Pre-opening fire safety management arrangements must be confirmed before trading, including the nominated responsible person, staff fire safety induction, weekly fire alarm testing, monthly emergency lighting checks, servicing records and the first fire drill schedule.'
+        }
         if (findings.length === 0) {
           return 'Routine fire safety management arrangements are in place, including weekly fire alarm testing, monthly emergency lighting checks and scheduled servicing of fire safety systems by competent contractors. Fire drills have been conducted, and records are maintained.'
         }
@@ -2417,8 +2431,14 @@ Sprinkler heads are installed throughout the premises in accordance with the ori
         : fireFindings.fire_door_integrity_issues
           ? 'Rectify fire door integrity issues (including damaged doors/frames and missing or damaged intumescent strips/seals) and verify all fire doors meet required fire-resisting standards.'
           : 'Ensure internal fire doors are maintained in effective working order and are not wedged or held open.',
-      fireFindings.fire_alarm_tests_current === false || fireFindings.emergency_lighting_tests_current === false || fireFindings.extinguishers_serviced_current === false ? 'Bring routine testing and servicing records up to date for fire alarm systems, emergency lighting and fire-fighting equipment in accordance with statutory requirements and British Standards.' : 'Continue routine testing, inspection and servicing of fire alarm systems, emergency lighting and fire-fighting equipment in accordance with statutory requirements and British Standards.',
-      'Continue to conduct and record fire drills at appropriate intervals to ensure staff familiarity with evacuation procedures.'
+      fireFindings.fire_alarm_tests_current === false || fireFindings.emergency_lighting_tests_current === false || fireFindings.extinguishers_serviced_current === false
+        ? 'Bring routine testing and servicing records up to date for fire alarm systems, emergency lighting and fire-fighting equipment in accordance with statutory requirements and British Standards.'
+        : isPreOpeningAssessment
+          ? 'Complete pre-opening commissioning and handover verification for fire alarm systems, emergency lighting and fire-fighting equipment, then implement routine testing and inspection from opening.'
+          : 'Continue routine testing, inspection and servicing of fire alarm systems, emergency lighting and fire-fighting equipment in accordance with statutory requirements and British Standards.',
+      isPreOpeningAssessment
+        ? 'Complete staff fire safety induction, local fire plan briefing and first fire drill scheduling before opening to the public.'
+        : 'Continue to conduct and record fire drills at appropriate intervals to ensure staff familiarity with evacuation procedures.'
     ].filter(Boolean) as string[],
 
     // Store data for reference

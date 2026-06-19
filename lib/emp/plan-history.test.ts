@@ -29,18 +29,21 @@ describe('EMP plan history grouping', () => {
       title: 'KSS NW LTD Bar Security Operations Plan - BBC Radio 1 Big Weekend Sunderland 2026',
       eventName: 'BBC Radio 1 Big Weekend Sunderland 2026',
       status: 'ready',
+      documentStatus: 'V1',
     }
     const downloadPlan = {
       id: 'download',
       title: 'KSS NW LTD Event Management Plan - Download Festival 2026',
       eventName: 'Download Festival 2026',
       status: 'draft',
+      documentStatus: 'V1',
     }
     const parklifePlan = {
       id: 'parklife',
       title: 'KSS NW LTD Bar Security Operations Plan - Parklife Festival 2026',
       eventName: 'Parklife Festival 2026',
       status: 'draft',
+      documentStatus: 'V1',
     }
 
     const groups = splitEmpPlansByHistory([radioOnePlan, downloadPlan, parklifePlan])
@@ -55,6 +58,18 @@ describe('EMP plan history grouping', () => {
         title: 'Archived EMP',
         eventName: 'Completed event',
         status: 'completed',
+        documentStatus: 'V1',
+      })
+    ).toBe(true)
+  })
+
+  it('moves completed document-status plans into completed history even when the enum status is still draft', () => {
+    expect(
+      isCompletedEmpHistoryPlan({
+        title: 'KSS NW LTD Event Management Plan - Download Festival 2026',
+        eventName: 'Download Festival 2026',
+        status: 'draft',
+        documentStatus: 'Completed',
       })
     ).toBe(true)
   })

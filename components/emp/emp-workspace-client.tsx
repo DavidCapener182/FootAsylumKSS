@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { FileText, Loader2, Plus, ChevronRight, Sparkles, Trash2, Radio, MapPin } from 'lucide-react'
+import { CalendarCheck, FileText, Loader2, Plus, ChevronRight, Sparkles, Trash2, Radio, MapPin } from 'lucide-react'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -205,6 +205,13 @@ export function EmpWorkspaceClient({ plans }: { plans: EmpPlanSummary[] }) {
         >
           <Radio className="mr-2 h-4 w-4" />
           Event Control
+        </a>
+        <a
+          href={`/admin/event-management-plans/${plan.id}/event-day`}
+          className={cn(buttonVariants({ variant: 'outline' }), 'w-full sm:w-auto')}
+        >
+          <CalendarCheck className="mr-2 h-4 w-4" />
+          Event Day
         </a>
         <Button
           type="button"

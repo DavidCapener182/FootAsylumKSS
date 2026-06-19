@@ -27,6 +27,12 @@ function LoginContent() {
     }
   }, [searchParams])
 
+  const redirectTo = (() => {
+    const value = searchParams?.get('redirectTo') || '/'
+    if (!value.startsWith('/') || value.startsWith('//') || value.startsWith('/login')) return '/'
+    return value
+  })()
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
@@ -46,8 +52,8 @@ function LoginContent() {
       }
 
       if (data?.user) {
-        // Successfully authenticated, redirect to home
-        router.push('/')
+        // Successfully authenticated, redirect to the intended in-app page.
+        router.push(redirectTo)
         router.refresh()
       } else {
         setError('Login failed. Please try again.')

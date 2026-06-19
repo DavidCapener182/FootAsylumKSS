@@ -1,4 +1,4 @@
-import { FileText, Files, Radio } from 'lucide-react'
+import { CalendarCheck, FileText, Files, Radio } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -78,6 +78,13 @@ function EmpPlanRow({ plan, completed = false }: { plan: EmpPlanSummary; complet
         >
           <Radio className="mr-2 h-4 w-4" />
           Event Control
+        </a>
+        <a
+          href={`/admin/event-management-plans/${plan.id}/event-day`}
+          className={cn(buttonVariants({ variant: 'outline' }), 'pointer-events-auto w-full sm:w-auto')}
+        >
+          <CalendarCheck className="mr-2 h-4 w-4" />
+          Event Day
         </a>
         <a
           href={`/admin/event-management-plans/${plan.id}/preview`}

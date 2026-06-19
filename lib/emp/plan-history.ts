@@ -1,6 +1,7 @@
 import type { EmpPlanSummary } from '@/lib/emp/data'
 
 const COMPLETED_PLAN_STATUSES = new Set(['complete', 'completed', 'archived'])
+const COMPLETED_DOCUMENT_STATUSES = new Set(['complete', 'completed', 'archived'])
 const RADIO_ONE_PATTERN = /\b(?:bbc\s*)?radio\s*(?:1|one)\b|\br1bw\b/i
 const ACTIVE_PLAN_START_DATES: Array<{ pattern: RegExp; startDate: string }> = [
   { pattern: /\bdownload festival\b|\bdlf26\b/i, startDate: '2026-06-10' },
@@ -23,11 +24,13 @@ export function isRadioOneEmpPlan(plan: Pick<EmpPlanSummary, 'title' | 'eventNam
   return RADIO_ONE_PATTERN.test(`${plan.title} ${plan.eventName || ''}`)
 }
 
-export function isCompletedEmpHistoryPlan(plan: Pick<EmpPlanSummary, 'title' | 'eventName' | 'status'>) {
-  return COMPLETED_PLAN_STATUSES.has(normalize(plan.status)) || isRadioOneEmpPlan(plan)
+export function isCompletedEmpHistoryPlan(plan: Pick<EmpPlanSummary, 'title' | 'eventName' | 'status' | 'documentStatus'>) {
+  return COMPLETED_PLAN_STATUSES.has(normalize(plan.status))
+    || COMPLETED_DOCUMENT_STATUSES.has(normalize(plan.documentStatus))
+    || isRadioOneEmpPlan(plan)
 }
 
-export function splitEmpPlansByHistory<T extends Pick<EmpPlanSummary, 'title' | 'eventName' | 'status'>>(plans: T[]) {
+export function splitEmpPlansByHistory<T extends Pick<EmpPlanSummary, 'title' | 'eventName' | 'status' | 'documentStatus'>>(plans: T[]) {
   return plans.reduce(
     (groups, plan) => {
       if (isCompletedEmpHistoryPlan(plan)) {

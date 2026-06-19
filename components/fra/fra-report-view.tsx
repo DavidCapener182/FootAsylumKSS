@@ -2624,10 +2624,9 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
                 : 'The primary function of the premises is the retail sale of branded fashion apparel and footwear to members of the public. The store operates as a standard high-street retail environment with a public sales area and associated back-of-house accommodation, including stockroom, staff welfare facilities and a management office.'}
             </p>
             <p className="mt-2">
-              The premises operates over {floorLayoutPhrase(effectiveFloorCount)}. Staffing levels vary depending on trading
-              periods, with a mix of management, supervisory and sales staff present during opening hours. The
-              premises is open to the public during scheduled trading hours, with staff also present outside
-              these hours for opening, closing, deliveries, replenishment and general operational activities.
+              {isPreOpeningAssessment
+                ? `The premises is expected to operate over ${floorLayoutPhrase(effectiveFloorCount)} once trading commences. Staffing levels, the nominated responsible person and the final opening arrangements should be confirmed before the store is opened to the public.`
+                : `The premises operates over ${floorLayoutPhrase(effectiveFloorCount)}. Staffing levels vary depending on trading periods, with a mix of management, supervisory and sales staff present during opening hours. The premises is open to the public during scheduled trading hours, with staff also present outside these hours for opening, closing, deliveries, replenishment and general operational activities.`}
             </p>
             <p className="mt-2">
               Members of the public access the premises during trading hours, and contractors or third-party
@@ -2635,11 +2634,9 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
               sleeping occupants within the premises.
             </p>
             <p className="mt-2">
-              The activities undertaken within the premises are typical of a retail environment and do not
-              involve any high-risk processes. Fire loads are primarily associated with retail stock, packaging
-              materials and fixtures and fittings. Fire safety arrangements observed during the assessment
-              indicate that the premises is managed in line with expected standards for this type of retail
-              operation.
+              {isPreOpeningAssessment
+                ? 'The intended activities are typical of a retail environment and do not involve high-risk processes. At the time of inspection the store remained under fit-out, so temporary contractor materials, packaging and installation works must be removed or controlled before opening and final fire safety handover checks must be completed.'
+                : 'The activities undertaken within the premises are typical of a retail environment and do not involve any high-risk processes. Fire loads are primarily associated with retail stock, packaging materials and fixtures and fittings. Fire safety arrangements observed during the assessment indicate that the premises is managed in line with expected standards for this type of retail operation.'}
             </p>
           </div>
 
@@ -2731,13 +2728,9 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
                 : consistencyNarratives.escapeRoutesStatement}
             </p>
             <p className="mt-2">
-              Signage throughout was installed and clearly visible
-              and exit route doors opened in the direction of travel
-              and were secured by means of appropriate &quot;push bar
-              to open&quot; door devices were fitted and could be
-              opened easily. Fire doors are subject to routine
-              management checks to ensure standards are
-              maintained and any issues identified dynamically.
+              {isPreOpeningAssessment
+                ? 'Exit signage, final exit doors and fire safety equipment must be subject to final pre-opening checks once fit-out works are complete. Any main entrance doors, final exit doors, door-release arrangements, push-bar/egress hardware, signage and emergency lighting must be confirmed as installed, unobstructed and operational before customers are admitted.'
+                : 'Signage throughout was installed and clearly visible and exit route doors opened in the direction of travel and were secured by means of appropriate "push bar to open" door devices were fitted and could be opened easily. Fire doors are subject to routine management checks to ensure standards are maintained and any issues identified dynamically.'}
               {data.exitSignageCondition && (
                 <span className="ml-1">
                   <span className="font-medium">Exit signage condition:</span> {data.exitSignageCondition}.
@@ -2746,13 +2739,17 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
             </p>
             <p className="mt-2">
               Emergency lighting (EEL), as previously detailed, was
-              {fireFindings.emergency_lighting_tests_current === false
-                ? ' installed, however monthly emergency lighting test evidence was not current and requires corrective follow-up in line with Article 14(2)(e–h) of the FSO 2005.'
-                : ' installed and found suitable and sufficient in accordance with Article 14(2)(e–h) of the FSO 2005.'}
+              {isPreOpeningAssessment
+                ? ' to be confirmed through final commissioning and handover evidence before opening, in line with Article 14(2)(e-h) of the FSO 2005.'
+                : fireFindings.emergency_lighting_tests_current === false
+                  ? ' installed, however monthly emergency lighting test evidence was not current and requires corrective follow-up in line with Article 14(2)(e-h) of the FSO 2005.'
+                  : ' installed and found suitable and sufficient in accordance with Article 14(2)(e-h) of the FSO 2005.'}
               {' '}
               {consistencyNarratives.fireDoorsStatement}
               {' '}
-              Final exit doors were installed with &quot;push bar to open&quot; door devices where applicable and were expected to be maintained in good condition and appropriately signed in line with relevant standards (including BS EN 1125 and BS EN 179).
+              {isPreOpeningAssessment
+                ? 'Final exit and entrance door arrangements must be verified against the final layout and relevant standards, including BS EN 1125 and BS EN 179 where applicable.'
+                : 'Final exit doors were installed with "push bar to open" door devices where applicable and were expected to be maintained in good condition and appropriately signed in line with relevant standards (including BS EN 1125 and BS EN 179).'}
             </p>
             <p className="mt-2">
               Other than low level cleaning products which are sourced centrally and sent to the store, all

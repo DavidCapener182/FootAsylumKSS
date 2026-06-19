@@ -2,6 +2,14 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { getSupabasePublicConfig } from '@/lib/env'
 
+function getSafeRedirectPath(pathname: string, search: string) {
+  const path = `${pathname}${search}`
+  if (!path.startsWith('/') || path.startsWith('//') || path.startsWith('/login')) {
+    return '/'
+  }
+  return path
+}
+
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({
     request: {
@@ -64,9 +72,12 @@ export async function middleware(request: NextRequest) {
   // Allow access to login and password reset routes
   const isAuthRoute = request.nextUrl.pathname.startsWith('/login')
   const isApiRoute = request.nextUrl.pathname.startsWith('/api/')
+  const isEventDayKioskRoute =
+    request.nextUrl.pathname.startsWith('/event-day/')
+    || request.nextUrl.pathname.startsWith('/api/event-day/')
   
   // Protect routes - redirect to login if not authenticated
-  if (!user && !isAuthRoute) {
+  if (!user && !isAuthRoute && !isEventDayKioskRoute) {
     if (isApiRoute) {
       return NextResponse.json(
         { error: 'Authentication required. Refresh the page and sign in again.' },
@@ -74,7 +85,9 @@ export async function middleware(request: NextRequest) {
       )
     }
 
-    return NextResponse.redirect(new URL('/login', request.url))
+    const loginUrl = new URL('/login', request.url)
+    loginUrl.searchParams.set('redirectTo', getSafeRedirectPath(request.nextUrl.pathname, request.nextUrl.search))
+    return NextResponse.redirect(loginUrl)
   }
 
   // Ensure profile exists for authenticated users
@@ -93,7 +106,8 @@ export async function middleware(request: NextRequest) {
 
   // Redirect authenticated users away from login/signup (but allow reset-password page)
   if (user && (request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/login/signup') && !request.nextUrl.pathname.startsWith('/login/reset-password')) {
-    return NextResponse.redirect(new URL('/', request.url))
+    const redirectTo = request.nextUrl.searchParams.get('redirectTo') || '/'
+    return NextResponse.redirect(new URL(getSafeRedirectPath(redirectTo, ''), request.url))
   }
 
   return response
