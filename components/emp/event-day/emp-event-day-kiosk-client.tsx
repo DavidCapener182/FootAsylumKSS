@@ -1,8 +1,10 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { type FormEvent, useCallback, useEffect, useState } from 'react'
 import { ArrowLeft, CheckCircle2, Loader2, LogIn, LogOut, ShieldCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
 import { KioskStaffSearch } from '@/components/emp/event-day/kiosk-staff-search'
 import { KioskStaffConfirmCard } from '@/components/emp/event-day/kiosk-staff-confirm-card'
 import {
@@ -27,6 +29,9 @@ type VerifiedKiosk = {
 
 type Step = 'loading' | 'mode' | 'name-in' | 'confirm-in' | 'equipment' | 'name-out' | 'confirm-out' | 'return-kit' | 'success'
 type LookupStatus = 'idle' | 'too_short' | 'no_match' | 'ambiguous' | 'matched' | 'unavailable'
+
+const ADMIN_LOGIN_PIN = '1822'
+const ADMIN_LOGIN_HREF = '/login?redirectTo=%2Fadmin%2Fevent-management-plans'
 
 function todayInTimezone(timezone: string) {
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -94,6 +99,9 @@ export function EmpEventDayKioskClient({ token }: { token: string }) {
   const [error, setError] = useState<string | null>(null)
   const [isBusy, setIsBusy] = useState(false)
   const [isLookupBusy, setIsLookupBusy] = useState(false)
+  const [adminPinOpen, setAdminPinOpen] = useState(false)
+  const [adminPin, setAdminPin] = useState('')
+  const [adminPinError, setAdminPinError] = useState<string | null>(null)
 
   const api = useCallback(async (path: string, body: Record<string, unknown>) => {
     const response = await fetch(`/api/event-day/${token}/${path}`, {
@@ -125,6 +133,23 @@ export function EmpEventDayKioskClient({ token }: { token: string }) {
     setUnavailableReason(null)
     setLookupStatus('idle')
     setError(null)
+  }
+
+  function openAdminPin() {
+    setAdminPin('')
+    setAdminPinError(null)
+    setAdminPinOpen(true)
+  }
+
+  function submitAdminPin(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (adminPin.trim() !== ADMIN_LOGIN_PIN) {
+      setAdminPinError('Incorrect PIN.')
+      setAdminPin('')
+      return
+    }
+    setAdminPinOpen(false)
+    window.location.assign(ADMIN_LOGIN_HREF)
   }
 
   useEffect(() => {
@@ -311,6 +336,51 @@ export function EmpEventDayKioskClient({ token }: { token: string }) {
   }
 
   const selectedEventDay = verified?.eventDays.find((day) => day.date === eventDate) || null
+  const adminPinDialog = (
+    <Dialog
+      open={adminPinOpen}
+      onOpenChange={(open) => {
+        setAdminPinOpen(open)
+        if (!open) {
+          setAdminPin('')
+          setAdminPinError(null)
+        }
+      }}
+    >
+      <DialogContent className="sm:max-w-sm">
+        <form onSubmit={submitAdminPin}>
+          <DialogHeader>
+            <DialogTitle>Admin PIN</DialogTitle>
+            <DialogDescription>Enter the admin PIN before leaving the sign-in screen.</DialogDescription>
+          </DialogHeader>
+          <div className="mt-5 space-y-2">
+            <Input
+              autoFocus
+              inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={4}
+              value={adminPin}
+              onChange={(event) => {
+                setAdminPin(event.target.value.replace(/\D/g, '').slice(0, 4))
+                setAdminPinError(null)
+              }}
+              className="h-14 rounded-lg text-center text-2xl font-black tracking-[0.35em]"
+              aria-label="Admin PIN"
+            />
+            {adminPinError ? <p className="text-sm font-semibold text-red-700">{adminPinError}</p> : null}
+          </div>
+          <DialogFooter className="mt-6">
+            <Button type="button" variant="outline" onClick={() => setAdminPinOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" className="bg-slate-950 hover:bg-slate-800">
+              Continue
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
 
   if (step === 'loading' || !verified) {
     return (
@@ -328,14 +398,13 @@ export function EmpEventDayKioskClient({ token }: { token: string }) {
             </div>
             {error ? <div className="rounded-lg bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{error}</div> : null}
             {!isTabletLocked ? (
-              <Button type="button" asChild variant="outline" className="mt-4 h-12 w-full rounded-lg">
-                <a href="/login?redirectTo=%2Fadmin%2Fevent-management-plans">
-                  <LogIn className="mr-2 h-4 w-4" />
-                  Admin login
-                </a>
+              <Button type="button" variant="outline" className="mt-4 h-12 w-full rounded-lg" onClick={openAdminPin}>
+                <LogIn className="mr-2 h-4 w-4" />
+                Admin login
               </Button>
             ) : null}
           </div>
+          {adminPinDialog}
         </div>
       </main>
     )
@@ -475,11 +544,12 @@ export function EmpEventDayKioskClient({ token }: { token: string }) {
         <footer className="mt-5 flex items-center justify-between gap-3 text-xs font-bold uppercase tracking-[0.18em] text-slate-500">
           <span>KSS Event Management</span>
           {!isTabletLocked ? (
-            <a href="/login?redirectTo=%2Fadmin%2Fevent-management-plans" className="rounded-lg bg-white px-4 py-2 text-slate-700 shadow-sm">
+            <button type="button" onClick={openAdminPin} className="rounded-lg bg-white px-4 py-2 text-slate-700 shadow-sm transition hover:text-slate-950">
               Admin login
-            </a>
+            </button>
           ) : null}
         </footer>
+        {adminPinDialog}
       </div>
     </main>
   )
