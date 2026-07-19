@@ -226,6 +226,8 @@ export default function FRAPrintReportPage({
                   fireExits: data.numberOfFireExits,
                   numberOfFloors: data.numberOfFloors,
                   storeName: data.premises,
+                  clientName: data.clientName,
+                  fraTemplateVariant: data.fraTemplateVariant,
                 },
               }),
             })

@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
+import { FRA_TEMPLATE_VARIANTS } from '@/lib/fra/template-profiles'
 
 const REVIEW_DRAFT_STORAGE_PREFIX = 'fra-review-draft-v4'
 
@@ -25,6 +26,8 @@ function getBaseSignature(data: any): string {
 
 function buildEditedDataFromExtracted(data: any) {
   return {
+    fra_template_variant: data.fra_template_variant || '',
+    assessmentContext: data.assessmentContext || '',
     storeManager: data.storeManager || '',
     firePanelLocation: data.firePanelLocation || '',
     firePanelFaults: data.firePanelFaults || '',
@@ -233,13 +236,14 @@ export default function ReviewFRADataPage({
       DATABASE: 'bg-purple-100 text-purple-800 border-purple-300',
       REVIEW: 'bg-emerald-100 text-emerald-800 border-emerald-300',
       PRE_OPENING: 'bg-teal-100 text-teal-800 border-teal-300',
+      BREMONT: 'bg-amber-100 text-amber-800 border-amber-300',
       DEFAULT: 'bg-amber-100 text-amber-800 border-amber-300',
       NOT_FOUND: 'bg-gray-100 text-gray-800 border-gray-300',
     }
     const color = colors[source] || 'bg-gray-100 text-gray-800 border-gray-300'
     return (
       <Badge className={`ml-2 ${color}`}>
-        {source === 'NOT_FOUND' ? 'Not Found' : source === 'PRE_OPENING' ? 'Pre-opening' : source}
+        {source === 'NOT_FOUND' ? 'Not Found' : source === 'PRE_OPENING' ? 'Pre-opening' : source === 'BREMONT' ? 'Bremont' : source}
       </Badge>
     )
   }
@@ -256,7 +260,7 @@ export default function ReviewFRADataPage({
         <span>{title}</span>
         {extractedData?.sources?.[fieldKey] && getSourceBadge(extractedData.sources[fieldKey])}
       </span>
-      {getSourceQuestion(fieldKey) && extractedData?.sources?.[fieldKey] !== 'PRE_OPENING' ? (
+      {getSourceQuestion(fieldKey) && !['PRE_OPENING', 'BREMONT'].includes(extractedData?.sources?.[fieldKey]) ? (
         <span className="mt-1 block text-xs font-normal text-slate-500">
           Pulled from: {getSourceQuestion(fieldKey)}
         </span>
@@ -289,7 +293,24 @@ export default function ReviewFRADataPage({
     )
   }
 
-  const isPreOpeningFRA = extractedData?.hasPreOpeningData || extractedData?.fra_template_variant === 'new_store_pre_opening' || extractedData?.assessmentContext === 'pre_opening'
+  const isPreOpeningFRA =
+    extractedData?.hasPreOpeningData
+    || extractedData?.fra_template_variant === FRA_TEMPLATE_VARIANTS.NEW_STORE_PRE_OPENING
+    || extractedData?.assessmentContext === 'pre_opening'
+  const isBremontFRA =
+    extractedData?.hasBremontData
+    || extractedData?.fra_template_variant === FRA_TEMPLATE_VARIANTS.BREMONT_WATCHES
+  const reviewDataTitle = isPreOpeningFRA
+    ? 'Review New Store FRA Data'
+    : isBremontFRA
+      ? 'Review Bremont Watches FRA Data'
+      : 'Review Extracted Data from H&S Audit'
+  const reviewDataDescription = isPreOpeningFRA
+    ? 'Please review the pre-opening information below. You can edit any fields before creating the FRA report.'
+    : isBremontFRA
+      ? 'Please review the Bremont Watches showroom/boutique information below. You can edit any fields before creating the FRA report.'
+      : 'Please review the extracted information below. You can edit any fields before creating the FRA report.'
+  const dataSourceTitle = isPreOpeningFRA ? 'Pre-opening FRA Data' : isBremontFRA ? 'Bremont Watches FRA Data' : 'Data Sources'
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -298,7 +319,7 @@ export default function ReviewFRADataPage({
           ← Back to Audits
         </Link>
         <span className="text-xs text-slate-300">
-          {isPreOpeningFRA ? 'Review Pre-Opening FRA Data' : 'Review Extracted Data'}
+          {isPreOpeningFRA ? 'Review Pre-Opening FRA Data' : isBremontFRA ? 'Review Bremont Watches FRA Data' : 'Review Extracted Data'}
         </span>
       </div>
 
@@ -307,12 +328,10 @@ export default function ReviewFRADataPage({
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5" />
-              {isPreOpeningFRA ? 'Review New Store FRA Data' : 'Review Extracted Data from H&S Audit'}
+              {reviewDataTitle}
             </CardTitle>
             <p className="text-sm text-slate-600 mt-2">
-              {isPreOpeningFRA
-                ? 'Please review the pre-opening information below. You can edit any fields before creating the FRA report.'
-                : 'Please review the extracted information below. You can edit any fields before creating the FRA report.'}
+              {reviewDataDescription}
             </p>
           </CardHeader>
           <CardContent>
@@ -322,7 +341,7 @@ export default function ReviewFRADataPage({
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <CheckCircle2 className="h-4 w-4 text-blue-600" />
-                    <span className="font-semibold text-blue-900">{isPreOpeningFRA ? 'Pre-opening FRA Data' : 'Data Sources'}</span>
+                    <span className="font-semibold text-blue-900">{dataSourceTitle}</span>
                   </div>
                   {extractedData?.hasPdfText && (
                     <Button
@@ -336,9 +355,11 @@ export default function ReviewFRADataPage({
                   )}
                 </div>
                 <div className="text-sm text-blue-800 space-y-1">
-                  {isPreOpeningFRA ? (
-                    <div className="rounded border border-teal-200 bg-teal-50 px-3 py-2 text-teal-900">
-                      This FRA uses pre-opening defaults because the store is not yet open to the public and may not have a completed H&S audit.
+                  {isPreOpeningFRA || isBremontFRA ? (
+                    <div className={`rounded border px-3 py-2 ${isPreOpeningFRA ? 'border-teal-200 bg-teal-50 text-teal-900' : 'border-amber-200 bg-amber-50 text-amber-900'}`}>
+                      {isPreOpeningFRA
+                        ? 'This FRA uses pre-opening defaults because the store is not yet open to the public and may not have a completed H&S audit.'
+                        : 'This FRA uses Bremont Watches defaults for a retail showroom or boutique and does not require a Footasylum H&S audit.'}
                     </div>
                   ) : (
                     <>

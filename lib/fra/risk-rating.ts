@@ -11,6 +11,7 @@ export type FRARiskFindings = {
   combustibles_poorly_stored: boolean
   fire_panel_access_obstructed: boolean
   fire_door_integrity_issues: boolean
+  minor_fire_door_management_issue?: boolean
   housekeeping_poor_back_of_house: boolean
   housekeeping_good: boolean
   training_completion_rate: number | null
@@ -107,6 +108,17 @@ export function computeFRARiskRating(findings: FRARiskFindings): FRARiskRatingRe
     || findings.fire_doors_blocked
     || findings.fire_door_integrity_issues
     || findings.fire_panel_access_obstructed
+  const assuranceFailureTriggers =
+    findings.fire_alarm_tests_current === false
+    || findings.emergency_lighting_tests_current === false
+    || findings.extinguishers_serviced_current === false
+    || findings.recent_fire_drill_within_6_months === false
+  const minorOnlyDoorManagementIssue =
+    findings.minor_fire_door_management_issue === true
+    && !materialLikelihoodTriggers
+    && !findings.combustibles_poorly_stored
+    && !findings.housekeeping_poor_back_of_house
+    && !assuranceFailureTriggers
 
   let likelihood: FRARiskLikelihood = 'Normal'
   if (highLikelihoodTriggers) {
@@ -117,13 +129,18 @@ export function computeFRARiskRating(findings: FRARiskFindings): FRARiskRatingRe
     || findings.housekeeping_poor_back_of_house
   ) {
     likelihood = 'Normal'
-  } else if (findings.housekeeping_good) {
+  } else if (minorOnlyDoorManagementIssue || findings.housekeeping_good) {
     likelihood = 'Low'
   } else {
     likelihood = 'Normal'
   }
 
   let consequence: FRARiskConsequence = 'Slight Harm'
+  const criticalAssuranceFailures = [
+    findings.fire_alarm_tests_current === false,
+    findings.emergency_lighting_tests_current === false,
+    findings.extinguishers_serviced_current === false,
+  ].filter(Boolean).length
   if (hasExtremeConsequenceTriggers(findings)) {
     consequence = 'Extreme Harm'
   } else if (
@@ -134,6 +151,7 @@ export function computeFRARiskRating(findings: FRARiskFindings): FRARiskRatingRe
     || findings.combustibles_in_escape_routes
     || findings.fire_door_integrity_issues
     || findings.fire_panel_access_obstructed
+    || criticalAssuranceFailures >= 2
   ) {
     consequence = 'Moderate Harm'
   } else {
@@ -162,6 +180,9 @@ export function computeFRARiskRating(findings: FRARiskFindings): FRARiskRatingRe
   }
   if (findings.fire_door_integrity_issues) {
     rationale.push('Fire door integrity issues were identified and require corrective maintenance.')
+  }
+  if (findings.minor_fire_door_management_issue) {
+    rationale.push('One internal fire door was observed propped open. This is recorded as a low-priority door-management observation; staff were reminded to keep the door closed.')
   }
 
   if (findings.fire_alarm_tests_current === false) {
@@ -223,6 +244,8 @@ export function buildFRARiskSummary(
   const leadingStatement =
     keyFactors.length > 0
       ? `The combination of ${humanizeList(keyFactors)} supports this risk profile.`
+      : findings.minor_fire_door_management_issue
+        ? 'A low-priority fire door management observation was noted; no material evacuation, compartmentation, or fire safety management deficiencies were identified in the available evidence.'
       : 'No route obstruction, door-management, or combustible-route deficiencies were evidenced in the available audit text at the time of assessment.'
 
   const controlStatement =
@@ -243,6 +266,7 @@ export function buildFRAConsistencyNarratives(
 ): FRAConsistencyNarratives {
   const routeCompromise = findings.escape_routes_obstructed || findings.fire_exits_obstructed
   const fireDoorCompromise = findings.fire_doors_held_open || findings.fire_doors_blocked
+  const minorFireDoorIssue = findings.minor_fire_door_management_issue === true
   const highTriggers = routeCompromise || fireDoorCompromise || findings.combustibles_in_escape_routes
   const obstructedRoutesScope = findings.fire_exits_obstructed
     ? 'Escape routes and/or fire exits'
@@ -256,6 +280,8 @@ export function buildFRAConsistencyNarratives(
     ? 'Fire doors were found held open and/or obstructed, which compromises smoke and fire containment. Fire doors should be kept closed and unobstructed unless released by compliant automatic devices.'
     : findings.fire_door_integrity_issues
       ? 'Fire door integrity issues were identified. Corrective maintenance is required to ensure compartmentation performance.'
+      : minorFireDoorIssue
+        ? 'One internal fire door was observed propped open. Intumescent strips were present, and staff were reminded to keep the door closed; this is recorded as a low-priority door-management observation.'
       : 'Fire doors were generally in serviceable condition at the time of assessment and should remain closed and unobstructed in normal operation.'
 
   const firePanelAccessStatement = findings.fire_panel_access_obstructed
@@ -279,6 +305,8 @@ export function buildFRAConsistencyNarratives(
     ? 'Fire door management requires corrective action to prevent doors being held open or blocked.'
     : findings.fire_door_integrity_issues
       ? 'Fire door integrity maintenance actions are required to sustain compartmentation.'
+      : minorFireDoorIssue
+        ? 'One internal fire door was observed propped open; staff were reminded to keep the door closed and this should be checked through routine management monitoring.'
       : 'Fire-resisting construction and internal fire doors remain in place to limit fire and smoke spread.'
 
   const evacuationStatement = routeCompromise

@@ -85,17 +85,29 @@ export async function POST(request: NextRequest) {
 
     const existingResponse = existingResponses?.[0] ?? null
 
-    const existing = existingResponse as { id: string; response_value?: unknown; response_json?: { fra_custom_data?: Record<string, unknown> } } | null
+    const existing = existingResponse as { id: string; response_value?: unknown; response_json?: { fra_custom_data?: Record<string, unknown>; fra_template_variant?: unknown } } | null
     const existingCustom = existing?.response_json?.fra_custom_data && typeof existing.response_json.fra_custom_data === 'object' ? existing.response_json.fra_custom_data : {}
+    const variant =
+      customData.fra_template_variant
+      || existingCustom.fra_template_variant
+      || existing?.response_json?.fra_template_variant
+      || null
+    const assessmentContext =
+      customData.assessmentContext
+      || existingCustom.assessmentContext
+      || null
     const metadataResponse = {
       response_value: existing?.response_value ?? null,
       response_json: {
         ...(existing?.response_json && typeof existing.response_json === 'object'
           ? existing.response_json
           : {}),
+        ...(variant ? { fra_template_variant: variant } : {}),
         fra_custom_data: {
           ...existingCustom,
           ...customData,
+          ...(variant ? { fra_template_variant: variant } : {}),
+          ...(assessmentContext ? { assessmentContext } : {}),
           updated_at: new Date().toISOString(),
         },
       },

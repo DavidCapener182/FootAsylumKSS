@@ -18,23 +18,34 @@ import {
   type FRARiskLikelihood,
 } from '@/lib/fra/risk-rating'
 import { getFraAssessmentReference } from '@/lib/utils'
+import { FRA_TEMPLATE_VARIANTS } from '@/lib/fra/template-profiles'
 
 /** Parse floor area string to sq ft. Supports values in sq ft and m². */
 function parseFloorAreaSqFt(s: string | null | undefined): number | null {
   if (!s || typeof s !== 'string') return null
 
   const trimmed = s.trim()
+  const sqFtMatch = trimmed.match(
+    /(\d[\d,]*(?:\.\d+)?)\s*(?:sq\.?\s*ft|sqft|ft(?:2|²)|square\s*feet)/i
+  )
+  if (sqFtMatch) {
+    const sqFtValue = parseFloat(sqFtMatch[1].replace(/,/g, ''))
+    if (Number.isFinite(sqFtValue) && sqFtValue > 0) return sqFtValue
+  }
+
+  const m2Match = trimmed.match(
+    /(\d[\d,]*(?:\.\d+)?)\s*(?:m²|m2|sq\.?\s*m|sqm|square\s*met(?:re|er)s?)/i
+  )
+  if (m2Match) {
+    const m2Value = parseFloat(m2Match[1].replace(/,/g, ''))
+    if (Number.isFinite(m2Value) && m2Value > 0) return m2Value * 10.7639
+  }
+
   const numericToken = trimmed.replace(/,/g, '').match(/(\d+(?:\.\d+)?)/)
   if (!numericToken) return null
 
   const numericValue = parseFloat(numericToken[1])
   if (!Number.isFinite(numericValue) || numericValue <= 0) return null
-
-  const hasSqFtUnit = /\b(?:sq\.?\s*ft|sqft|ft2|ft²|square\s*feet)\b/i.test(trimmed)
-  const hasM2Unit = /\b(?:m²|m2|sq\.?\s*m|sqm|square\s*met(?:re|er)s?)\b/i.test(trimmed)
-
-  if (hasSqFtUnit) return numericValue
-  if (hasM2Unit) return numericValue * 10.7639
 
   return numericValue <= 1000 ? numericValue * 10.7639 : numericValue
 }
@@ -81,8 +92,18 @@ function parseFloorCount(value: string | null | undefined): number | null {
   return null
 }
 
-function floorLayoutPhrase(floorCount: number | null): string {
+function isLowerGroundLayout(value: string | null | undefined): boolean {
+  return /\b(?:basement|lower[\s-]?ground)\b/i.test(value || '')
+}
+
+function floorLayoutPhrase(
+  floorCount: number | null,
+  numberOfFloors: string | null | undefined
+): string {
   if (!floorCount || floorCount <= 1) return 'a single level (ground floor)'
+  if (floorCount === 2 && isLowerGroundLayout(numberOfFloors)) {
+    return 'two levels (ground and lower-ground/basement levels)'
+  }
   if (floorCount === 2) return 'two levels (ground and first floors)'
   if (floorCount === 3) return 'three levels (ground, first and second floors)'
   return `${floorCount} levels (ground floor and upper floors)`
@@ -95,7 +116,9 @@ function defaultPremisesDescriptionLine(numberOfFloors: string | null | undefine
   }
 
   const floorNames =
-    floorCount === 2
+    floorCount === 2 && isLowerGroundLayout(numberOfFloors)
+      ? 'Ground Floor and Lower-Ground/Basement Level'
+      : floorCount === 2
       ? 'Ground Floor and First Floor'
       : floorCount === 3
         ? 'Ground Floor, First Floor and Second Floor'
@@ -109,6 +132,7 @@ const StoreMap = dynamic(() => import('./store-map'), { ssr: false })
 
 interface FRAData {
   clientName: string
+  fraTemplateVariant?: string | null
   assessmentContext?: string | null
   premises: string
   address: string
@@ -324,10 +348,22 @@ async function optimizeImageForUpload(file: File): Promise<File> {
 export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showPrintHeaderFooter }: FRAReportViewProps) {
   const showHeaderFooter = showPrintHeaderFooter === true
   const isPreOpeningAssessment = data.assessmentContext === 'pre_opening'
+  const currentFraTemplateVariant = data.fraTemplateVariant || (isPreOpeningAssessment ? FRA_TEMPLATE_VARIANTS.NEW_STORE_PRE_OPENING : null)
+  const isBremontAssessment = currentFraTemplateVariant === FRA_TEMPLATE_VARIANTS.BREMONT_WATCHES
+  const clientDisplayName = data.clientName || (isBremontAssessment ? 'Bremont Watches' : 'Footasylum Ltd')
+  const clientDescriptor = isBremontAssessment
+    ? 'a luxury watch retail showroom and boutique operator'
+    : 'a national branded fashion apparel and footwear retailer'
+  const managementLabel = isBremontAssessment ? 'site management' : 'store management'
+  const managementLabelTitle = managementLabel.charAt(0).toUpperCase() + managementLabel.slice(1)
+  const workplaceLabel = isBremontAssessment ? 'showroom/boutique' : 'store'
+  const backOfHouseLabel = isBremontAssessment ? 'back-of-house storage or administration areas' : 'stockroom, office and staff welfare facilities'
   const reportTitle = isPreOpeningAssessment ? 'Pre-Opening Fire Risk Assessment' : 'Fire Risk Assessment'
   const reportSubtitle = isPreOpeningAssessment
     ? 'Life Safety Assessment - New Store Prior to Public Opening'
-    : 'Life Safety Assessment - Retail Premises'
+    : isBremontAssessment
+      ? 'Life Safety Assessment - Watch Retail Showroom'
+      : 'Life Safety Assessment - Retail Premises'
   const printOnlyUiClass = showHeaderFooter ? 'hidden' : 'print:hidden'
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -350,7 +386,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
     description: data.description ?? '',
     intumescentStripsPresent: data.intumescentStripsPresent ?? true,
     assessmentContext: data.assessmentContext ?? null,
-    fra_template_variant: isPreOpeningAssessment ? 'new_store_pre_opening' : null,
+    fra_template_variant: currentFraTemplateVariant,
   })
   const [uploadingPhotos, setUploadingPhotos] = useState<Record<string, boolean>>({})
   const [deletingPhotoPath, setDeletingPhotoPath] = useState<string | null>(null)
@@ -523,9 +559,9 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
       description: data.description ?? '',
       intumescentStripsPresent: data.intumescentStripsPresent ?? true,
       assessmentContext: data.assessmentContext ?? null,
-      fra_template_variant: isPreOpeningAssessment ? 'new_store_pre_opening' : null,
+      fra_template_variant: currentFraTemplateVariant,
     })
-  }, [data.floorArea, data.occupancy, data.operatingHours, data.buildDate, data.propertyType, data.numberOfFloors, data.numberOfFireExits, data.adjacentOccupancies, data.sleepingRisk, data.totalStaffEmployed, data.maxStaffOnSite, data.youngPersonsCount, data.description, data.intumescentStripsPresent, data.assessmentContext, isPreOpeningAssessment])
+  }, [data.floorArea, data.occupancy, data.operatingHours, data.buildDate, data.propertyType, data.numberOfFloors, data.numberOfFireExits, data.adjacentOccupancies, data.sleepingRisk, data.totalStaffEmployed, data.maxStaffOnSite, data.youngPersonsCount, data.description, data.intumescentStripsPresent, data.assessmentContext, currentFraTemplateVariant])
 
   useEffect(() => {
     customDataRef.current = customData
@@ -834,15 +870,26 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
     const isGrid = (maxPhotos ?? 5) > 1
     const isContain = fit === 'contain'
     const forceContain = showHeaderFooter || isContain
-    const multiPhotoCardWidthClass = fullHeight
-      ? 'w-full print:w-auto'
-      : 'w-[220px] print:w-auto'
+    const pdfMultiPhotoCardWidthClass = isPortrait ? 'w-[38mm] print:w-[38mm]' : 'w-[56mm] print:w-[56mm]'
+    const multiPhotoCardWidthClass = showHeaderFooter
+      ? pdfMultiPhotoCardWidthClass
+      : fullHeight
+        ? 'w-full print:w-auto'
+        : 'w-[220px] print:w-auto'
     const photoCardWidthClass = photos.length === 1
-      ? fullHeight
-        ? 'w-full'
-        : compact
-          ? 'w-full max-w-[220px]'
-          : 'w-full max-w-lg'
+      ? showHeaderFooter
+        ? fullHeight
+          ? 'w-full max-w-[118mm] print:max-w-[118mm]'
+          : isPortrait
+            ? 'w-[55mm] print:w-[55mm]'
+            : compact
+              ? 'w-full max-w-[72mm] print:max-w-[72mm]'
+              : 'w-full max-w-[100mm] print:max-w-[100mm]'
+        : fullHeight
+          ? 'w-full'
+          : compact
+            ? 'w-full max-w-[220px]'
+            : 'w-full max-w-lg'
       : multiPhotoCardWidthClass
     const imageWrapperClass = fullHeight && photos.length === 1
       ? 'w-full h-[420px] overflow-hidden rounded border border-slate-300 bg-slate-50'
@@ -859,12 +906,23 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
       : isPortrait
         ? `border-2 border-dashed border-slate-300 rounded p-4 aspect-[3/4] w-full flex flex-col items-center justify-center text-slate-400 text-sm fra-photo-block ${compact ? 'max-w-[220px]' : ''}`
         : 'border-2 border-dashed border-slate-300 rounded p-4 h-48 flex flex-col items-center justify-center text-slate-400 text-sm fra-photo-block'
+    const pdfFrameHeight = showHeaderFooter
+      ? fullHeight && photos.length === 1
+        ? '72mm'
+        : isPortrait
+          ? compact ? '46mm' : '58mm'
+          : compact ? '32mm' : '42mm'
+      : undefined
     const pdfImageFrameStyle: React.CSSProperties | undefined = showHeaderFooter
       ? {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           backgroundColor: '#f8fafc',
+          height: pdfFrameHeight,
+          minHeight: pdfFrameHeight,
+          maxHeight: pdfFrameHeight,
+          overflow: 'hidden',
         }
       : undefined
     const pdfImageStyle: React.CSSProperties | undefined = showHeaderFooter
@@ -1155,16 +1213,16 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
       )}
       {/* Front Page – top: branding/title, middle: site (largest), lower: boxed details, footer */}
       <div className="fra-a4-page fra-print-page fra-front-page page-break-after-always p-12 max-w-4xl mx-auto">
-        <div className="fra-front-page-body flex flex-col min-h-[calc(100vh-120px)]">
+        <div className="fra-front-page-body flex flex-col min-h-[calc(100vh-120px)] print:min-h-[267mm]">
           {/* Top third: document type */}
-          <div className="fra-front-page-title-band text-center mb-8 py-4">
+          <div className="fra-front-page-title-band text-center mb-6 py-2">
             {logoError ? (
               <p className="text-lg font-semibold text-slate-700">KSS NW Ltd</p>
             ) : (
               <img
                 src="/kss-logo.png"
                 alt="KSS NW Ltd"
-                className="fra-kss-logo fra-kss-logo-cover h-10 w-auto mx-auto object-contain"
+                className="fra-kss-logo fra-kss-logo-cover h-10 w-auto max-w-[42mm] mx-auto object-contain"
                 onError={() => setLogoError(true)}
               />
             )}
@@ -1174,7 +1232,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
           </div>
 
           {/* Middle: premises + address (largest text), very light grey behind for restraint */}
-          <div className="fra-front-page-address-block flex-1 flex flex-col justify-center text-center mb-8 py-6 px-4 rounded-lg">
+          <div className="fra-front-page-address-block flex-1 flex flex-col justify-center text-center mb-6 py-4 px-4 rounded-lg">
             <p className="fra-front-page-premises text-2xl md:text-3xl font-bold text-slate-900 leading-tight">{data.premises}</p>
             <p className="mt-3 text-lg text-slate-700 whitespace-pre-line max-w-xl mx-auto">{data.address}</p>
           </div>
@@ -1187,7 +1245,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
             <p><span className="font-semibold">Assessor:</span> {data.assessorName} – KSS NW Ltd</p>
           </div>
 
-          <div className="fra-front-page-footer mt-auto pt-8 border-t border-slate-200 text-center text-xs text-slate-600 space-y-1">
+          <div className="fra-front-page-footer mt-auto pt-6 border-t border-slate-200 text-center text-xs text-slate-600 space-y-1">
             <p>Prepared in accordance with the Regulatory Reform (Fire Safety) Order 2005</p>
             <p>Prepared by KSS NW Ltd | Confidential</p>
             <p>Confidential – for the use of the client and relevant duty holders only.</p>
@@ -1263,7 +1321,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
       </div>
 
       {/* Photo of Site / Building / Premises + Table of Contents (one printed page) */}
-      <div className="fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
+      <div className="fra-a4-page fra-print-page fra-site-toc-page page-break-after-always p-12 max-w-4xl mx-auto">
         <div className="fra-print-page-header hidden print:flex print:items-center print:justify-between print:border-b print:border-slate-300 print:pb-2 print:mb-4 print:text-[11pt] print:font-semibold print:text-slate-900">
           {printHeaderContent}
         </div>
@@ -1607,7 +1665,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
       </div>
 
       {/* Terms, Conditions and Limitations */}
-      <div className="fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
+      <div className="fra-a4-page fra-print-page fra-terms-page page-break-after-always p-12 max-w-4xl mx-auto">
         <div className="fra-print-page-header hidden print:flex print:items-center print:justify-between print:border-b print:border-slate-300 print:pb-2 print:mb-4 print:text-[11pt] print:font-semibold print:text-slate-900">
           {printHeaderContent}
         </div>
@@ -1689,7 +1747,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
       </div>
 
       {/* About the Property */}
-      <div className="fra-section fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
+      <div className="fra-section fra-a4-page fra-print-page fra-about-property-page page-break-after-always p-12 max-w-4xl mx-auto">
         <div className="fra-print-page-header hidden print:flex print:items-center print:justify-between print:border-b print:border-slate-300 print:pb-2 print:mb-4 print:text-[11pt] print:font-semibold print:text-slate-900">
           {printHeaderContent}
         </div>
@@ -1897,7 +1955,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
                     description: data.description ?? '',
                     intumescentStripsPresent: data.intumescentStripsPresent ?? true,
                     assessmentContext: data.assessmentContext ?? null,
-                    fra_template_variant: isPreOpeningAssessment ? 'new_store_pre_opening' : null,
+                    fra_template_variant: currentFraTemplateVariant,
                   })
                 }}
                 disabled={saving}
@@ -1914,7 +1972,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
             <p className="mt-2">{data.internalFireDoors}</p>
             <DebugBadge source={data._sources?.internalFireDoors} fieldName="Internal Fire Doors" />
             <p className="mt-4">
-              It is the ongoing responsibility of store management to ensure that internal fire doors
+              It is the ongoing responsibility of {managementLabel} to ensure that internal fire doors
               are maintained in good working order and kept closed when not in use, in accordance
               with fire safety procedures and routine management checks.
             </p>
@@ -1937,7 +1995,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
           <VisualRecordPhoto placeholderId="fire-alarm-panel" label="Fire alarm control panel" />
           <VisualRecordPhoto placeholderId="emergency-lighting-switch" label="Emergency lighting test switch" />
           <VisualRecordPhoto placeholderId="fire-doors" label="Typical fire door" />
-          <VisualRecordPhoto placeholderId="fire-extinguisher" label="Portable fire extinguisher (rear stockroom)" />
+          <VisualRecordPhoto placeholderId="fire-extinguisher" label={isBremontAssessment ? 'Portable fire extinguisher (showroom/back of house)' : 'Portable fire extinguisher (rear stockroom)'} />
         </div>
       </div>
 
@@ -2031,7 +2089,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
                 <strong>Note:</strong> {data.emergencyLightingTestSwitchLocationComment}
               </div>
             )}
-            <PhotoPlaceholder placeholderId="emergency-lighting-switch" label="Emergency lighting test switch photo" maxPhotos={1} fullHeight />
+            <PhotoPlaceholder placeholderId="emergency-lighting-switch" label="Emergency lighting test switch photo" maxPhotos={1} fit="contain" />
           </div>
           <p className="mt-2 italic">
             (NB: This assessment is based on visual inspection and review of available records only. No physical
@@ -2117,7 +2175,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
       </div>
 
       {/* Electrical installations and testing – Fixed wire & PAT */}
-      <div className="fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
+      <div className="fra-a4-page fra-print-page fra-electrical-testing-page page-break-after-always p-12 max-w-4xl mx-auto">
         <div className="fra-print-page-header hidden print:flex print:items-center print:justify-between print:border-b print:border-slate-300 print:pb-2 print:mb-4 print:text-[11pt] print:font-semibold print:text-slate-900">
           {printHeaderContent}
         </div>
@@ -2179,10 +2237,10 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
             <p className="font-semibold text-slate-700">Photos of fire extinguisher locations</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <PhotoPlaceholder placeholderId="fire-extinguisher-store" label="Store locations (e.g. sales floor, exits)" maxPhotos={3} aspect="portrait" />
+                <PhotoPlaceholder placeholderId="fire-extinguisher-store" label={isBremontAssessment ? 'Showroom locations (e.g. sales floor, exits)' : 'Store locations (e.g. sales floor, exits)'} maxPhotos={3} aspect="portrait" />
               </div>
               <div>
-                <PhotoPlaceholder placeholderId="fire-extinguisher-stockroom" label="Stock room(s)" maxPhotos={2} aspect="portrait" />
+                <PhotoPlaceholder placeholderId="fire-extinguisher-stockroom" label={isBremontAssessment ? 'Back-of-house/storage area(s)' : 'Stock room(s)'} maxPhotos={2} aspect="portrait" />
               </div>
             </div>
           </div>
@@ -2212,7 +2270,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
       )}
 
       {/* Fire and Rescue Services Access */}
-      <div className="fra-section fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
+      <div className="fra-section fra-a4-page fra-print-page fra-access-page page-break-after-always p-12 max-w-4xl mx-auto">
         <div className="fra-print-page-header hidden print:flex print:items-center print:justify-between print:border-b print:border-slate-300 print:pb-2 print:mb-4 print:text-[11pt] print:font-semibold print:text-slate-900">
           {printHeaderContent}
         </div>
@@ -2228,7 +2286,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
               <p>
                 Entry to the site can be gained via the main front entrance doors and via the rear service
                 entry/loading bay, which is clearly signposted externally. There is suitable access for Fire and Rescue
-                Services from the surrounding road network serving the shopping centre. No issues
+                Services from the surrounding road network serving the premises. No issues
                 were identified at the time of assessment.
               </p>
               <DebugBadge source="DEFAULT" fieldName="Access Description" />
@@ -2245,15 +2303,24 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
           </div>
           <div className="mt-4 p-4 border border-slate-300 rounded-lg bg-slate-50 text-sm fra-access-summary">
             <h3 className="font-semibold mb-2 text-slate-800">Fire & Rescue Access Summary</h3>
-            <ul className="list-disc list-inside space-y-1 text-slate-700">
-              <li>Primary access via main entrance and rear service/loading bay</li>
-              <li>Single internal retail unit access point</li>
-              <li>No fire lift, risers or hydrants within unit</li>
-              <li>Mall/centre management controls external access routes</li>
-            </ul>
+            {isBremontAssessment ? (
+              <ul className="list-disc list-inside space-y-1 text-slate-700">
+                <li>Primary appliance access from South Audley Street</li>
+                <li>Ground-floor public entrance and lower-ground rear final exit</li>
+                <li>No fire lift, risers or hydrants identified within the assessed demise</li>
+                <li>Rear access and external stairs remain subject to landlord control</li>
+              </ul>
+            ) : (
+              <ul className="list-disc list-inside space-y-1 text-slate-700">
+                <li>Primary access via main entrance and rear service/loading bay</li>
+                <li>Single internal retail unit access point</li>
+                <li>No fire lift, risers or hydrants within unit</li>
+                <li>Mall/centre management controls external access routes</li>
+              </ul>
+            )}
           </div>
           <p className="text-sm leading-relaxed mt-4">
-            Fire and Rescue Service access arrangements are subject to the overarching fire strategy and evacuation procedures of the host centre or landlord.
+            Fire and Rescue Service access arrangements are subject to the overarching fire strategy and evacuation procedures of the {isBremontAssessment ? 'building landlord' : 'host centre or landlord'}.
           </p>
           <div className="space-y-2 mt-4">
             <div><span className="font-semibold">Fire lift:</span> – N/A</div>
@@ -2375,7 +2442,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
       </div>
 
       {/* Stage 3 – Evaluate, remove, reduce and protect */}
-      <div className="fra-section fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
+      <div className="fra-section fra-a4-page fra-print-page fra-stage-three-page page-break-after-always p-12 max-w-4xl mx-auto">
         <div className="fra-print-page-header hidden print:flex print:items-center print:justify-between print:border-b print:border-slate-300 print:pb-2 print:mb-4 print:text-[11pt] print:font-semibold print:text-slate-900">
           {printHeaderContent}
         </div>
@@ -2471,11 +2538,11 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
       </div>
 
       {/* Fire Plan */}
-      <div className="fra-section fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
+      <div className="fra-section fra-a4-page fra-print-page fra-fire-plan-page page-break-after-always p-12 max-w-4xl mx-auto">
         <div className="fra-print-page-header hidden print:flex print:items-center print:justify-between print:border-b print:border-slate-300 print:pb-2 print:mb-4 print:text-[11pt] print:font-semibold print:text-slate-900">
           {printHeaderContent}
         </div>
-        <h2 className="text-xl font-semibold mb-4">Fire Plan</h2>
+        <h2 className="text-xl font-semibold mb-4">{isBremontAssessment ? 'Floor Plan and Fire Plan' : 'Fire Plan'}</h2>
 
         <figure className="fra-figure w-full mb-6">
           <img
@@ -2488,7 +2555,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
           </figcaption>
         </figure>
         <p className="text-sm text-slate-700 mb-6 max-w-3xl mx-auto">
-          This evacuation procedure reflects the current store layout and must be followed by all staff and contractors.
+          This evacuation procedure reflects the current {workplaceLabel} layout and must be followed by all staff and contractors.
         </p>
 
         {/* Fire Plan Photo Placeholder – can hide when no fire plan for this site (excluded from PDF/print when hidden) */}
@@ -2498,21 +2565,32 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
               type="button"
               onClick={() => setShowFirePlanPhoto(false)}
               className={`absolute top-0 right-0 z-10 p-1.5 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-600 hover:text-slate-800 ${printOnlyUiClass}`}
-              title="Hide Fire Plan / Evacuation Route Photo from report and PDF"
+              title={isBremontAssessment ? 'Hide Floor Plan / Evacuation Route Plan from report and PDF' : 'Hide Fire Plan / Evacuation Route Photo from report and PDF'}
             >
               <X className="h-4 w-4" />
             </button>
-            <PhotoPlaceholder placeholderId="fire-plan" label="Fire Plan / Evacuation Route Photo" maxPhotos={1} />
+            <PhotoPlaceholder
+              placeholderId="fire-plan"
+              label={isBremontAssessment ? 'Floor Plan / Evacuation Route Plan' : 'Fire Plan / Evacuation Route Photo'}
+              maxPhotos={1}
+            />
           </div>
         )}
         {!showFirePlanPhoto && (
           <p className={`text-sm text-slate-500 mb-6 ${printOnlyUiClass}`}>
-            Fire Plan photo hidden.{' '}
+            {isBremontAssessment ? 'Floor Plan / Evacuation Route Plan hidden.' : 'Fire Plan photo hidden.'}{' '}
             <button type="button" onClick={() => setShowFirePlanPhoto(true)} className="text-indigo-600 hover:underline">
               Show again
             </button>
           </p>
         )}
+
+      </div>
+
+      <div className="fra-section fra-a4-page fra-print-page fra-fire-management-page page-break-after-always p-12 max-w-4xl mx-auto">
+        <div className="fra-print-page-header hidden print:flex print:items-center print:justify-between print:border-b print:border-slate-300 print:pb-2 print:mb-4 print:text-[11pt] print:font-semibold print:text-slate-900">
+          {printHeaderContent}
+        </div>
 
         <div className="fra-section-with-figure mt-6">
           <h3 className="text-lg font-semibold mb-2">Fire Safety Management & Responsibilities</h3>
@@ -2531,14 +2609,14 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
           </figure>
         </div>
         <p className="text-sm leading-relaxed mb-6">
-          The Responsible Person retains overall accountability for fire safety compliance, with store management responsible for implementation and monitoring, supported by staff and contractors who are required to follow site-specific fire safety procedures.
+          The Responsible Person retains overall accountability for fire safety compliance, with {managementLabel} responsible for implementation and monitoring, supported by staff and contractors who are required to follow site-specific fire safety procedures.
         </p>
 
         <div className="space-y-6 text-sm leading-relaxed">
           <div>
             <h3 className="font-semibold mb-2">Roles and identity of employees with specific responsibilities in the event of a fire</h3>
             <p>
-              Store management are designated as Fire Wardens and have overall responsibility for coordinating
+              {managementLabelTitle} is designated to coordinate
               the emergency response within the premises. This includes ensuring that the alarm is raised,
               evacuation procedures are followed and that all persons are directed to leave the premises safely.
             </p>
@@ -2558,10 +2636,10 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
             <p>
               {consistencyNarratives.evacuationStatement}
             </p>
-            <p className="mt-2">
+            <p className="mt-2 fra-keep">
               Visitors and contractors will be accompanied or directed by staff to ensure their safe evacuation.
               Where persons require additional assistance to evacuate, suitable arrangements must be
-              implemented and managed by store management, including the use of Personal Emergency
+              implemented and managed by {managementLabel}, including the use of Personal Emergency
               Evacuation Plans where applicable.
             </p>
           </div>
@@ -2577,9 +2655,9 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
           <div>
             <h3 className="font-semibold mb-2">Procedures for liaising with the Fire and Rescue Service</h3>
             <p>
-              On arrival of the Fire and Rescue Service, store management will liaise with the attending officers,
+              On arrival of the Fire and Rescue Service, {managementLabel} will liaise with the attending officers,
               providing relevant information regarding the premises, fire alarm activation and any known hazards.
-              Store management will assist as required until the incident is formally handed over.
+              {managementLabelTitle} will assist as required until the incident is formally handed over.
             </p>
           </div>
 
@@ -2637,7 +2715,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
       </div>
 
       {/* Fire Risk Assessment Report */}
-      <div className="fra-section fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
+      <div className="fra-section fra-a4-page fra-print-page fra-main-report-page page-break-after-always p-12 max-w-4xl mx-auto">
         <div className="fra-print-page-header hidden print:flex print:items-center print:justify-between print:border-b print:border-slate-300 print:pb-2 print:mb-4 print:text-[11pt] print:font-semibold print:text-slate-900">
           {printHeaderContent}
         </div>
@@ -2650,23 +2728,25 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
         </div>
         
         {/* Assessment Overview Photo Placeholder */}
-        <PhotoPlaceholder placeholderId="premises-overview" label="Premises Overview Photo" maxPhotos={1} fit="contain" />
+        <PhotoPlaceholder placeholderId="premises-overview" label="Premises Overview Photo" maxPhotos={1} fit="contain" compact />
         
         <div className="space-y-6 text-sm leading-relaxed">
           <div>
             <h3 className="font-semibold mb-2">Introduction</h3>
             <p>
               {isPreOpeningAssessment
-                ? `The client is Footasylum Ltd, a national branded fashion apparel and footwear retailer. This pre-opening Fire Risk Assessment relates solely to their new retail premises at ${data.premises} before public trading commences.`
-                : `The client is Footasylum Ltd, a national branded fashion apparel and footwear retailer. This Fire Risk Assessment relates solely to their retail premises at ${data.premises}. The premises is situated within an established managed shopping centre environment.`}
+                ? `The client is ${clientDisplayName}, ${clientDescriptor}. This pre-opening Fire Risk Assessment relates solely to their new ${isBremontAssessment ? 'retail showroom/boutique' : 'retail premises'} at ${data.premises} before public trading commences.`
+                : `The client is ${clientDisplayName}, ${clientDescriptor}. This Fire Risk Assessment relates solely to their ${isBremontAssessment ? 'retail showroom/boutique' : 'retail premises'} at ${data.premises}. The premises is situated within ${isBremontAssessment ? 'a managed retail or high-street environment' : 'an established managed shopping centre environment'}.`}
             </p>
             <p className="mt-2 whitespace-pre-line">
               {data.description.split('\n').slice(0, 1).join('\n') || defaultPremisesDescriptionLine(customData.numberOfFloors || data.numberOfFloors)}
             </p>
             <p className="mt-2">
               {isPreOpeningAssessment
-                ? 'The premises must have designated fire exit routes serving the intended sales floor and back-of-house areas before opening. Escape routes, final exits, alarm call points, emergency lighting and exit signage should be verified as available, visible and unobstructed before customers are admitted.'
-                : 'The premises is provided with designated fire exit routes serving the sales floor and back-of-house areas, which discharge to a place of relative safety via the shopping centre\'s managed evacuation routes. Escape routes and back-of-house circulation routes were observed to be available and in use at the time of assessment.'}
+                ? `The premises must have designated fire exit routes serving the intended ${isBremontAssessment ? 'showroom/sales area' : 'sales floor'} and back-of-house areas before opening. Escape routes, final exits, alarm call points, emergency lighting and exit signage should be verified as available, visible and unobstructed before customers are admitted.`
+                : isBremontAssessment
+                  ? 'The premises is provided with designated fire exit routes serving the showroom/sales area and back-of-house areas, which discharge to a place of relative safety via the building or landlord-managed evacuation routes where applicable. Escape routes and circulation routes were observed or should be verified as available and unobstructed at the time of assessment.'
+                  : 'The premises is provided with designated fire exit routes serving the sales floor and back-of-house areas, which discharge to a place of relative safety via the shopping centre\'s managed evacuation routes. Escape routes and back-of-house circulation routes were observed to be available and in use at the time of assessment.'}
             </p>
           </div>
 
@@ -2674,13 +2754,17 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
             <h3 className="font-semibold mb-2">Overview of the workplace being assessed</h3>
             <p>
               {isPreOpeningAssessment
-                ? 'The intended function of the premises is the retail sale of branded fashion apparel and footwear to members of the public. At the time of this assessment the store is in a pre-opening condition, with public access not yet commenced.'
-                : 'The primary function of the premises is the retail sale of branded fashion apparel and footwear to members of the public. The store operates as a standard high-street retail environment with a public sales area and associated back-of-house accommodation, including stockroom, staff welfare facilities and a management office.'}
+                ? `The intended function of the premises is the retail sale of ${isBremontAssessment ? 'watches and related accessories' : 'branded fashion apparel and footwear'} to members of the public. At the time of this assessment the ${workplaceLabel} is in a pre-opening condition, with public access not yet commenced.`
+                : isBremontAssessment
+                  ? `The primary function of the premises is the retail sale and display of watches and related accessories to members of the public. The ${workplaceLabel} operates as a retail showroom/boutique with a public sales area, customer consultation space and associated ${backOfHouseLabel}.`
+                  : 'The primary function of the premises is the retail sale of branded fashion apparel and footwear to members of the public. The store operates as a standard high-street retail environment with a public sales area and associated back-of-house accommodation, including stockroom, staff welfare facilities and a management office.'}
             </p>
             <p className="mt-2">
               {isPreOpeningAssessment
-                ? `The premises is expected to operate over ${floorLayoutPhrase(effectiveFloorCount)} once trading commences. Staffing levels, the nominated responsible person and the final opening arrangements should be confirmed before the store is opened to the public.`
-                : `The premises operates over ${floorLayoutPhrase(effectiveFloorCount)}. Staffing levels vary depending on trading periods, with a mix of management, supervisory and sales staff present during opening hours. The premises is open to the public during scheduled trading hours, with staff also present outside these hours for opening, closing, deliveries, replenishment and general operational activities.`}
+                ? `The premises is expected to operate over ${floorLayoutPhrase(effectiveFloorCount, customData.numberOfFloors || data.numberOfFloors)} once trading commences. Staffing levels, the nominated responsible person and the final opening arrangements should be confirmed before the ${workplaceLabel} is opened to the public.`
+                : isBremontAssessment
+                  ? `The premises operates over ${floorLayoutPhrase(effectiveFloorCount, customData.numberOfFloors || data.numberOfFloors)}. Staffing levels vary depending on trading periods, with management, showroom and sales colleagues present during opening hours. The premises is open to the public during scheduled trading hours, with staff also present outside these hours for opening, closing, deliveries, administration and general operational activities.`
+                  : `The premises operates over ${floorLayoutPhrase(effectiveFloorCount, customData.numberOfFloors || data.numberOfFloors)}. Staffing levels vary depending on trading periods, with a mix of management, supervisory and sales staff present during opening hours. The premises is open to the public during scheduled trading hours, with staff also present outside these hours for opening, closing, deliveries, replenishment and general operational activities.`}
             </p>
             <p className="mt-2">
               Members of the public access the premises during trading hours, and contractors or third-party
@@ -2689,8 +2773,10 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
             </p>
             <p className="mt-2">
               {isPreOpeningAssessment
-                ? 'The intended activities are typical of a retail environment and do not involve high-risk processes. At the time of inspection the store remained under fit-out, so temporary contractor materials, packaging and installation works must be removed or controlled before opening and final fire safety handover checks must be completed.'
-                : 'The activities undertaken within the premises are typical of a retail environment and do not involve any high-risk processes. Fire loads are primarily associated with retail stock, packaging materials and fixtures and fittings. Fire safety arrangements observed during the assessment indicate that the premises is managed in line with expected standards for this type of retail operation.'}
+                ? `The intended activities are typical of a retail environment and do not involve high-risk processes. At the time of inspection the ${workplaceLabel} remained under fit-out, so temporary contractor materials, packaging and installation works must be removed or controlled before opening and final fire safety handover checks must be completed.`
+                : isBremontAssessment
+                  ? 'The activities undertaken within the premises are typical of a watch retail showroom/boutique and do not involve high-risk processes. Fire loads are primarily associated with presentation boxes, packaging materials, display fixtures, furniture, office materials and low-risk cleaning products. Fire safety arrangements observed during the assessment indicate that the premises is managed in line with expected standards for this type of retail operation.'
+                  : 'The activities undertaken within the premises are typical of a retail environment and do not involve any high-risk processes. Fire loads are primarily associated with retail stock, packaging materials and fixtures and fittings. Fire safety arrangements observed during the assessment indicate that the premises is managed in line with expected standards for this type of retail operation.'}
             </p>
           </div>
 
@@ -2730,7 +2816,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
             </p>
           </div>
 
-          <div>
+          <div className="fra-keep">
             <h3 className="font-semibold mb-2">Outline of those who may be at risk</h3>
             <ul className="list-disc list-inside ml-4 space-y-1">
               <li>Staff</li>
@@ -2769,7 +2855,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
               <li>Collation of relevant data and available records.</li>
               <li>Calculation of capacity (where applicable).</li>
               <li>Consideration of compartmentation and fire separation features.</li>
-              <li>Liaison with store management and relevant site representatives, and liaison with staff on
+              <li>Liaison with {managementLabel} and relevant site representatives, and liaison with staff on
               site as required.</li>
               <li>Compliance with the legislation.</li>
               <li>HM Government Fire Risk Assessment guidance (Offices and Shops) (where applicable).</li>
@@ -2781,7 +2867,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
                 ? `${data.escapeRoutesEvidence} ${consistencyNarratives.escapeRoutesStatement}`
                 : consistencyNarratives.escapeRoutesStatement}
             </p>
-            <p className="mt-2">
+            <p className="mt-2 fra-keep">
               {isPreOpeningAssessment
                 ? 'Exit signage, final exit doors and fire safety equipment must be subject to final pre-opening checks once fit-out works are complete. Any main entrance doors, final exit doors, door-release arrangements, push-bar/egress hardware, signage and emergency lighting must be confirmed as installed, unobstructed and operational before customers are admitted.'
                 : 'Signage throughout was installed and clearly visible and exit route doors opened in the direction of travel and were secured by means of appropriate "push bar to open" door devices were fitted and could be opened easily. Fire doors are subject to routine management checks to ensure standards are maintained and any issues identified dynamically.'}
@@ -2806,7 +2892,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
                 : 'Final exit doors were installed with "push bar to open" door devices where applicable and were expected to be maintained in good condition and appropriately signed in line with relevant standards (including BS EN 1125 and BS EN 179).'}
             </p>
             <p className="mt-2">
-              Other than low level cleaning products which are sourced centrally and sent to the store, all
+              Other than low level cleaning products which are sourced centrally and sent to the {workplaceLabel}, all
               COSHH-related products are expected to be low risk level and stored in a designated cupboard
               away from sources of ignition.
             </p>
@@ -2816,23 +2902,18 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
             </p>
             <p className="mt-4 font-semibold">Overall:</p>
             <p className="mt-2">
-              {consistencyNarratives.controlsOverallStatement} I would further recommend that under Article 9 of the FSO 2005, a review of the fire risk associated with this site be conducted at a suitable period or if there are any significant changes to the premises or processes within, or if this Fire Risk Assessment is no longer valid due to experiencing a fire, for example. In view of the fact that Footasylum Ltd employ more than 5 persons, under Article 9(6)(a) of the Regulatory Reform (Fire Safety) Order 2005, there is a requirement for the Responsible Person to record the findings in writing. {formattedAssessmentReviewDate ? `Review by ${formattedAssessmentReviewDate}, or sooner if significant change occurs.` : 'Review by the stated assessment review date, or sooner if significant change occurs.'}
+              {consistencyNarratives.controlsOverallStatement} I would further recommend that under Article 9 of the FSO 2005, a review of the fire risk associated with this site be conducted at a suitable period or if there are any significant changes to the premises or processes within, or if this Fire Risk Assessment is no longer valid due to experiencing a fire, for example. In view of the fact that {clientDisplayName} employ more than 5 persons, under Article 9(6)(a) of the Regulatory Reform (Fire Safety) Order 2005, there is a requirement for the Responsible Person to record the findings in writing. {formattedAssessmentReviewDate ? `Review by ${formattedAssessmentReviewDate}, or sooner if significant change occurs.` : 'Review by the stated assessment review date, or sooner if significant change occurs.'}
             </p>
             <p className="mt-4">
               <span className="font-semibold">Submitted by:</span> {data.assessorName} – KSS NW LTD
             </p>
             <p className="mt-2">{data.assessmentDate || ''}</p>
-            {formattedAssessmentReviewDate && (
-              <p className="mt-2">
-                Review by {formattedAssessmentReviewDate}, or sooner if significant change occurs.
-              </p>
-            )}
           </div>
         </div>
       </div>
 
       {/* Risk Rating */}
-      <div className="fra-section fra-a4-page fra-print-page page-break-after-always p-12 max-w-4xl mx-auto">
+      <div className="fra-section fra-a4-page fra-print-page fra-risk-rating-page page-break-after-always p-12 max-w-4xl mx-auto">
         <div className="fra-print-page-header hidden print:flex print:items-center print:justify-between print:border-b print:border-slate-300 print:pb-2 print:mb-4 print:text-[11pt] print:font-semibold print:text-slate-900">
           {printHeaderContent}
         </div>
@@ -2941,7 +3022,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
                 ))}
               </ul>
             )}
-            <p className="mt-2">
+            <p className="fra-risk-overall-repeat mt-2">
               <span className="text-slate-600 text-sm">Overall risk level: </span>
               <span className={`inline-block px-3 py-1.5 font-bold text-base rounded border mt-1 ${getOverallRiskBadgeClass(effectiveOverallRisk)}`}>
                 {effectiveOverallRisk}
@@ -3077,6 +3158,10 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
         @media print {
           .page-break-after-always {
             page-break-after: always;
+          }
+          .fra-last-page {
+            page-break-after: auto !important;
+            break-after: auto !important;
           }
           body {
             background: white;

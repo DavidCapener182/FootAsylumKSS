@@ -9,6 +9,7 @@ import {
   extractFraPdfDataFromText,
   type FraPdfExtractedData,
 } from '@/lib/fra/pdf-parser'
+import { FRA_TEMPLATE_VARIANTS, getManagedFRATemplateDefinitionByVariant } from '@/lib/fra/template-profiles'
 
 export const dynamic = 'force-dynamic'
 
@@ -150,13 +151,19 @@ export async function GET(request: NextRequest) {
     const directPdfText = await getDirectPdfText(supabase, instanceId)
     const storedFraData = await getStoredFraData(supabase, instanceId)
     const storedExtractedData = storedFraData.extractedData
-    const storedSource = storedFraData.variant === 'new_store_pre_opening' ? 'PRE_OPENING' : 'REVIEW'
+    const managedTemplateDefinition = getManagedFRATemplateDefinitionByVariant(storedFraData.variant)
+    const storedSource = managedTemplateDefinition?.sourceLabel || 'REVIEW'
     const pickValue = (key: string, pdfValue: string | null | undefined = null) =>
       storedExtractedData[key] ?? pdfValue ?? null
     const sourceValue = (key: string, pdfValue: string | null | undefined = null, fallbackSource = 'NOT_FOUND') =>
       storedExtractedData[key] ? storedSource : (pdfValue ? 'PDF' : fallbackSource)
-    const hsAuditResult = await getLatestHSAuditForStore(storeId, instanceId)
-    const pdfText = directPdfText || hsAuditResult.pdfText
+    const usesPreparedFRAData =
+      storedFraData.variant === FRA_TEMPLATE_VARIANTS.NEW_STORE_PRE_OPENING
+      || storedFraData.variant === FRA_TEMPLATE_VARIANTS.BREMONT_WATCHES
+    const hsAuditResult = usesPreparedFRAData
+      ? { audit: null, pdfText: null }
+      : await getLatestHSAuditForStore(storeId, instanceId)
+    const pdfText = usesPreparedFRAData ? null : (directPdfText || hsAuditResult.pdfText)
 
     let pdfExtractedData: FraPdfExtractedData = {}
     if (pdfText) {
@@ -244,7 +251,8 @@ export async function GET(request: NextRequest) {
       sourceQuestions: SOURCE_QUESTIONS,
       hasPdfText: !!pdfText,
       hasDatabaseAudit: Object.keys(storedExtractedData).length > 0,
-      hasPreOpeningData: storedFraData.variant === 'new_store_pre_opening',
+      hasPreOpeningData: storedFraData.variant === FRA_TEMPLATE_VARIANTS.NEW_STORE_PRE_OPENING,
+      hasBremontData: storedFraData.variant === FRA_TEMPLATE_VARIANTS.BREMONT_WATCHES,
       pdfTextLength: pdfText?.length || 0,
       pdfExtractedCount: Object.keys({ ...pdfExtractedData, ...storedExtractedData }).filter((key) => ({ ...pdfExtractedData, ...storedExtractedData } as Record<string, unknown>)[key] != null).length,
       dbExtractedCount: 0,

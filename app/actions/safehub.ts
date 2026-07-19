@@ -5,17 +5,16 @@ import { extractConductedDateFromPdfText, parseAuditDateString } from '@/lib/fra
 import { revalidatePath } from 'next/cache'
 import { persistFraRiskRatingForInstance } from '@/lib/fra/persist-risk-rating'
 import { requirePermission } from '@/lib/permissions'
+import {
+  BREMONT_WATCHES_FRA_TEMPLATE,
+  FRA_TEMPLATE_VARIANTS,
+  NEW_STORE_FRA_TEMPLATE,
+  type ManagedFRATemplateDefinition,
+} from '@/lib/fra/template-profiles'
 
 // ============================================
 // TEMPLATE ACTIONS
 // ============================================
-
-const NEW_STORE_FRA_TEMPLATE_TITLE = 'New Store Fire Risk Assessment'
-
-const NEW_STORE_FRA_DESCRIPTION =
-  'Pre-opening Fire Risk Assessment for new stores before they open to the public.'
-
-const NEW_STORE_FRA_VARIANT = 'new_store_pre_opening'
 
 function todayDateInputValue() {
   return new Date().toISOString().slice(0, 10)
@@ -210,7 +209,11 @@ export async function createTemplate(data: {
   return template
 }
 
-async function ensureTemplateStorageQuestion(supabase: ReturnType<typeof createClient>, templateId: string) {
+async function ensureTemplateStorageQuestion(
+  supabase: ReturnType<typeof createClient>,
+  templateId: string,
+  definition?: ManagedFRATemplateDefinition
+) {
   const { data: sections, error: sectionsError } = await supabase
     .from('fa_audit_template_sections')
     .select('id')
@@ -227,7 +230,7 @@ async function ensureTemplateStorageQuestion(supabase: ReturnType<typeof createC
       .from('fa_audit_template_sections')
       .insert({
         template_id: templateId,
-        title: 'Pre-opening FRA metadata',
+        title: definition?.sectionTitle || 'FRA metadata',
         order_index: 0,
       })
       .select('id')
@@ -257,7 +260,7 @@ async function ensureTemplateStorageQuestion(supabase: ReturnType<typeof createC
     .from('fa_audit_template_questions')
     .insert({
       section_id: sectionId,
-      question_text: 'New store FRA metadata',
+      question_text: definition?.metadataQuestionText || 'FRA metadata',
       question_type: 'text',
       order_index: 0,
       is_required: false,
@@ -272,32 +275,32 @@ async function ensureTemplateStorageQuestion(supabase: ReturnType<typeof createC
   return question.id
 }
 
-export async function ensureNewStoreFRATemplate() {
+async function ensureManagedFRATemplate(definition: ManagedFRATemplateDefinition) {
   const { supabase, userId } = await requirePermission('manageAudits')
 
   const { data: existing, error: lookupError } = await supabase
     .from('fa_audit_templates')
     .select('*')
     .eq('category', 'fire_risk_assessment')
-    .ilike('title', NEW_STORE_FRA_TEMPLATE_TITLE)
+    .ilike('title', definition.title)
     .eq('is_active', true)
     .limit(1)
     .maybeSingle()
 
   if (lookupError) {
-    throw new Error(`Failed to find new store FRA template: ${lookupError.message}`)
+    throw new Error(`Failed to find ${definition.title} template: ${lookupError.message}`)
   }
 
   if (existing) {
-    await ensureTemplateStorageQuestion(supabase, existing.id)
+    await ensureTemplateStorageQuestion(supabase, existing.id, definition)
     return existing
   }
 
   const { data: template, error: templateError } = await supabase
     .from('fa_audit_templates')
     .insert({
-      title: NEW_STORE_FRA_TEMPLATE_TITLE,
-      description: NEW_STORE_FRA_DESCRIPTION,
+      title: definition.title,
+      description: definition.description,
       category: 'fire_risk_assessment',
       created_by_user_id: userId,
       is_active: true,
@@ -306,12 +309,20 @@ export async function ensureNewStoreFRATemplate() {
     .single()
 
   if (templateError || !template) {
-    throw new Error(`Failed to create new store FRA template: ${templateError?.message || 'unknown error'}`)
+    throw new Error(`Failed to create ${definition.title} template: ${templateError?.message || 'unknown error'}`)
   }
 
-  await ensureTemplateStorageQuestion(supabase, template.id)
+  await ensureTemplateStorageQuestion(supabase, template.id, definition)
   revalidatePath('/audit-lab')
   return template
+}
+
+export async function ensureNewStoreFRATemplate() {
+  return ensureManagedFRATemplate(NEW_STORE_FRA_TEMPLATE)
+}
+
+export async function ensureBremontWatchesFRATemplate() {
+  return ensureManagedFRATemplate(BREMONT_WATCHES_FRA_TEMPLATE)
 }
 
 export async function updateTemplate(id: string, data: {
@@ -391,7 +402,114 @@ export async function createAuditInstance(templateId: string, storeId: string) {
   return instance
 }
 
-export async function prepareNewStoreFRAInstance(instanceId: string) {
+function formatStoreAddress(store: any) {
+  return [store?.address_line_1, store?.city, store?.postcode].filter(Boolean).join(', ')
+}
+
+function buildManagedFRAInitialData(
+  definition: ManagedFRATemplateDefinition,
+  store: any,
+  assessmentDate: string
+) {
+  if (definition.variant === FRA_TEMPLATE_VARIANTS.NEW_STORE_PRE_OPENING) {
+    const extractedData = {
+      fra_template_variant: definition.variant,
+      assessmentContext: definition.assessmentContext,
+      conductedDate: assessmentDate,
+      assessmentStartTime: '',
+      storeManager: '',
+      numberOfFloors: '',
+      squareFootage: '',
+      operatingHours: 'Pre-opening - store not yet open to the public',
+      firePanelLocation: 'To be confirmed during pre-opening inspection',
+      firePanelFaults: 'Fire alarm panel status to be confirmed before opening',
+      emergencyLightingSwitch: 'To be confirmed during pre-opening inspection',
+      escapeRoutesEvidence: 'Escape routes, final exits and back-of-house circulation routes are to be verified clear and available before the store opens to the public.',
+      combustibleStorageEscapeCompromise: 'Stockroom, merchandising and combustible storage arrangements are to be checked during fit-out and before trading commences.',
+      fireSafetyTrainingNarrative: 'Fire safety induction, evacuation arrangements and local emergency procedures must be briefed to store colleagues before public opening.',
+      fireDoorsCondition: 'Fire doors, final exits and compartmentation should be inspected as part of the pre-opening handover and any defects closed before trading.',
+      weeklyFireTests: 'Weekly fire alarm testing regime to be set up and recorded from opening.',
+      emergencyLightingMonthlyTest: 'Monthly emergency lighting test regime to be set up and recorded from opening.',
+      fireExtinguisherService: 'Fire extinguisher installation/commissioning evidence to be confirmed and retained before opening.',
+      managementReviewStatement: 'Pre-opening Fire Risk Assessment completed before the premises opens to the public. Commissioning, handover and local management records should be verified and retained before trading commences.',
+      numberOfFireExits: '',
+      totalStaffEmployed: '',
+      maxStaffOnSite: '',
+      youngPersonsCount: '',
+      fireDrillDate: 'First fire drill to be scheduled after opening once the store team is in place.',
+      patTestingStatus: 'Portable appliance testing / new equipment checks to be confirmed before opening.',
+      fixedWireTestDate: 'Electrical installation commissioning or fixed wire certification to be confirmed before opening.',
+      exitSignageCondition: 'Exit signage to be checked as installed, visible and directional before opening.',
+      compartmentationStatus: 'Compartmentation and fire stopping to be visually checked during the pre-opening inspection.',
+      extinguisherServiceDate: 'To be confirmed from extinguisher installation/service records before opening.',
+      callPointAccessibility: 'Manual call points to be checked clear, visible and accessible before opening.',
+    }
+
+    const customData = {
+      fra_template_variant: definition.variant,
+      assessmentContext: definition.assessmentContext,
+      propertyType: 'New retail unit prior to opening to the public.',
+      description: `The premises at ${formatStoreAddress(store) || store?.store_name || 'the recorded store address'} is being assessed before public trading commences. The assessment considers the intended retail sales area, back-of-house accommodation, escape routes, fire safety systems and pre-opening management arrangements required before occupation by staff and customers.`,
+      operatingHours: 'Pre-opening - store not yet open to the public',
+      sleepingRisk: 'No sleeping occupants',
+      intumescentStripsPresent: true,
+      managementReviewStatement: extractedData.managementReviewStatement,
+    }
+
+    return { extractedData, customData }
+  }
+
+  const extractedData = {
+    fra_template_variant: definition.variant,
+    assessmentContext: definition.assessmentContext,
+    conductedDate: assessmentDate,
+    assessmentStartTime: '',
+    storeManager: '',
+    numberOfFloors: '',
+    squareFootage: '',
+    operatingHours: '',
+    firePanelLocation: 'To be confirmed during the Bremont Watches assessment.',
+    firePanelFaults: 'Fire alarm panel status to be verified at the time of assessment.',
+    emergencyLightingSwitch: 'To be confirmed during the Bremont Watches assessment.',
+    escapeRoutesEvidence: 'Escape routes, final exits and back-of-house circulation routes should be verified as clear, available and unobstructed at the time of assessment.',
+    combustibleStorageEscapeCompromise: 'Packaging, presentation boxes, display materials and any back-of-house combustible storage should be checked to confirm they are controlled and not compromising escape routes.',
+    fireSafetyTrainingNarrative: 'Bremont Watches colleagues should receive fire safety induction, evacuation procedure briefing and local emergency arrangement instruction relevant to the showroom or boutique.',
+    fireDoorsCondition: 'Fire doors, final exits and compartmentation should be checked for condition, unobstructed access and effective self-closing operation where applicable.',
+    weeklyFireTests: 'Weekly fire alarm test records should be confirmed from the local fire logbook or landlord/centre records where applicable.',
+    emergencyLightingMonthlyTest: 'Monthly emergency lighting test evidence should be confirmed from local records or landlord/centre records where applicable.',
+    fireExtinguisherService: 'Fire extinguisher provision, location, accessibility and service records should be verified during the assessment.',
+    managementReviewStatement: 'Bremont Watches Fire Risk Assessment completed for the retail showroom or boutique. Local management should retain evidence of testing, servicing, staff briefing and any remedial actions identified during the assessment.',
+    numberOfFireExits: '',
+    totalStaffEmployed: '',
+    maxStaffOnSite: '',
+    youngPersonsCount: '',
+    fireDrillDate: 'To be confirmed from local fire drill or evacuation practice records.',
+    patTestingStatus: 'Portable electrical equipment checks to be confirmed from local records.',
+    fixedWireTestDate: 'Electrical installation test evidence to be confirmed from local records or landlord/centre documentation where applicable.',
+    exitSignageCondition: 'Exit signage should be checked as visible, directional and unobstructed throughout the premises.',
+    compartmentationStatus: 'Compartmentation, fire doors and any fire stopping visible during the assessment should be checked for obvious defects.',
+    extinguisherServiceDate: 'To be confirmed from extinguisher service records.',
+    callPointAccessibility: 'Manual call points should be checked clear, visible and accessible.',
+  }
+
+  const customData = {
+    fra_template_variant: definition.variant,
+    assessmentContext: definition.assessmentContext,
+    propertyType: 'Retail showroom/boutique used for the display and sale of watches and related accessories to members of the public.',
+    description: `The premises at ${formatStoreAddress(store) || store?.store_name || 'the recorded premises address'} operates as a Bremont Watches retail showroom or boutique. The assessment considers the public sales/showroom area, customer consultation space, display cabinetry, back-of-house storage or administration areas, escape routes, fire safety systems and local management arrangements.`,
+    operatingHours: '',
+    sleepingRisk: 'No sleeping occupants',
+    intumescentStripsPresent: true,
+    managementReviewStatement: extractedData.managementReviewStatement,
+  }
+
+  return { extractedData, customData }
+}
+
+async function prepareManagedFRAInstance(
+  instanceId: string,
+  definition: ManagedFRATemplateDefinition
+) {
   const { supabase } = await requirePermission('manageAudits')
 
   const { data: instance, error: instanceError } = await supabase
@@ -425,74 +543,37 @@ export async function prepareNewStoreFRAInstance(instanceId: string) {
   const template = instance.fa_audit_templates as any
   if (
     template?.category !== 'fire_risk_assessment'
-    || String(template?.title || '').trim().toLowerCase() !== NEW_STORE_FRA_TEMPLATE_TITLE.toLowerCase()
+    || String(template?.title || '').trim().toLowerCase() !== definition.title.toLowerCase()
   ) {
-    throw new Error('This action can only prepare a New Store Fire Risk Assessment instance')
+    throw new Error(`This action can only prepare a ${definition.title} instance`)
   }
 
-  const questionId = await ensureTemplateStorageQuestion(supabase, instance.template_id)
+  const questionId = await ensureTemplateStorageQuestion(supabase, instance.template_id, definition)
   const store = instance.fa_stores as any
   const assessmentDate = todayDateInputValue()
-
-  const preOpeningExtractedData = {
-    fra_template_variant: NEW_STORE_FRA_VARIANT,
-    assessmentContext: 'pre_opening',
-    conductedDate: assessmentDate,
-    assessmentStartTime: '',
-    storeManager: '',
-    numberOfFloors: '',
-    squareFootage: '',
-    operatingHours: 'Pre-opening - store not yet open to the public',
-    firePanelLocation: 'To be confirmed during pre-opening inspection',
-    firePanelFaults: 'Fire alarm panel status to be confirmed before opening',
-    emergencyLightingSwitch: 'To be confirmed during pre-opening inspection',
-    escapeRoutesEvidence: 'Escape routes, final exits and back-of-house circulation routes are to be verified clear and available before the store opens to the public.',
-    combustibleStorageEscapeCompromise: 'Stockroom, merchandising and combustible storage arrangements are to be checked during fit-out and before trading commences.',
-    fireSafetyTrainingNarrative: 'Fire safety induction, evacuation arrangements and local emergency procedures must be briefed to store colleagues before public opening.',
-    fireDoorsCondition: 'Fire doors, final exits and compartmentation should be inspected as part of the pre-opening handover and any defects closed before trading.',
-    weeklyFireTests: 'Weekly fire alarm testing regime to be set up and recorded from opening.',
-    emergencyLightingMonthlyTest: 'Monthly emergency lighting test regime to be set up and recorded from opening.',
-    fireExtinguisherService: 'Fire extinguisher installation/commissioning evidence to be confirmed and retained before opening.',
-    managementReviewStatement: 'Pre-opening Fire Risk Assessment completed before the premises opens to the public. Commissioning, handover and local management records should be verified and retained before trading commences.',
-    numberOfFireExits: '',
-    totalStaffEmployed: '',
-    maxStaffOnSite: '',
-    youngPersonsCount: '',
-    fireDrillDate: 'First fire drill to be scheduled after opening once the store team is in place.',
-    patTestingStatus: 'Portable appliance testing / new equipment checks to be confirmed before opening.',
-    fixedWireTestDate: 'Electrical installation commissioning or fixed wire certification to be confirmed before opening.',
-    exitSignageCondition: 'Exit signage to be checked as installed, visible and directional before opening.',
-    compartmentationStatus: 'Compartmentation and fire stopping to be visually checked during the pre-opening inspection.',
-    extinguisherServiceDate: 'To be confirmed from extinguisher installation/service records before opening.',
-    callPointAccessibility: 'Manual call points to be checked clear, visible and accessible before opening.',
-  }
-
-  const preOpeningCustomData = {
-    fra_template_variant: NEW_STORE_FRA_VARIANT,
-    assessmentContext: 'pre_opening',
-    propertyType: 'New retail unit prior to opening to the public.',
-    description: `The premises at ${[store?.address_line_1, store?.city, store?.postcode].filter(Boolean).join(', ') || store?.store_name || 'the recorded store address'} is being assessed before public trading commences. The assessment considers the intended retail sales area, back-of-house accommodation, escape routes, fire safety systems and pre-opening management arrangements required before occupation by staff and customers.`,
-    operatingHours: 'Pre-opening - store not yet open to the public',
-    sleepingRisk: 'No sleeping occupants',
-    intumescentStripsPresent: true,
-    managementReviewStatement: preOpeningExtractedData.managementReviewStatement,
-  }
+  const { extractedData, customData } = buildManagedFRAInitialData(definition, store, assessmentDate)
 
   const responseJson = {
-    source: NEW_STORE_FRA_VARIANT,
-    fra_template_variant: NEW_STORE_FRA_VARIANT,
-    fra_custom_data: preOpeningCustomData,
-    fra_extracted_data: preOpeningExtractedData,
+    source: definition.variant,
+    fra_template_variant: definition.variant,
+    fra_custom_data: customData,
+    fra_extracted_data: extractedData,
     fra_extracted_data_updated_at: new Date().toISOString(),
   }
 
-  const { data: existing } = await supabase
+  const { data: existingResponses, error: existingLookupError } = await supabase
     .from('fa_audit_responses')
-    .select('id, response_json')
+    .select('id, response_json, created_at')
     .eq('audit_instance_id', instanceId)
     .eq('question_id', questionId)
-    .maybeSingle()
+    .order('created_at', { ascending: false })
+    .limit(1)
 
+  if (existingLookupError) {
+    throw new Error(`Failed to check existing ${definition.title} metadata: ${existingLookupError.message}`)
+  }
+
+  const existing = existingResponses?.[0] ?? null
   if (existing?.id) {
     const mergedJson = {
       ...((existing.response_json as Record<string, unknown>) || {}),
@@ -501,13 +582,13 @@ export async function prepareNewStoreFRAInstance(instanceId: string) {
     const { error: updateError } = await supabase
       .from('fa_audit_responses')
       .update({
-        response_value: NEW_STORE_FRA_VARIANT,
+        response_value: definition.variant,
         response_json: mergedJson,
       })
       .eq('id', existing.id)
 
     if (updateError) {
-      throw new Error(`Failed to prepare new store FRA data: ${updateError.message}`)
+      throw new Error(`Failed to prepare ${definition.title} data: ${updateError.message}`)
     }
   } else {
     const { error: insertError } = await supabase
@@ -515,12 +596,12 @@ export async function prepareNewStoreFRAInstance(instanceId: string) {
       .insert({
         audit_instance_id: instanceId,
         question_id: questionId,
-        response_value: NEW_STORE_FRA_VARIANT,
+        response_value: definition.variant,
         response_json: responseJson,
       })
 
     if (insertError) {
-      throw new Error(`Failed to prepare new store FRA data: ${insertError.message}`)
+      throw new Error(`Failed to prepare ${definition.title} data: ${insertError.message}`)
     }
   }
 
@@ -531,6 +612,14 @@ export async function prepareNewStoreFRAInstance(instanceId: string) {
 
   revalidatePath('/audit-lab')
   return { success: true }
+}
+
+export async function prepareNewStoreFRAInstance(instanceId: string) {
+  return prepareManagedFRAInstance(instanceId, NEW_STORE_FRA_TEMPLATE)
+}
+
+export async function prepareBremontWatchesFRAInstance(instanceId: string) {
+  return prepareManagedFRAInstance(instanceId, BREMONT_WATCHES_FRA_TEMPLATE)
 }
 
 export async function saveAuditResponse(

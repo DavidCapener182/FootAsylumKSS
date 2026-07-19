@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { FRA_TEMPLATE_VARIANTS } from '@/lib/fra/template-profiles'
 
 export const dynamic = 'force-dynamic'
 
@@ -28,7 +29,15 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    const prompt = `Based on the following information about a Footasylum retail store, write a brief professional description (2-3 sentences) of access for Fire and Rescue Services. The description should mention entry points, access routes, and any relevant observations.
+    const isBremont = auditInfo?.fraTemplateVariant === FRA_TEMPLATE_VARIANTS.BREMONT_WATCHES
+    const clientName = typeof auditInfo?.clientName === 'string' && auditInfo.clientName.trim()
+      ? auditInfo.clientName.trim()
+      : isBremont
+        ? 'Bremont Watches'
+        : 'Footasylum'
+    const premisesType = isBremont ? 'watch retail showroom or boutique' : 'retail store'
+
+    const prompt = `Based on the following information about a ${clientName} ${premisesType}, write a brief professional description (2-3 sentences) of access for Fire and Rescue Services. The description should mention entry points, access routes, and any relevant observations.
 
 Rules:
 - If "auditInfo.fireExits" is provided, use that exact value when referring to the number of fire exits/fire doors.

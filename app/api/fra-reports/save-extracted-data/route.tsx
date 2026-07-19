@@ -58,6 +58,7 @@ export async function POST(request: NextRequest) {
               audit_instance_id: instanceId,
               question_id: firstQuestion.id,
               response_json: {
+                fra_template_variant: extractedData.fra_template_variant || null,
                 fra_extracted_data: extractedData,
                 fra_extracted_data_updated_at: new Date().toISOString(),
               },
@@ -73,9 +74,41 @@ export async function POST(request: NextRequest) {
     }
 
     const existingJson = (targetResponse?.response_json as Record<string, unknown>) || {}
+    const existingExtractedData = (
+      existingJson.fra_extracted_data
+      && typeof existingJson.fra_extracted_data === 'object'
+      && !Array.isArray(existingJson.fra_extracted_data)
+    )
+      ? existingJson.fra_extracted_data as Record<string, unknown>
+      : {}
+    const existingCustomData = (
+      existingJson.fra_custom_data
+      && typeof existingJson.fra_custom_data === 'object'
+      && !Array.isArray(existingJson.fra_custom_data)
+    )
+      ? existingJson.fra_custom_data as Record<string, unknown>
+      : {}
+    const variant =
+      extractedData.fra_template_variant
+      || existingExtractedData.fra_template_variant
+      || existingCustomData.fra_template_variant
+      || existingJson.fra_template_variant
+      || null
+    const assessmentContext =
+      extractedData.assessmentContext
+      || existingExtractedData.assessmentContext
+      || existingCustomData.assessmentContext
+      || null
+    const mergedExtractedData = {
+      ...existingExtractedData,
+      ...extractedData,
+      ...(variant ? { fra_template_variant: variant } : {}),
+      ...(assessmentContext ? { assessmentContext } : {}),
+    }
     const updatedJson = {
       ...existingJson,
-      fra_extracted_data: extractedData,
+      ...(variant ? { fra_template_variant: variant } : {}),
+      fra_extracted_data: mergedExtractedData,
       fra_extracted_data_updated_at: new Date().toISOString(),
     }
 

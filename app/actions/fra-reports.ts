@@ -13,6 +13,11 @@ import {
 } from '@/lib/fra/pdf-parser'
 import { buildFRARiskSummary, computeFRARiskRating, type FRARiskFindings } from '@/lib/fra/risk-rating'
 import { requirePermission } from '@/lib/permissions'
+import {
+  FRA_TEMPLATE_VARIANTS,
+  getManagedFRATemplateDefinition,
+  getManagedFRATemplateDefinitionByVariant,
+} from '@/lib/fra/template-profiles'
 
 type ParsedYesNoQuestion = {
   answer: 'yes' | 'no' | 'na' | null
@@ -635,8 +640,23 @@ export async function mapHSAuditToFRAData(
     }
   }
 
+  const templateDefinition = getManagedFRATemplateDefinition(fraInstance.fa_audit_templates as any)
+  const explicitTemplateVariant =
+    customData?.fra_template_variant
+    || editedExtractedData?.fra_template_variant
+    || null
+  const managedTemplateDefinition =
+    getManagedFRATemplateDefinitionByVariant(explicitTemplateVariant)
+    || templateDefinition
+  const fraTemplateVariant = managedTemplateDefinition?.variant || explicitTemplateVariant || null
+  const usesPreparedFRAData =
+    fraTemplateVariant === FRA_TEMPLATE_VARIANTS.NEW_STORE_PRE_OPENING
+    || fraTemplateVariant === FRA_TEMPLATE_VARIANTS.BREMONT_WATCHES
+
   // Get the most recent H&S audit for this store (check for uploaded PDFs too)
-  const hsAuditResult = await getLatestHSAuditForStore(storeId, fraInstanceId)
+  const hsAuditResult = usesPreparedFRAData
+    ? { audit: null, pdfText: null }
+    : await getLatestHSAuditForStore(storeId, fraInstanceId)
   const hsAudit = hsAuditResult.audit
   const pdfText = hsAuditResult.pdfText
   
@@ -908,17 +928,27 @@ export async function mapHSAuditToFRAData(
     if (!s || typeof s !== 'string') return null
 
     const trimmed = s.trim()
+    const sqFtMatch = trimmed.match(
+      /(\d[\d,]*(?:\.\d+)?)\s*(?:sq\.?\s*ft|sqft|ft(?:2|²)|square\s*feet)/i
+    )
+    if (sqFtMatch) {
+      const sqFtValue = parseFloat(sqFtMatch[1].replace(/,/g, ''))
+      if (Number.isFinite(sqFtValue) && sqFtValue > 0) return sqFtValue
+    }
+
+    const m2Match = trimmed.match(
+      /(\d[\d,]*(?:\.\d+)?)\s*(?:m²|m2|sq\.?\s*m|sqm|square\s*met(?:re|er)s?)/i
+    )
+    if (m2Match) {
+      const m2Value = parseFloat(m2Match[1].replace(/,/g, ''))
+      if (Number.isFinite(m2Value) && m2Value > 0) return m2Value * SQFT_PER_M2
+    }
+
     const numericToken = trimmed.replace(/,/g, '').match(/(\d+(?:\.\d+)?)/)
     if (!numericToken) return null
 
     const numericValue = parseFloat(numericToken[1])
     if (!Number.isFinite(numericValue) || numericValue <= 0) return null
-
-    const hasSqFtUnit = /\b(?:sq\.?\s*ft|sqft|ft2|ft²|square\s*feet)\b/i.test(trimmed)
-    const hasM2Unit = /\b(?:m²|m2|sq\.?\s*m|sqm|square\s*met(?:re|er)s?)\b/i.test(trimmed)
-
-    if (hasSqFtUnit) return numericValue
-    if (hasM2Unit) return numericValue * SQFT_PER_M2
 
     // Heuristic for unitless values: smaller values tend to be m², larger values tend to be sq ft.
     return numericValue <= 1000 ? numericValue * SQFT_PER_M2 : numericValue
@@ -1762,6 +1792,22 @@ export async function mapHSAuditToFRAData(
     return doorsCondition === 'no' || stripsCondition === 'no' || hasCompartmentationDefect || damageSignal
   })()
 
+  const minorFireDoorManagementIssue = (() => {
+    const severity = normalizeWhitespace(
+      String(
+        (editedExtractedData as any)?.fireDoorIssueSeverity
+        || (customData as any)?.fireDoorIssueSeverity
+        || ''
+      )
+    ).toLowerCase()
+    return fireDoorsHeldOpen
+      && (
+        (editedExtractedData as any)?.minorFireDoorManagementIssue === true
+        || (customData as any)?.minorFireDoorManagementIssue === true
+        || /\b(low|minor)\b/.test(severity)
+      )
+  })()
+
   const panelAccessObstructed = (() => {
     const combined = [
       firePanelLocation?.value,
@@ -1938,13 +1984,14 @@ export async function mapHSAuditToFRAData(
   const fireFindings: FRARiskFindings = {
     escape_routes_obstructed: escapeRoutesObstructed,
     fire_exits_obstructed: fireExitsObstructed,
-    fire_doors_held_open: fireDoorsHeldOpen,
-    fire_doors_blocked: fireDoorsBlocked,
+    fire_doors_held_open: minorFireDoorManagementIssue ? false : fireDoorsHeldOpen,
+    fire_doors_blocked: minorFireDoorManagementIssue ? false : fireDoorsBlocked,
     combustibles_in_escape_routes: combustibleEscapeCompromise,
     combustibles_poorly_stored: combustiblesPoorlyStored,
     // Treat explicit panel fault conditions as a critical panel-management finding for risk scoring.
     fire_panel_access_obstructed: panelAccessObstructed || hasPanelFaultCondition,
-    fire_door_integrity_issues: fireDoorIntegrityIssues,
+    fire_door_integrity_issues: minorFireDoorManagementIssue ? false : fireDoorIntegrityIssues,
+    minor_fire_door_management_issue: minorFireDoorManagementIssue,
     housekeeping_poor_back_of_house: housekeepingPoorBackOfHouse,
     housekeeping_good: housekeepingGood,
     training_completion_rate: trainingCompletionRate,
@@ -2063,13 +2110,33 @@ export async function mapHSAuditToFRAData(
 
   const isPreOpeningAssessment =
     customData?.assessmentContext === 'pre_opening'
-    || customData?.fra_template_variant === 'new_store_pre_opening'
+    || customData?.fra_template_variant === FRA_TEMPLATE_VARIANTS.NEW_STORE_PRE_OPENING
     || editedExtractedData?.assessmentContext === 'pre_opening'
-    || editedExtractedData?.fra_template_variant === 'new_store_pre_opening'
+    || editedExtractedData?.fra_template_variant === FRA_TEMPLATE_VARIANTS.NEW_STORE_PRE_OPENING
+    || fraTemplateVariant === FRA_TEMPLATE_VARIANTS.NEW_STORE_PRE_OPENING
+  const isBremontAssessment = fraTemplateVariant === FRA_TEMPLATE_VARIANTS.BREMONT_WATCHES
+  const clientName = isBremontAssessment ? 'Bremont Watches' : 'Footasylum Ltd'
+  const responsiblePerson = isBremontAssessment ? 'Bremont Watches' : 'Footasylum Ltd'
+  const ultimateResponsiblePerson = isBremontAssessment
+    ? 'Bremont Watches nominated responsible person'
+    : 'Chief Financial Officer Footasylum Ltd'
+  const premisesPrefix = isBremontAssessment ? 'Bremont Watches' : 'Footasylum'
+  const rawStoreName = String(store.store_name || '').trim()
+  const premisesName = rawStoreName.toLowerCase().includes(premisesPrefix.toLowerCase())
+    ? rawStoreName
+    : `${premisesPrefix} – ${rawStoreName || 'Premises'}`
+  const defaultOperationalPropertyType = isBremontAssessment
+    ? 'Retail showroom/boutique used for the display and sale of watches and related accessories to members of the public.'
+    : 'Retail unit used for the sale of branded fashion apparel and footwear to members of the public.'
+  const defaultPreOpeningPropertyType = isBremontAssessment
+    ? 'Retail showroom/boutique prior to occupation by customers.'
+    : 'New retail unit prior to opening to the public.'
+  const retailEnvironmentLabel = isBremontAssessment ? 'retail showroom/boutique' : 'retail premises'
   
   const returnData = {
     // Cover page data
-    clientName: 'Footasylum Ltd',
+    clientName,
+    fraTemplateVariant,
     assessmentContext: isPreOpeningAssessment ? 'pre_opening' : 'operational',
     _sources: {
       clientName: 'DEFAULT',
@@ -2137,15 +2204,15 @@ export async function mapHSAuditToFRAData(
       description: customData?.description?.trim() ? 'CUSTOM' : (generalSiteInfo?.value || generalSiteInfo?.comment ? (pdfExtractedData.numberOfFloors ? 'PDF' : 'H&S_AUDIT') : 'DEFAULT'),
       sourcesOfFuelCoshhNote: 'DEFAULT',
     } as Record<string, string>,
-    premises: `Footasylum – ${store.store_name}`,
+    premises: premisesName,
     address: [
       store.address_line_1,
       store.city,
       store.postcode,
       store.region
     ].filter(Boolean).join('\n'),
-    responsiblePerson: 'Footasylum Ltd',
-    ultimateResponsiblePerson: 'Chief Financial Officer Footasylum Ltd',
+    responsiblePerson,
+    ultimateResponsiblePerson,
     appointedPerson: appointedPersonValue as string,
     assessorName: auditorName,
     assessmentDate: assessmentDateValue,
@@ -2157,7 +2224,7 @@ export async function mapHSAuditToFRAData(
 
     // About the Property (customData overrides when set)
     buildDate: resolvedBuildDate,
-    propertyType: customData?.propertyType ?? (isPreOpeningAssessment ? 'New retail unit prior to opening to the public.' : 'Retail unit used for the sale of branded fashion apparel and footwear to members of the public.'),
+    propertyType: customData?.propertyType ?? (isPreOpeningAssessment ? defaultPreOpeningPropertyType : defaultOperationalPropertyType),
     description: (() => {
       const normalizeAddressComparable = (value: string): string =>
         value
@@ -2196,9 +2263,26 @@ export async function mapHSAuditToFRAData(
       const numFloors = customData?.numberOfFloors || generalSiteInfo?.value || generalSiteInfo?.comment || '1'
       const floorsNum = parseInt(String(numFloors).replace(/\D/g, '')) || 1
       if (isPreOpeningAssessment) {
-        return `The premises is located at ${storeAddressForDescription || 'the recorded store address'} and is being assessed before opening to the public. The assessment considers the intended sales floor, back-of-house areas, escape routes, fire safety systems and management arrangements required before trading commences.
+        return isBremontAssessment
+          ? `The premises is located at ${storeAddressForDescription || 'the recorded premises address'} and is being assessed before occupation by customers. The assessment considers the intended showroom/sales area, customer consultation space, display cabinetry, back-of-house storage, escape routes, fire safety systems and management arrangements required before trading commences.
+The unit is expected to operate as a Bremont Watches retail showroom or boutique once handover, commissioning evidence, staff induction and local emergency arrangements have been confirmed.
+Any remaining fit-out, merchandising or handover actions should be completed before the premises is occupied by customers.`
+          : `The premises is located at ${storeAddressForDescription || 'the recorded store address'} and is being assessed before opening to the public. The assessment considers the intended sales floor, back-of-house areas, escape routes, fire safety systems and management arrangements required before trading commences.
 The unit is expected to operate as a Footasylum retail store once handover, commissioning evidence, staff induction and local emergency arrangements have been confirmed.
 Any remaining fit-out, merchandising or handover actions should be completed before the premises is occupied by customers.`
+      }
+      if (isBremontAssessment && floorsNum === 1) {
+        return `The premises is located at ${storeAddressForDescription || 'the recorded premises address'} and operates over one level (Ground Floor), comprising a public showroom/sales area, customer consultation space, watch display cabinetry and associated back-of-house storage or administration areas.
+The unit is of modern retail construction with commercial internal finishes, display lighting, security systems and fitted display furniture appropriate for a watch showroom/boutique.
+The premises may form part of a managed retail, shopping centre or high-street environment with adjacent commercial occupancies.`
+      }
+      if (isBremontAssessment) {
+        const floorNames = floorsNum === 2 ? 'Ground Floor and First Floor' : floorsNum === 3 ? 'Ground Floor, First Floor and Second Floor' : `Ground Floor and ${floorsNum - 1} upper level(s)`
+        return `The premises is located at ${storeAddressForDescription || 'the recorded premises address'} and is arranged over ${floorsNum} level(s) (${floorNames}), comprising:
+• Public showroom/sales and customer consultation areas
+• Watch display cabinetry and associated display lighting
+• Back-of-house storage, administration and staff welfare areas where provided
+The premises may form part of a managed retail, shopping centre or high-street environment with adjacent commercial occupancies.`
       }
       if (floorsNum === 1) {
         return `The premises is located at ${storeAddressForDescription || 'the recorded store address'} and operates over one level (Ground Floor) with a main sales floor to the front of the unit and associated back-of-house areas to the rear, including stockroom, office and staff welfare facilities.
@@ -2239,6 +2323,9 @@ The premises is a mid-unit with adjoining retail occupancies to either side.`
       const stripsPresent = intumescentStrips?.value === 'Yes' || intumescentStrips?.value === true ||
                             (typeof intumescentStrips?.value === 'string' && intumescentStrips.value.toLowerCase().includes('yes'))
       
+      if (minorFireDoorManagementIssue) {
+        return 'Internal fire doors are present. One internal fire door was observed propped open; intumescent strips were present. Staff were reminded that the door must be kept closed. This is recorded as a low-priority door-management observation.'
+      }
       if (fireFindings.fire_doors_held_open || fireFindings.fire_doors_blocked) {
         return 'Internal fire doors are present but were observed held open and/or obstructed. Corrective management controls are required to maintain effective compartmentation.'
       }
@@ -2256,7 +2343,11 @@ The premises is a mid-unit with adjoining retail occupancies to either side.`
     historyOfFires: enforcementAction?.value === 'None' ? 'No reported fire-related incidents in the previous 12 months.' : 'No reported fire-related incidents in the previous 12 months.',
 
     // Fire Alarm System
-    fireAlarmDescription: isPreOpeningAssessment
+    fireAlarmDescription: isBremontAssessment
+      ? `The premises is protected by, or is being provided with, an electronic fire detection and alarm system appropriate for a ${retailEnvironmentLabel}, with arrangements to be verified against BS 5839-1 and the Regulatory Reform (Fire Safety) Order 2005, Article 13(1)(a).
+The system should provide suitable warning throughout the showroom, customer areas and back-of-house accommodation, including any display, storage, administration and staff areas. Fire alarm panel status, manual call point access and any landlord or shopping-centre interface arrangements should be confirmed during the assessment.
+Manual call points should be visible, accessible, correctly signed and unobstructed. Any faults, isolations or access restrictions must be raised with the responsible person or landlord/centre management as applicable.`
+      : isPreOpeningAssessment
       ? `The premises is being provided with an electronic fire detection and alarm system intended to align with BS 5839-1:2017 and the Regulatory Reform (Fire Safety) Order 2005, Article 13(1)(a). The system specification is a Grade A, Category L1, plus Type M fire alarm system, in line with Footasylum Ltd's standard specification for retail premises.
 At the time of the pre-opening inspection, the fire alarm panel, associated equipment and smoke detector heads were still subject to installation, commissioning and final handover verification. The system must be fully commissioned, tested, fault-free and supported by handover records before public trading commences.
 Manual call points are being provided throughout the premises and should be confirmed as visible, accessible, correctly signed and unobstructed once fit-out materials and contractor equipment have been removed.`
@@ -2267,7 +2358,9 @@ Manual call points are provided throughout the premises and are positioned in ac
     fireAlarmPanelLocationComment: !firePanelLocation?.value && !firePanelLocation?.comment ? 'Please add fire panel location' : null,
     fireAlarmPanelFaults: panelFaultsText,
     fireAlarmPanelFaultsComment: !firePanelFaults?.value && !firePanelFaults?.comment ? 'Please verify panel status' : null,
-    fireAlarmMaintenance: fireAlarmMaintenance?.comment || (isPreOpeningAssessment
+    fireAlarmMaintenance: fireAlarmMaintenance?.comment || (isBremontAssessment
+      ? 'Fire alarm testing, servicing and any landlord/centre interface arrangements should be confirmed and recorded as part of the local fire safety management system.'
+      : isPreOpeningAssessment
       ? 'Fire alarm commissioning, cause-and-effect checks, handover certification and the site testing regime must be completed and recorded before opening. Routine weekly testing should then be implemented from opening.'
       : 'Fire alarm servicing is completed at six-monthly intervals, in line with statutory and British Standard requirements.'),
 
@@ -2282,7 +2375,7 @@ The emergency lighting system was observed to be operational at the time of asse
     emergencyLightingMaintenance: emergencyLightingMaintenanceNarrative,
 
     // Portable Fire-Fighting Equipment
-    fireExtinguishersDescription: `Portable fire-fighting equipment is provided throughout the premises in appropriate locations, including near fire exits and areas of increased electrical risk. Fire extinguishers are suitable for the identified risks within the store environment and are mounted on brackets or stands with clear signage.
+    fireExtinguishersDescription: `Portable fire-fighting equipment is provided throughout the premises in appropriate locations, including near fire exits and areas of increased electrical risk. Fire extinguishers are suitable for the identified risks within the ${isBremontAssessment ? 'showroom/boutique environment' : 'store environment'} and are mounted on brackets or stands with clear signage.
 Fire extinguishers are subject to annual inspection and servicing by a suitably competent contractor in accordance with BS 5306.`,
     fireExtinguisherService: fireExtinguisherService?.comment || 'Fire extinguishers were observed to be in position, clearly visible and unobstructed.',
 
@@ -2297,20 +2390,36 @@ Sprinkler heads are installed throughout the premises in accordance with the ori
       : 'N/A - No sprinkler system installed',
 
     // Fire Hazards (Stage 1)
-    sourcesOfIgnition: [
-      'Electrical installations and equipment',
-      'Lighting and display lighting',
-      'Portable electrical equipment',
-      'Heat generated from electrical faults',
-      'Deliberate ignition (arson)'
-    ],
-    sourcesOfFuel: [
-      'Retail stock including clothing and footwear',
-      'Cardboard and packaging materials',
-      'Display fixtures and fittings',
-      'Office furniture and furnishings',
-      'Cleaning materials (low risk, non-flammable)'
-    ],
+    sourcesOfIgnition: isBremontAssessment
+      ? [
+        'Electrical installations and fixed wiring',
+        'Display lighting, illuminated cabinetry and showroom lighting',
+        'Portable electrical equipment, chargers, IT and security equipment',
+        'Heat generated from electrical faults',
+        'Deliberate ignition (arson)'
+      ]
+      : [
+        'Electrical installations and equipment',
+        'Lighting and display lighting',
+        'Portable electrical equipment',
+        'Heat generated from electrical faults',
+        'Deliberate ignition (arson)'
+      ],
+    sourcesOfFuel: isBremontAssessment
+      ? [
+        'Watch presentation boxes, packaging and cardboard',
+        'Display furniture, cabinetry and sales fixtures',
+        'Paper records, office materials and marketing literature',
+        'Soft furnishings or customer seating where provided',
+        'Cleaning materials (low risk, non-flammable)'
+      ]
+      : [
+        'Retail stock including clothing and footwear',
+        'Cardboard and packaging materials',
+        'Display fixtures and fittings',
+        'Office furniture and furnishings',
+        'Cleaning materials (low risk, non-flammable)'
+      ],
     sourcesOfOxygen: [
       'Natural airflow within the premises',
       'Mechanical ventilation systems',
@@ -2318,12 +2427,19 @@ Sprinkler heads are installed throughout the premises in accordance with the ori
     ],
 
     // People at Risk (Stage 2)
-    peopleAtRisk: [
-      'Employees – including full-time, part-time and temporary staff working within the store',
-      'Members of the public – customers and visitors present during trading hours',
-      'Contractors and visitors – including maintenance personnel and other third parties who may be unfamiliar with the premises',
-      'Young persons – where employed, subject to appropriate risk assessment and controls'
-    ],
+    peopleAtRisk: isBremontAssessment
+      ? [
+        'Bremont Watches employees working within the showroom/boutique',
+        'Members of the public, customers and appointment visitors present during trading hours',
+        'Contractors, landlord representatives and maintenance personnel who may be unfamiliar with the premises',
+        'Young persons where employed, subject to appropriate risk assessment and controls'
+      ]
+      : [
+        'Employees – including full-time, part-time and temporary staff working within the store',
+        'Members of the public – customers and visitors present during trading hours',
+        'Contractors and visitors – including maintenance personnel and other third parties who may be unfamiliar with the premises',
+        'Young persons – where employed, subject to appropriate risk assessment and controls'
+      ],
 
     // Evidence-led narrative: escape routes (prefer reviewed/audit evidence first, then AI)
     escapeRoutesEvidence: escapeRoutesNarrativeFromAudit
@@ -2354,7 +2470,9 @@ Sprinkler heads are installed throughout the premises in accordance with the ori
       || null,
 
     // COSHH reference for Sources of fuel (brief; detail in H&S only)
-    sourcesOfFuelCoshhNote: 'Cleaning materials are low-risk and non-flammable. COSHH is managed under a separate assessment.',
+    sourcesOfFuelCoshhNote: isBremontAssessment
+      ? 'Cleaning materials should be held in small quantities, stored securely and managed under COSHH arrangements where applicable.'
+      : 'Cleaning materials are low-risk and non-flammable. COSHH is managed under a separate assessment.',
 
     // Significant Findings: prefer AI summary, then remove contradictions when a compartmentation defect exists.
     significantFindings: (() => {
@@ -2458,8 +2576,8 @@ Sprinkler heads are installed throughout the premises in accordance with the ori
     actionPlanItems: (() => {
       const edited = (editedExtractedData as any)?.actionPlanItems
       if (edited && Array.isArray(edited) && edited.length > 0) {
-        const keepDoorOpenActions = fireFindings.fire_doors_held_open || fireFindings.fire_doors_blocked
-        const doorOpenActionPattern = /\bfire doors?\b.*\b(held open|blocked|obstruct|compartmentation)\b|\b(held open|blocked|obstruct)\b.*\bfire doors?\b/
+        const keepDoorOpenActions = minorFireDoorManagementIssue || fireFindings.fire_doors_held_open || fireFindings.fire_doors_blocked
+        const doorOpenActionPattern = /\bfire doors?\b.*\b(held open|blocked|obstruct|propped open|closed|compartmentation|smoke control|door management)\b|\b(held open|blocked|obstruct|propped open|closed|door management)\b.*\bfire doors?\b/
         const trainingActionPattern = /\b(training|toolbox refresher|100%\s*completion|completion rate)\b/
         const normalized = [...edited].filter((item: any) => {
           const recommendation = String(item?.recommendation || '').toLowerCase()
@@ -2483,7 +2601,12 @@ Sprinkler heads are installed throughout the premises in accordance with the ori
             recommendation: obstructedRoutesActionText,
           })
         }
-        if ((fireFindings.fire_doors_held_open || fireFindings.fire_doors_blocked) && !hasAction(/\bfire doors?\b.*\b(held open|blocked|obstruct|compartmentation)\b/)) {
+        if (minorFireDoorManagementIssue && !hasAction(/\bfire doors?\b.*\b(held open|blocked|obstruct|propped open|closed|door management|compartmentation)\b|\b(propped open|kept closed|door management)\b.*\bfire doors?\b/)) {
+          normalized.unshift({
+            priority: 'Low',
+            recommendation: 'Ensure the internal fire door is kept closed and is not propped open. Reinforce this through routine management checks and staff reminders.',
+          })
+        } else if ((fireFindings.fire_doors_held_open || fireFindings.fire_doors_blocked) && !hasAction(/\bfire doors?\b.*\b(held open|blocked|obstruct|compartmentation)\b/)) {
           normalized.unshift({
             priority: 'High',
             recommendation: 'Fire doors were observed held open and/or blocked. Reinstate effective door management immediately to maintain compartmentation and smoke control.',
@@ -2528,7 +2651,13 @@ Sprinkler heads are installed throughout the premises in accordance with the ori
           recommendation: obstructedRoutesActionText,
         })
       }
-      if (fireFindings.fire_doors_held_open || fireFindings.fire_doors_blocked) {
+      if (minorFireDoorManagementIssue) {
+        derived.push({
+          priority: 'Low',
+          recommendation: 'Ensure the internal fire door is kept closed and is not propped open. Reinforce this through routine management checks and staff reminders.',
+          dueNote: 'Routine management checks',
+        })
+      } else if (fireFindings.fire_doors_held_open || fireFindings.fire_doors_blocked) {
         derived.push({
           priority: 'High',
           recommendation: 'Fire doors were observed held open and/or blocked. Reinstate effective door management immediately to maintain compartmentation and smoke control.',

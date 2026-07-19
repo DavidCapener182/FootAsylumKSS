@@ -92,6 +92,22 @@ describe('computeFRARiskRating', () => {
     })
   })
 
+  it('multiple critical assurance failures map to moderate harm and moderate risk', () => {
+    const result = computeFRARiskRating(
+      makeFindings({
+        housekeeping_good: false,
+        fire_alarm_tests_current: false,
+        extinguishers_serviced_current: false,
+      })
+    )
+
+    expect(result).toMatchObject({
+      likelihood: 'Normal',
+      consequence: 'Moderate Harm',
+      overall: 'Moderate',
+    })
+  })
+
   it('doors held open only maps to normal likelihood, moderate harm and moderate risk', () => {
     const result = computeFRARiskRating(
       makeFindings({
@@ -103,6 +119,36 @@ describe('computeFRARiskRating', () => {
       likelihood: 'Normal',
       consequence: 'Moderate Harm',
       overall: 'Moderate',
+    })
+  })
+
+  it('minor fire door management issue maps to low likelihood, slight harm and tolerable risk', () => {
+    const findings = makeFindings({
+      minor_fire_door_management_issue: true,
+    })
+    const result = computeFRARiskRating(findings)
+
+    expect(result).toMatchObject({
+      likelihood: 'Low',
+      consequence: 'Slight Harm',
+      overall: 'Tolerable',
+    })
+    expect(result.rationale.join(' ')).toContain('low-priority door-management observation')
+    expect(buildFRARiskSummary(findings, result)).toContain('low-priority fire door management observation')
+  })
+
+  it('minor-only fire door management issue remains low likelihood without an explicit housekeeping-good answer', () => {
+    const result = computeFRARiskRating(
+      makeFindings({
+        minor_fire_door_management_issue: true,
+        housekeeping_good: false,
+      })
+    )
+
+    expect(result).toMatchObject({
+      likelihood: 'Low',
+      consequence: 'Slight Harm',
+      overall: 'Tolerable',
     })
   })
 

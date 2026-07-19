@@ -156,7 +156,7 @@ body.fra-print-document .fra-front-page .fra-front-page-footer {
 
 /* Last page (Additional Site Pictures): body fills page so signature sits at bottom */
 body.fra-print-document .fra-last-page .fra-last-page-body {
-  min-height: 267mm !important;
+  min-height: 230mm !important;
 }
 body.fra-print-document .fra-last-page .fra-signature-block {
   margin-top: auto !important;

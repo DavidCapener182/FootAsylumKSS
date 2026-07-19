@@ -465,6 +465,20 @@
     padding: 0 !important;
   }
 
+  .fra-front-page .fra-kss-logo-cover {
+    display: block !important;
+    width: auto !important;
+    max-width: 42mm !important;
+    max-height: 14mm !important;
+    object-fit: contain !important;
+  }
+
+  .fra-front-page .fra-front-page-title-band {
+    margin-bottom: 6mm !important;
+    padding-top: 2mm !important;
+    padding-bottom: 2mm !important;
+  }
+
   .fra-travel-distances-tables {
     margin-top: 8px !important;
   }
@@ -509,6 +523,226 @@
     margin-top: 2px !important;
   }
   .fra-report-print-content { padding-bottom: 0 !important; }
+
+  .fra-site-toc-page .fra-photo-image-frame {
+    height: 32mm !important;
+    min-height: 32mm !important;
+    max-height: 32mm !important;
+  }
+  .fra-site-toc-page h2 {
+    margin-top: 3mm !important;
+    margin-bottom: 2mm !important;
+    font-size: 1rem !important;
+  }
+  .fra-site-toc-page p {
+    margin-bottom: 2mm !important;
+  }
+  .fra-site-toc-page .fra-toc-list {
+    font-size: 8.5pt !important;
+    line-height: 1.15 !important;
+  }
+  .fra-site-toc-page .fra-toc-list > * + * {
+    margin-top: 2px !important;
+  }
+
+  .fra-terms-page .space-y-4 {
+    font-size: 8.5pt !important;
+    line-height: 1.26 !important;
+  }
+  .fra-terms-page .space-y-4 > * + * {
+    margin-top: 5px !important;
+  }
+  .fra-terms-page h2 {
+    margin-bottom: 7px !important;
+  }
+  .fra-terms-page h3 {
+    margin-top: 7px !important;
+    margin-bottom: 3px !important;
+  }
+
+  .fra-about-property-page h2 {
+    margin-bottom: 6px !important;
+  }
+  .fra-about-property-page .fra-property-summary {
+    margin-bottom: 7px !important;
+  }
+  .fra-about-property-page .fra-property-summary td {
+    padding-top: 1px !important;
+    padding-bottom: 1px !important;
+    font-size: 8.5pt !important;
+  }
+  .fra-about-property-page .space-y-4 {
+    font-size: 8.2pt !important;
+    line-height: 1.18 !important;
+  }
+  .fra-about-property-page .space-y-4 > * + * {
+    margin-top: 5px !important;
+  }
+  .fra-about-property-page p.mt-4 {
+    margin-top: 5px !important;
+  }
+
+  .fra-access-page .fra-map-print {
+    max-height: 132mm !important;
+  }
+  .fra-access-page .fra-map-print .leaflet-container,
+  .fra-access-page .fra-map-print .fra-map-container {
+    height: 132mm !important;
+    max-height: 132mm !important;
+  }
+  .fra-access-page .space-y-4 > * + * {
+    margin-top: 7px !important;
+  }
+  .fra-access-page .fra-access-summary {
+    margin-top: 7px !important;
+    padding: 8px !important;
+  }
+
+  .fra-stage-three-page .fra-photo-block img {
+    max-height: 32mm !important;
+    width: auto !important;
+  }
+  .fra-stage-three-page .space-y-4 {
+    font-size: 8pt !important;
+    line-height: 1.16 !important;
+  }
+  .fra-stage-three-page .space-y-4 > * + * {
+    margin-top: 4px !important;
+  }
+  .fra-stage-three-page h2 {
+    margin-bottom: 3px !important;
+  }
+  .fra-stage-three-page .fra-photo-block {
+    height: 32mm !important;
+    min-height: 32mm !important;
+    margin-top: 4px !important;
+  }
+
+  .fra-fire-plan-page .fra-figure img {
+    max-height: 58mm !important;
+    object-fit: contain !important;
+  }
+  .fra-fire-plan-page .fra-photo-image-frame {
+    height: 48mm !important;
+    min-height: 48mm !important;
+    max-height: 48mm !important;
+  }
+  .fra-fire-management-page .fra-section-with-figure {
+    margin-top: 0 !important;
+  }
+  .fra-fire-management-page .fra-section-with-figure img {
+    max-height: 42mm !important;
+    object-fit: contain !important;
+  }
+  .fra-fire-management-page .space-y-6 {
+    font-size: 8pt !important;
+    line-height: 1.16 !important;
+  }
+  .fra-fire-management-page .space-y-6 > * + * {
+    margin-top: 5px !important;
+  }
+  .fra-fire-management-page .fra-section-with-figure p,
+  .fra-fire-management-page > p {
+    font-size: 8pt !important;
+    line-height: 1.16 !important;
+    margin-bottom: 5px !important;
+  }
+  .fra-fire-management-page .mt-8 {
+    margin-top: 6px !important;
+  }
+  .fra-fire-management-page table th,
+  .fra-fire-management-page table td {
+    padding: 3px 5px !important;
+  }
+
+  .fra-main-report-page .fra-photo-image-frame {
+    height: 34mm !important;
+    min-height: 34mm !important;
+    max-height: 34mm !important;
+  }
+  .fra-main-report-page .space-y-6 {
+    font-size: 7.2pt !important;
+    line-height: 1.1 !important;
+  }
+  .fra-main-report-page .space-y-6 > * + * {
+    margin-top: 5px !important;
+  }
+  .fra-main-report-page .space-y-6 p.mt-4,
+  .fra-main-report-page .space-y-6 ul.mt-4 {
+    margin-top: 5px !important;
+  }
+  .fra-main-report-page .space-y-6 p.mt-2,
+  .fra-main-report-page .space-y-6 ul.mt-2 {
+    margin-top: 3px !important;
+  }
+  .fra-main-report-page .space-y-6 li {
+    line-height: 1.08 !important;
+  }
+
+  .fra-electrical-testing-page .space-y-8 {
+    font-size: 8pt !important;
+    line-height: 1.15 !important;
+  }
+  .fra-electrical-testing-page .space-y-8 > * + * {
+    margin-top: 8px !important;
+  }
+  .fra-electrical-testing-page .mt-4 {
+    margin-top: 5px !important;
+  }
+  .fra-electrical-testing-page .fra-photo-image-frame {
+    height: 38mm !important;
+    min-height: 38mm !important;
+    max-height: 38mm !important;
+  }
+  .fra-electrical-testing-page .fra-photo-block img {
+    max-height: 38mm !important;
+    object-fit: contain !important;
+  }
+
+  .fra-risk-rating-page h2 {
+    margin-bottom: 8px !important;
+    font-size: 1rem !important;
+  }
+  .fra-risk-rating-page h3 {
+    margin-bottom: 5px !important;
+  }
+  .fra-risk-rating-page p {
+    margin-bottom: 6px !important;
+    line-height: 1.35 !important;
+  }
+  .fra-risk-rating-page figure {
+    margin-bottom: 8px !important;
+  }
+  .fra-risk-rating-page table {
+    font-size: 9pt !important;
+  }
+  .fra-risk-rating-page table th,
+  .fra-risk-rating-page table td {
+    padding: 3px 6px !important;
+  }
+  .fra-risk-rating-page figcaption,
+  .fra-risk-rating-page figure p {
+    margin-top: 3px !important;
+    margin-bottom: 0 !important;
+  }
+  .fra-risk-rating-page .space-y-6 > * + * {
+    margin-top: 10px !important;
+  }
+  .fra-risk-rating-page ul {
+    margin-top: 4px !important;
+  }
+  .fra-risk-rating-page li {
+    margin-top: 2px !important;
+    line-height: 1.35 !important;
+  }
+  .fra-risk-rating-page .fra-risk-overall-repeat {
+    display: none !important;
+  }
+
+  .fra-last-page {
+    break-after: auto !important;
+    page-break-after: auto !important;
+  }
 
   /* Only avoid break for small items (signatures, small blocks). Broad wrappers like .bg-slate-50 cause clipping. */
   .avoid-break {
@@ -629,50 +863,53 @@
   .fra-print-table td { display: table-cell !important; }
 }
 
-/* Print preview mode – show header/footer on screen (class on report wrapper) */
-.fra-report-print-wrapper.fra-print-preview-mode .fra-report-print-header,
-.fra-report-print-wrapper.fra-print-preview-mode .fra-report-print-footer {
-  display: flex !important;
-}
+/* Print preview mode – show fixed header/footer on screen only. In PDF/print the
+   footer must be supplied by the print renderer so it reserves page space. */
+@media screen {
+  .fra-report-print-wrapper.fra-print-preview-mode .fra-report-print-header,
+  .fra-report-print-wrapper.fra-print-preview-mode .fra-report-print-footer {
+    display: flex !important;
+  }
 
-.fra-report-print-wrapper.fra-print-preview-mode .fra-report-print-header {
-  position: fixed;
-  top: 48px; /* below the preview toolbar */
-  left: 0;
-  right: 0;
-  height: 44px;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 18mm;
-  font-size: 11pt;
-  font-weight: 600;
-  color: #0f172a;
-  border-bottom: 1px solid #cbd5e1;
-  background: #fff;
-  z-index: 9999;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-}
+  .fra-report-print-wrapper.fra-print-preview-mode .fra-report-print-header {
+    position: fixed;
+    top: 48px; /* below the preview toolbar */
+    left: 0;
+    right: 0;
+    height: 44px;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 18mm;
+    font-size: 11pt;
+    font-weight: 600;
+    color: #0f172a;
+    border-bottom: 1px solid #cbd5e1;
+    background: #fff;
+    z-index: 9999;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
 
-.fra-report-print-wrapper.fra-print-preview-mode .fra-report-print-footer {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 28px;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 18mm;
-  font-size: 9pt;
-  color: #64748b;
-  border-top: 1px solid #cbd5e1;
-  background: #fff;
-  z-index: 9999;
-  box-shadow: 0 -1px 3px rgba(0,0,0,0.08);
-}
+  .fra-report-print-wrapper.fra-print-preview-mode .fra-report-print-footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 28px;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 18mm;
+    font-size: 9pt;
+    color: #64748b;
+    border-top: 1px solid #cbd5e1;
+    background: #fff;
+    z-index: 9999;
+    box-shadow: 0 -1px 3px rgba(0,0,0,0.08);
+  }
 
-.fra-report-print-wrapper.fra-print-preview-mode .fra-report-print-content {
-  padding-top: 92px; /* 48px toolbar + 44px header */
-  padding-bottom: 36px;
+  .fra-report-print-wrapper.fra-print-preview-mode .fra-report-print-content {
+    padding-top: 92px; /* 48px toolbar + 44px header */
+    padding-bottom: 36px;
+  }
 }
 
 body.fra-print-preview .fra-preview-hide-toolbar {

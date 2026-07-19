@@ -34,8 +34,10 @@ import {
   getTemplates, 
   getTemplate, 
   createTemplate,
+  ensureBremontWatchesFRATemplate,
   ensureNewStoreFRATemplate,
   createAuditInstance,
+  prepareBremontWatchesFRAInstance,
   prepareNewStoreFRAInstance,
   getAuditHistory,
   deleteAuditInstance,
@@ -46,6 +48,12 @@ import {
   completeAudit,
   getAuditDashboardData
 } from '@/app/actions/safehub'
+import {
+  BREMONT_WATCHES_FRA_TEMPLATE,
+  NEW_STORE_FRA_TEMPLATE,
+  getManagedFRATemplateDefinition,
+  isFireRiskAssessmentCategory,
+} from '@/lib/fra/template-profiles'
 
 type ViewState = 'templates' | 'template-builder' | 'active-audits' | 'audit-form' | 'audit-execution' | 'audit-history'
 
@@ -57,8 +65,6 @@ interface Template {
   created_at: string
   is_active: boolean
 }
-
-const NEW_STORE_FRA_TEMPLATE_TITLE = 'New Store Fire Risk Assessment'
 
 const getTemplateDisplayTitle = (template: { title?: string; category?: string }) => {
   if (template.category === 'footasylum_audit') {
@@ -100,15 +106,16 @@ const getTemplateTheme = (category?: string) => {
   }
 }
 
-const isFireRiskAssessmentCategory = (category?: string | null): boolean => {
-  if (!category) return false
-  const normalized = String(category).trim().toLowerCase().replace(/[\s-]+/g, '_')
-  return normalized === 'fire_risk_assessment' || normalized === 'fire_risk'
+const isNewStoreFRATemplate = (template?: { title?: string | null; category?: string | null } | null): boolean => {
+  return getManagedFRATemplateDefinition(template)?.kind === 'new_store'
 }
 
-const isNewStoreFRATemplate = (template?: { title?: string | null; category?: string | null } | null): boolean => {
-  if (!template || !isFireRiskAssessmentCategory(template.category)) return false
-  return String(template.title || '').trim().toLowerCase() === NEW_STORE_FRA_TEMPLATE_TITLE.toLowerCase()
+const isBremontWatchesFRATemplate = (template?: { title?: string | null; category?: string | null } | null): boolean => {
+  return getManagedFRATemplateDefinition(template)?.kind === 'bremont_watches'
+}
+
+const isPreparedFRATemplate = (template?: { title?: string | null; category?: string | null } | null): boolean => {
+  return getManagedFRATemplateDefinition(template) !== null
 }
 
 const toTitleCase = (value: string): string =>
@@ -1068,8 +1075,10 @@ function TemplatesLibraryView({
   const [seeding, setSeeding] = useState(false)
   const [creatingFRA, setCreatingFRA] = useState(false)
   const [creatingNewStoreFRA, setCreatingNewStoreFRA] = useState(false)
-  const hasFRATemplate = templates.some((template) => template.category === 'fire_risk_assessment' && !isNewStoreFRATemplate(template))
+  const [creatingBremontFRA, setCreatingBremontFRA] = useState(false)
+  const hasFRATemplate = templates.some((template) => template.category === 'fire_risk_assessment' && !isPreparedFRATemplate(template))
   const hasNewStoreFRATemplate = templates.some(isNewStoreFRATemplate)
+  const hasBremontFRATemplate = templates.some(isBremontWatchesFRATemplate)
   const visibleTemplates = templates.filter((template) => template.category !== 'footasylum_audit')
 
   const handleSeedFootAsylumTemplate = async () => {
@@ -1152,6 +1161,20 @@ function TemplatesLibraryView({
       alert(`Failed to prepare new store FRA template: ${error.message || 'Unknown error'}`)
     } finally {
       setCreatingNewStoreFRA(false)
+    }
+  }
+
+  const handleStartBremontFRA = async () => {
+    try {
+      setCreatingBremontFRA(true)
+      const template = await ensureBremontWatchesFRATemplate()
+      if (onTemplatesReload) onTemplatesReload()
+      onTemplateClick(template.id)
+    } catch (error: any) {
+      console.error('Error preparing Bremont Watches FRA template:', error)
+      alert(`Failed to prepare Bremont Watches FRA template: ${error.message || 'Unknown error'}`)
+    } finally {
+      setCreatingBremontFRA(false)
     }
   }
 
@@ -1257,16 +1280,16 @@ function TemplatesLibraryView({
               <CardHeader className="rounded-t-lg bg-teal-50/70 p-3 md:p-6">
                 <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                   <CardTitle className="min-w-0 break-words text-lg font-extrabold tracking-tight text-slate-900 sm:text-xl">
-                    {NEW_STORE_FRA_TEMPLATE_TITLE}
+                    {NEW_STORE_FRA_TEMPLATE.title}
                   </CardTitle>
                   <Badge variant="outline" className="w-fit max-w-full shrink whitespace-normal break-words border-teal-200 bg-teal-50 text-left text-teal-700 sm:ml-2 sm:shrink-0">
-                    pre-opening FRA
+                    {NEW_STORE_FRA_TEMPLATE.badgeLabel}
                   </Badge>
                 </div>
               </CardHeader>
               <CardContent className="p-3 pt-0 md:p-6 md:pt-0">
                 <p className="mb-4 text-sm text-slate-600">
-                  Pre-opening Fire Risk Assessment for new stores before they open to the public.
+                  {NEW_STORE_FRA_TEMPLATE.description}
                 </p>
                 <div className="flex flex-col gap-3 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between">
                   <span>Created on first use</span>
@@ -1277,6 +1300,42 @@ function TemplatesLibraryView({
                     className="w-full min-w-0 justify-center text-teal-700 sm:w-auto"
                   >
                     {creatingNewStoreFRA ? (
+                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                    ) : null}
+                    Start Audit <ChevronRight className="h-3 w-3 ml-1" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+          {!hasBremontFRATemplate && (
+            <Card
+              className="w-full min-w-0 max-w-full cursor-pointer overflow-hidden border-l-4 border-l-amber-500 transition-shadow hover:shadow-lg"
+              onClick={handleStartBremontFRA}
+            >
+              <CardHeader className="rounded-t-lg bg-amber-50/70 p-3 md:p-6">
+                <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <CardTitle className="min-w-0 break-words text-lg font-extrabold tracking-tight text-slate-900 sm:text-xl">
+                    {BREMONT_WATCHES_FRA_TEMPLATE.title}
+                  </CardTitle>
+                  <Badge variant="outline" className="w-fit max-w-full shrink whitespace-normal break-words border-amber-200 bg-amber-50 text-left text-amber-700 sm:ml-2 sm:shrink-0">
+                    {BREMONT_WATCHES_FRA_TEMPLATE.badgeLabel}
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="p-3 pt-0 md:p-6 md:pt-0">
+                <p className="mb-4 text-sm text-slate-600">
+                  {BREMONT_WATCHES_FRA_TEMPLATE.description}
+                </p>
+                <div className="flex flex-col gap-3 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+                  <span>Created on first use</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={creatingBremontFRA}
+                    className="w-full min-w-0 justify-center text-amber-700 sm:w-auto"
+                  >
+                    {creatingBremontFRA ? (
                       <Loader2 className="h-3 w-3 mr-1 animate-spin" />
                     ) : null}
                     Start Audit <ChevronRight className="h-3 w-3 ml-1" />
@@ -1428,19 +1487,21 @@ function AuditFormView({
   }, [templateId])
 
   const isNewStoreFRA = isNewStoreFRATemplate(template)
+  const isBremontFRA = isBremontWatchesFRATemplate(template)
+  const isPreparedFRA = isPreparedFRATemplate(template)
 
   useEffect(() => {
     loadStores()
   }, [template?.category, template?.title])
 
   useEffect(() => {
-    if (selectedStoreId && !isNewStoreFRA) {
+    if (selectedStoreId && !isPreparedFRA) {
       loadPreviousFailures(selectedStoreId)
     } else {
       setPreviousFailures({})
       setPreviousAuditDate(null)
     }
-  }, [selectedStoreId, templateId, isNewStoreFRA])
+  }, [selectedStoreId, templateId, isPreparedFRA])
 
   const loadTemplate = async () => {
     try {
@@ -1471,7 +1532,7 @@ function AuditFormView({
       if (!error && data) {
         if (template?.category === 'fire_risk_assessment') {
           const eligible = data.filter((store) => {
-            if (isNewStoreFRA) {
+            if (isPreparedFRA) {
               return true
             }
 
@@ -1516,6 +1577,9 @@ function AuditFormView({
         if (isNewStoreFRA) {
           await prepareNewStoreFRAInstance(instance.id)
           console.log('[AUDIT-LAB] New store FRA instance prepared with pre-opening defaults.')
+        } else if (isBremontFRA) {
+          await prepareBremontWatchesFRAInstance(instance.id)
+          console.log('[AUDIT-LAB] Bremont Watches FRA instance prepared with showroom defaults.')
         } else if (hsAuditPastedText.trim()) {
           setUploadingHSAudit(true)
           try {
@@ -1696,7 +1760,7 @@ function AuditFormView({
             </select>
           </div>
 
-          {selectedStoreId && !isNewStoreFRA && (
+          {selectedStoreId && !isPreparedFRA && (
             <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
               {loadingPrevious && (
                 <div className="flex items-center gap-2 text-sm text-slate-600">
@@ -1738,8 +1802,14 @@ function AuditFormView({
             </div>
           )}
 
+          {isBremontFRA && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+              This flow is for Bremont Watches assessments. It starts the same FRA report and photo workflow, with Bremont showroom/boutique wording and no requirement for a Footasylum H&S audit.
+            </div>
+          )}
+
           {/* H&S Audit text input for FRA */}
-          {template?.category === 'fire_risk_assessment' && !isNewStoreFRA && (
+          {template?.category === 'fire_risk_assessment' && !isPreparedFRA && (
             <div className="pt-4 border-t space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
