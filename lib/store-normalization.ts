@@ -155,6 +155,13 @@ export function isClosedStoreName(storeName: string | null | undefined): boolean
   return CLOSED_STORE_NAMES.has(normalizeStoreName(storeName))
 }
 
+export function isBremontStore(store: StoreNormalizationInput): boolean {
+  return (
+    normalizeStoreCode(store.store_code).startsWith('BREMONT-') ||
+    normalizeStoreName(store.store_name).startsWith('bremont ')
+  )
+}
+
 function hasLocationFieldsInShape(store: StoreNormalizationInput): boolean {
   return ['address_line_1', 'city', 'postcode', 'latitude', 'longitude']
     .some((key) => Object.prototype.hasOwnProperty.call(store, key))
@@ -186,6 +193,7 @@ export function applyStoreCoordinateOverride<T extends StoreNormalizationInput>(
 export function shouldHideStore(store: StoreNormalizationInput): boolean {
   if (shouldAlwaysIncludeStore(store)) return false
   if (store.is_active === false) return true
+  if (isBremontStore(store)) return true
   if (isExtStoreCode(store.store_code)) return true
   if (isUnknownImportedStore(store.store_name)) return true
   if (isClosedStoreName(store.store_name)) return true
