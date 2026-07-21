@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { requireRole } from '@/lib/auth'
 import { RoutePlanningClient } from '@/components/route-planning/route-planning-client'
 import { applyStoreCoordinateOverride, shouldAlwaysIncludeStore, shouldHideStore } from '@/lib/store-normalization'
+import { hasCompletedSecondAudit } from '@/lib/route-planning-store-eligibility'
 
 async function getRoutePlanningData() {
   const supabase = createClient()
@@ -100,8 +101,8 @@ async function getRoutePlanningData() {
     console.error('Error fetching profiles:', profilesError)
   }
 
-  // Filter out closed/excluded stores and stores that have completed Audit 1 with score >= 80% within the last month.
-  // These stores don't need a second audit for 1 month.
+  // Filter out closed/excluded stores, completed second audits, and stores that have completed
+  // Audit 1 with score >= 80% within the last month.
   const storesWithCoordinates = (stores || []).map((store: any) => applyStoreCoordinateOverride(store))
 
   const filteredStores = storesWithCoordinates.filter((store: any) => {
@@ -110,6 +111,12 @@ async function getRoutePlanningData() {
     }
 
     if (shouldHideStore(store)) {
+      return false
+    }
+
+    // Route planning is for outstanding second audits. Once Audit 2 has been completed,
+    // the store must not return to the planner regardless of how old that audit is.
+    if (hasCompletedSecondAudit(store)) {
       return false
     }
 

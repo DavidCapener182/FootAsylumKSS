@@ -44,6 +44,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { RouteDirectionsModal } from './route-directions-modal'
 import { getInternalAreaDisplayName, MULTI_AREA_REGION } from '@/lib/areas'
 import { cn, getDisplayStoreCode } from '@/lib/utils'
+import { hasCompletedSecondAudit } from '@/lib/route-planning-store-eligibility'
 
 // Dynamically import the map component to avoid SSR issues
 const MapComponent = dynamic(() => import('./map-component'), { ssr: false })
@@ -219,17 +220,17 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
     return Array.from(areas).sort()
   }, [stores])
 
-  // Filter stores available for planning (not planned, not completed within 1 month, not completed today)
+  // Filter stores available for planning (not planned, no completed second audit, not completed today)
   const storesAvailableForPlanning = useMemo<Store[]>(() => {
-    const oneMonthAgo = new Date()
-    oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1)
-    oneMonthAgo.setHours(0, 0, 0, 0) // Start of day
     const today = new Date()
     today.setHours(0, 0, 0, 0) // Start of today
     
     return stores.filter(s => {
       // Hide stores that have been planned (for map display only)
       if (s.compliance_audit_2_planned_date) return false
+
+      // A completed second audit permanently removes the store from future route planning.
+      if (hasCompletedSecondAudit(s)) return false
       
       // Hide stores that completed audit 1 TODAY (2026) - they just finished, so hide them
       // We're starting fresh for 2026, so we only care about 2026 audit dates
@@ -252,19 +253,6 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
             })
           }
           return false // Hide stores that completed audit 1 today
-        }
-      }
-      
-      // Hide stores that completed audit 2 from 2025 within the last month
-      // (But we're starting fresh for 2026, so this is mainly for stores that completed audit 2 recently)
-      if (s.compliance_audit_2_date) {
-        const audit2Date = new Date(s.compliance_audit_2_date)
-        audit2Date.setHours(0, 0, 0, 0)
-        
-        // Only hide if audit 2 was completed within last month (from 2025)
-        // This ensures stores that recently completed audit 2 are hidden
-        if (audit2Date >= oneMonthAgo) {
-          return false
         }
       }
       

@@ -65,6 +65,7 @@ export async function saveComplianceAudit(input: SaveComplianceAuditInput) {
 
   revalidatePath('/audit-tracker')
   revalidatePath('/dashboard')
+  revalidatePath('/route-planning')
   revalidatePath(`/stores/${input.storeId}`)
 
   return data
