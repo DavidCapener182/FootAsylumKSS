@@ -44,6 +44,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { RouteDirectionsModal } from './route-directions-modal'
 import { getInternalAreaDisplayName, MULTI_AREA_REGION } from '@/lib/areas'
 import { cn, getDisplayStoreCode } from '@/lib/utils'
+import { canCreateRoute as isRouteCreationReady, getRouteCreationBlocker } from '@/lib/route-creation-eligibility'
 import { hasCompletedSecondAudit } from '@/lib/route-planning-store-eligibility'
 
 // Dynamically import the map component to avoid SSR issues
@@ -157,7 +158,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
   
   // Route creation state
   const [routeManager, setRouteManager] = useState<string | undefined>(undefined)
-  const [routeDate, setRouteDate] = useState<string>('')
+  const [routeDate, setRouteDate] = useState<string>(getTodayDateInputValue)
   const [routeArea, setRouteArea] = useState<string | null>(null)
   const [routeSelectedStores, setRouteSelectedStores] = useState<Set<string>>(new Set())
   const [routeStopLimit, setRouteStopLimit] = useState<number>(3)
@@ -803,20 +804,15 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
   }
 
   const handleCreateRoute = async () => {
-    if (!routeManager) {
-      setRouteValidationHint('Select a manager before creating the route.')
-      return
-    }
-    if (!routeDate) {
-      setRouteValidationHint('Select a route date before creating the route.')
-      return
-    }
-    if (routeSelectedStores.size === 0) {
-      setRouteValidationHint('Select at least one store before creating the route.')
-      return
-    }
-    if (routeSelectedStores.size > routeStopLimit) {
-      setRouteValidationHint(`Maximum ${routeStopLimit} stores per day. Deselect stores before creating the route.`)
+    const routeCreationBlocker = getRouteCreationBlocker({
+      routeManager,
+      routeDate,
+      selectedStopCount: routeSelectedStores.size,
+      stopLimit: routeStopLimit,
+      isCreatingRoute,
+    })
+    if (routeCreationBlocker || !routeManager) {
+      setRouteValidationHint(routeCreationBlocker || 'Select a manager to create the route.')
       return
     }
 
@@ -1050,7 +1046,20 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
   const managerCount = profiles.length
   const storesInRouteAreaMissingCoordsCount = storesInRouteArea.length - storesInRouteAreaWithLocations.length
   const canOptimizeRoute = Boolean(routeManager) && storesInRouteAreaWithLocations.length >= 2 && !isOptimizing
-  const canCreateRoute = Boolean(routeManager && routeDate && routeSelectedStores.size > 0 && routeSelectedStores.size <= routeStopLimit && !isCreatingRoute)
+  const routeCreationBlocker = getRouteCreationBlocker({
+    routeManager,
+    routeDate,
+    selectedStopCount: routeSelectedStores.size,
+    stopLimit: routeStopLimit,
+    isCreatingRoute,
+  })
+  const canCreateRoute = isRouteCreationReady({
+    routeManager,
+    routeDate,
+    selectedStopCount: routeSelectedStores.size,
+    stopLimit: routeStopLimit,
+    isCreatingRoute,
+  })
 
   return (
     <div className="space-y-3 sm:space-y-6">
@@ -1539,7 +1548,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
                       : 'No stores selected'}
                   </span>
                   <span className={cn('text-xs font-medium', canCreateRoute ? 'text-emerald-700' : 'text-slate-500')}>
-                    {canCreateRoute ? 'Ready to create route' : 'Manager, date and at least one store required'}
+                    {canCreateRoute ? 'Ready to create route' : routeCreationBlocker}
                   </span>
                 </div>
                 {routeSelectedStoreList.length > 0 ? (
