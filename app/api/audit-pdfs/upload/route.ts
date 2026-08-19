@@ -6,7 +6,7 @@ const MAX_AUDIT_PDF_SIZE_BYTES = 500 * 1024 * 1024
 
 export async function POST(request: NextRequest) {
   try {
-    await requirePermission('manageAudits')
+    const { supabase } = await requirePermission('manageAudits')
     const adminSupabase = createAdminSupabaseClient()
 
     const formData = await request.formData()
@@ -49,7 +49,10 @@ export async function POST(request: NextRequest) {
       ? 'compliance_audit_1_pdf_path' 
       : 'compliance_audit_2_pdf_path'
 
-    const { error: updateError } = await adminSupabase
+    // Keep the database mutation on the authenticated client so RLS applies
+    // and the audit trigger can attribute the write through auth.uid(). The
+    // service-role client is intentionally restricted to storage operations.
+    const { error: updateError } = await supabase
       .from('fa_stores')
       .update({ [pdfColumn]: filePath })
       .eq('id', storeId)

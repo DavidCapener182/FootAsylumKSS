@@ -152,6 +152,7 @@ export function EmpEventDayAdminClient({ initialData }: { initialData: EmpEventD
   const [message, setMessage] = useState<string | null>(null)
   const [rawToken, setRawToken] = useState<string | null>(null)
   const [settingsLabel, setSettingsLabel] = useState(initialData.settings.kioskLabel || '')
+  const [settingsPin, setSettingsPin] = useState('')
   const [walkUp, setWalkUp] = useState({ staffName: '', agency: '', position: '', area: '', notes: '' })
   const [equipmentShift, setEquipmentShift] = useState<EmpEventDayStaffShift | null>(null)
   const [clockDialog, setClockDialog] = useState<{
@@ -193,6 +194,7 @@ export function EmpEventDayAdminClient({ initialData }: { initialData: EmpEventD
   }, [operationalShifts, data.settings.timezone])
   const effectiveDay = selectedDay || dayOptions[0]?.key || ''
   const selectedMealDate = effectiveDay && effectiveDay !== 'unscheduled' ? effectiveDay : today
+  const kioskEventDate = effectiveDay && effectiveDay !== 'unscheduled' ? effectiveDay : null
   const visibleShifts = useMemo(() => {
     if (!effectiveDay) return operationalShifts
     return operationalShifts.filter((shift) => shiftDayKey(shift, data.settings.timezone) === effectiveDay)
@@ -330,6 +332,8 @@ export function EmpEventDayAdminClient({ initialData }: { initialData: EmpEventD
           action: 'rotate',
           kioskLabel: settingsLabel,
           timezone: data.settings.timezone,
+          eventDate: kioskEventDate,
+          ...(settingsPin.trim() ? { pin: settingsPin.trim() } : {}),
         }),
       })
     const body = await response.json()
@@ -339,6 +343,7 @@ export function EmpEventDayAdminClient({ initialData }: { initialData: EmpEventD
     if (!token) throw new Error('Kiosk token failed')
     setRawToken(token)
     storeTabletToken(data.plan.id, token)
+    setSettingsPin('')
     await refresh()
     return token
   }
@@ -349,7 +354,7 @@ export function EmpEventDayAdminClient({ initialData }: { initialData: EmpEventD
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({}),
     })
-    return response.ok
+    return response.ok || (response.status === 401 && data.settings.hasKioskPin)
   }
 
   async function getTabletToken() {
@@ -367,6 +372,40 @@ export function EmpEventDayAdminClient({ initialData }: { initialData: EmpEventD
   async function rotateKioskToken() {
     await runAction(async () => {
       await generateTabletToken()
+    })
+  }
+
+  async function removeKioskPin() {
+    const confirmed = window.confirm('Remove the shared kiosk PIN from the current tablet login?')
+    if (!confirmed) return
+    await runAction(async () => {
+      const response = await fetch(`/api/emp/event-day/${data.plan.id}/settings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clearPin: true }),
+      })
+      const body = await response.json()
+      if (!response.ok) throw new Error(body.error || 'Kiosk PIN removal failed')
+      setSettingsPin('')
+      await refresh()
+    })
+  }
+
+  async function revokeKioskAccess() {
+    const confirmed = window.confirm('Revoke this tablet login? The current URL will stop working permanently.')
+    if (!confirmed) return
+    await runAction(async () => {
+      const response = await fetch(`/api/emp/event-day/${data.plan.id}/settings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'revoke' }),
+      })
+      const body = await response.json()
+      if (!response.ok) throw new Error(body.error || 'Kiosk revocation failed')
+      window.localStorage.removeItem(`emp-event-day-tablet-lock:${data.plan.id}`)
+      clearStoredTabletToken(data.plan.id)
+      setRawToken(null)
+      await refresh()
     })
   }
 
@@ -388,7 +427,6 @@ export function EmpEventDayAdminClient({ initialData }: { initialData: EmpEventD
     })
   }
 
-  const kioskEventDate = effectiveDay && effectiveDay !== 'unscheduled' ? effectiveDay : null
   const kioskUrl = rawToken && typeof window !== 'undefined'
     ? (() => {
         const url = new URL(`/event-day/${rawToken}`, window.location.origin)
@@ -564,13 +602,24 @@ export function EmpEventDayAdminClient({ initialData }: { initialData: EmpEventD
                       <Label>Tablet label</Label>
                       <Input value={settingsLabel} onChange={(event) => setSettingsLabel(event.target.value)} placeholder="Gate iPad, Control desk" />
                     </div>
+                    <div className="space-y-2">
+                      <Label>New shared PIN (optional)</Label>
+                      <Input
+                        type="password"
+                        inputMode="numeric"
+                        autoComplete="new-password"
+                        value={settingsPin}
+                        onChange={(event) => setSettingsPin(event.target.value.replace(/\D/g, '').slice(0, 12))}
+                        placeholder={data.settings.hasKioskPin ? 'Leave blank to keep current PIN' : 'At least 4 digits'}
+                      />
+                    </div>
                   </div>
                   <div className="flex items-center justify-between rounded-md bg-slate-50 px-3 py-2 text-sm">
                     <span>Status</span>
                     <strong>{tabletLoginEnabled ? 'Enabled' : 'Disabled'}</strong>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <Button type="button" onClick={rotateKioskToken} disabled={isBusy}>
+                    <Button type="button" onClick={rotateKioskToken} disabled={isBusy || !kioskEventDate}>
                       <RotateCcw className="mr-2 h-4 w-4" />
                       Generate tablet login
                     </Button>
@@ -585,6 +634,11 @@ export function EmpEventDayAdminClient({ initialData }: { initialData: EmpEventD
                     <Button type="button" variant="outline" onClick={() => toggleKiosk(!data.settings.kioskEnabled)} disabled={isBusy || !data.settings.hasKioskToken}>
                       {data.settings.kioskEnabled ? 'Switch off' : 'Switch on'}
                     </Button>
+                    {data.settings.hasKioskToken ? (
+                      <Button type="button" variant="destructive" onClick={revokeKioskAccess} disabled={isBusy}>
+                        Revoke login
+                      </Button>
+                    ) : null}
                   </div>
                   {kioskUrl ? (
                     <a className="inline-flex break-all text-sm font-medium text-emerald-800 underline" href={kioskUrl} target="_blank" rel="noreferrer">
@@ -721,7 +775,18 @@ export function EmpEventDayAdminClient({ initialData }: { initialData: EmpEventD
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid gap-3 md:grid-cols-2">
+                <div className="grid gap-3 md:grid-cols-3">
+                  <div className="space-y-2">
+                    <Label>New shared PIN (optional)</Label>
+                    <Input
+                      type="password"
+                      inputMode="numeric"
+                      autoComplete="new-password"
+                      value={settingsPin}
+                      onChange={(event) => setSettingsPin(event.target.value.replace(/\D/g, '').slice(0, 12))}
+                      placeholder={data.settings.hasKioskPin ? 'Leave blank to keep current PIN' : 'At least 4 digits'}
+                    />
+                  </div>
                   <div className="space-y-2">
                     <Label>Kiosk label</Label>
                     <Input value={settingsLabel} onChange={(event) => setSettingsLabel(event.target.value)} placeholder="Gate iPad, Control desk" />
@@ -735,7 +800,7 @@ export function EmpEventDayAdminClient({ initialData }: { initialData: EmpEventD
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <Button type="button" onClick={rotateKioskToken} disabled={isBusy}>
+                  <Button type="button" onClick={rotateKioskToken} disabled={isBusy || !kioskEventDate}>
                     <RotateCcw className="mr-2 h-4 w-4" />
                     Generate / rotate token
                   </Button>
@@ -750,6 +815,16 @@ export function EmpEventDayAdminClient({ initialData }: { initialData: EmpEventD
                   <Button type="button" variant="outline" onClick={() => toggleKiosk(!data.settings.kioskEnabled)} disabled={isBusy || !data.settings.hasKioskToken}>
                     {data.settings.kioskEnabled ? 'Disable kiosk' : 'Enable kiosk'}
                   </Button>
+                  {data.settings.hasKioskPin ? (
+                    <Button type="button" variant="outline" onClick={removeKioskPin} disabled={isBusy}>
+                      Remove PIN
+                    </Button>
+                  ) : null}
+                  {data.settings.hasKioskToken ? (
+                    <Button type="button" variant="destructive" onClick={revokeKioskAccess} disabled={isBusy}>
+                      Revoke login
+                    </Button>
+                  ) : null}
                 </div>
                 {kioskUrl ? (
                   <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
@@ -763,6 +838,8 @@ export function EmpEventDayAdminClient({ initialData }: { initialData: EmpEventD
                 ) : null}
                 <div className="rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-600">
                   Last updated {formatAppDateTime(data.settings.updatedAt)}. Token set: {data.settings.hasKioskToken ? 'yes' : 'no'}.
+                  {data.settings.kioskEventDate ? ` Event day: ${eventDayLabel(data.settings.kioskEventDate, data.settings.timezone)}.` : ''}
+                  {data.settings.kioskTokenExpiresAt ? ` Expires: ${formatAppDateTime(data.settings.kioskTokenExpiresAt)}.` : ''}
                 </div>
               </CardContent>
             </Card>

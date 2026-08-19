@@ -3,12 +3,31 @@
 import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { UserRole } from '@/lib/auth'
 import { requirePermission } from '@/lib/permissions'
+import {
+  AUTH_BAN_DURATION_BY_STATUS,
+  normalizeAccountChangeReason,
+  type AccountStatus,
+} from '@/lib/account-lifecycle'
+import { logActivity } from '@/lib/activity-log'
+
+type AssignableUserRole = Exclude<UserRole, 'pending'>
+
+const ASSIGNABLE_USER_ROLES: readonly AssignableUserRole[] = [
+  'admin',
+  'ops',
+  'readonly',
+  'client',
+]
 
 export interface UserWithProfile {
   id: string
   email: string
   full_name: string | null
   role: UserRole
+  account_status: AccountStatus
+  status_changed_at: string
+  status_changed_by_user_id: string | null
+  status_change_reason: string | null
   created_at: string
   last_sign_in_at: string | null
 }
@@ -59,7 +78,16 @@ export async function getAllUsers(): Promise<UserWithProfile[]> {
 
   const { data: profiles, error: profilesError } = await supabase
     .from('fa_profiles')
-    .select('id, full_name, role, created_at')
+    .select(`
+      id,
+      full_name,
+      role,
+      account_status,
+      status_changed_at,
+      status_changed_by_user_id,
+      status_change_reason,
+      created_at
+    `)
     .order('created_at', { ascending: false })
 
   if (profilesError) {
@@ -74,6 +102,10 @@ export async function getAllUsers(): Promise<UserWithProfile[]> {
         email: authUser?.email || 'Email not available',
         full_name: profile.full_name,
         role: profile.role,
+        account_status: profile.account_status,
+        status_changed_at: profile.status_changed_at,
+        status_changed_by_user_id: profile.status_changed_by_user_id,
+        status_change_reason: profile.status_change_reason,
         created_at: profile.created_at,
         last_sign_in_at: authUser?.last_sign_in_at || null,
       }
@@ -87,9 +119,9 @@ export async function getAllUsers(): Promise<UserWithProfile[]> {
  */
 export async function inviteUserByEmail(
   email: string,
-  role: UserRole = 'pending'
+  role: UserRole = 'readonly'
 ): Promise<{ success: boolean; message?: string }> {
-  const { supabase } = await requirePermission('adminUsers')
+  const { userId: currentAdminId } = await requirePermission('adminUsers')
 
   // Validate email
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -101,8 +133,7 @@ export async function inviteUserByEmail(
   }
 
   // Validate role
-  const validRoles: UserRole[] = ['admin', 'ops', 'readonly', 'client', 'pending']
-  if (!validRoles.includes(role)) {
+  if (!ASSIGNABLE_USER_ROLES.includes(role as AssignableUserRole)) {
     return {
       success: false,
       message: `Invalid role: ${role}`,
@@ -115,33 +146,72 @@ export async function inviteUserByEmail(
     
     // Check if user already exists by listing users and filtering by email
     const { data: usersList, error: listError } = await adminClient.auth.admin.listUsers()
+    if (listError) {
+      return {
+        success: false,
+        message: `Failed to check existing users: ${listError.message}`,
+      }
+    }
+
     const existingUser = usersList?.users?.find(u => u.email?.toLowerCase() === email.toLowerCase())
     
     if (existingUser) {
       // User already exists, check if they have a profile
-      const { data: existingProfile } = await supabase
+      const { data: existingProfile, error: existingProfileError } = await adminClient
         .from('fa_profiles')
-        .select('id, role')
+        .select('id, role, account_status')
         .eq('id', existingUser.id)
-        .single()
+        .maybeSingle()
+
+      if (existingProfileError) {
+        return {
+          success: false,
+          message: `Failed to verify the existing account profile: ${existingProfileError.message}`,
+        }
+      }
 
       if (existingProfile) {
         return {
           success: false,
-          message: `User with email ${email} already exists with role: ${existingProfile.role}`
+          message: `User with email ${email} already exists with role ${existingProfile.role} and status ${existingProfile.account_status}`
         }
       } else {
-        // User exists but no profile - create profile with specified role
-        await supabase
+        // Complete a previously interrupted invitation using trusted admin input.
+        const { error: profileError } = await adminClient
           .from('fa_profiles')
           .insert({
             id: existingUser.id,
             full_name: email.split('@')[0],
             role: role,
+            account_status: 'invited',
+            status_changed_at: new Date().toISOString(),
+            status_changed_by_user_id: currentAdminId,
+            status_change_reason: 'Account invitation profile provisioned by administrator',
           })
+
+        if (profileError) {
+          return {
+            success: false,
+            message: `Failed to provision the account profile: ${profileError.message}`,
+          }
+        }
+
+        try {
+          await logActivity('user', existingUser.id, 'Invited user account', {
+            new: { role, account_status: 'invited' },
+            invitation_repair: true,
+          })
+        } catch (auditError) {
+          console.error('Invitation audit logging failed:', auditError)
+          return {
+            success: false,
+            message: 'Invitation profile was created but its audit event failed. The account remains inactive; retry after checking the audit service.',
+          }
+        }
+
         return {
           success: true,
-          message: `Profile created for existing user ${email} with role: ${role}`
+          message: `Invitation profile created for existing user ${email} with role: ${role}`
         }
       }
     }
@@ -153,7 +223,6 @@ export async function inviteUserByEmail(
     // Invite new user using admin client
     const { data: inviteData, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email, {
       data: {
-        intended_role: role,
         full_name: email.split('@')[0]
       },
       redirectTo: redirectTo
@@ -176,29 +245,50 @@ export async function inviteUserByEmail(
       }
     }
 
-    // Create profile with the intended role using admin client to bypass RLS
-    // The profile will be created when they first log in, but we can pre-create it
-    if (inviteData?.user?.id) {
-      // Use admin client to create profile to ensure it works regardless of RLS
-      const adminClient = createAdminSupabaseClient()
-      const { error: profileError } = await adminClient
-        .from('fa_profiles')
-        .insert({
-          id: inviteData.user.id,
-          full_name: email.split('@')[0],
-          role: role,
-        })
+    if (!inviteData?.user?.id) {
+      return {
+        success: false,
+        message: 'Invitation was sent, but Supabase did not return a user for profile setup.',
+      }
+    }
 
-      // If profile creation fails (e.g., already exists), that's okay
-      // It will be created on first login
-      if (profileError && profileError.code !== '23505') {
-        console.error('Profile creation error (non-critical):', profileError)
+    // Provision authorization from trusted server-side input. Invitations are
+    // deliberately non-active until an administrator approves or activates them.
+    const { error: profileError } = await adminClient
+      .from('fa_profiles')
+      .insert({
+        id: inviteData.user.id,
+        full_name: email.split('@')[0],
+        role: role,
+        account_status: 'invited',
+        status_changed_at: new Date().toISOString(),
+        status_changed_by_user_id: currentAdminId,
+        status_change_reason: 'Account invited by administrator',
+      })
+
+    if (profileError) {
+      console.error('Invitation profile provisioning failed:', profileError)
+      return {
+        success: false,
+        message: `Invitation was created, but the account profile could not be provisioned. Retry the invitation setup before the user signs in.`,
+      }
+    }
+
+    try {
+      await logActivity('user', inviteData.user.id, 'Invited user account', {
+        new: { role, account_status: 'invited' },
+      })
+    } catch (auditError) {
+      console.error('Invitation audit logging failed:', auditError)
+      return {
+        success: false,
+        message: 'Invitation and inactive profile were created but the audit event failed. Retry after checking the audit service.',
       }
     }
 
     return {
       success: true,
-      message: `Invitation sent to ${email}. They will receive an email to set their password.`
+      message: `Invitation sent to ${email}. Activate the account after its access has been approved.`
     }
   } catch (error) {
     return {
@@ -209,102 +299,130 @@ export async function inviteUserByEmail(
 }
 
 /**
- * Update a user's role
- * Only accessible by admin users
+ * Update a user's role. For invited/pending accounts the database RPC treats
+ * this as explicit approval and activates the account in the same transaction.
  */
-export async function updateUserRole(userId: string, newRole: UserRole): Promise<{ success: boolean }> {
+export async function updateUserRole(
+  userId: string,
+  newRole: UserRole,
+  reason: string
+): Promise<{ success: boolean; message?: string }> {
   const { supabase } = await requirePermission('adminUsers')
+  const normalizedReason = normalizeAccountChangeReason(reason)
 
-  // Validate role
-  const validRoles: UserRole[] = ['admin', 'ops', 'readonly', 'client', 'pending']
-  if (!validRoles.includes(newRole)) {
+  if (!ASSIGNABLE_USER_ROLES.includes(newRole as AssignableUserRole)) {
     throw new Error(`Invalid role: ${newRole}`)
   }
 
-  // Check if profile exists, if not create it
-  const { data: existingProfile } = await supabase
-    .from('fa_profiles')
-    .select('id')
-    .eq('id', userId)
-    .single()
+  const { error } = await supabase.rpc('fa_admin_change_user_access', {
+    p_target_user_id: userId,
+    p_new_role: newRole,
+    p_new_account_status: null,
+    p_reason: normalizedReason,
+  })
 
-  if (!existingProfile) {
-    // Get user email to create profile using admin client
-    const adminClient = createAdminSupabaseClient()
-    const { data: authUser, error: getUserError } = await adminClient.auth.admin.getUserById(userId)
-    if (getUserError || !authUser?.user) {
-      throw new Error('User not found')
-    }
-
-    // Create profile with new role
-    const { error: createError } = await supabase
-      .from('fa_profiles')
-      .insert({
-        id: userId,
-        full_name: authUser.user.email?.split('@')[0] || null,
-        role: newRole,
-      })
-
-    if (createError) {
-      throw new Error(`Failed to create profile: ${createError.message}`)
-    }
-  } else {
-    // Update existing profile
-    const { error: updateError } = await supabase
-      .from('fa_profiles')
-      .update({ role: newRole })
-      .eq('id', userId)
-
-    if (updateError) {
-      throw new Error(`Failed to update role: ${updateError.message}`)
-    }
+  if (error) {
+    throw new Error(`Failed to update role: ${error.message}`)
   }
 
-  return { success: true }
+  return { success: true, message: 'User role updated successfully' }
 }
 
-/**
- * Delete a user completely from the database
- * Only accessible by admin users
- * This will delete:
- * - User profile from fa_profiles
- * - User from auth.users
- */
-export async function deleteUser(userId: string): Promise<{ success: boolean; message?: string }> {
-  const { supabase, userId: currentUserId } = await requirePermission('adminUsers')
+type LifecycleChangeRow = {
+  account_status: AccountStatus
+  previous_account_status: AccountStatus
+}
 
-  // Prevent admin from deleting themselves
-  if (userId === currentUserId) {
-    throw new Error('You cannot delete your own account')
+async function changeAccountStatus(
+  userId: string,
+  accountStatus: AccountStatus,
+  reason: string
+): Promise<{ success: boolean; message: string }> {
+  const { supabase } = await requirePermission('adminUsers')
+  const normalizedReason = normalizeAccountChangeReason(reason)
+  const { data, error } = await supabase.rpc('fa_admin_change_user_access', {
+    p_target_user_id: userId,
+    p_new_role: null,
+    p_new_account_status: accountStatus,
+    p_reason: normalizedReason,
+  })
+
+  if (error) {
+    throw new Error(`Failed to change account status: ${error.message}`)
   }
 
-  try {
-    // Use admin client for admin operations
-    const adminClient = createAdminSupabaseClient()
+  const changedProfile = (Array.isArray(data) ? data[0] : data) as LifecycleChangeRow | null
+  if (!changedProfile) {
+    throw new Error('Account status change did not return an updated profile')
+  }
 
-    // First, delete the profile (this might have foreign key constraints, so we do it first)
-    const { error: profileError } = await supabase
-      .from('fa_profiles')
-      .delete()
-      .eq('id', userId)
+  const requiresAuthUpdate =
+    accountStatus !== 'active'
+    || changedProfile.previous_account_status === 'suspended'
+    || changedProfile.previous_account_status === 'deactivated'
 
-    if (profileError) {
-      // If profile deletion fails, still try to delete auth user
-      console.error('Error deleting profile:', profileError)
-    }
-
-    // Delete the user from auth.users using admin API
-    const { error: deleteError } = await adminClient.auth.admin.deleteUser(userId)
-
-    if (deleteError) {
-      throw new Error(`Failed to delete user: ${deleteError.message}`)
-    }
-
+  // Invited and pending accounts are deliberately not Auth-banned, so their
+  // first activation needs only the atomic profile/RLS change.
+  if (!requiresAuthUpdate) {
     return {
       success: true,
-      message: 'User deleted successfully'
+      message: `Account status changed to ${accountStatus}`,
     }
-  } catch (error) {
-    throw new Error(error instanceof Error ? error.message : 'Failed to delete user')
   }
+
+  // Profile/RLS access is changed first through the authenticated RPC so the
+  // audit trigger captures auth.uid(). Auth administration is server-only and
+  // follows the database change. A ban failure therefore leaves non-active
+  // accounts fail-closed at every application and RLS boundary.
+  const adminClient = createAdminSupabaseClient()
+  const { error: authError } = await adminClient.auth.admin.updateUserById(userId, {
+    ban_duration: AUTH_BAN_DURATION_BY_STATUS[accountStatus],
+  })
+
+  if (authError) {
+    // Reactivation must not leave the profile active while Auth remains banned.
+    // Restore the previous non-active status through the same audited RPC.
+    if (
+      accountStatus === 'active'
+      && changedProfile.previous_account_status !== 'active'
+    ) {
+      const { error: rollbackError } = await supabase.rpc('fa_admin_change_user_access', {
+        p_target_user_id: userId,
+        p_new_role: null,
+        p_new_account_status: changedProfile.previous_account_status,
+        p_reason: `Automatic rollback after Auth reactivation failed: ${normalizedReason}`.slice(0, 500),
+      })
+
+      if (rollbackError) {
+        throw new Error(
+          `Auth update failed and account rollback also failed: ${authError.message}; ${rollbackError.message}`
+        )
+      }
+    }
+
+    throw new Error(
+      `Application access changed, but Supabase Auth could not be updated: ${authError.message}`
+    )
+  }
+
+  return {
+    success: true,
+    message: `Account status changed to ${accountStatus}`,
+  }
+}
+
+export async function activateAccount(userId: string, reason: string) {
+  return changeAccountStatus(userId, 'active', reason)
+}
+
+export async function suspendAccount(userId: string, reason: string) {
+  return changeAccountStatus(userId, 'suspended', reason)
+}
+
+export async function reactivateAccount(userId: string, reason: string) {
+  return changeAccountStatus(userId, 'active', reason)
+}
+
+export async function deactivateAccount(userId: string, reason: string) {
+  return changeAccountStatus(userId, 'deactivated', reason)
 }

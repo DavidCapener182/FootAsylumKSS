@@ -1,7 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { accountHasApplicationAccess, type AccountStatus } from '@/lib/account-lifecycle'
 
-// Create or update user profile on first login
+// Return the trusted administrator-provisioned profile for the current user.
+// This endpoint deliberately never creates a profile from user-controlled Auth metadata.
 export async function POST() {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -10,51 +12,30 @@ export async function POST() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  // Check if profile exists
-  const { data: existingProfile } = await supabase
-    .from('fa_profiles')
-    .select('id')
-    .eq('id', user.id)
-    .single()
-
-  if (existingProfile) {
-    return NextResponse.json({ message: 'Profile already exists' })
-  }
-
-  // Create profile with role from metadata or default to pending
-  // For invited users, use the intended_role from metadata if it's set
-  // For self-registered users, default to 'pending' unless they're KSS x Footasylum client
-  const intendedRole = user.user_metadata?.intended_role
-  let defaultRole: string = 'pending'
-  
-  if (intendedRole) {
-    // If intended_role is explicitly set (from invitation), use it
-    const validRoles = ['admin', 'ops', 'readonly', 'client', 'pending']
-    if (validRoles.includes(intendedRole)) {
-      defaultRole = intendedRole
-    }
-  } else {
-    // No intended_role in metadata - this is likely a self-registered user
-    // Default to 'pending' for admin approval
-    defaultRole = 'pending'
-  }
-  
   const { data: profile, error } = await supabase
     .from('fa_profiles')
-    .insert({
-      id: user.id,
-      full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || null,
-      role: defaultRole,
-    })
-    .select()
-    .single()
+    .select('*')
+    .eq('id', user.id)
+    .maybeSingle()
 
   if (error) {
-    console.error('Error creating profile:', error)
-    return NextResponse.json({ error: 'Failed to create profile' }, { status: 500 })
+    console.error('Error loading profile:', error)
+    return NextResponse.json({ error: 'Unable to verify account profile' }, { status: 500 })
   }
 
-  return NextResponse.json({ profile })
+  if (!profile) {
+    return NextResponse.json(
+      { error: 'Account profile has not been provisioned by an administrator' },
+      { status: 403 }
+    )
+  }
+
+  if (!accountHasApplicationAccess(profile.account_status as AccountStatus)) {
+    return NextResponse.json(
+      { error: 'Account is not active', account_status: profile.account_status },
+      { status: 403 }
+    )
+  }
+
+  return NextResponse.json({ message: 'Profile verified', profile })
 }
-
-

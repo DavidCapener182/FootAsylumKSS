@@ -114,35 +114,19 @@ RLS is enabled on all tables with role-based access:
 
 ### Account Creation
 
-**Sign up is disabled** - All user accounts must be created by administrators via the Supabase Dashboard.
+**Public sign up is disabled.** All user accounts must be invited by an authorised platform administrator.
 
 #### Creating New Users
 
-**Option 1: Self-Registration (Recommended for most users)**
-- Users can create their own accounts by clicking "Sign up" on the login page
-- They enter their full name, email, and password
-- KSS x Footasylum clients can check the "I am a KSS x Footasylum client" checkbox to get `'client'` role
-- Other users default to `'readonly'` role
-- If email confirmation is enabled in Supabase, users must confirm their email before signing in
-- Profile is automatically created with the appropriate role
+- Open **Admin → User Management** in the platform.
+- Enter the user's work email and select the approved initial role.
+- The server creates the protected profile and sends an invitation link.
+- The user follows that link to set their password.
+- If profile provisioning fails, the administrator must retry setup before the user signs in.
 
-**Option 2: Admin-Invited Users**
-- Go to Supabase Dashboard → Authentication → Users
-- Click **"Invite User"** (recommended) or "Add User"
-- **Option A - Invite User (Recommended)**:
-  - Enter the user's email address
-  - Click "Send Invitation"
-  - User will receive an email with a link to set their own password
-  - No temporary password needed - user sets their own password
-- **Option B - Add User**:
-  - Enter email address and set a temporary password
-  - User must change password on first login or use "Forgot Password" link
-
-**Setting User Roles (for admin-invited users or role changes)**
-- After the user logs in for the first time, a profile is auto-created with default `'readonly'` role (or `'client'` if they signed up as KSS x Footasylum client)
-- To change the role, go to Supabase Dashboard → Table Editor → `fa_profiles`
-- Find the user by their email (or user ID from auth.users)
-- Update the `role` field to one of:
+**Setting user roles**
+- Use **Admin → User Management** for invitations and role changes.
+- Assign one of the approved roles:
   - `'admin'` - Full access (for managers like David Capener)
   - `'ops'` - Read/write access to incidents, investigations, actions
   - `'readonly'` - View-only access (default for new users)
@@ -174,16 +158,11 @@ RLS is enabled on all tables with role-based access:
 - **KSS Operations Staff**: Set role to `'ops'` for audit, FRA, action, and route-planning management
 - **KSS Read-only Staff**: Leave as `'readonly'` (default)
 
-### Email Confirmation Settings
+### Invitation Delivery Settings
 
-You can configure whether email confirmation is required for new sign-ups:
-
-1. Go to Supabase Dashboard → Authentication → Settings
-2. Under "Auth", find "Enable email confirmations"
-3. **If enabled**: Users must confirm their email before they can sign in (more secure)
-4. **If disabled**: Users can sign in immediately after creating an account (faster onboarding)
-
-**Note**: The sign-up page handles both scenarios automatically.
+Supabase Auth must remain configured so that public email sign-ups are disabled. Administrators
+send first-time access links through **Admin → User Management**; users cannot choose their own
+role or create an application profile from the public login routes.
 
 ## FRA report printing and exports
 
@@ -211,8 +190,6 @@ To confirm the DOCX download is correctly generated and served (no stale cache, 
 - All database operations use server actions or route handlers
 - Activity logging is automatic via database triggers
 - Storage bucket policies must be configured in Supabase Dashboard
-- User profiles are auto-created on first login with default 'readonly' role
-- Admin and client roles must be manually assigned via database after account creation
+- User profiles are provisioned by an administrator before protected access is granted
+- Roles are assigned from trusted server input when an administrator invites or updates a user
 - Client role users have restricted access (no route planning or activity logs)
-
-

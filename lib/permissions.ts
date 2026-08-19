@@ -1,11 +1,28 @@
 import { createClient } from '@/lib/supabase/server'
 import type { UserRole } from '@/lib/auth'
 import { can, type Permission } from '@/lib/role-capabilities'
+import { accountHasApplicationAccess, type AccountStatus } from '@/lib/account-lifecycle'
+import { hasRequiredMfaForRole, roleRequiresMfa } from '@/lib/mfa/policy'
 
 export type PermissionContext = {
   supabase: ReturnType<typeof createClient>
   userId: string
   role: UserRole
+  accountStatus: AccountStatus
+}
+
+export class PermissionError extends Error {
+  readonly status: 401 | 403
+
+  constructor(message: string, status: 401 | 403) {
+    super(message)
+    this.name = 'PermissionError'
+    this.status = status
+  }
+}
+
+export function isPermissionError(error: unknown): error is PermissionError {
+  return error instanceof PermissionError
 }
 
 const PERMISSION_MESSAGES: Record<Permission, string> = {
@@ -28,23 +45,38 @@ export async function requirePermission(permission: Permission): Promise<Permiss
   } = await supabase.auth.getUser()
 
   if (!user) {
-    throw new Error('Unauthorized')
+    throw new PermissionError('Unauthorized', 401)
   }
 
   const { data: profile, error } = await supabase
     .from('fa_profiles')
-    .select('role')
+    .select('role, account_status')
     .eq('id', user.id)
-    .single()
+    .maybeSingle()
 
-  if (error || !profile) {
+  if (error) {
     throw new Error('Unable to verify user role')
   }
 
-  const role = profile.role as UserRole
-  if (!can(role, permission)) {
-    throw new Error(PERMISSION_MESSAGES[permission])
+  if (
+    !profile
+    || !accountHasApplicationAccess(profile.account_status as AccountStatus)
+  ) {
+    throw new PermissionError('Account profile is not authorized', 403)
   }
 
-  return { supabase, userId: user.id, role }
+  const role = profile.role as UserRole
+  const accountStatus = profile.account_status as AccountStatus
+  if (
+    roleRequiresMfa(role)
+    && !(await hasRequiredMfaForRole(supabase.auth, role))
+  ) {
+    throw new PermissionError('Multi-factor authentication is required', 403)
+  }
+
+  if (!can(role, permission)) {
+    throw new PermissionError(PERMISSION_MESSAGES[permission], 403)
+  }
+
+  return { supabase, userId: user.id, role, accountStatus }
 }

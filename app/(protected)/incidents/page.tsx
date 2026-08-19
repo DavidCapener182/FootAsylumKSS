@@ -13,108 +13,26 @@ import { IncidentMobileCard } from '@/components/incidents/incident-mobile-card'
 import { ClosedIncidentMobileCard } from '@/components/incidents/closed-incident-mobile-card'
 import { LazyIncidentsAnalyticsCharts } from '@/components/incidents/lazy-incidents-analytics-charts'
 import { DateFilterInput } from '@/components/shared/date-filter-input'
+import { getIncidentList } from '@/features/incidents/query-service'
+import {
+  getFiscalYear,
+  getIncidentAccidentType,
+  getIncidentChildInvolved,
+  getIncidentLostTimeDays,
+  getIncidentPersonType,
+  getIncidentRootCause,
+  getInvestigationRecommendations,
+  parseFiscalYear,
+} from '@/features/incidents/model'
+import type {
+  IncidentFilters,
+  IncidentListItem,
+  IncidentListSearchParams,
+  IncidentPagination,
+} from '@/features/incidents/types'
 import Link from 'next/link'
 import { Search, AlertTriangle, FileText, Eye, CheckCircle2, SlidersHorizontal, XCircle } from 'lucide-react'
 import { format } from 'date-fns'
-
-type IncidentFilters = {
-  store_id?: string
-  status?: string
-  severity?: string
-  year?: string
-  q?: string
-  date_from?: string
-  date_to?: string
-}
-
-type InvestigationSummary = {
-  incident_id: string
-  status: string | null
-  root_cause: string | null
-  recommendations: string | null
-}
-
-function getIncidentMetaObject(incident: any) {
-  if (incident?.persons_involved && typeof incident.persons_involved === 'object') {
-    return incident.persons_involved
-  }
-  return {}
-}
-
-function getIncidentPersonType(incident: any) {
-  const meta = getIncidentMetaObject(incident) as Record<string, any>
-  const personType = meta.person_type ?? meta.personType
-  if (typeof personType !== 'string' || personType.trim().length === 0) {
-    return 'Unknown'
-  }
-  return personType
-}
-
-function getIncidentChildInvolved(incident: any) {
-  const meta = getIncidentMetaObject(incident) as Record<string, any>
-  const childInvolved = meta.child_involved ?? meta.childInvolved
-  return Boolean(childInvolved)
-}
-
-function getIncidentLostTimeDays(incident: any) {
-  const injury = incident?.injury_details && typeof incident.injury_details === 'object'
-    ? incident.injury_details
-    : {}
-  const meta = getIncidentMetaObject(incident) as Record<string, any>
-  const raw = (injury as Record<string, any>).lost_time_days
-    ?? (injury as Record<string, any>).lostTimeDays
-    ?? meta.lost_time_days
-    ?? meta.lostTimeDays
-
-  if (typeof raw === 'number' && Number.isFinite(raw)) return raw
-  if (typeof raw === 'string' && raw.trim().length > 0) {
-    const parsed = Number(raw)
-    if (Number.isFinite(parsed)) return parsed
-  }
-  return null
-}
-
-function getIncidentAccidentType(incident: any) {
-  const injury = incident?.injury_details && typeof incident.injury_details === 'object'
-    ? incident.injury_details
-    : {}
-  const meta = getIncidentMetaObject(incident) as Record<string, any>
-  const accidentType = (injury as Record<string, any>).accident_type
-    ?? (injury as Record<string, any>).accidentType
-    ?? meta.accident_type
-    ?? meta.accidentType
-
-  return typeof accidentType === 'string' && accidentType.trim().length > 0 ? accidentType : null
-}
-
-function getInvestigationRootCause(incidentId: string, investigationMap: Map<string, InvestigationSummary>) {
-  const rootCause = investigationMap.get(incidentId)?.root_cause
-  if (!rootCause || rootCause.trim().length === 0) return null
-  return rootCause
-}
-
-function getInjuryRootCause(incident: any) {
-  const injury = incident?.injury_details && typeof incident.injury_details === 'object'
-    ? incident.injury_details
-    : {}
-  const meta = getIncidentMetaObject(incident) as Record<string, any>
-  const rootCause = (injury as Record<string, any>).root_cause
-    ?? (injury as Record<string, any>).rootCause
-    ?? meta.root_cause
-    ?? meta.rootCause
-
-  return typeof rootCause === 'string' && rootCause.trim().length > 0 ? rootCause : null
-}
-
-function getIncidentRootCause(incident: any, investigationMap: Map<string, InvestigationSummary>) {
-  return getInvestigationRootCause(incident.id, investigationMap) || getInjuryRootCause(incident)
-}
-
-function getInvestigationRecommendations(incidentId: string, investigationMap: Map<string, InvestigationSummary>) {
-  const recommendations = investigationMap.get(incidentId)?.recommendations
-  if (!recommendations || recommendations.trim().length === 0) return null
-  return recommendations
-}
 
 function countClaimEvidenceItems(claim: any) {
   const checks = [
@@ -152,262 +70,70 @@ function isClaimOverdue(claim: any, now = new Date()) {
   return dueDate < now
 }
 
-function parseFilterYear(value?: string) {
-  if (!value) return null
-  const parsed = Number(value)
-  if (!Number.isInteger(parsed) || parsed < 1900 || parsed > 2100) return null
-  return parsed
-}
-
-function getFiscalYear(date: Date) {
-  return date.getMonth() === 0 ? date.getFullYear() - 1 : date.getFullYear()
-}
-
-function getFiscalYearRange(fiscalYear: number) {
-  return {
-    start: `${fiscalYear}-02-01T00:00:00.000Z`,
-    end: `${fiscalYear + 1}-01-31T23:59:59.999Z`,
-  }
-}
-
 function getFiscalYearLabel(fiscalYear: number) {
   return `FY ${fiscalYear}/${String(fiscalYear + 1).slice(-2)}`
 }
 
-async function getIncidents(filters?: IncidentFilters) {
-  const supabase = createClient()
-  let query = supabase
-    .from('fa_incidents')
-    .select(`
-      *,
-      fa_stores(store_name, store_code),
-      reporter:fa_profiles!fa_incidents_reported_by_user_id_fkey(full_name),
-      investigator:fa_profiles!fa_incidents_assigned_investigator_user_id_fkey(full_name)
-    `)
-    .neq('status', 'closed') // Exclude closed incidents (they're in fa_closed_incidents)
-    .order('occurred_at', { ascending: false })
-    .limit(100)
-
-  if (filters?.store_id) {
-    query = query.eq('store_id', filters.store_id)
+function buildIncidentPageHref(
+  searchParams: IncidentListSearchParams,
+  pageKey: 'open_page' | 'closed_page',
+  page: number
+) {
+  const params = new URLSearchParams()
+  for (const [key, value] of Object.entries(searchParams)) {
+    if (value && key !== pageKey) params.set(key, value)
   }
-  if (filters?.status) {
-    query = query.eq('status', filters.status)
-  }
-  const year = parseFilterYear(filters?.year)
-  if (year) {
-    const range = getFiscalYearRange(year)
-    query = query
-      .gte('occurred_at', range.start)
-      .lte('occurred_at', range.end)
-  }
-  if (filters?.date_from) {
-    const fromDate = new Date(filters.date_from)
-    fromDate.setHours(0, 0, 0, 0)
-    query = query.gte('occurred_at', fromDate.toISOString())
-  }
-  if (filters?.date_to) {
-    const toDate = new Date(filters.date_to)
-    toDate.setHours(23, 59, 59, 999)
-    query = query.lte('occurred_at', toDate.toISOString())
-  }
-
-  const { data, error } = await query
-
-  if (error) {
-    console.error('Error fetching incidents:', error)
-    return []
-  }
-
-  let incidents = data || []
-
-  if (filters?.severity) {
-    incidents = incidents.filter((incident: any) => incident.severity === filters.severity)
-  }
-
-  return incidents
+  if (page > 1) params.set(pageKey, String(page))
+  params.set('tab', 'incidents')
+  return `/incidents?${params.toString()}`
 }
 
-async function getClosedIncidents(filters?: IncidentFilters) {
-  const supabase = createClient()
-  const applyDateFilters = (query: any) => {
-    let filtered = query
-    if (filters?.store_id) {
-      filtered = filtered.eq('store_id', filters.store_id)
-    }
-    const year = parseFilterYear(filters?.year)
-    if (year) {
-      const range = getFiscalYearRange(year)
-      filtered = filtered
-        .gte('occurred_at', range.start)
-        .lte('occurred_at', range.end)
-    }
-    if (filters?.date_from) {
-      const fromDate = new Date(filters.date_from)
-      fromDate.setHours(0, 0, 0, 0)
-      filtered = filtered.gte('occurred_at', fromDate.toISOString())
-    }
-    if (filters?.date_to) {
-      const toDate = new Date(filters.date_to)
-      toDate.setHours(23, 59, 59, 999)
-      filtered = filtered.lte('occurred_at', toDate.toISOString())
-    }
-    return filtered
-  }
+function IncidentPaginationNav({
+  pagination,
+  pageKey,
+  searchParams,
+  label,
+}: {
+  pagination: IncidentPagination
+  pageKey: 'open_page' | 'closed_page'
+  searchParams: IncidentListSearchParams
+  label: string
+}) {
+  if (pagination.total === 0) return null
 
-  const [archivedResult, legacyResult] = await Promise.all([
-    applyDateFilters(
-      supabase
-        .from('fa_closed_incidents')
-        .select('*')
-        .order('occurred_at', { ascending: false })
-    ),
-    applyDateFilters(
-      supabase
-        .from('fa_incidents')
-        .select('*')
-        .eq('status', 'closed')
-        .order('occurred_at', { ascending: false })
-    ),
-  ])
-
-  if (archivedResult.error) {
-    console.error('Error fetching archived closed incidents:', archivedResult.error)
-  }
-  if (legacyResult.error) {
-    console.error('Error fetching legacy closed incidents:', legacyResult.error)
-  }
-
-  const mergedById = new Map<string, any>()
-  for (const incident of archivedResult.data || []) {
-    mergedById.set(incident.id, incident)
-  }
-  for (const incident of legacyResult.data || []) {
-    if (!mergedById.has(incident.id)) {
-      mergedById.set(incident.id, incident)
-    }
-  }
-
-  let incidents = Array.from(mergedById.values())
-  if (incidents.length === 0) {
-    return []
-  }
-
-  if (filters?.severity) {
-    incidents = incidents.filter((incident: any) => incident.severity === filters.severity)
-  }
-
-  const storeIds = [...new Set(incidents.map((incident: any) => incident.store_id).filter(Boolean))]
-  const userIds = [
-    ...new Set([
-      ...incidents.map((incident: any) => incident.reported_by_user_id).filter(Boolean),
-      ...incidents.map((incident: any) => incident.assigned_investigator_user_id).filter(Boolean),
-    ]),
-  ]
-
-  const [storesResult, profilesResult] = await Promise.all([
-    storeIds.length
-      ? supabase
-          .from('fa_stores')
-          .select('id, store_name, store_code')
-          .in('id', storeIds)
-      : Promise.resolve({ data: [], error: null } as any),
-    userIds.length
-      ? supabase
-          .from('fa_profiles')
-          .select('id, full_name')
-          .in('id', userIds)
-      : Promise.resolve({ data: [], error: null } as any),
-  ])
-
-  const storeMap = new Map<string, any>((storesResult.data || []).map((store: any) => [store.id, store]))
-  const profileMap = new Map<string, any>((profilesResult.data || []).map((profile: any) => [profile.id, profile]))
-
-  const enriched = incidents
-    .map((incident: any) => ({
-      ...incident,
-      fa_stores: storeMap.get(incident.store_id) || null,
-      reporter: profileMap.get(incident.reported_by_user_id)
-        ? { full_name: profileMap.get(incident.reported_by_user_id).full_name }
-        : null,
-      investigator: incident.assigned_investigator_user_id && profileMap.get(incident.assigned_investigator_user_id)
-        ? { full_name: profileMap.get(incident.assigned_investigator_user_id).full_name }
-        : null,
-    }))
-    .sort((a: any, b: any) => {
-      const aDate = new Date(a.occurred_at || a.closed_at || 0).getTime()
-      const bDate = new Date(b.occurred_at || b.closed_at || 0).getTime()
-      return bDate - aDate
-    })
-
-  return enriched.sort((a: any, b: any) => {
-    const aOverdue = isClaimOverdue(a) ? 1 : 0
-    const bOverdue = isClaimOverdue(b) ? 1 : 0
-    if (aOverdue !== bOverdue) return bOverdue - aOverdue
-    const aDue = a?.due_date ? new Date(a.due_date).getTime() : Number.MAX_SAFE_INTEGER
-    const bDue = b?.due_date ? new Date(b.due_date).getTime() : Number.MAX_SAFE_INTEGER
-    if (Number.isFinite(aDue) && Number.isFinite(bDue) && aDue !== bDue) return aDue - bDue
-    return new Date(b.received_date || 0).getTime() - new Date(a.received_date || 0).getTime()
-  })
-}
-
-async function getAvailableIncidentYears() {
-  const supabase = createClient()
-  const [openResult, closedResult] = await Promise.all([
-    supabase.from('fa_incidents').select('occurred_at'),
-    supabase.from('fa_closed_incidents').select('occurred_at'),
-  ])
-
-  if (openResult.error) {
-    console.error('Error fetching incident years from fa_incidents:', openResult.error)
-  }
-  if (closedResult.error) {
-    console.error('Error fetching incident years from fa_closed_incidents:', closedResult.error)
-  }
-
-  const yearSet = new Set<number>()
-  for (const row of [...(openResult.data || []), ...(closedResult.data || [])]) {
-    if (!row?.occurred_at) continue
-    const fy = getFiscalYear(new Date(row.occurred_at))
-    if (Number.isFinite(fy) && !Number.isNaN(fy)) {
-      yearSet.add(fy)
-    }
-  }
-
-  return Array.from(yearSet).sort((a, b) => b - a)
-}
-
-async function getInvestigationSummaries(incidentIds: string[]) {
-  const uniqueIncidentIds = [...new Set(incidentIds.filter(Boolean))]
-  if (uniqueIncidentIds.length === 0) {
-    return new Map<string, InvestigationSummary>()
-  }
-
-  const supabase = createClient()
-  const { data, error } = await supabase
-    .from('fa_investigations')
-    .select('incident_id, status, root_cause, recommendations, updated_at, created_at')
-    .in('incident_id', uniqueIncidentIds)
-    .order('updated_at', { ascending: false })
-
-  if (error) {
-    console.error('Error fetching investigation summaries:', error)
-    return new Map<string, InvestigationSummary>()
-  }
-
-  const investigationMap = new Map<string, InvestigationSummary>()
-  for (const investigation of data || []) {
-    if (!investigationMap.has(investigation.incident_id)) {
-      investigationMap.set(investigation.incident_id, {
-        incident_id: investigation.incident_id,
-        status: investigation.status,
-        root_cause: investigation.root_cause,
-        recommendations: investigation.recommendations,
-      })
-    }
-  }
-
-  return investigationMap
+  return (
+    <nav
+      aria-label={`${label} pagination`}
+      className="flex flex-col gap-2 border-t border-slate-100 bg-slate-50/50 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6"
+    >
+      <p className="text-xs text-slate-500">
+        Showing {pagination.from}–{pagination.to} of {pagination.total}
+      </p>
+      <div className="flex items-center gap-2">
+        {pagination.hasPreviousPage ? (
+          <Button asChild variant="outline" size="sm">
+            <Link href={buildIncidentPageHref(searchParams, pageKey, pagination.page - 1)}>
+              Previous
+            </Link>
+          </Button>
+        ) : (
+          <Button variant="outline" size="sm" disabled>Previous</Button>
+        )}
+        <span className="min-w-[84px] text-center text-xs font-medium text-slate-600">
+          Page {pagination.page} of {pagination.pageCount}
+        </span>
+        {pagination.hasNextPage ? (
+          <Button asChild variant="outline" size="sm">
+            <Link href={buildIncidentPageHref(searchParams, pageKey, pagination.page + 1)}>
+              Next
+            </Link>
+          </Button>
+        ) : (
+          <Button variant="outline" size="sm" disabled>Next</Button>
+        )}
+      </div>
+    </nav>
+  )
 }
 
 async function getClaims(filters?: IncidentFilters) {
@@ -421,7 +147,7 @@ async function getClaims(filters?: IncidentFilters) {
   if (filters?.store_id) {
     query = query.eq('store_id', filters.store_id)
   }
-  const year = parseFilterYear(filters?.year)
+  const year = parseFiscalYear(filters?.year)
   if (year) {
     query = query
       .gte('received_date', `${year}-02-01`)
@@ -511,15 +237,7 @@ async function getClaims(filters?: IncidentFilters) {
 export default async function IncidentsPage({
   searchParams,
 }: {
-  searchParams: {
-    store_id?: string
-    status?: string
-    severity?: string
-    year?: string
-    q?: string
-    date_from?: string
-    date_to?: string
-  }
+  searchParams: IncidentListSearchParams
 }) {
   await requireAuth()
   const filters: IncidentFilters = {
@@ -531,46 +249,27 @@ export default async function IncidentsPage({
     date_from: searchParams.date_from || undefined,
     date_to: searchParams.date_to || undefined,
   }
-  const [openIncidentsRaw, closedIncidentsRaw, claims, availableYears] = await Promise.all([
-    getIncidents(filters),
-    getClosedIncidents(filters),
+  const [incidentList, claims] = await Promise.all([
+    getIncidentList({
+      filters,
+      openPage: searchParams.open_page,
+      closedPage: searchParams.closed_page,
+    }),
     getClaims(filters),
-    getAvailableIncidentYears(),
   ])
-  const investigationMap = await getInvestigationSummaries([
-    ...openIncidentsRaw.map((incident: any) => incident.id),
-    ...closedIncidentsRaw.map((incident: any) => incident.id),
-  ])
-
-  const searchQuery = filters.q?.toLowerCase() || ''
-  const applyIncidentSearch = (incidentList: any[]) => {
-    if (!searchQuery) return incidentList
-    return incidentList.filter((incident: any) => {
-      const values = [
-        incident.reference_no,
-        incident.source_reference,
-        incident.summary,
-        incident.description,
-        incident.incident_category,
-        incident.fa_stores?.store_name,
-        incident.fa_stores?.store_code,
-        incident.investigator?.full_name,
-        getIncidentPersonType(incident),
-        getIncidentRootCause(incident, investigationMap),
-        getInvestigationRecommendations(incident.id, investigationMap),
-        getIncidentAccidentType(incident),
-      ]
-      return values.some((value) => String(value || '').toLowerCase().includes(searchQuery))
-    })
-  }
-
-  const incidents = applyIncidentSearch(openIncidentsRaw)
-  const closedIncidents = applyIncidentSearch(closedIncidentsRaw).sort(
-    (a: any, b: any) => new Date(b.occurred_at || 0).getTime() - new Date(a.occurred_at || 0).getTime()
-  )
-  const allIncidents = [...incidents, ...closedIncidents]
-  const riddorIncidents = [...incidents, ...closedIncidents]
-    .filter((incident: any) => incident.riddor_reportable)
+  const {
+    open: openIncidentPage,
+    closed: closedIncidentPage,
+    allOpenIncidents,
+    allClosedIncidents,
+    availableYears,
+    investigationMap,
+  } = incidentList
+  const incidents = openIncidentPage.items
+  const closedIncidents = closedIncidentPage.items
+  const allIncidents = [...allOpenIncidents, ...allClosedIncidents]
+  const riddorIncidents = [...allOpenIncidents, ...allClosedIncidents]
+    .filter((incident) => incident.riddor_reportable)
     .sort((a: any, b: any) => {
       const aNeedsAttention = isOpenStatus(a.status) || !investigationMap.get(a.id)?.status ? 1 : 0
       const bNeedsAttention = isOpenStatus(b.status) || !investigationMap.get(b.id)?.status ? 1 : 0
@@ -580,8 +279,8 @@ export default async function IncidentsPage({
 
   // Calculate stats
   const totalIncidents = allIncidents.length
-  const openIncidents = allIncidents.filter((i: any) => i.status === 'open' || i.status === 'under_investigation').length
-  const criticalIncidents = allIncidents.filter((i: any) => i.severity === 'critical' || i.severity === 'high').length
+  const openIncidents = allIncidents.filter((incident) => incident.status === 'open' || incident.status === 'under_investigation').length
+  const criticalIncidents = allIncidents.filter((incident) => incident.severity === 'critical' || incident.severity === 'high').length
   const hasActiveFilters = Boolean(filters.q || filters.status || filters.severity || filters.year || filters.date_from || filters.date_to)
   const activeFilterCount = [
     filters.q,
@@ -616,8 +315,8 @@ export default async function IncidentsPage({
   const toDisplayText = (value: string) => value.split('_').map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(' ')
 
   const closedIncidentGroups = (() => {
-    const grouped = new Map<string, { label: string; incidents: any[] }>()
-    const unknownGroup = { key: 'unknown', label: 'Unknown Date', incidents: [] as any[] }
+    const grouped = new Map<string, { label: string; incidents: IncidentListItem[] }>()
+    const unknownGroup = { key: 'unknown', label: 'Unknown Date', incidents: [] as IncidentListItem[] }
 
     for (const incident of closedIncidents) {
       const date = getValidDate(incident.occurred_at) || getValidDate(incident.closed_at)
@@ -652,8 +351,8 @@ export default async function IncidentsPage({
   const previousYear = currentYear - 1
 
   const incidentRows = allIncidents
-    .map((incident: any) => ({ incident, date: getValidDate(incident.occurred_at) }))
-    .filter((entry: any) => entry.date) as Array<{ incident: any; date: Date }>
+    .map((incident) => ({ incident, date: getValidDate(incident.occurred_at) }))
+    .filter((entry): entry is { incident: IncidentListItem; date: Date } => entry.date !== null)
 
   const isYearToDate = (date: Date, fiscalYear: number) => {
     if (getFiscalYear(date) !== fiscalYear) return false
@@ -767,7 +466,7 @@ export default async function IncidentsPage({
   const monthlyAverage = monthKeysWithIncidents.size > 0 ? Number((totalIncidents / monthKeysWithIncidents.size).toFixed(1)) : 0
   const openClaimsCount = claims.filter((claim: any) => String(claim.status || '').toLowerCase() === 'open').length
   const overdueClaimsCount = claims.filter((claim: any) => isClaimOverdue(claim, now)).length
-  const riddorNeedsAttentionCount = riddorIncidents.filter((incident: any) => {
+  const riddorNeedsAttentionCount = riddorIncidents.filter((incident) => {
     return isOpenStatus(incident.status) || !investigationMap.get(incident.id)?.status
   }).length
 
@@ -1084,7 +783,10 @@ export default async function IncidentsPage({
         </Card>
       </div>
 
-      <Tabs defaultValue="overview" className="space-y-3 sm:space-y-4">
+      <Tabs
+        defaultValue={['overview', 'trends', 'incidents', 'claims'].includes(searchParams.tab || '') ? searchParams.tab : 'overview'}
+        className="space-y-3 sm:space-y-4"
+      >
         <TabsList className="grid w-full grid-cols-2 gap-1 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm md:inline-flex md:w-auto">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="trends">Trends & Analysis</TabsTrigger>
@@ -1139,7 +841,7 @@ export default async function IncidentsPage({
                 <p className="text-sm mt-1 text-center">Adjust filters or log a new incident to get started.</p>
               </div>
             ) : (
-              incidents.map((incident: any) => (
+              incidents.map((incident) => (
                 <IncidentMobileCard key={incident.id} incident={incident} />
               ))
             )}
@@ -1177,7 +879,7 @@ export default async function IncidentsPage({
                     </TableCell>
                   </TableRow>
                 ) : (
-                  incidents.map((incident: any) => (
+                  incidents.map((incident) => (
                     <TableRow key={incident.id} className="hover:bg-slate-50/50 transition-colors cursor-pointer">
                       <TableCell>
                         <Link href={`/incidents/${incident.id}`} className="hover:text-indigo-600 transition-colors">
@@ -1290,6 +992,12 @@ export default async function IncidentsPage({
             </Table>
           </div>
         </CardContent>
+        <IncidentPaginationNav
+          pagination={openIncidentPage}
+          pageKey="open_page"
+          searchParams={searchParams}
+          label="Open incidents"
+        />
       </Card>
 
       {/* Closed Incidents Table */}
@@ -1325,7 +1033,7 @@ export default async function IncidentsPage({
                   </summary>
 
                   <div className="space-y-2.5 p-3 md:hidden">
-                    {group.incidents.map((incident: any) => (
+                    {group.incidents.map((incident) => (
                       <ClosedIncidentMobileCard key={incident.id} incident={incident} />
                     ))}
                   </div>
@@ -1348,7 +1056,7 @@ export default async function IncidentsPage({
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {group.incidents.map((incident: any) => (
+                        {group.incidents.map((incident) => (
                           <TableRow key={incident.id} className="hover:bg-slate-50/50 transition-colors bg-slate-50/30 cursor-pointer">
                             <TableCell>
                               <Link href={`/incidents/${incident.id}`} className="hover:text-indigo-600 transition-colors">
@@ -1464,6 +1172,12 @@ export default async function IncidentsPage({
             </div>
           )}
         </CardContent>
+        <IncidentPaginationNav
+          pagination={closedIncidentPage}
+          pageKey="closed_page"
+          searchParams={searchParams}
+          label="Closed incidents"
+        />
       </Card>
 
       </TabsContent>
@@ -1509,7 +1223,7 @@ export default async function IncidentsPage({
                     </TableCell>
                   </TableRow>
                 ) : (
-                  riddorIncidents.map((incident: any) => {
+                  riddorIncidents.map((incident) => {
                     const needsAttention = isOpenStatus(incident.status) || !investigationMap.get(incident.id)?.status
                     return (
                     <TableRow key={`riddor-${incident.id}`} className={needsAttention ? 'bg-red-50/40' : 'bg-red-50/20'}>
@@ -1560,7 +1274,7 @@ export default async function IncidentsPage({
                 No RIDDOR incidents for this filter set.
               </p>
             ) : (
-              riddorIncidents.map((incident: any) => (
+              riddorIncidents.map((incident) => (
                 <Card key={`riddor-mobile-${incident.id}`} className="border-red-100">
                   <CardContent className="p-3 space-y-2">
                     <div className="flex items-start justify-between gap-2">

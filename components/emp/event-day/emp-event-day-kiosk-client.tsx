@@ -16,6 +16,7 @@ import { KioskClockOutForm } from '@/components/emp/event-day/kiosk-clock-out-fo
 import type {
   EmpEventDayKioskClockedInStaffResult,
   EmpEventDayKioskStaffResult,
+  EmpEventDayKioskUnavailableStaffResult,
   EmpEventDayKioskUnavailableReason,
 } from '@/lib/emp/event-day-data'
 
@@ -30,8 +31,17 @@ type VerifiedKiosk = {
 type Step = 'loading' | 'mode' | 'name-in' | 'confirm-in' | 'equipment' | 'name-out' | 'confirm-out' | 'return-kit' | 'success'
 type LookupStatus = 'idle' | 'too_short' | 'no_match' | 'ambiguous' | 'matched' | 'unavailable'
 
-const ADMIN_LOGIN_PIN = '1822'
 const ADMIN_LOGIN_HREF = '/login?redirectTo=%2Fadmin%2Fevent-management-plans'
+
+class KioskApiError extends Error {
+  status: number
+
+  constructor(message: string, status: number) {
+    super(message)
+    this.name = 'KioskApiError'
+    this.status = status
+  }
+}
 
 function todayInTimezone(timezone: string) {
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -47,6 +57,13 @@ function todayInTimezone(timezone: string) {
 function defaultEventDate(payload: VerifiedKiosk) {
   const today = todayInTimezone(payload.timezone)
   return payload.eventDays.find((day) => day.date === today)?.date || payload.eventDays[0]?.date || ''
+}
+
+function tabletLockIsEnabled(token: string) {
+  return typeof window !== 'undefined' && (
+    new URLSearchParams(window.location.search).get('tablet') === '1'
+    || window.localStorage.getItem(`emp-event-day-tablet-lock-token:${token}`) === '1'
+  )
 }
 
 function resolveLockedEventDate(payload: VerifiedKiosk, token: string, isLocked: boolean) {
@@ -88,31 +105,41 @@ export function EmpEventDayKioskClient({ token }: { token: string }) {
   const [nameQuery, setNameQuery] = useState('')
   const [lookupStatus, setLookupStatus] = useState<LookupStatus>('idle')
   const [matchedStaff, setMatchedStaff] = useState<EmpEventDayKioskStaffResult | null>(null)
-  const [unavailableStaff, setUnavailableStaff] = useState<EmpEventDayKioskStaffResult | null>(null)
+  const [unavailableStaff, setUnavailableStaff] = useState<EmpEventDayKioskUnavailableStaffResult | null>(null)
   const [unavailableReason, setUnavailableReason] = useState<EmpEventDayKioskUnavailableReason | null>(null)
   const [eventDate, setEventDate] = useState('')
   const [selected, setSelected] = useState<EmpEventDayKioskStaffResult | null>(null)
   const [selectedClockedIn, setSelectedClockedIn] = useState<EmpEventDayKioskClockedInStaffResult | null>(null)
+  const [workerVerificationCode, setWorkerVerificationCode] = useState('')
   const [equipment, setEquipment] = useState<KioskEquipmentState>(emptyKioskEquipmentState)
   const [success, setSuccess] = useState('')
   const [successCountdown, setSuccessCountdown] = useState(3)
   const [error, setError] = useState<string | null>(null)
   const [isBusy, setIsBusy] = useState(false)
   const [isLookupBusy, setIsLookupBusy] = useState(false)
-  const [adminPinOpen, setAdminPinOpen] = useState(false)
-  const [adminPin, setAdminPin] = useState('')
-  const [adminPinError, setAdminPinError] = useState<string | null>(null)
+  const [kioskPinOpen, setKioskPinOpen] = useState(false)
+  const [kioskPin, setKioskPin] = useState('')
+  const [kioskPinDraft, setKioskPinDraft] = useState('')
+  const [kioskPinError, setKioskPinError] = useState<string | null>(null)
 
   const api = useCallback(async (path: string, body: Record<string, unknown>) => {
     const response = await fetch(`/api/event-day/${token}/${path}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ ...body, ...(kioskPin ? { pin: kioskPin } : {}) }),
     })
     const payload = await response.json()
-    if (!response.ok) throw new Error(payload.error || 'Request failed')
+    if (!response.ok) {
+      if (response.status === 401) {
+        setKioskPin('')
+        setKioskPinDraft('')
+        setKioskPinError('Enter the current shared kiosk PIN.')
+        setKioskPinOpen(true)
+      }
+      throw new KioskApiError(payload.error || 'Request failed', response.status)
+    }
     return payload
-  }, [token])
+  }, [kioskPin, token])
 
   async function run(action: () => Promise<void>) {
     setIsBusy(true)
@@ -132,33 +159,76 @@ export function EmpEventDayKioskClient({ token }: { token: string }) {
     setUnavailableStaff(null)
     setUnavailableReason(null)
     setLookupStatus('idle')
+    setWorkerVerificationCode('')
     setError(null)
   }
 
-  function openAdminPin() {
-    setAdminPin('')
-    setAdminPinError(null)
-    setAdminPinOpen(true)
-  }
+  const applyVerifiedKiosk = useCallback((payload: VerifiedKiosk) => {
+    const tabletLocked = tabletLockIsEnabled(token)
+    setIsTabletLocked(Boolean(tabletLocked))
+    if (tabletLocked && typeof window !== 'undefined') {
+      window.localStorage.setItem(`emp-event-day-tablet-lock-token:${token}`, '1')
+      window.localStorage.setItem(`emp-event-day-tablet-lock:${payload.planId}`, JSON.stringify({
+        planId: payload.planId,
+        token,
+        eventDate: resolveLockedEventDate(payload, token, true),
+        lockedAt: new Date().toISOString(),
+      }))
+    }
+    setVerified(payload)
+    setEventDate(resolveLockedEventDate(payload, token, Boolean(tabletLocked)))
+    setStep('mode')
+  }, [token])
 
-  function submitAdminPin(event: FormEvent<HTMLFormElement>) {
+  const requestVerification = useCallback(async (pin: string) => {
+    const response = await fetch(`/api/event-day/${token}/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(pin ? { pin } : {}),
+    })
+    const payload = await response.json()
+    if (!response.ok) throw new KioskApiError(payload.error || 'Kiosk access is not available', response.status)
+    return payload as VerifiedKiosk
+  }, [token])
+
+  async function submitKioskPin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (adminPin.trim() !== ADMIN_LOGIN_PIN) {
-      setAdminPinError('Incorrect PIN.')
-      setAdminPin('')
+    const nextPin = kioskPinDraft.trim()
+    if (!nextPin) {
+      setKioskPinError('Enter the shared kiosk PIN.')
       return
     }
-    setAdminPinOpen(false)
-    window.location.assign(ADMIN_LOGIN_HREF)
+
+    setIsBusy(true)
+    setKioskPinError(null)
+    try {
+      const payload = await requestVerification(nextPin)
+      setKioskPin(nextPin)
+      setKioskPinDraft('')
+      setKioskPinOpen(false)
+      setError(null)
+      applyVerifiedKiosk(payload)
+    } catch (nextError: any) {
+      setKioskPinDraft('')
+      if (nextError instanceof KioskApiError && nextError.status === 401) {
+        setKioskPinError('Incorrect kiosk PIN.')
+      } else if (nextError instanceof KioskApiError && nextError.status === 403) {
+        setKioskPinOpen(false)
+        setVerified(null)
+        setStep('loading')
+        setError(nextError.message)
+      } else {
+        setKioskPinError(nextError?.message || 'Could not verify the kiosk PIN.')
+      }
+    } finally {
+      setIsBusy(false)
+    }
   }
 
   useEffect(() => {
     let isMounted = true
-    const tabletLocked = typeof window !== 'undefined' && (
-      new URLSearchParams(window.location.search).get('tablet') === '1'
-      || window.localStorage.getItem(`emp-event-day-tablet-lock-token:${token}`) === '1'
-    )
-    setIsTabletLocked(Boolean(tabletLocked))
+    const tabletLocked = tabletLockIsEnabled(token)
+    setIsTabletLocked(tabletLocked)
     if (tabletLocked && typeof window !== 'undefined') {
       window.localStorage.setItem(`emp-event-day-tablet-lock-token:${token}`, '1')
     }
@@ -167,28 +237,18 @@ export function EmpEventDayKioskClient({ token }: { token: string }) {
       setIsBusy(true)
       setError(null)
       try {
-        const response = await fetch(`/api/event-day/${token}/verify`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({}),
-        })
-        const payload = await response.json()
-        if (!response.ok) throw new Error(payload.error || 'Kiosk access is not available')
+        const payload = await requestVerification('')
         if (!isMounted) return
-        setVerified(payload)
-        if (tabletLocked && typeof window !== 'undefined') {
-          window.localStorage.setItem(`emp-event-day-tablet-lock:${payload.planId}`, JSON.stringify({
-            planId: payload.planId,
-            token,
-            eventDate: resolveLockedEventDate(payload, token, Boolean(tabletLocked)),
-            lockedAt: new Date().toISOString(),
-          }))
-        }
-        setEventDate(resolveLockedEventDate(payload, token, Boolean(tabletLocked)))
-        setStep('mode')
+        applyVerifiedKiosk(payload)
       } catch (nextError: any) {
         if (!isMounted) return
-        setError(nextError?.message || 'Kiosk access is not available')
+        if (nextError instanceof KioskApiError && nextError.status === 401) {
+          setKioskPinDraft('')
+          setKioskPinError(null)
+          setKioskPinOpen(true)
+        } else {
+          setError(nextError?.message || 'Kiosk access is not available')
+        }
       } finally {
         if (isMounted) setIsBusy(false)
       }
@@ -199,32 +259,37 @@ export function EmpEventDayKioskClient({ token }: { token: string }) {
     return () => {
       isMounted = false
     }
-  }, [token])
+  }, [applyVerifiedKiosk, requestVerification, token])
 
   useEffect(() => {
-    if (!verified) return
+    if (!verified || kioskPinOpen) return
     const interval = window.setInterval(async () => {
       try {
         const response = await fetch(`/api/event-day/${token}/verify`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({}),
+          body: JSON.stringify(kioskPin ? { pin: kioskPin } : {}),
         })
-        if (!response.ok) {
+        if (response.status === 401) {
+          setKioskPin('')
+          setKioskPinDraft('')
+          setKioskPinError('Enter the current shared kiosk PIN.')
+          setKioskPinOpen(true)
+        } else if (response.status === 403) {
           setVerified(null)
           setStep('loading')
-          setError('Tablet login has been switched off by admin.')
+          setError('Tablet access has expired or been switched off by admin.')
         }
       } catch {
         // Keep the current screen during brief network drops.
       }
     }, 10000)
     return () => window.clearInterval(interval)
-  }, [token, verified])
+  }, [kioskPin, kioskPinOpen, token, verified])
 
   useEffect(() => {
     const mode = step === 'name-in' ? 'clock_in' : step === 'name-out' ? 'clock_out' : null
-    if (!mode || !verified) return
+    if (!mode || !verified || kioskPinOpen) return
 
     const query = nameQuery.trim()
     setMatchedStaff(null)
@@ -256,14 +321,14 @@ export function EmpEventDayKioskClient({ token }: { token: string }) {
       } finally {
         if (isCurrent) setIsLookupBusy(false)
       }
-    }, 220)
+    }, 350)
 
     return () => {
       isCurrent = false
       window.clearTimeout(timer)
       setIsLookupBusy(false)
     }
-  }, [api, step, nameQuery, eventDate, verified])
+  }, [api, step, nameQuery, eventDate, kioskPinOpen, verified])
 
   useEffect(() => {
     if (step !== 'success') return
@@ -288,24 +353,37 @@ export function EmpEventDayKioskClient({ token }: { token: string }) {
 
   async function loadClockedIn() {
     await run(async () => {
-      const payload = await api('clocked-in', { query: nameQuery, eventDate, mode: 'clock_out' })
+      const payload = await api('clocked-in', {
+        query: nameQuery,
+        eventDate,
+        mode: 'clock_out',
+        workerVerificationCode,
+      })
       const person = payload.staff?.[0]
       if (!person) throw new Error('No clocked-in shift matches that name.')
       setSelectedClockedIn(person)
-      setStep('confirm-out')
+      setStep('return-kit')
     })
   }
 
   async function clockIn() {
     if (!selected) return
     await run(async () => {
-      await api('clock-in', {
-        staffShiftId: selected.id,
-        nameQuery,
-        eventDate,
-        deviceLabel: verified?.kioskLabel,
-        equipment,
-      })
+      try {
+        await api('clock-in', {
+          staffShiftId: selected.id,
+          nameQuery,
+          eventDate,
+          workerVerificationCode,
+          deviceLabel: verified?.kioskLabel,
+          equipment,
+        })
+      } catch (nextError) {
+        if (nextError instanceof KioskApiError && [403, 429].includes(nextError.status)) {
+          setStep('confirm-in')
+        }
+        throw nextError
+      }
       setSuccess(`${selected.staffName} is clocked in.`)
       setEquipment(emptyKioskEquipmentState)
       setSelected(null)
@@ -320,60 +398,69 @@ export function EmpEventDayKioskClient({ token }: { token: string }) {
   }) {
     if (!selectedClockedIn) return
     await run(async () => {
-      await api('clock-out', {
-        staffShiftId: selectedClockedIn.id,
-        nameQuery,
-        eventDate,
-        deviceLabel: verified?.kioskLabel,
-        returns: input.returns,
-        notes: input.notes,
-      })
+      try {
+        await api('clock-out', {
+          staffShiftId: selectedClockedIn.id,
+          nameQuery,
+          eventDate,
+          workerVerificationCode,
+          deviceLabel: verified?.kioskLabel,
+          returns: input.returns,
+          notes: input.notes,
+        })
+      } catch (nextError) {
+        if (nextError instanceof KioskApiError && [403, 429].includes(nextError.status)) {
+          setStep('confirm-out')
+        }
+        throw nextError
+      }
       setSuccess(`${selectedClockedIn.staffName} is clocked out.`)
       setSelectedClockedIn(null)
+      setSelected(null)
       resetName()
       setStep('success')
     })
   }
 
   const selectedEventDay = verified?.eventDays.find((day) => day.date === eventDate) || null
-  const adminPinDialog = (
+  const kioskPinDialog = (
     <Dialog
-      open={adminPinOpen}
+      open={kioskPinOpen}
       onOpenChange={(open) => {
-        setAdminPinOpen(open)
+        setKioskPinOpen(open)
         if (!open) {
-          setAdminPin('')
-          setAdminPinError(null)
+          setKioskPinDraft('')
+          setKioskPinError(null)
         }
       }}
     >
       <DialogContent className="sm:max-w-sm">
-        <form onSubmit={submitAdminPin}>
+        <form onSubmit={submitKioskPin}>
           <DialogHeader>
-            <DialogTitle>Admin PIN</DialogTitle>
-            <DialogDescription>Enter the admin PIN before leaving the sign-in screen.</DialogDescription>
+            <DialogTitle>Kiosk PIN</DialogTitle>
+            <DialogDescription>Enter the shared PIN configured for this event-day tablet.</DialogDescription>
           </DialogHeader>
           <div className="mt-5 space-y-2">
             <Input
               autoFocus
               inputMode="numeric"
               pattern="[0-9]*"
-              maxLength={4}
-              value={adminPin}
+              maxLength={12}
+              value={kioskPinDraft}
               onChange={(event) => {
-                setAdminPin(event.target.value.replace(/\D/g, '').slice(0, 4))
-                setAdminPinError(null)
+                setKioskPinDraft(event.target.value.replace(/\D/g, '').slice(0, 12))
+                setKioskPinError(null)
               }}
               className="h-14 rounded-lg text-center text-2xl font-black tracking-[0.35em]"
-              aria-label="Admin PIN"
+              aria-label="Kiosk PIN"
             />
-            {adminPinError ? <p className="text-sm font-semibold text-red-700">{adminPinError}</p> : null}
+            {kioskPinError ? <p className="text-sm font-semibold text-red-700">{kioskPinError}</p> : null}
           </div>
           <DialogFooter className="mt-6">
-            <Button type="button" variant="outline" onClick={() => setAdminPinOpen(false)}>
+            <Button type="button" variant="outline" onClick={() => setKioskPinOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit" className="bg-slate-950 hover:bg-slate-800">
+            <Button type="submit" disabled={isBusy} className="bg-slate-950 hover:bg-slate-800">
               Continue
             </Button>
           </DialogFooter>
@@ -398,13 +485,13 @@ export function EmpEventDayKioskClient({ token }: { token: string }) {
             </div>
             {error ? <div className="rounded-lg bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{error}</div> : null}
             {!isTabletLocked ? (
-              <Button type="button" variant="outline" className="mt-4 h-12 w-full rounded-lg" onClick={openAdminPin}>
+              <Button type="button" variant="outline" className="mt-4 h-12 w-full rounded-lg" onClick={() => window.location.assign(ADMIN_LOGIN_HREF)}>
                 <LogIn className="mr-2 h-4 w-4" />
                 Admin login
               </Button>
             ) : null}
           </div>
-          {adminPinDialog}
+          {kioskPinDialog}
         </div>
       </main>
     )
@@ -481,7 +568,8 @@ export function EmpEventDayKioskClient({ token }: { token: string }) {
                   setSelected(matchedStaff)
                   setStep('confirm-in')
                 } else {
-                  void loadClockedIn()
+                  setSelected(matchedStaff)
+                  setStep('confirm-out')
                 }
               }}
             />
@@ -491,9 +579,19 @@ export function EmpEventDayKioskClient({ token }: { token: string }) {
         {step === 'confirm-in' && selected ? (
           <KioskStaffConfirmCard
             staff={selected}
-            actionLabel={selected.status === 'clocked_in' ? 'Already clocked in' : 'Continue'}
-            onBack={() => setStep('name-in')}
-            onContinue={() => selected.status === 'scheduled' && setStep('equipment')}
+            actionLabel="Continue"
+            verificationCode={workerVerificationCode}
+            error={error}
+            isBusy={isBusy}
+            onBack={() => {
+              setWorkerVerificationCode('')
+              setStep('name-in')
+            }}
+            onVerificationCodeChange={(value) => {
+              setWorkerVerificationCode(value)
+              setError(null)
+            }}
+            onContinue={() => setStep('equipment')}
           />
         ) : null}
 
@@ -507,12 +605,22 @@ export function EmpEventDayKioskClient({ token }: { token: string }) {
           />
         ) : null}
 
-        {step === 'confirm-out' && selectedClockedIn ? (
+        {step === 'confirm-out' && selected ? (
           <KioskStaffConfirmCard
-            staff={selectedClockedIn}
+            staff={selected}
             actionLabel="Continue"
-            onBack={() => setStep('name-out')}
-            onContinue={() => setStep('return-kit')}
+            verificationCode={workerVerificationCode}
+            error={error}
+            isBusy={isBusy}
+            onBack={() => {
+              setWorkerVerificationCode('')
+              setStep('name-out')
+            }}
+            onVerificationCodeChange={(value) => {
+              setWorkerVerificationCode(value)
+              setError(null)
+            }}
+            onContinue={() => void loadClockedIn()}
           />
         ) : null}
 
@@ -537,19 +645,19 @@ export function EmpEventDayKioskClient({ token }: { token: string }) {
           </div>
         ) : null}
 
-        {error && !['equipment', 'return-kit'].includes(step) ? (
+        {error && !['confirm-in', 'confirm-out', 'equipment', 'return-kit'].includes(step) ? (
           <div className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{error}</div>
         ) : null}
 
         <footer className="mt-5 flex items-center justify-between gap-3 text-xs font-bold uppercase tracking-[0.18em] text-slate-500">
           <span>KSS Event Management</span>
           {!isTabletLocked ? (
-            <button type="button" onClick={openAdminPin} className="rounded-lg bg-white px-4 py-2 text-slate-700 shadow-sm transition hover:text-slate-950">
+            <button type="button" onClick={() => window.location.assign(ADMIN_LOGIN_HREF)} className="rounded-lg bg-white px-4 py-2 text-slate-700 shadow-sm transition hover:text-slate-950">
               Admin login
             </button>
           ) : null}
         </footer>
-        {adminPinDialog}
+        {kioskPinDialog}
       </div>
     </main>
   )

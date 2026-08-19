@@ -10,6 +10,7 @@ export type Json =
   | Json[]
 
 export type FaUserRole = 'admin' | 'ops' | 'readonly' | 'client' | 'pending'
+export type FaAccountStatus = 'invited' | 'pending' | 'active' | 'suspended' | 'deactivated'
 export type FaIncidentCategory = 'accident' | 'near_miss' | 'security' | 'fire' | 'health_safety' | 'other'
 export type FaSeverity = 'low' | 'medium' | 'high' | 'critical'
 export type FaIncidentStatus = 'open' | 'under_investigation' | 'actions_in_progress' | 'closed' | 'cancelled'
@@ -17,7 +18,8 @@ export type FaInvestigationType = 'light_touch' | 'formal'
 export type FaInvestigationStatus = 'not_started' | 'in_progress' | 'awaiting_actions' | 'complete'
 export type FaActionPriority = 'low' | 'medium' | 'high' | 'urgent'
 export type FaActionStatus = 'open' | 'in_progress' | 'blocked' | 'complete' | 'cancelled'
-export type FaEntityType = 'incident' | 'investigation' | 'action' | 'store'
+export type FaEntityType = 'incident' | 'investigation' | 'action' | 'store' | 'user'
+export type FaActivitySource = 'legacy' | 'database_trigger' | 'profile_trigger' | 'server_action'
 export type FaStoreContactPreferredMethod = 'phone' | 'email' | 'either'
 export type FaStoreNoteType = 'general' | 'contact' | 'audit' | 'fra' | 'other'
 export type FaStoreInteractionType =
@@ -51,18 +53,30 @@ export interface Database {
           id: string
           full_name: string | null
           role: FaUserRole
+          account_status: FaAccountStatus
+          status_changed_at: string
+          status_changed_by_user_id: string | null
+          status_change_reason: string | null
           created_at: string
         }
         Insert: {
           id: string
           full_name?: string | null
           role?: FaUserRole
+          account_status?: FaAccountStatus
+          status_changed_at?: string
+          status_changed_by_user_id?: string | null
+          status_change_reason?: string | null
           created_at?: string
         }
         Update: {
           id?: string
           full_name?: string | null
           role?: FaUserRole
+          account_status?: FaAccountStatus
+          status_changed_at?: string
+          status_changed_by_user_id?: string | null
+          status_change_reason?: string | null
           created_at?: string
         }
       }
@@ -355,6 +369,8 @@ export interface Database {
           performed_by_user_id: string
           details: Json | null
           created_at: string
+          source: FaActivitySource
+          correlation_id: string
         }
         Insert: {
           id?: string
@@ -364,6 +380,8 @@ export interface Database {
           performed_by_user_id: string
           details?: Json | null
           created_at?: string
+          source?: FaActivitySource
+          correlation_id?: string
         }
         Update: {
           id?: string
@@ -373,6 +391,8 @@ export interface Database {
           performed_by_user_id?: string
           details?: Json | null
           created_at?: string
+          source?: FaActivitySource
+          correlation_id?: string
         }
       }
       fa_store_contacts: {

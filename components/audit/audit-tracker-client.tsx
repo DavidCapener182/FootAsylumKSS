@@ -33,13 +33,15 @@ export function AuditTrackerClient({ stores, userRole }: AuditTrackerClientProps
                 Track compliance scores, view audit history, and monitor network performance across all regions.
               </p>
             </div>
-            <button
-              type="button"
-              className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-slate-800 sm:w-auto"
-            >
-              <Download size={16} />
-              Export Data
-            </button>
+            <form action="/api/reports/audits" method="GET" className="w-full sm:w-auto">
+              <button
+                type="submit"
+                className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-slate-800 sm:w-auto"
+              >
+                <Download size={16} aria-hidden="true" />
+                Export SafeHub History CSV
+              </button>
+            </form>
           </div>
 
           <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">

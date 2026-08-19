@@ -1,4 +1,4 @@
-import { CheckSquare, ClipboardList, Flame, LayoutDashboard } from 'lucide-react'
+import { CheckSquare, ClipboardList, Flame, LayoutDashboard, Route, Store } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { UserRole } from '@/lib/auth'
 import { navItems } from './nav-items'
@@ -10,21 +10,21 @@ export type MobileTabItem = {
 }
 
 const defaultMobileTabItems: MobileTabItem[] = [
-  { href: '/dashboard', label: 'Home', icon: LayoutDashboard },
+  { href: '/dashboard', label: 'Today', icon: LayoutDashboard },
   { href: '/audit-tracker', label: 'Audits', icon: ClipboardList },
   { href: '/fire-risk-assessment', label: 'FRAs', icon: Flame },
-  { href: '/actions', label: 'Actions', icon: CheckSquare },
+  { href: '/stores', label: 'Stores', icon: Store },
 ]
 
 const opsMobileTabItems: MobileTabItem[] = [
-  { href: '/dashboard', label: 'Home', icon: LayoutDashboard },
+  { href: '/dashboard', label: 'Today', icon: LayoutDashboard },
+  { href: '/route-planning', label: 'Routes', icon: Route },
   { href: '/audit-tracker', label: 'Audits', icon: ClipboardList },
-  { href: '/fire-risk-assessment', label: 'FRAs', icon: Flame },
   { href: '/actions', label: 'Actions', icon: CheckSquare },
 ]
 
 const mobilePageTitles: Array<{ href: string; title: string }> = [
-  { href: '/dashboard', title: 'Dashboard' },
+  { href: '/dashboard', title: 'Today' },
   { href: '/incidents', title: 'Operational Records' },
   { href: '/actions', title: 'Actions' },
   { href: '/stores', title: 'Store Directory' },
@@ -34,7 +34,11 @@ const mobilePageTitles: Array<{ href: string; title: string }> = [
   { href: '/route-planning', title: 'Route Planning' },
   { href: '/calendar', title: 'Calendar' },
   { href: '/reports', title: 'Reports & Exports' },
-  { href: '/help', title: 'GDPR & Data Protection' },
+  { href: '/help', title: 'Help Centre' },
+  { href: '/privacy', title: 'Privacy' },
+  { href: '/admin/event-management-plans', title: 'Event Plans' },
+  { href: '/admin/crowd-management-plans', title: 'Crowd Plans' },
+  { href: '/admin/event-day', title: 'Event Day' },
   { href: '/admin', title: 'Admin' },
   { href: '/activity', title: 'Recent Activity' },
 ]
@@ -57,7 +61,8 @@ export function getMobileMoreItems(userRole?: UserRole | null): MobileTabItem[] 
     .filter((item) => {
       if (item.action) return false
       if (primaryHrefs.has(item.href)) return false
-      if (item.adminOnly || item.section === 'Administration') return false
+      if (item.section === 'Administration') return false
+      if (item.adminOnly && userRole !== 'admin') return false
       if (userRole === 'admin') return !item.allowedRoles || item.allowedRoles.includes('admin')
       if (userRole === 'client') return !item.adminOnly && !item.clientHidden && (!item.allowedRoles || item.allowedRoles.includes('client'))
       if (userRole === 'ops') return !item.adminOnly && (!item.allowedRoles || item.allowedRoles.includes('ops'))

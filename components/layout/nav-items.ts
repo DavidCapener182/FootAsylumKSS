@@ -12,6 +12,9 @@ import {
   Calendar,
   Bug,
   ShieldCheck,
+  LifeBuoy,
+  Users,
+  Radio,
 } from 'lucide-react'
 import type React from 'react'
 
@@ -19,7 +22,7 @@ export type NavItem = {
   href: string
   label: string
   icon: React.ComponentType<{ className?: string }>
-  section?: 'Overview' | 'Compliance Management' | 'Stores' | 'Planning' | 'Reporting' | 'Administration'
+  section?: 'Today' | 'Assurance' | 'Stores' | 'Insights' | 'Events' | 'Administration'
   adminOnly?: boolean
   clientHidden?: boolean
   allowedRoles?: Array<'admin' | 'ops' | 'readonly' | 'client' | 'pending'>
@@ -27,18 +30,22 @@ export type NavItem = {
 }
 
 export const navItems: NavItem[] = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, section: 'Overview' },
-  { href: '/activity', label: 'Recent Activity', icon: Activity, section: 'Overview', clientHidden: true },
-  { href: '/audit-tracker', label: 'Compliance Audits', icon: ClipboardList, section: 'Compliance Management' },
-  { href: '/fire-risk-assessment', label: 'Fire Risk Assessments', icon: Flame, section: 'Compliance Management' },
-  { href: '/audit-lab', label: 'SafeHub', icon: ShieldCheck, section: 'Compliance Management', allowedRoles: ['admin', 'ops'] },
-  { href: '/incidents', label: 'Incidents', icon: AlertTriangle, section: 'Compliance Management' },
-  { href: '/actions', label: 'Actions', icon: CheckSquare, section: 'Compliance Management' },
+  { href: '/dashboard', label: 'Today', icon: LayoutDashboard, section: 'Today' },
+  { href: '/audit-tracker', label: 'Audits', icon: ClipboardList, section: 'Assurance' },
+  { href: '/fire-risk-assessment', label: 'Fire Risk Assessments', icon: Flame, section: 'Assurance' },
+  { href: '/audit-lab', label: 'SafeHub', icon: ShieldCheck, section: 'Assurance', allowedRoles: ['admin', 'ops'] },
+  { href: '/actions', label: 'Actions', icon: CheckSquare, section: 'Assurance' },
+  { href: '/incidents', label: 'Incidents', icon: AlertTriangle, section: 'Assurance' },
   { href: '/stores', label: 'Store Directory', icon: Store, section: 'Stores' },
-  { href: '/route-planning', label: 'Route Planning', icon: Route, section: 'Planning', clientHidden: true, allowedRoles: ['admin', 'ops'] },
-  { href: '/calendar', label: 'Calendar', icon: Calendar, section: 'Planning' },
-  { href: '/reports', label: 'Reports & Exports', icon: FileText, section: 'Reporting' },
-  { href: '/help', label: 'GDPR & Data Protection', icon: ShieldCheck, section: 'Reporting' },
+  { href: '/route-planning', label: 'Routes', icon: Route, section: 'Stores', clientHidden: true, allowedRoles: ['admin', 'ops'] },
+  { href: '/calendar', label: 'Calendar', icon: Calendar, section: 'Stores' },
+  { href: '/activity', label: 'Activity', icon: Activity, section: 'Insights', clientHidden: true },
+  { href: '/reports', label: 'Reports', icon: FileText, section: 'Insights' },
+  { href: '/admin/event-management-plans', label: 'Event Plans', icon: ClipboardList, section: 'Events', adminOnly: true },
+  { href: '/admin/crowd-management-plans', label: 'Crowd Plans', icon: Users, section: 'Events', adminOnly: true },
+  { href: '/admin/event-day', label: 'Event Day', icon: Radio, section: 'Events', adminOnly: true },
+  { href: '/help', label: 'Help Centre', icon: LifeBuoy, section: 'Insights' },
+  { href: '/privacy', label: 'Privacy', icon: ShieldCheck, section: 'Insights' },
   { href: '/admin', label: 'Admin', icon: Settings, section: 'Administration', adminOnly: true },
   { href: '#feedback', label: 'Report a Bug', icon: Bug, section: 'Administration', action: 'feedback' },
 ]

@@ -35,6 +35,12 @@ function makeResponsesChain(selectArg: string) {
 const mockSupabase = {
   auth: {
     getUser: vi.fn().mockResolvedValue({ data: { user: mockUser }, error: null }),
+    mfa: {
+      getAuthenticatorAssuranceLevel: vi.fn().mockResolvedValue({
+        data: { currentLevel: 'aal2', nextLevel: 'aal2' },
+        error: null,
+      }),
+    },
   },
   from: vi.fn((table: string) => {
     if (table === 'fa_audit_instances') {
@@ -66,8 +72,8 @@ const mockSupabase = {
       return {
         select: vi.fn(() => ({
           eq: vi.fn(() => ({
-            single: vi.fn().mockResolvedValue({
-              data: { role: 'admin' },
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: { role: 'admin', account_status: 'active' },
               error: null,
             }),
           })),
@@ -180,6 +186,10 @@ describe('mapHSAuditToFRAData', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockSupabase.auth.getUser.mockResolvedValue({ data: { user: mockUser }, error: null })
+    mockSupabase.auth.mfa.getAuthenticatorAssuranceLevel.mockResolvedValue({
+      data: { currentLevel: 'aal2', nextLevel: 'aal2' },
+      error: null,
+    })
   })
 
   it('uses the shared parser output for the stored FRA PDF text', async () => {

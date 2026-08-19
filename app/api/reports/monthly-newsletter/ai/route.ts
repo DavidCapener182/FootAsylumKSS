@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
 import type { NewsletterAIPromptPack } from '@/lib/reports/monthly-newsletter-types'
+import { reportPermissionErrorResponse, requireReportAccess } from '@/lib/reports/authorization'
 
 interface PromptRequestBody {
   selectedArea?: string
@@ -108,14 +108,7 @@ async function generateCompletion(
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    await requireReportAccess()
 
     const apiKey = process.env.OPENAI_API_KEY
     if (!apiKey) {
@@ -155,6 +148,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(payload)
   } catch (error: any) {
+    const permissionResponse = reportPermissionErrorResponse(error)
+    if (permissionResponse) return permissionResponse
+
     console.error('Error generating monthly newsletter consultant briefing:', error)
     return NextResponse.json(
       { error: error?.message || 'Failed to generate monthly newsletter consultant briefing' },

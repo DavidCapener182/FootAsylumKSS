@@ -4,9 +4,14 @@ import { NextRequest } from 'next/server'
 const mockRequirePermission = vi.fn()
 const mockAdminStorageUpload = vi.fn()
 const mockAdminStorageRemove = vi.fn()
-const mockAdminStoreUpdateEq = vi.fn()
-const mockAdminStoreUpdate = vi.fn(() => ({ eq: mockAdminStoreUpdateEq }))
-const mockAdminFrom = vi.fn(() => ({ update: mockAdminStoreUpdate }))
+const mockAuthenticatedStoreUpdateEq = vi.fn()
+const mockAuthenticatedStoreUpdate = vi.fn(() => ({ eq: mockAuthenticatedStoreUpdateEq }))
+const mockAuthenticatedFrom = vi.fn(() => ({ update: mockAuthenticatedStoreUpdate }))
+const mockAdminFrom = vi.fn()
+
+const mockAuthenticatedSupabase = {
+  from: mockAuthenticatedFrom,
+}
 
 const mockAdminSupabase = {
   from: mockAdminFrom,
@@ -41,13 +46,18 @@ function createUploadRequest(auditNumber: 1 | 2 = 2) {
 describe('audit PDF upload route', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockRequirePermission.mockResolvedValue({ userId: 'user-1', role: 'ops' })
+    mockRequirePermission.mockResolvedValue({
+      supabase: mockAuthenticatedSupabase,
+      userId: 'user-1',
+      role: 'ops',
+      accountStatus: 'active',
+    })
     mockAdminStorageUpload.mockResolvedValue({ error: null })
     mockAdminStorageRemove.mockResolvedValue({ error: null })
-    mockAdminStoreUpdateEq.mockResolvedValue({ error: null })
+    mockAuthenticatedStoreUpdateEq.mockResolvedValue({ error: null })
   })
 
-  it('checks manageAudits then uploads and updates through the admin client', async () => {
+  it('checks manageAudits, uses admin storage, and updates through the authenticated client', async () => {
     const { POST } = await import('./route')
 
     const response = await POST(createUploadRequest(2))
@@ -66,16 +76,17 @@ describe('audit PDF upload route', () => {
         upsert: false,
       })
     )
-    expect(mockAdminFrom).toHaveBeenCalledWith('fa_stores')
-    expect(mockAdminStoreUpdate).toHaveBeenCalledWith({
+    expect(mockAuthenticatedFrom).toHaveBeenCalledWith('fa_stores')
+    expect(mockAuthenticatedStoreUpdate).toHaveBeenCalledWith({
       compliance_audit_2_pdf_path: expect.stringMatching(/^store\/store-123\/audit-2-.*\.pdf$/),
     })
-    expect(mockAdminStoreUpdateEq).toHaveBeenCalledWith('id', 'store-123')
+    expect(mockAuthenticatedStoreUpdateEq).toHaveBeenCalledWith('id', 'store-123')
+    expect(mockAdminFrom).not.toHaveBeenCalled()
   })
 
   it('cleans up the uploaded PDF if the store update fails', async () => {
     const { POST } = await import('./route')
-    mockAdminStoreUpdateEq.mockResolvedValueOnce({ error: { message: 'update blocked' } })
+    mockAuthenticatedStoreUpdateEq.mockResolvedValueOnce({ error: { message: 'update blocked' } })
 
     const response = await POST(createUploadRequest(1))
     const json = await response.json()

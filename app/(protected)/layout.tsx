@@ -1,4 +1,4 @@
-import { requireAuth, getUserProfile } from '@/lib/auth'
+import { requireAuth } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { Sidebar } from '@/components/layout/sidebar'
 import { Header } from '@/components/layout/header'
@@ -6,6 +6,7 @@ import { MobileTabBar } from '@/components/layout/mobile-tab-bar'
 import { SidebarProvider } from '@/components/layout/sidebar-provider'
 import { Toaster } from '@/components/ui/toaster'
 import { ReleaseNotesModal } from '@/components/ReleaseNotesModal'
+import { accountHasApplicationAccess, type AccountStatus } from '@/lib/account-lifecycle'
 
 export default async function ProtectedLayout({
   children,
@@ -16,67 +17,43 @@ export default async function ProtectedLayout({
   const supabase = createClient()
   
   // Ensure profile exists and check role
-  const { data: profile } = await supabase
+  const { data: profile, error: profileError } = await supabase
     .from('fa_profiles')
-    .select('id, role')
+    .select('id, role, account_status')
     .eq('id', session.user.id)
-    .single()
+    .maybeSingle()
 
-  // Pending users cannot access protected data until an administrator approves them.
-  if (profile && profile.role === 'pending') {
+  // Profiles and roles are provisioned only by a trusted administrator. An
+  // authenticated Auth user without a profile must never inherit app access.
+  if (
+    profileError
+    || !profile
+    || !accountHasApplicationAccess(profile.account_status as AccountStatus)
+    || profile.role === 'pending'
+  ) {
+    if (profileError) {
+      console.error('Unable to verify the authenticated user profile:', profileError)
+    }
+
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
-        <div className="w-full max-w-md bg-white rounded-lg shadow-lg p-8 text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Account Pending Approval</h1>
-          <p className="text-gray-600 mb-6">
-            Your account has been created but is pending admin approval. 
-            You will be able to access the system once an administrator approves your account and assigns the correct role.
+        <div className="w-full max-w-md rounded-lg bg-white p-8 text-center shadow-lg">
+          <h1 className="mb-4 text-2xl font-bold text-gray-900">Account Access Unavailable</h1>
+          <p className="mb-6 text-gray-600">
+            Your account is not currently active. Ask your system administrator to complete your
+            invitation, approval, or reactivation before trying again.
           </p>
           <p className="text-sm text-gray-500">
-            If you have any questions, please contact your administrator.
+            No operational data is available until your account has active status.
           </p>
         </div>
       </div>
     )
   }
 
-  if (!profile && session.user) {
-    // Get intended role from user metadata (set during sign-up or invitation)
-    const intendedRole = session.user.user_metadata?.intended_role
-    
-    // For invited users, use the intended_role from metadata if it's set
-    // For self-registered users, default to 'pending' unless they're KSS x Footasylum client
-    // Always default to 'pending' if no intended_role is set (safety first)
-    let defaultRole: string = 'pending'
-    
-    if (intendedRole) {
-      // If intended_role is explicitly set (from invitation), use it
-      const validRoles = ['admin', 'ops', 'readonly', 'client', 'pending']
-      if (validRoles.includes(intendedRole)) {
-        defaultRole = intendedRole
-      }
-    } else {
-      // No intended_role in metadata - this is likely a self-registered user
-      // Default to 'pending' for admin approval
-      defaultRole = 'pending'
-    }
-    
-    // Use full_name from metadata if available, otherwise derive from email
-    const fullName = session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || null
-    
-    // Create profile with intended role or default to pending
-    await supabase
-      .from('fa_profiles')
-      .insert({
-        id: session.user.id,
-        full_name: fullName,
-        role: defaultRole,
-      })
-  }
-
   return (
     <SidebarProvider>
-      <div className="flex min-h-[100dvh] bg-[#071321] md:h-screen-zoom md:min-h-0 md:overflow-hidden">
+      <div className="flex min-h-[100dvh] bg-[#071321] md:h-[100dvh] md:min-h-0 md:overflow-hidden">
         <Sidebar />
         <div className="flex min-h-[100dvh] w-full min-w-0 flex-1 flex-col overflow-x-hidden bg-[#0e1925] md:ml-64 md:min-h-0 md:overflow-hidden">
           <Header />

@@ -12,6 +12,11 @@ const stockMigration = readFileSync(
   'utf8'
 )
 
+const kioskHardeningMigration = readFileSync(
+  join(process.cwd(), 'supabase/migrations/20260819230958_harden_emp_event_day_kiosk.sql'),
+  'utf8'
+)
+
 describe('event-day migration safety constraints', () => {
   it('prevents duplicate active serialised equipment on a plan', () => {
     expect(migration).toContain('idx_emp_event_active_serialised_equipment')
@@ -47,5 +52,53 @@ describe('event-day migration safety constraints', () => {
     expect(stockMigration).toContain('TO authenticated, service_role')
     expect(stockMigration.toLowerCase()).not.toContain(' for delete')
     expect(stockMigration.toLowerCase()).not.toContain('delete on table')
+  })
+
+  it('revokes legacy kiosk credentials and adds an explicit lifecycle', () => {
+    expect(kioskHardeningMigration).toContain('kiosk_access_id UUID')
+    expect(kioskHardeningMigration).toContain('kiosk_event_date DATE')
+    expect(kioskHardeningMigration).toContain('kiosk_token_issued_at TIMESTAMPTZ')
+    expect(kioskHardeningMigration).toContain('kiosk_token_expires_at TIMESTAMPTZ')
+    expect(kioskHardeningMigration).toContain('kiosk_revoked_at TIMESTAMPTZ')
+    expect(kioskHardeningMigration).toMatch(/kiosk_token_hash = NULL,[\s\S]*kiosk_revoked_at = COALESCE/)
+    expect(kioskHardeningMigration).toContain('emp_event_day_kiosk_token_lifecycle_complete')
+    expect(kioskHardeningMigration).toContain('emp_event_day_enabled_kiosk_is_active')
+  })
+
+  it('keeps kiosk limiter and request events service-role-only', () => {
+    expect(kioskHardeningMigration).toContain('CREATE TABLE IF NOT EXISTS public.emp_event_kiosk_request_limits')
+    expect(kioskHardeningMigration).toContain('CREATE TABLE IF NOT EXISTS public.emp_event_kiosk_request_events')
+    expect(kioskHardeningMigration).toContain('ALTER TABLE public.emp_event_kiosk_request_limits ENABLE ROW LEVEL SECURITY')
+    expect(kioskHardeningMigration).toContain('ALTER TABLE public.emp_event_kiosk_request_events ENABLE ROW LEVEL SECURITY')
+    expect(kioskHardeningMigration).toMatch(/REVOKE ALL ON TABLE[\s\S]*FROM PUBLIC, anon, authenticated/)
+    expect(kioskHardeningMigration).toMatch(/GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public\.emp_event_kiosk_request_limits[\s\S]*TO service_role/)
+    expect(kioskHardeningMigration).toMatch(/GRANT SELECT, INSERT ON TABLE public\.emp_event_kiosk_request_events[\s\S]*TO service_role/)
+  })
+
+  it('limits access to the atomic rate-limit function', () => {
+    expect(kioskHardeningMigration).toContain('public.emp_consume_event_day_kiosk_limit')
+    expect(kioskHardeningMigration).toContain('SECURITY INVOKER')
+    expect(kioskHardeningMigration).toContain('SET search_path = pg_catalog, public')
+    expect(kioskHardeningMigration).toMatch(/REVOKE ALL ON FUNCTION[\s\S]*FROM PUBLIC, anon, authenticated/)
+    expect(kioskHardeningMigration).toMatch(/GRANT EXECUTE ON FUNCTION[\s\S]*TO service_role/)
+  })
+
+  it('locks repeated worker-proof failures at the configured threshold', () => {
+    expect(kioskHardeningMigration).toContain("'pin', 'worker'")
+    expect(kioskHardeningMigration).toContain('IF v_row.request_count >= p_limit THEN')
+    expect(kioskHardeningMigration).toContain('reservation_window_started_at TIMESTAMPTZ')
+    expect(kioskHardeningMigration).toContain('attempt_reserved BOOLEAN')
+    expect(kioskHardeningMigration).toMatch(/v_row\.locked_until,[\s\S]*v_row\.window_started_at,[\s\S]*false;/)
+    expect(kioskHardeningMigration).toMatch(/v_retry_until,[\s\S]*v_row\.window_started_at,[\s\S]*p_increment > 0;/)
+  })
+
+  it('terminates the threshold lock update before returning limiter state', () => {
+    expect(kioskHardeningMigration).toMatch(
+      /SET locked_until = v_retry_until, updated_at = v_now[\s\S]*AND request_limit\.action = p_action;\s*RETURN QUERY SELECT/
+    )
+  })
+
+  it('adds correlation metadata support to equipment audit events', () => {
+    expect(kioskHardeningMigration).toMatch(/ALTER TABLE public\.emp_event_equipment_events[\s\S]*ADD COLUMN IF NOT EXISTS metadata JSONB/)
   })
 })

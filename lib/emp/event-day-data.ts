@@ -1,6 +1,6 @@
 import 'server-only'
 
-import { createHash, randomBytes } from 'crypto'
+import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'crypto'
 import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { getEmpUserContext } from '@/lib/emp/access'
 import { EmpSetupRequiredError, getEmpMasterTemplatePlanPrefill } from '@/lib/emp/data'
@@ -23,6 +23,7 @@ import {
   clockOutSchema,
   eventDaySettingsSchema,
   importMappingSchema,
+  kioskClockedInLookupSchema,
   kioskNameLookupSchema,
   mealTokenIssueSchema,
   staffingImportModeSchema,
@@ -47,6 +48,22 @@ import {
   type KioskNameLookupMode,
   type KioskUnavailableReason,
 } from '@/lib/emp/event-day-identity'
+import {
+  buildMinimalKioskStaffConfirmation,
+  evaluateEmpEventDayWorkerVerification,
+  evaluateKioskCredentialState,
+  resolveKioskPinHashForRotation,
+  type EmpEventDayKioskRequestContext,
+} from '@/lib/emp/event-day-kiosk-security'
+import {
+  clearEmpEventDayKioskPinFailures,
+  clearEmpEventDayWorkerVerificationFailures,
+  enrichEmpEventDayKioskRequestContext,
+  kioskAuditMetadata,
+  reserveEmpEventDayKioskPinAttempt,
+  reserveEmpEventDayWorkerVerificationAttempt,
+  throwIfEmpEventDayProofAttemptBlocked,
+} from '@/lib/emp/event-day-kiosk-request'
 
 type SupabaseLike = ReturnType<typeof createAdminSupabaseClient>
 
@@ -74,6 +91,11 @@ type EventDaySettingsRow = {
   kiosk_enabled: boolean
   kiosk_token_hash: string | null
   kiosk_pin_hash: string | null
+  kiosk_access_id: string | null
+  kiosk_event_date: string | null
+  kiosk_token_issued_at: string | null
+  kiosk_token_expires_at: string | null
+  kiosk_revoked_at: string | null
   timezone: string
   kiosk_label: string | null
   meal_token_total: number | null
@@ -108,6 +130,16 @@ type StaffShiftRow = {
   created_at: string
   updated_at: string
 }
+
+type KioskOperationalRow = Pick<
+  StaffShiftRow,
+  'shift_start' | 'shift_end' | 'status' | 'admin_notes' | 'is_walk_up'
+>
+
+type KioskLookupRow = KioskOperationalRow & Pick<
+  StaffShiftRow,
+  'id' | 'staff_name' | 'agency' | 'position' | 'area'
+>
 
 type EquipmentAssignmentRow = {
   id: string
@@ -200,6 +232,11 @@ export type EmpEventDaySettings = {
   kioskEnabled: boolean
   hasKioskToken: boolean
   hasKioskPin: boolean
+  kioskAccessId: string | null
+  kioskEventDate: string | null
+  kioskTokenIssuedAt: string | null
+  kioskTokenExpiresAt: string | null
+  kioskRevokedAt: string | null
   timezone: string
   kioskLabel: string | null
   mealTokenTotal: number | null
@@ -353,8 +390,10 @@ export type EmpEventDayKioskStaffResult = {
   area: string | null
   shiftStart: string | null
   shiftEnd: string | null
-  status: EmpEventStaffShiftStatus
-  clockedInAt: string | null
+}
+
+export type EmpEventDayKioskUnavailableStaffResult = {
+  staffName: string
 }
 
 export type EmpEventDayKioskClockedInStaffResult = EmpEventDayKioskStaffResult & {
@@ -381,6 +420,12 @@ function hashSecret(value: string) {
 
 function hashPin(planId: string, pin: string) {
   return hashSecret(`${planId}:${pin}`)
+}
+
+function secretHashesMatch(actual: string, expected: string) {
+  const actualBuffer = Buffer.from(actual, 'hex')
+  const expectedBuffer = Buffer.from(expected, 'hex')
+  return actualBuffer.length === expectedBuffer.length && timingSafeEqual(actualBuffer, expectedBuffer)
 }
 
 function hashToken(token: string) {
@@ -461,6 +506,11 @@ function buildSettings(row: EventDaySettingsRow): EmpEventDaySettings {
     kioskEnabled: Boolean(row.kiosk_enabled),
     hasKioskToken: Boolean(row.kiosk_token_hash),
     hasKioskPin: Boolean(row.kiosk_pin_hash),
+    kioskAccessId: row.kiosk_access_id,
+    kioskEventDate: row.kiosk_event_date,
+    kioskTokenIssuedAt: row.kiosk_token_issued_at,
+    kioskTokenExpiresAt: row.kiosk_token_expires_at,
+    kioskRevokedAt: row.kiosk_revoked_at,
     timezone: row.timezone || 'Europe/London',
     kioskLabel: row.kiosk_label,
     mealTokenTotal: typeof row.meal_token_total === 'number' ? row.meal_token_total : null,
@@ -597,7 +647,7 @@ async function touchEmpPlan(supabase: SupabaseLike, planId: string, profileId?: 
 async function loadSettingsByPlan(supabase: SupabaseLike, planId: string) {
   const { data, error } = await (supabase as any)
     .from('emp_event_day_settings')
-    .select('plan_id, kiosk_enabled, kiosk_token_hash, kiosk_pin_hash, timezone, kiosk_label, meal_token_total, created_at, updated_at')
+    .select('plan_id, kiosk_enabled, kiosk_token_hash, kiosk_pin_hash, kiosk_access_id, kiosk_event_date, kiosk_token_issued_at, kiosk_token_expires_at, kiosk_revoked_at, timezone, kiosk_label, meal_token_total, created_at, updated_at')
     .eq('plan_id', planId)
     .maybeSingle()
 
@@ -624,7 +674,7 @@ async function ensureSettingsForAdmin(supabase: SupabaseLike, planId: string, pr
       created_at: now,
       updated_at: now,
     })
-    .select('plan_id, kiosk_enabled, kiosk_token_hash, kiosk_pin_hash, timezone, kiosk_label, meal_token_total, created_at, updated_at')
+    .select('plan_id, kiosk_enabled, kiosk_token_hash, kiosk_pin_hash, kiosk_access_id, kiosk_event_date, kiosk_token_issued_at, kiosk_token_expires_at, kiosk_revoked_at, timezone, kiosk_label, meal_token_total, created_at, updated_at')
     .single()
 
   if (error) throwEventDayDatabaseError('Failed to create event-day settings', error)
@@ -1183,38 +1233,101 @@ export async function getEmpEventDaySettings(planId: string) {
   return buildSettings(await ensureSettingsForAdmin(supabase as any, planId, profile.id))
 }
 
+async function deriveKioskTokenExpiry(
+  supabase: SupabaseLike,
+  planId: string,
+  eventDate: string,
+  timezone: string
+) {
+  const rows = await selectAllEventDayRows<Pick<StaffShiftRow, 'shift_start' | 'shift_end' | 'status'>>(
+    () => (supabase as any)
+      .from('emp_event_staff_shifts')
+      .select('shift_start, shift_end, status')
+      .eq('plan_id', planId)
+      .neq('status', 'cancelled')
+      .not('shift_start', 'is', null),
+    'Failed to determine kiosk token expiry'
+  )
+  const eventRows = rows.filter((row) => (
+    row.shift_start
+    && formatDateInTimezone(new Date(row.shift_start), timezone) === eventDate
+  ))
+  if (eventRows.length === 0) {
+    throw new EmpEventDayError('Select an event day that has an active roster')
+  }
+
+  const latestShiftEnd = Math.max(...eventRows.map((row) => {
+    const shiftStart = Date.parse(row.shift_start || '')
+    const explicitEnd = Date.parse(row.shift_end || '')
+    return Number.isFinite(explicitEnd) ? explicitEnd : shiftStart + (18 * 60 * 60 * 1000)
+  }))
+  const expiry = new Date(latestShiftEnd + (6 * 60 * 60 * 1000))
+  if (!Number.isFinite(expiry.getTime()) || expiry.getTime() <= Date.now()) {
+    throw new EmpEventDayError('This event day has ended. Generate access for a current or future event day.')
+  }
+  return expiry.toISOString()
+}
+
 export async function generateEmpEventDayKioskAccess(input: {
   planId: string
   pin?: string | null
+  clearPin?: boolean
+  eventDate: string
   kioskLabel?: string | null
   timezone?: string | null
 }) {
   const { supabase, profile } = await getEmpUserContext()
   await getPlanOrThrow(supabase as any, input.planId)
+  const existing = await ensureSettingsForAdmin(supabase as any, input.planId, profile.id)
   const parsed = eventDaySettingsSchema.parse({
     pin: input.pin,
+    clearPin: input.clearPin,
+    eventDate: input.eventDate,
     kioskLabel: input.kioskLabel,
     timezone: input.timezone || 'Europe/London',
     enabled: true,
     rotateToken: true,
   })
-  const kioskPin = parsed.pin && parsed.pin.trim().length >= 4 ? parsed.pin : null
+  if (!parsed.eventDate) throw new EmpEventDayError('Event date is required')
+  if (parsed.pin && parsed.pin.length < 4) {
+    throw new EmpEventDayError('Kiosk PIN must be at least 4 characters')
+  }
+  if (parsed.pin && parsed.clearPin) {
+    throw new EmpEventDayError('Choose either a replacement PIN or remove the PIN')
+  }
+
+  const pinHash = resolveKioskPinHashForRotation({
+    existingPinHash: existing.kiosk_pin_hash,
+    replacementPinHash: parsed.pin ? hashPin(input.planId, parsed.pin) : null,
+    clearPin: parsed.clearPin,
+  })
 
   const rawToken = randomToken()
   const now = new Date().toISOString()
+  const expiresAt = await deriveKioskTokenExpiry(
+    supabase as any,
+    input.planId,
+    parsed.eventDate,
+    parsed.timezone
+  )
   const { data, error } = await (supabase as any)
     .from('emp_event_day_settings')
     .upsert({
       plan_id: input.planId,
       kiosk_enabled: true,
       kiosk_token_hash: hashToken(rawToken),
-      kiosk_pin_hash: kioskPin ? hashPin(input.planId, kioskPin) : null,
+      kiosk_pin_hash: pinHash,
+      kiosk_access_id: randomUUID(),
+      kiosk_event_date: parsed.eventDate,
+      kiosk_token_issued_at: now,
+      kiosk_token_expires_at: expiresAt,
+      kiosk_revoked_at: null,
       timezone: parsed.timezone,
       kiosk_label: parsed.kioskLabel || null,
       updated_by_user_id: profile.id,
       updated_at: now,
     }, { onConflict: 'plan_id' })
-    .select('plan_id, kiosk_enabled, kiosk_token_hash, kiosk_pin_hash, timezone, kiosk_label, meal_token_total, created_at, updated_at')
+    .select('plan_id, kiosk_enabled, kiosk_token_hash, kiosk_pin_hash, kiosk_access_id, kiosk_event_date, kiosk_token_issued_at, kiosk_token_expires_at, kiosk_revoked_at, timezone, kiosk_label, meal_token_total, created_at, updated_at')
     .single()
 
   if (error) throwEventDayDatabaseError('Failed to generate kiosk access', error)
@@ -1230,6 +1343,7 @@ export async function updateEmpEventDayKioskSettings(input: {
   kioskLabel?: string | null
   timezone?: string | null
   pin?: string | null
+  clearPin?: boolean
   mealTokenTotal?: number | null
 }) {
   const { supabase, profile } = await getEmpUserContext()
@@ -1243,20 +1357,32 @@ export async function updateEmpEventDayKioskSettings(input: {
     updated_by_user_id: profile.id,
     updated_at: now,
   }
+  if (input.enabled === true) {
+    const expired = !existing.kiosk_token_expires_at || Date.parse(existing.kiosk_token_expires_at) <= Date.now()
+    if (!existing.kiosk_token_hash || existing.kiosk_revoked_at || expired) {
+      throw new EmpEventDayError('Generate fresh kiosk access before enabling the kiosk')
+    }
+  }
   if (typeof input.mealTokenTotal !== 'undefined') {
     const parsed = eventDaySettingsSchema.parse({ mealTokenTotal: input.mealTokenTotal, timezone: existing.timezone || 'Europe/London' })
     payload.meal_token_total = parsed.mealTokenTotal
   }
-  if (input.pin) {
-    if (input.pin.trim().length < 4) throw new EmpEventDayError('Kiosk PIN must be at least 4 characters')
-    payload.kiosk_pin_hash = hashPin(input.planId, input.pin)
+  const replacementPin = clean(input.pin)
+  if (replacementPin && input.clearPin) {
+    throw new EmpEventDayError('Choose either a replacement PIN or remove the PIN')
+  }
+  if (input.clearPin) {
+    payload.kiosk_pin_hash = null
+  } else if (replacementPin) {
+    if (replacementPin.length < 4) throw new EmpEventDayError('Kiosk PIN must be at least 4 characters')
+    payload.kiosk_pin_hash = hashPin(input.planId, replacementPin)
   }
 
   const { data, error } = await (supabase as any)
     .from('emp_event_day_settings')
     .update(payload)
     .eq('plan_id', input.planId)
-    .select('plan_id, kiosk_enabled, kiosk_token_hash, kiosk_pin_hash, timezone, kiosk_label, meal_token_total, created_at, updated_at')
+    .select('plan_id, kiosk_enabled, kiosk_token_hash, kiosk_pin_hash, kiosk_access_id, kiosk_event_date, kiosk_token_issued_at, kiosk_token_expires_at, kiosk_revoked_at, timezone, kiosk_label, meal_token_total, created_at, updated_at')
     .single()
 
   if (error) throwEventDayDatabaseError('Failed to update kiosk settings', error)
@@ -1267,6 +1393,28 @@ export async function updateEmpEventDayKioskSettings(input: {
 
 export async function disableEmpEventDayKiosk(planId: string) {
   return updateEmpEventDayKioskSettings({ planId, enabled: false })
+}
+
+export async function revokeEmpEventDayKiosk(planId: string) {
+  const { supabase, profile } = await getEmpUserContext()
+  await getPlanOrThrow(supabase as any, planId)
+  const now = new Date().toISOString()
+  const { data, error } = await (supabase as any)
+    .from('emp_event_day_settings')
+    .update({
+      kiosk_enabled: false,
+      kiosk_token_hash: null,
+      kiosk_revoked_at: now,
+      updated_by_user_id: profile.id,
+      updated_at: now,
+    })
+    .eq('plan_id', planId)
+    .select('plan_id, kiosk_enabled, kiosk_token_hash, kiosk_pin_hash, kiosk_access_id, kiosk_event_date, kiosk_token_issued_at, kiosk_token_expires_at, kiosk_revoked_at, timezone, kiosk_label, meal_token_total, created_at, updated_at')
+    .single()
+  if (error) throwEventDayDatabaseError('Failed to revoke kiosk access', error)
+  if (!data) throw new EmpEventDayError('Failed to revoke kiosk access: Unknown error', 500)
+  await touchEmpPlan(supabase as any, planId, profile.id)
+  return buildSettings(data as EventDaySettingsRow)
 }
 
 export async function previewEmpEventStaffingImport(input: {
@@ -1520,45 +1668,98 @@ export async function syncEmpEventDayRosterFromPlan(input: {
   }
 }
 
-async function getKioskContext(token: string, pin?: string | null): Promise<KioskContext> {
+async function getKioskContext(input: {
+  token: string
+  pin?: string | null
+  requestedEventDate?: string | null
+  requestContext: EmpEventDayKioskRequestContext
+}): Promise<KioskContext> {
   const supabase = createAdminSupabaseClient()
-  const tokenHash = hashToken(clean(token))
+  const tokenHash = hashToken(clean(input.token))
   const { data: settings, error } = await (supabase as any)
     .from('emp_event_day_settings')
-    .select('plan_id, kiosk_enabled, kiosk_token_hash, kiosk_pin_hash, timezone, kiosk_label, created_at, updated_at')
+    .select('plan_id, kiosk_enabled, kiosk_token_hash, kiosk_pin_hash, kiosk_access_id, kiosk_event_date, kiosk_token_issued_at, kiosk_token_expires_at, kiosk_revoked_at, timezone, kiosk_label, meal_token_total, created_at, updated_at')
     .eq('kiosk_token_hash', tokenHash)
     .maybeSingle()
 
   if (error) throwEventDayDatabaseError('Failed to load kiosk settings', error)
 
-  if (!settings || !settings.kiosk_enabled) {
+  if (!settings) {
     throw new EmpEventDayError('Kiosk access is not available', 403)
   }
 
-  const providedPin = clean(pin)
-  if (providedPin && settings.kiosk_pin_hash && hashPin(settings.plan_id, providedPin) !== settings.kiosk_pin_hash) {
-    throw new EmpEventDayError('Invalid kiosk PIN', 401)
+  const settingsRow = settings as EventDaySettingsRow
+  enrichEmpEventDayKioskRequestContext(input.requestContext, {
+    planId: settingsRow.plan_id,
+    kioskAccessId: settingsRow.kiosk_access_id,
+    eventDate: settingsRow.kiosk_event_date,
+  })
+  const credentialFailure = evaluateKioskCredentialState({
+    credential: {
+      enabled: settingsRow.kiosk_enabled,
+      accessId: settingsRow.kiosk_access_id,
+      eventDate: settingsRow.kiosk_event_date,
+      issuedAt: settingsRow.kiosk_token_issued_at,
+      expiresAt: settingsRow.kiosk_token_expires_at,
+      revokedAt: settingsRow.kiosk_revoked_at,
+    },
+    requestedEventDate: input.requestedEventDate,
+  })
+  if (credentialFailure) {
+    throw new EmpEventDayError(
+      credentialFailure === 'event_date_mismatch'
+        ? 'Kiosk access is not available for this event date'
+        : 'Kiosk access is not available',
+      403
+    )
   }
 
-  const plan = await getPlanOrThrow(supabase, settings.plan_id)
-  return { supabase, settings: settings as EventDaySettingsRow, plan }
+  if (settingsRow.kiosk_pin_hash) {
+    const reservation = await reserveEmpEventDayKioskPinAttempt(input.requestContext)
+    const providedPin = clean(input.pin)
+    const pinMatches = Boolean(providedPin) && secretHashesMatch(
+      hashPin(settingsRow.plan_id, providedPin),
+      settingsRow.kiosk_pin_hash
+    )
+
+    if (!pinMatches) {
+      throwIfEmpEventDayProofAttemptBlocked(reservation)
+      throw new EmpEventDayError('Invalid kiosk PIN', 401)
+    }
+
+    await clearEmpEventDayKioskPinFailures(input.requestContext, reservation)
+  }
+
+  const plan = await getPlanOrThrow(supabase, settingsRow.plan_id)
+  return { supabase, settings: settingsRow, plan }
 }
 
-export async function verifyEmpEventDayKioskAccess(input: { token: string; pin?: string | null }) {
-  const context = await getKioskContext(input.token, input.pin)
+export async function verifyEmpEventDayKioskAccess(input: {
+  token: string
+  pin?: string | null
+  requestContext: EmpEventDayKioskRequestContext
+}) {
+  const context = await getKioskContext({
+    token: input.token,
+    pin: input.pin,
+    requestContext: input.requestContext,
+  })
+  const eventDays = await loadKioskEventDays(context.supabase, context.plan.id, context.settings.timezone)
+  const scopedDay = eventDays.find((day) => day.date === context.settings.kiosk_event_date)
+  if (!scopedDay) throw new EmpEventDayError('Kiosk event day is no longer available', 403)
   return {
     planId: context.plan.id,
     eventName: context.plan.event_name || context.plan.title,
     kioskLabel: context.settings.kiosk_label,
     timezone: context.settings.timezone,
-    eventDays: await loadKioskEventDays(context.supabase, context.plan.id, context.settings.timezone),
+    eventDays: [scopedDay],
   }
 }
 
 async function loadKioskEventDays(supabase: SupabaseLike, planId: string, timezone: string) {
-  const data = await selectAllEventDayRows<StaffShiftRow>(() => (supabase as any)
+  const data = await selectAllEventDayRows<KioskOperationalRow>(() => (supabase as any)
     .from('emp_event_staff_shifts')
-    .select('id, plan_id, import_batch_id, staff_name, staff_name_normalised, agency, email, phone, sia_badge_number, sia_expiry_date, position, area, shift_start, shift_end, status, clocked_in_at, clocked_out_at, completed_at, clocked_in_via, clocked_out_via, admin_notes, staff_notes, is_walk_up, created_at, updated_at')
+    .select('shift_start, shift_end, status, admin_notes, is_walk_up')
     .eq('plan_id', planId)
     .neq('status', 'cancelled')
     .not('shift_start', 'is', null)
@@ -1585,29 +1786,23 @@ async function loadKioskEventDays(supabase: SupabaseLike, planId: string, timezo
   })
 }
 
-function buildKioskStaff(row: StaffShiftRow): EmpEventDayKioskStaffResult {
-  return {
-    id: row.id,
-    staffName: row.staff_name,
-    agency: row.agency,
-    position: row.position,
-    area: row.area,
-    shiftStart: row.shift_start,
-    shiftEnd: row.shift_end,
-    status: row.status,
-    clockedInAt: row.clocked_in_at,
-  }
+function buildKioskStaff(row: KioskLookupRow): EmpEventDayKioskStaffResult {
+  return buildMinimalKioskStaffConfirmation(row)
 }
 
-function filterKioskRowsByEventDate(rows: StaffShiftRow[], eventDate: string | null | undefined, timezone: string) {
-  if (!eventDate) return rows
+function filterKioskRowsByEventDate<T extends KioskOperationalRow>(
+  rows: T[],
+  eventDate: string | null | undefined,
+  timezone: string
+) {
+  if (!eventDate) return []
   return rows.filter((row) => (
     row.shift_start
     && formatDateInTimezone(new Date(row.shift_start), timezone) === eventDate
   ))
 }
 
-function isLegacyDateOnlyStaffSignInRow(row: StaffShiftRow) {
+function isLegacyDateOnlyStaffSignInRow(row: KioskOperationalRow) {
   return Boolean(
     row.shift_start
     && !row.shift_end
@@ -1616,16 +1811,16 @@ function isLegacyDateOnlyStaffSignInRow(row: StaffShiftRow) {
   )
 }
 
-function isOperationalKioskRow(row: StaffShiftRow) {
+function isOperationalKioskRow(row: KioskOperationalRow) {
   if (row.status === 'cancelled') return false
   if (isLegacyDateOnlyStaffSignInRow(row)) return false
   if (row.status === 'scheduled' && !row.is_walk_up && (!row.shift_start || !row.shift_end)) return false
   return true
 }
 
-function uniqueKioskNameMatch(rows: StaffShiftRow[], query: string): {
+function uniqueKioskNameMatch(rows: KioskLookupRow[], query: string): {
   status: KioskNameLookupStatus
-  row: StaffShiftRow | null
+  row: KioskLookupRow | null
 } {
   return resolveUniqueKioskNameMatch(
     rows.map((row) => ({ ...row, staffName: row.staff_name })),
@@ -1639,9 +1834,9 @@ async function loadKioskRowsForNameLookup(
   eventDate?: string | null
 ) {
   const statuses = ['scheduled', 'clocked_in', 'completed', 'no_show']
-  const data = await selectAllEventDayRows<StaffShiftRow>(() => (context.supabase as any)
+  const data = await selectAllEventDayRows<KioskLookupRow>(() => (context.supabase as any)
     .from('emp_event_staff_shifts')
-    .select('id, plan_id, import_batch_id, staff_name, staff_name_normalised, agency, email, phone, sia_badge_number, sia_expiry_date, position, area, shift_start, shift_end, status, clocked_in_at, clocked_out_at, completed_at, clocked_in_via, clocked_out_via, admin_notes, staff_notes, is_walk_up, created_at, updated_at')
+    .select('id, staff_name, agency, position, area, shift_start, shift_end, status, admin_notes, is_walk_up')
     .eq('plan_id', context.plan.id)
     .in('status', statuses)
     .order('shift_start', { ascending: true, nullsFirst: false }), 'Failed to search event-day staff')
@@ -1656,15 +1851,25 @@ async function loadKioskShiftByName(input: {
   query: string
   eventDate?: string | null
   mode: KioskNameLookupMode
+  requestContext: EmpEventDayKioskRequestContext
 }) {
-  const context = await getKioskContext(input.token, input.pin)
+  const context = await getKioskContext({
+    token: input.token,
+    pin: input.pin,
+    requestedEventDate: input.eventDate,
+    requestContext: input.requestContext,
+  })
   const rows = await loadKioskRowsForNameLookup(context, input.mode, input.eventDate)
   const match = uniqueKioskNameMatch(rows, input.query)
   const unavailableReason = match.row ? unavailableReasonForKioskStatus(match.row.status, input.mode) : null
   return { context, ...match, unavailableReason }
 }
 
-export async function searchKioskStaff(input: { token: string; body: unknown }) {
+export async function searchKioskStaff(input: {
+  token: string
+  body: unknown
+  requestContext: EmpEventDayKioskRequestContext
+}) {
   const parsed = kioskNameLookupSchema.parse(input.body)
   const { row, status, unavailableReason } = await loadKioskShiftByName({
     token: input.token,
@@ -1672,29 +1877,42 @@ export async function searchKioskStaff(input: { token: string; body: unknown }) 
     query: parsed.query,
     eventDate: parsed.eventDate,
     mode: parsed.mode,
+    requestContext: input.requestContext,
   })
 
   return {
     status: unavailableReason ? 'unavailable' : status,
     staff: row && !unavailableReason ? buildKioskStaff(row) : null,
-    unavailableStaff: row && unavailableReason ? buildKioskStaff(row) : null,
+    unavailableStaff: row && unavailableReason ? { staffName: row.staff_name } : null,
     unavailableReason,
   }
 }
 
-export async function getKioskClockedInStaff(input: { token: string; body: unknown }) {
+export async function getKioskClockedInStaff(input: {
+  token: string
+  body: unknown
+  requestContext: EmpEventDayKioskRequestContext
+}) {
   const body = typeof input.body === 'object' && input.body ? input.body : {}
-  const parsed = kioskNameLookupSchema.parse({ ...body, mode: 'clock_out' })
+  const parsed = kioskClockedInLookupSchema.parse({ ...body, mode: 'clock_out' })
   const { context, row, status, unavailableReason } = await loadKioskShiftByName({
     token: input.token,
     pin: parsed.pin,
     query: parsed.query,
     eventDate: parsed.eventDate,
     mode: 'clock_out',
+    requestContext: input.requestContext,
   })
   if (!row || status !== 'matched' || unavailableReason) {
     throw new EmpEventDayError('Keep typing until your name is the only match.', status === 'no_match' ? 404 : 409)
   }
+
+  const shift = await loadShiftForUpdate(context.supabase, context.plan.id, row.id)
+  await assertWorkerVerification({
+    shift,
+    providedCode: parsed.workerVerificationCode,
+    requestContext: input.requestContext,
+  })
 
   const { data: equipment, error: equipmentError } = await (context.supabase as any)
     .from('emp_event_equipment_assignments')
@@ -1859,6 +2077,7 @@ async function assertNameQueryMatchesShift(input: {
   query: string
   eventDate?: string | null
   mode: KioskNameLookupMode
+  requestContext: EmpEventDayKioskRequestContext
 }) {
   const { row, status } = await loadKioskShiftByName({
     token: input.token,
@@ -1866,11 +2085,42 @@ async function assertNameQueryMatchesShift(input: {
     query: input.query,
     eventDate: input.eventDate,
     mode: input.mode,
+    requestContext: input.requestContext,
   })
 
   if (status !== 'matched' || row?.id !== input.shift.id) {
     throw new EmpEventDayError('Keep typing until your own name is the only match.', 403)
   }
+}
+
+async function assertWorkerVerification(input: {
+  shift: StaffShiftRow
+  providedCode: string
+  requestContext: EmpEventDayKioskRequestContext
+}) {
+  const reservation = await reserveEmpEventDayWorkerVerificationAttempt(
+    input.requestContext,
+    input.shift.id
+  )
+  const result = evaluateEmpEventDayWorkerVerification({
+    providedCode: input.providedCode,
+    phone: input.shift.phone,
+    siaBadgeNumber: input.shift.sia_badge_number,
+  })
+
+  if (result !== 'verified') {
+    throwIfEmpEventDayProofAttemptBlocked(reservation)
+    throw new EmpEventDayError(
+      'We could not verify your details. Ask an event supervisor for help.',
+      403
+    )
+  }
+
+  await clearEmpEventDayWorkerVerificationFailures(
+    input.requestContext,
+    input.shift.id,
+    reservation
+  )
 }
 
 async function insertEquipmentEvents(supabase: SupabaseLike, rows: Array<Record<string, unknown>>) {
@@ -1879,9 +2129,18 @@ async function insertEquipmentEvents(supabase: SupabaseLike, rows: Array<Record<
   if (error) throw new EmpEventDayError(`Failed to write equipment audit events: ${error.message}`, 500)
 }
 
-export async function clockInEmpEventStaff(input: { token: string; body: unknown }) {
+export async function clockInEmpEventStaff(input: {
+  token: string
+  body: unknown
+  requestContext: EmpEventDayKioskRequestContext
+}) {
   const parsed = clockInSchema.parse(input.body)
-  const { supabase, plan } = await getKioskContext(input.token, parsed.pin)
+  const { supabase, plan, settings } = await getKioskContext({
+    token: input.token,
+    pin: parsed.pin,
+    requestedEventDate: parsed.eventDate,
+    requestContext: input.requestContext,
+  })
   const now = new Date().toISOString()
   const shift = await loadShiftForUpdate(supabase, plan.id, parsed.staffShiftId)
   await assertNameQueryMatchesShift({
@@ -1891,6 +2150,12 @@ export async function clockInEmpEventStaff(input: { token: string; body: unknown
     query: parsed.nameQuery,
     eventDate: parsed.eventDate,
     mode: 'clock_in',
+    requestContext: input.requestContext,
+  })
+  await assertWorkerVerification({
+    shift,
+    providedCode: parsed.workerVerificationCode,
+    requestContext: input.requestContext,
   })
   if (shift.status === 'clocked_in') throw new EmpEventDayError('This staff member is already clocked in')
   if (shift.status !== 'scheduled') throw new EmpEventDayError('This staff shift is not available for clock-in')
@@ -1930,6 +2195,7 @@ export async function clockInEmpEventStaff(input: { token: string; body: unknown
         event_type: 'issued',
         after_data: assignment,
         performed_via: 'kiosk',
+        metadata: kioskAuditMetadata(input.requestContext),
       })))
     }
 
@@ -1941,8 +2207,8 @@ export async function clockInEmpEventStaff(input: { token: string; body: unknown
         event_type: 'clock_in',
         event_time: now,
         captured_via: 'kiosk',
-        device_label: parsed.deviceLabel,
-        metadata: { equipmentCount: insertedEquipment.length },
+        device_label: settings.kiosk_label,
+        metadata: kioskAuditMetadata(input.requestContext, { equipmentCount: insertedEquipment.length }),
       })
     if (clockError) throw clockError
   } catch (error: any) {
@@ -1965,9 +2231,18 @@ export async function clockInEmpEventStaff(input: { token: string; body: unknown
   }
 }
 
-export async function clockOutEmpEventStaff(input: { token: string; body: unknown }) {
+export async function clockOutEmpEventStaff(input: {
+  token: string
+  body: unknown
+  requestContext: EmpEventDayKioskRequestContext
+}) {
   const parsed = clockOutSchema.parse(input.body)
-  const { supabase, plan } = await getKioskContext(input.token, parsed.pin)
+  const { supabase, plan, settings } = await getKioskContext({
+    token: input.token,
+    pin: parsed.pin,
+    requestedEventDate: parsed.eventDate,
+    requestContext: input.requestContext,
+  })
   const now = new Date().toISOString()
   const shift = await loadShiftForUpdate(supabase, plan.id, parsed.staffShiftId)
   await assertNameQueryMatchesShift({
@@ -1977,6 +2252,12 @@ export async function clockOutEmpEventStaff(input: { token: string; body: unknow
     query: parsed.nameQuery,
     eventDate: parsed.eventDate,
     mode: 'clock_out',
+    requestContext: input.requestContext,
+  })
+  await assertWorkerVerification({
+    shift,
+    providedCode: parsed.workerVerificationCode,
+    requestContext: input.requestContext,
   })
   if (shift.status !== 'clocked_in') throw new EmpEventDayError('This staff member is not currently clocked in')
 
@@ -2020,6 +2301,7 @@ export async function clockOutEmpEventStaff(input: { token: string; body: unknow
       after_data: data,
       performed_via: 'kiosk',
       reason: nullIfBlank(returnInput?.notes),
+      metadata: kioskAuditMetadata(input.requestContext),
     }])
   }
 
@@ -2049,8 +2331,8 @@ export async function clockOutEmpEventStaff(input: { token: string; body: unknow
       event_type: 'clock_out',
       event_time: now,
       captured_via: 'kiosk',
-      device_label: parsed.deviceLabel,
-      metadata: { returnedEquipmentCount: updatedEquipment.length },
+      device_label: settings.kiosk_label,
+      metadata: kioskAuditMetadata(input.requestContext, { returnedEquipmentCount: updatedEquipment.length }),
     })
   if (clockError) throw new EmpEventDayError(`Failed to write clock-out event: ${clockError.message}`, 500)
 

@@ -2,6 +2,8 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { requireAuth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
+import { accountHasApplicationAccess, type AccountStatus } from '@/lib/account-lifecycle'
+import { hasRequiredMfaForRole } from '@/lib/mfa/policy'
 
 export class CmpAccessError extends Error {
   constructor(message = 'Unauthorized') {
@@ -14,11 +16,15 @@ async function getCmpProfileForUser(userId: string) {
   const adminSupabase = createAdminSupabaseClient()
   const { data: profile, error: profileError } = await adminSupabase
     .from('fa_profiles')
-    .select('id, full_name, role')
+    .select('id, full_name, role, account_status')
     .eq('id', userId)
     .single()
 
-  if (profileError || !profile) {
+  if (
+    profileError
+    || !profile
+    || !accountHasApplicationAccess(profile.account_status as AccountStatus)
+  ) {
     throw new CmpAccessError('CMP profile not available')
   }
 
@@ -38,6 +44,10 @@ async function getCmpAdminProfile() {
   const profile = await getCmpProfileForUser(user.id)
   if (profile.role !== 'admin') {
     throw new CmpAccessError('Unauthorized - CMP access is restricted to administrators')
+  }
+
+  if (!(await hasRequiredMfaForRole(authSupabase.auth, profile.role))) {
+    throw new CmpAccessError('Multi-factor authentication is required for CMP access')
   }
 
   return { user, profile }

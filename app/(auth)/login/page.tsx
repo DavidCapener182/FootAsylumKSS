@@ -9,6 +9,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { getSafeMfaRedirect } from '@/lib/mfa/redirect'
 
 function LoginContent() {
   const router = useRouter()
@@ -27,11 +28,7 @@ function LoginContent() {
     }
   }, [searchParams])
 
-  const redirectTo = (() => {
-    const value = searchParams?.get('redirectTo') || '/'
-    if (!value.startsWith('/') || value.startsWith('//') || value.startsWith('/login')) return '/'
-    return value
-  })()
+  const redirectTo = getSafeMfaRedirect(searchParams?.get('redirectTo'))
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -184,22 +181,13 @@ function LoginContent() {
               <Button type="submit" className="min-h-[44px] w-full bg-[#0e1925] text-white hover:bg-[#143457]" disabled={loading}>
                 {loading ? 'Signing in...' : 'Sign in'}
               </Button>
-              <div className="space-y-2 text-center">
+              <div className="text-center">
                 <Link
                   href="/login/forgot-password"
                   className="text-sm text-[#0e1925] hover:text-[#1a2f3f] hover:underline block font-medium"
                 >
                   Forgot your password?
                 </Link>
-                <div className="text-sm text-slate-600">
-                  Don&apos;t have an account?{' '}
-                  <Link
-                    href="/login/signup"
-                    className="text-[#0e1925] hover:text-[#1a2f3f] hover:underline font-medium"
-                  >
-                    Sign up
-                  </Link>
-                </div>
               </div>
             </form>
             <p className="mt-7 border-t border-slate-100 pt-5 text-center text-xs text-slate-500">

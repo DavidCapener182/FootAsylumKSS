@@ -1,6 +1,5 @@
 'use server'
 
-import { logActivity } from '@/lib/activity-log'
 import { revalidatePath } from 'next/cache'
 import { FaInvestigationType, FaInvestigationStatus } from '@/types/db'
 import { requirePermission } from '@/lib/permissions'
@@ -34,10 +33,6 @@ export async function createInvestigation(incidentId: string, input: CreateInves
   if (error) {
     throw new Error(`Failed to create investigation: ${error.message}`)
   }
-
-  await logActivity('investigation', investigation.id, 'CREATED', {
-    new: investigation,
-  })
 
   revalidatePath(`/incidents/${incidentId}`)
   return investigation
@@ -74,11 +69,6 @@ export async function updateInvestigation(id: string, updates: Partial<CreateInv
   if (error) {
     throw new Error(`Failed to update investigation: ${error.message}`)
   }
-
-  await logActivity('investigation', id, 'UPDATED', {
-    old: currentInvestigation,
-    new: investigation,
-  })
 
   revalidatePath(`/incidents/${investigation.incident_id}`)
   return investigation

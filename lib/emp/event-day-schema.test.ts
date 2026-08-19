@@ -5,19 +5,24 @@ import {
   adminEquipmentStockUpsertSchema,
   adminNoShowSchema,
   clockInSchema,
+  clockOutSchema,
   eventDaySettingsSchema,
+  kioskClockedInLookupSchema,
   mealTokenIssueSchema,
   staffingImportModeSchema,
 } from '@/lib/emp/event-day-schema'
 
 const staffShiftId = '00000000-0000-4000-8000-000000000001'
+const eventDate = '2026-06-20'
 
 describe('event-day request schemas', () => {
   it('requires a radio number when a radio is issued at clock-in', () => {
     const parsed = clockInSchema.safeParse({
       staffShiftId,
       pin: '1234',
+      workerVerificationCode: '5481',
       nameQuery: 'Jane Smith',
+      eventDate,
       equipment: {
         hasRadio: true,
         radioNumber: '',
@@ -32,7 +37,9 @@ describe('event-day request schemas', () => {
     const parsed = clockInSchema.safeParse({
       staffShiftId,
       pin: '1234',
+      workerVerificationCode: '5481',
       nameQuery: 'Jane Smith',
+      eventDate,
       equipment: {
         hasRadio: true,
         radioNumber: '12',
@@ -48,7 +55,9 @@ describe('event-day request schemas', () => {
   it('accepts kiosk clock-in with name query and no shared event PIN', () => {
     const parsed = clockInSchema.safeParse({
       staffShiftId,
+      workerVerificationCode: '5481',
       nameQuery: 'Jane Smith',
+      eventDate,
       equipment: {},
     })
 
@@ -59,6 +68,8 @@ describe('event-day request schemas', () => {
     const parsed = clockInSchema.safeParse({
       staffShiftId,
       pin: '1234',
+      workerVerificationCode: '5481',
+      eventDate,
       equipment: {},
     })
 
@@ -114,6 +125,44 @@ describe('event-day request schemas', () => {
     expect(eventDaySettingsSchema.safeParse({
       timezone: 'Europe/London',
       mealTokenTotal: -1,
+    }).success).toBe(false)
+  })
+
+  it('requires a real event date for every kiosk clock-in', () => {
+    const base = {
+      staffShiftId,
+      workerVerificationCode: '5481',
+      nameQuery: 'Jane Smith',
+      equipment: {},
+    }
+
+    expect(clockInSchema.safeParse(base).success).toBe(false)
+    expect(clockInSchema.safeParse({ ...base, eventDate: '2026-02-30' }).success).toBe(false)
+    expect(clockInSchema.safeParse({ ...base, eventDate }).success).toBe(true)
+  })
+
+  it('requires an exact four-digit worker proof on public equipment and clock mutations', () => {
+    const base = {
+      staffShiftId,
+      nameQuery: 'Jane Smith',
+      eventDate,
+      equipment: {},
+    }
+
+    expect(clockInSchema.safeParse(base).success).toBe(false)
+    expect(clockInSchema.safeParse({ ...base, workerVerificationCode: '54-81' }).success).toBe(false)
+    expect(clockInSchema.safeParse({ ...base, workerVerificationCode: '5481' }).success).toBe(true)
+
+    expect(clockOutSchema.safeParse({
+      ...base,
+      equipment: undefined,
+      returns: [],
+      workerVerificationCode: '5481',
+    }).success).toBe(true)
+    expect(kioskClockedInLookupSchema.safeParse({
+      query: 'Jane Smith',
+      eventDate,
+      mode: 'clock_out',
     }).success).toBe(false)
   })
 })

@@ -42,6 +42,7 @@ function toLocalDateTimeInput(value: string | null | undefined) {
 export function EditIncidentDialog({ incident }: EditIncidentDialogProps) {
   const [open, setOpen] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
   const router = useRouter()
 
   const form = useForm<EditIncidentFormValues>({
@@ -60,6 +61,7 @@ export function EditIncidentDialog({ incident }: EditIncidentDialogProps) {
 
   const onSubmit = async (values: EditIncidentFormValues) => {
     setIsSaving(true)
+    setSubmitError(null)
     try {
       await updateIncident(incident.id, {
         incident_category: values.incident_category,
@@ -79,14 +81,17 @@ export function EditIncidentDialog({ incident }: EditIncidentDialogProps) {
       router.refresh()
     } catch (error: any) {
       const errorMessage = error?.message || 'Failed to update incident'
-      alert(errorMessage)
+      setSubmitError(errorMessage)
     } finally {
       setIsSaving(false)
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(nextOpen) => {
+      setOpen(nextOpen)
+      if (!nextOpen) setSubmitError(null)
+    }}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm" className="h-9">
           <Pencil className="h-4 w-4 mr-2" />
@@ -253,6 +258,12 @@ export function EditIncidentDialog({ incident }: EditIncidentDialogProps) {
                 )}
               />
             </div>
+
+            {submitError ? (
+              <div role="alert" aria-live="polite" className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+                {submitError}
+              </div>
+            ) : null}
 
             <div className="flex items-center justify-end gap-2 pt-2">
               <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={isSaving}>

@@ -1,13 +1,12 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { getSupabasePublicConfig } from '@/lib/env'
+import { accountHasApplicationAccess, type AccountStatus } from '@/lib/account-lifecycle'
+import { getMfaChallengeHref, hasRequiredMfaForRole, roleRequiresMfa } from '@/lib/mfa/policy'
+import { getSafeMfaRedirect } from '@/lib/mfa/redirect'
 
 function getSafeRedirectPath(pathname: string, search: string) {
-  const path = `${pathname}${search}`
-  if (!path.startsWith('/') || path.startsWith('//') || path.startsWith('/login')) {
-    return '/'
-  }
-  return path
+  return getSafeMfaRedirect(`${pathname}${search}`)
 }
 
 export async function middleware(request: NextRequest) {
@@ -72,9 +71,28 @@ export async function middleware(request: NextRequest) {
   // Allow access to login and password reset routes
   const isAuthRoute = request.nextUrl.pathname.startsWith('/login')
   const isApiRoute = request.nextUrl.pathname.startsWith('/api/')
+  const isAccountSetupRoute = request.nextUrl.pathname === '/login/account-setup'
+  const isMfaRoute = request.nextUrl.pathname === '/login/mfa'
+  const isPasswordRecoveryRoute =
+    request.nextUrl.pathname.startsWith('/login/forgot-password')
+    || request.nextUrl.pathname.startsWith('/login/reset-password')
   const isEventDayKioskRoute =
     request.nextUrl.pathname.startsWith('/event-day/')
     || request.nextUrl.pathname.startsWith('/api/event-day/')
+
+  if (!user && isAccountSetupRoute) {
+    return NextResponse.redirect(new URL('/login', request.url))
+  }
+
+  if (!user && isMfaRoute) {
+    const destination = getSafeRedirectPath(
+      request.nextUrl.searchParams.get('redirectTo') || '/',
+      ''
+    )
+    const loginUrl = new URL('/login', request.url)
+    loginUrl.searchParams.set('redirectTo', destination)
+    return NextResponse.redirect(loginUrl)
+  }
   
   // Protect routes - redirect to login if not authenticated
   if (!user && !isAuthRoute && !isEventDayKioskRoute) {
@@ -90,17 +108,77 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl)
   }
 
-  // Ensure profile exists for authenticated users
-  if (user) {
-    const { data: profile } = await supabase
+  // Authentication alone does not authorize platform access. Authenticated
+  // users must have a trusted administrator-provisioned profile before any
+  // protected page or API request can proceed.
+  if (user && !isEventDayKioskRoute && !isPasswordRecoveryRoute) {
+    const { data: profile, error: profileError } = await supabase
       .from('fa_profiles')
-      .select('id')
+      .select('id, role, account_status')
       .eq('id', user.id)
-      .single()
+      .maybeSingle()
 
-    if (!profile) {
-      // Profile will be created on first access via API route
-      // For now, allow through - profile creation happens in layout
+    if (
+      profileError
+      || !profile
+      || !accountHasApplicationAccess(profile.account_status as AccountStatus)
+    ) {
+      if (isAccountSetupRoute) {
+        return response
+      }
+
+      if (isApiRoute) {
+        return NextResponse.json(
+          { error: 'Account profile is not authorized' },
+          { status: 403 }
+        )
+      }
+
+      return NextResponse.redirect(new URL('/login/account-setup', request.url))
+    }
+
+    if (roleRequiresMfa(profile.role)) {
+      const mfaSatisfied = await hasRequiredMfaForRole(supabase.auth, profile.role)
+
+      if (!mfaSatisfied) {
+        // The MFA route must remain reachable so it can enroll/challenge or
+        // show a fail-closed recovery state when assurance is unavailable.
+        if (isMfaRoute) {
+          return response
+        }
+
+        if (isApiRoute) {
+          return NextResponse.json(
+            { error: 'Multi-factor authentication is required for this account' },
+            { status: 403 }
+          )
+        }
+
+        const destination = request.nextUrl.pathname === '/login'
+          ? getSafeRedirectPath(request.nextUrl.searchParams.get('redirectTo') || '/', '')
+          : getSafeRedirectPath(request.nextUrl.pathname, request.nextUrl.search)
+        return NextResponse.redirect(new URL(getMfaChallengeHref(destination), request.url))
+      }
+
+      if (isMfaRoute) {
+        const destination = getSafeRedirectPath(
+          request.nextUrl.searchParams.get('redirectTo') || '/',
+          ''
+        )
+        return NextResponse.redirect(new URL(destination, request.url))
+      }
+    }
+
+    if (isMfaRoute) {
+      const destination = getSafeRedirectPath(
+        request.nextUrl.searchParams.get('redirectTo') || '/',
+        ''
+      )
+      return NextResponse.redirect(new URL(destination, request.url))
+    }
+
+    if (isAccountSetupRoute) {
+      return NextResponse.redirect(new URL('/', request.url))
     }
   }
 

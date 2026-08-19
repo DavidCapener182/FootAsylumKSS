@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
 import { computeComplianceForecast, getFRAStatusFromDate } from '@/lib/compliance-forecast'
 import { endOfWeek, format, isValid, parseISO, startOfWeek } from 'date-fns'
+import { reportPermissionErrorResponse, requireReportAccess } from '@/lib/reports/authorization'
 
 export const dynamic = 'force-dynamic'
 
@@ -14,12 +14,7 @@ function parseWeekStart(raw: string | null): Date {
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { supabase } = await requireReportAccess()
 
     const weekStart = parseWeekStart(request.nextUrl.searchParams.get('start'))
     const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 })
@@ -231,6 +226,9 @@ export async function GET(request: NextRequest) {
       digestMarkdown,
     })
   } catch (error) {
+    const permissionResponse = reportPermissionErrorResponse(error)
+    if (permissionResponse) return permissionResponse
+
     console.error('Error generating weekly digest:', error)
     return NextResponse.json({ error: 'Failed to generate weekly digest' }, { status: 500 })
   }

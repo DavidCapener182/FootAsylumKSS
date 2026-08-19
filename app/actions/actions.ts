@@ -1,6 +1,5 @@
 'use server'
 
-import { logActivity } from '@/lib/activity-log'
 import { revalidatePath } from 'next/cache'
 import { FaActionPriority, FaActionStatus } from '@/types/db'
 import { requirePermission } from '@/lib/permissions'
@@ -32,10 +31,6 @@ export async function createAction(incidentId: string, input: CreateActionInput)
   if (error) {
     throw new Error(`Failed to create action: ${error.message}`)
   }
-
-  await logActivity('action', action.id, 'CREATED', {
-    new: action,
-  })
 
   // Update incident status to 'actions_in_progress' if not already closed/cancelled
   const { data: incident } = await supabase
@@ -82,11 +77,6 @@ export async function updateAction(id: string, updates: Partial<CreateActionInpu
   if (error) {
     throw new Error(`Failed to update action: ${error.message}`)
   }
-
-  await logActivity('action', id, 'UPDATED', {
-    old: currentAction,
-    new: action,
-  })
 
   // Check if we need to update incident status based on action status
   const { data: actions } = await supabase
@@ -138,7 +128,7 @@ export async function updateAction(id: string, updates: Partial<CreateActionInpu
 export async function deleteAction(id: string) {
   const { supabase } = await requirePermission('manageActions')
 
-  // Get current action for activity log (before deletion)
+  // Keep the incident relationship for post-delete status reconciliation.
   const { data: currentAction } = await supabase
     .from('fa_actions')
     .select('*')
@@ -153,11 +143,6 @@ export async function deleteAction(id: string) {
   if (error) {
     throw new Error(`Failed to delete action: ${error.message}`)
   }
-
-  // Log activity (trigger will also log, but explicit log for clarity)
-  await logActivity('action', id, 'DELETED', {
-    old: currentAction,
-  })
 
   if (currentAction?.incident_id) {
     // Check if we need to update incident status after deleting action

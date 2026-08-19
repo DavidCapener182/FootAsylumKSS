@@ -3,9 +3,8 @@
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import * as z from 'zod'
 import { Button } from '@/components/ui/button'
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -14,18 +13,7 @@ import { createIncident } from '@/app/actions/incidents'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { shouldHideStore } from '@/lib/store-normalization'
-
-const incidentSchema = z.object({
-  store_id: z.string().min(1, 'Store is required'),
-  incident_category: z.enum(['accident', 'near_miss', 'security', 'fire', 'health_safety', 'other']),
-  severity: z.enum(['low', 'medium', 'high', 'critical']),
-  summary: z.string().min(1, 'Summary is required'),
-  description: z.string().optional(),
-  occurred_at: z.string().min(1, 'Occurred date is required'),
-  riddor_reportable: z.boolean().default(false),
-})
-
-type IncidentFormValues = z.infer<typeof incidentSchema>
+import { incidentFormSchema, toCreateIncidentInput, type IncidentFormValues } from '@/lib/incidents/schema'
 
 interface NewIncidentDialogProps {
   open: boolean
@@ -36,6 +24,7 @@ export function NewIncidentDialog({ open, onOpenChange }: NewIncidentDialogProps
   const router = useRouter()
   const [stores, setStores] = useState<Array<{ id: string; store_name: string; store_code: string | null }>>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
 
   useEffect(() => {
     async function fetchStores() {
@@ -54,7 +43,7 @@ export function NewIncidentDialog({ open, onOpenChange }: NewIncidentDialogProps
   }, [])
 
   const form = useForm<IncidentFormValues>({
-    resolver: zodResolver(incidentSchema),
+    resolver: zodResolver(incidentFormSchema),
     defaultValues: {
       store_id: '',
       incident_category: 'other',
@@ -62,24 +51,22 @@ export function NewIncidentDialog({ open, onOpenChange }: NewIncidentDialogProps
       summary: '',
       description: '',
       occurred_at: new Date().toISOString().slice(0, 16),
-      riddor_reportable: false,
+      riddor_reportable: '',
     },
   })
 
   const onSubmit = async (values: IncidentFormValues) => {
     setIsSubmitting(true)
+    setSubmitError(null)
     try {
-      const incident = await createIncident({
-        ...values,
-        occurred_at: new Date(values.occurred_at).toISOString(),
-      })
+      const incident = await createIncident(toCreateIncidentInput(values))
       form.reset()
       onOpenChange(false)
       router.push(`/incidents/${incident.id}`)
       router.refresh()
     } catch (error) {
       console.error('Failed to create incident:', error)
-      alert('Failed to create incident. Please try again.')
+      setSubmitError(error instanceof Error ? error.message : 'Failed to create incident. Please try again.')
     } finally {
       setIsSubmitting(false)
     }
@@ -87,6 +74,7 @@ export function NewIncidentDialog({ open, onOpenChange }: NewIncidentDialogProps
 
   const handleCancel = () => {
     form.reset()
+    setSubmitError(null)
     onOpenChange(false)
   }
 
@@ -219,6 +207,37 @@ export function NewIncidentDialog({ open, onOpenChange }: NewIncidentDialogProps
                 </FormItem>
               )}
             />
+
+            <FormField
+              control={form.control}
+              name="riddor_reportable"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>RIDDOR screening outcome *</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value || undefined}>
+                    <FormControl>
+                      <SelectTrigger className="min-h-[44px] sm:min-h-0">
+                        <SelectValue placeholder="Select an outcome" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="yes">Potentially reportable — manager review required</SelectItem>
+                      <SelectItem value="no">Not currently reportable</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormDescription>
+                    Record the factual screening outcome. An authorised manager must confirm any RIDDOR decision.
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {submitError ? (
+              <div role="alert" aria-live="polite" className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+                {submitError}
+              </div>
+            ) : null}
 
             <DialogFooter className="gap-2 sm:gap-0 flex-col sm:flex-row">
               <Button type="button" variant="outline" onClick={handleCancel} disabled={isSubmitting} className="w-full sm:w-auto min-h-[44px] sm:min-h-0">

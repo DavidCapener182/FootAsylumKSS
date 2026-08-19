@@ -3,6 +3,7 @@ import {
   disableEmpEventDayKiosk,
   generateEmpEventDayKioskAccess,
   getEmpEventDaySettings,
+  revokeEmpEventDayKiosk,
   updateEmpEventDayKioskSettings,
 } from '@/lib/emp/event-day-data'
 import { empEventDayJsonError, jsonBody } from '@/lib/emp/event-day-route'
@@ -31,6 +32,8 @@ export async function POST(
       return NextResponse.json(await generateEmpEventDayKioskAccess({
         planId: params.planId,
         pin: typeof body.pin === 'string' ? body.pin : null,
+        clearPin: body.clearPin === true,
+        eventDate: typeof body.eventDate === 'string' ? body.eventDate : '',
         kioskLabel: body.kioskLabel,
         timezone: body.timezone,
       }))
@@ -38,13 +41,17 @@ export async function POST(
     if (body?.action === 'disable') {
       return NextResponse.json({ settings: await disableEmpEventDayKiosk(params.planId) })
     }
+    if (body?.action === 'revoke') {
+      return NextResponse.json({ settings: await revokeEmpEventDayKiosk(params.planId) })
+    }
     return NextResponse.json({
       settings: await updateEmpEventDayKioskSettings({
         planId: params.planId,
         enabled: typeof body.enabled === 'boolean' ? body.enabled : undefined,
         kioskLabel: body.kioskLabel,
         timezone: body.timezone,
-        pin: body.pin,
+        pin: typeof body.pin === 'string' ? body.pin : null,
+        clearPin: body.clearPin === true,
         mealTokenTotal: typeof body.mealTokenTotal === 'undefined' ? undefined : body.mealTokenTotal,
       }),
     })

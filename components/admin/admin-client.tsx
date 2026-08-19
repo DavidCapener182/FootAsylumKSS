@@ -8,10 +8,20 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Loader2, Save, RefreshCw, UserPlus, Mail, Trash2 } from 'lucide-react'
-import { getAllUsers, updateUserRole, inviteUserByEmail, deleteUser, UserWithProfile } from '@/app/actions/users'
+import { Loader2, Save, RefreshCw, UserPlus, Mail, PauseCircle, PlayCircle, UserX } from 'lucide-react'
+import {
+  activateAccount,
+  deactivateAccount,
+  getAllUsers,
+  inviteUserByEmail,
+  reactivateAccount,
+  suspendAccount,
+  updateUserRole,
+  type UserWithProfile,
+} from '@/app/actions/users'
 import { UserRole } from '@/lib/auth'
 import { formatAppDateTime } from '@/lib/utils'
+import { accountStatusLabel, type AccountStatus } from '@/lib/account-lifecycle'
 
 export function AdminClient() {
   const [users, setUsers] = useState<UserWithProfile[]>([])
@@ -22,14 +32,14 @@ export function AdminClient() {
   
   // Invite user state
   const [inviteEmail, setInviteEmail] = useState('')
-  const [inviteRole, setInviteRole] = useState<UserRole>('pending')
+  const [inviteRole, setInviteRole] = useState<UserRole>('readonly')
   const [inviting, setInviting] = useState(false)
   const [inviteSuccess, setInviteSuccess] = useState<string | null>(null)
-  const [deletingUser, setDeletingUser] = useState<string | null>(null)
+  const [changingStatusUser, setChangingStatusUser] = useState<string | null>(null)
   
-  // Separate pending users from approved users
-  const pendingUsers = users.filter(u => u.role === 'pending')
-  const approvedUsers = users.filter(u => u.role !== 'pending')
+  const pendingUsers = users.filter(
+    (user) => user.account_status === 'invited' || user.account_status === 'pending'
+  )
 
   const loadUsers = async () => {
     setLoading(true)
@@ -71,17 +81,26 @@ export function AdminClient() {
     const newRole = roleChanges.get(userId)
     if (!newRole) return
 
+    const user = users.find((candidate) => candidate.id === userId)
+    if (!user) return
+
+    const reason = window.prompt(
+      user.account_status === 'invited' || user.account_status === 'pending'
+        ? `Reason for approving ${user.email} as ${newRole}:`
+        : `Reason for changing ${user.email} from ${user.role} to ${newRole}:`
+    )
+    if (reason === null) return
+    if (reason.trim().length < 3) {
+      setError('A reason of at least 3 characters is required')
+      return
+    }
+
     setSaving(userId)
     setError(null)
     try {
-      await updateUserRole(userId, newRole)
-      
-      // Update local state
-      setUsers(prevUsers => 
-        prevUsers.map(user => 
-          user.id === userId ? { ...user, role: newRole } : user
-        )
-      )
+      const result = await updateUserRole(userId, newRole, reason)
+      setInviteSuccess(result.message || 'User role updated successfully')
+      await loadUsers()
       
       // Remove from changes map
       const newChanges = new Map(roleChanges)
@@ -110,7 +129,7 @@ export function AdminClient() {
       if (result.success) {
         setInviteSuccess(result.message || 'User invited successfully')
         setInviteEmail('')
-        setInviteRole('pending')
+        setInviteRole('readonly')
         // Reload users to show the new invite
         await loadUsers()
       } else {
@@ -124,28 +143,55 @@ export function AdminClient() {
     }
   }
 
-  const handleDeleteUser = async (userId: string, userEmail: string) => {
-    if (!confirm(`Are you sure you want to permanently delete user "${userEmail}"? This action cannot be undone and will remove all their data from the system.`)) {
+  const handleAccountStatusChange = async (
+    user: UserWithProfile,
+    action: 'activate' | 'suspend' | 'reactivate' | 'deactivate'
+  ) => {
+    const actionLabel = {
+      activate: 'activating',
+      suspend: 'suspending',
+      reactivate: 'reactivating',
+      deactivate: 'deactivating',
+    }[action]
+    const reason = window.prompt(`Reason for ${actionLabel} ${user.email}:`)
+    if (reason === null) return
+    if (reason.trim().length < 3) {
+      setError('A reason of at least 3 characters is required')
       return
     }
 
-    setDeletingUser(userId)
+    if (
+      action === 'deactivate'
+      && !window.confirm(
+        `Deactivate "${user.email}"? Their profile and audit history will be preserved, but application access will be blocked.`
+      )
+    ) {
+      return
+    }
+
+    setChangingStatusUser(user.id)
     setError(null)
     try {
-      const result = await deleteUser(userId)
+      const result = action === 'activate'
+        ? await activateAccount(user.id, reason)
+        : action === 'suspend'
+          ? await suspendAccount(user.id, reason)
+          : action === 'reactivate'
+            ? await reactivateAccount(user.id, reason)
+            : await deactivateAccount(user.id, reason)
+
       if (!result || typeof (result as any).success !== 'boolean') {
-        throw new Error('Delete failed: unexpected response from server')
+        throw new Error('Account status change failed: unexpected response from server')
       }
       if (result.success) {
-        // Reload users to reflect the deletion
         await loadUsers()
-        setInviteSuccess(result.message || 'User deleted successfully')
+        setInviteSuccess(result.message || 'Account status updated successfully')
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete user')
-      console.error('Error deleting user:', err)
+      setError(err instanceof Error ? err.message : 'Failed to update account status')
+      console.error('Error updating account status:', err)
     } finally {
-      setDeletingUser(null)
+      setChangingStatusUser(null)
     }
   }
 
@@ -173,7 +219,7 @@ export function AdminClient() {
       case 'ops':
         return 'Can add and see everything'
       case 'readonly':
-        return 'Can add and see everything'
+        return 'View-only access to approved operational records and reports'
       case 'client':
         return 'KSS x Footasylum - Limited read-only access'
       case 'pending':
@@ -181,6 +227,83 @@ export function AdminClient() {
       default:
         return ''
     }
+  }
+
+  const getStatusBadgeColor = (status: AccountStatus) => {
+    switch (status) {
+      case 'active':
+        return 'border-green-200 bg-green-100 text-green-800'
+      case 'invited':
+        return 'border-sky-200 bg-sky-100 text-sky-800'
+      case 'pending':
+        return 'border-yellow-200 bg-yellow-100 text-yellow-800'
+      case 'suspended':
+        return 'border-amber-200 bg-amber-100 text-amber-800'
+      case 'deactivated':
+        return 'border-red-200 bg-red-100 text-red-800'
+    }
+  }
+
+  const renderLifecycleControls = (user: UserWithProfile) => {
+    const isChanging = changingStatusUser === user.id
+
+    return (
+      <div className="flex flex-wrap items-center gap-2">
+        {(user.account_status === 'invited' || user.account_status === 'pending') && (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={isChanging || saving === user.id}
+            onClick={() => handleAccountStatusChange(user, 'activate')}
+          >
+            <PlayCircle className="mr-2 h-4 w-4" />
+            Activate
+          </Button>
+        )}
+        {user.account_status === 'active' && (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={isChanging || saving === user.id}
+            onClick={() => handleAccountStatusChange(user, 'suspend')}
+          >
+            <PauseCircle className="mr-2 h-4 w-4" />
+            Suspend
+          </Button>
+        )}
+        {(user.account_status === 'suspended' || user.account_status === 'deactivated') && (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={isChanging || saving === user.id}
+            onClick={() => handleAccountStatusChange(user, 'reactivate')}
+          >
+            <PlayCircle className="mr-2 h-4 w-4" />
+            Reactivate
+          </Button>
+        )}
+        {user.account_status !== 'deactivated' && (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
+            disabled={isChanging || saving === user.id}
+            onClick={() => handleAccountStatusChange(user, 'deactivate')}
+          >
+            {isChanging ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <UserX className="mr-2 h-4 w-4" />
+            )}
+            Deactivate
+          </Button>
+        )}
+      </div>
+    )
   }
 
   const formatLastLoggedIn = (value: string | null) => {
@@ -271,7 +394,6 @@ export function AdminClient() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="pending">Pending (Requires Approval)</SelectItem>
                     <SelectItem value="ops">Ops</SelectItem>
                     <SelectItem value="readonly">Readonly</SelectItem>
                     <SelectItem value="client">Client (KSS x Footasylum)</SelectItem>
@@ -298,7 +420,7 @@ export function AdminClient() {
               )}
             </Button>
             <p className="text-sm text-muted-foreground">
-              The user will receive an email invitation to set their password and access the system.
+              The invitation provisions a non-active account. Activate it after access has been approved.
             </p>
           </form>
         </CardContent>
@@ -310,9 +432,9 @@ export function AdminClient() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="text-yellow-900">Pending Approval ({pendingUsers.length})</CardTitle>
+                <CardTitle className="text-yellow-900">Invited or Pending ({pendingUsers.length})</CardTitle>
                 <p className="text-sm text-yellow-700 mt-1">
-                  These users need admin approval before they can access the system
+                  These accounts remain blocked until an administrator explicitly activates them
                 </p>
               </div>
             </div>
@@ -327,7 +449,9 @@ export function AdminClient() {
                 return (
                   <div key={user.id} className="rounded-lg border border-yellow-200 bg-white p-4 space-y-3">
                     <div className="space-y-1">
-                      <p className="text-xs font-medium uppercase tracking-wide text-yellow-700">Pending User</p>
+                      <p className="text-xs font-medium uppercase tracking-wide text-yellow-700">
+                        {accountStatusLabel(user.account_status)}
+                      </p>
                       <p className="text-sm font-medium break-all">{user.email}</p>
                       <p className="text-sm text-muted-foreground">{user.full_name || 'No name provided'}</p>
                     </div>
@@ -375,23 +499,7 @@ export function AdminClient() {
                       ) : (
                         <span className="text-xs text-muted-foreground">Select role to approve</span>
                       )}
-                      <Button
-                        onClick={() => handleDeleteUser(user.id, user.email)}
-                        disabled={deletingUser === user.id || saving === user.id}
-                        size="sm"
-                        variant="outline"
-                        className="w-full border-red-200 text-red-600 hover:text-red-700 hover:bg-red-50"
-                        title="Delete user"
-                      >
-                        {deletingUser === user.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <>
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Delete user
-                          </>
-                        )}
-                      </Button>
+                      {renderLifecycleControls(user)}
                     </div>
                   </div>
                 )
@@ -403,6 +511,7 @@ export function AdminClient() {
                   <TableRow>
                     <TableHead>Email</TableHead>
                     <TableHead>Full Name</TableHead>
+                    <TableHead>Status</TableHead>
                     <TableHead>Change Role</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
@@ -417,6 +526,11 @@ export function AdminClient() {
                       <TableRow key={user.id} className="bg-yellow-50/50">
                         <TableCell className="font-medium break-all">{user.email}</TableCell>
                         <TableCell>{user.full_name || '—'}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className={getStatusBadgeColor(user.account_status)}>
+                            {accountStatusLabel(user.account_status)}
+                          </Badge>
+                        </TableCell>
                         <TableCell>
                           <Select
                             value={displayRole}
@@ -458,20 +572,7 @@ export function AdminClient() {
                             ) : (
                               <span className="text-sm text-muted-foreground">Select role to approve</span>
                             )}
-                            <Button
-                              onClick={() => handleDeleteUser(user.id, user.email)}
-                              disabled={deletingUser === user.id || saving === user.id}
-                              size="sm"
-                              variant="ghost"
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                              title="Delete user"
-                            >
-                              {deletingUser === user.id ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <Trash2 className="h-4 w-4" />
-                              )}
-                            </Button>
+                            {renderLifecycleControls(user)}
                           </div>
                         </TableCell>
                       </TableRow>
@@ -519,6 +620,13 @@ export function AdminClient() {
                       <Badge variant="outline" className={getRoleBadgeColor(user.role)}>
                         {user.role}
                       </Badge>
+                      <Badge
+                        variant="outline"
+                        className={getStatusBadgeColor(user.account_status)}
+                        title={user.status_change_reason || undefined}
+                      >
+                        {accountStatusLabel(user.account_status)}
+                      </Badge>
                       {pendingRole && (
                         <span className="text-xs text-muted-foreground">
                           Pending change to {pendingRole}
@@ -542,7 +650,6 @@ export function AdminClient() {
                           <SelectItem value="ops">Ops</SelectItem>
                           <SelectItem value="readonly">Readonly</SelectItem>
                           <SelectItem value="client">Client</SelectItem>
-                          <SelectItem value="pending">Pending</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -570,23 +677,7 @@ export function AdminClient() {
                       ) : (
                         <span className="text-xs text-muted-foreground">No changes</span>
                       )}
-                      <Button
-                        onClick={() => handleDeleteUser(user.id, user.email)}
-                        disabled={deletingUser === user.id || saving === user.id}
-                        size="sm"
-                        variant="outline"
-                        className="w-full border-red-200 text-red-600 hover:text-red-700 hover:bg-red-50"
-                        title="Delete user"
-                      >
-                        {deletingUser === user.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <>
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Delete user
-                          </>
-                        )}
-                      </Button>
+                      {renderLifecycleControls(user)}
                     </div>
                   </div>
                 )
@@ -600,6 +691,7 @@ export function AdminClient() {
                   <TableHead>Email</TableHead>
                   <TableHead>Full Name</TableHead>
                   <TableHead>Last Logged In</TableHead>
+                  <TableHead>Status</TableHead>
                   <TableHead>Current Role</TableHead>
                   <TableHead>Change Role</TableHead>
                   <TableHead>Actions</TableHead>
@@ -608,7 +700,7 @@ export function AdminClient() {
               <TableBody>
                 {users.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                       No users found
                     </TableCell>
                   </TableRow>
@@ -623,6 +715,15 @@ export function AdminClient() {
                         <TableCell className="font-medium break-all">{user.email}</TableCell>
                         <TableCell>{user.full_name || '—'}</TableCell>
                         <TableCell>{formatLastLoggedIn(user.last_sign_in_at)}</TableCell>
+                        <TableCell>
+                          <Badge
+                            variant="outline"
+                            className={getStatusBadgeColor(user.account_status)}
+                            title={user.status_change_reason || undefined}
+                          >
+                            {accountStatusLabel(user.account_status)}
+                          </Badge>
+                        </TableCell>
                         <TableCell>
                           <Badge variant="outline" className={getRoleBadgeColor(user.role)}>
                             {user.role}
@@ -647,7 +748,6 @@ export function AdminClient() {
                               <SelectItem value="ops">Ops</SelectItem>
                               <SelectItem value="readonly">Readonly</SelectItem>
                               <SelectItem value="client">Client</SelectItem>
-                              <SelectItem value="pending">Pending</SelectItem>
                             </SelectContent>
                           </Select>
                         </TableCell>
@@ -675,20 +775,7 @@ export function AdminClient() {
                             ) : (
                               <span className="text-sm text-muted-foreground">No changes</span>
                             )}
-                            <Button
-                              onClick={() => handleDeleteUser(user.id, user.email)}
-                              disabled={deletingUser === user.id || saving === user.id}
-                              size="sm"
-                              variant="ghost"
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                              title="Delete user"
-                            >
-                              {deletingUser === user.id ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <Trash2 className="h-4 w-4" />
-                              )}
-                            </Button>
+                            {renderLifecycleControls(user)}
                           </div>
                         </TableCell>
                       </TableRow>
@@ -728,7 +815,7 @@ export function AdminClient() {
                 Readonly
               </Badge>
               <span className="text-muted-foreground">
-                Can add and see everything. Default role for new users.
+                View-only access to approved records and report exports. Cannot create, edit, or delete operational records.
               </span>
             </div>
             <div>

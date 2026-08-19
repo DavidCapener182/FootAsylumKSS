@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { User, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -23,11 +24,11 @@ import {
 } from './emp-chrome'
 
 const sectionOrder: NonNullable<NavItem['section']>[] = [
-  'Overview',
-  'Compliance Management',
+  'Today',
+  'Assurance',
   'Stores',
-  'Planning',
-  'Reporting',
+  'Insights',
+  'Events',
   'Administration',
 ]
 
@@ -122,7 +123,7 @@ export function SidebarClient({ userRole, userProfile }: SidebarClientProps) {
         <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white/85 shadow-[0_16px_30px_rgba(15,23,42,0.08)] md:space-y-4 md:rounded-none md:border-0 md:bg-transparent md:shadow-none">
           {(isKssPlanSection ? [{ section: null, items: planNavItems }] : sectionOrder.map((section) => ({
             section,
-            items: filteredItems.filter((item) => (item.section || 'Overview') === section),
+            items: filteredItems.filter((item) => (item.section || 'Today') === section),
           })).filter((group) => group.items.length > 0)).map((group) => (
             <div key={group.section || 'kss-plan'}>
               {group.section ? (
@@ -155,35 +156,19 @@ export function SidebarClient({ userRole, userProfile }: SidebarClientProps) {
 
             return (
               <li key={item.href} className="border-t border-slate-100 first:border-t-0 md:border-t-0">
-                {isKssPlanSection ? (
-                  <a
-                    href={item.href}
-                    onClick={() => setIsOpen(false)}
-                    className={cn(
-                      'flex min-h-[52px] items-center gap-3 px-4 py-3 text-[15px] font-medium transition-all md:min-h-[48px] md:rounded-2xl md:text-sm',
-                      isActive
-                        ? 'bg-white text-slate-950 font-semibold shadow-[inset_0_0_0_1px_rgba(15,23,42,0.05)] md:bg-white md:text-slate-950 md:shadow-[inset_0_0_0_1px_rgba(15,23,42,0.05)]'
-                        : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900 md:text-white/80 md:hover:bg-white/10 md:hover:text-white'
-                    )}
-                  >
-                    <Icon className={cn('h-5 w-5 flex-shrink-0', isActive ? 'text-slate-900 md:text-slate-900' : 'text-slate-400 md:text-white/70')} />
-                    {item.label}
-                  </a>
-                ) : (
-                  <a
-                    href={item.href}
-                    onClick={() => setIsOpen(false)}
-                    className={cn(
-                      'flex min-h-[52px] items-center gap-3 px-4 py-3 text-[15px] font-medium transition-all md:min-h-[48px] md:rounded-2xl md:text-sm',
-                      isActive
-                        ? 'bg-white text-slate-950 font-semibold shadow-[inset_0_0_0_1px_rgba(15,23,42,0.05)] md:bg-white md:text-slate-950 md:shadow-[inset_0_0_0_1px_rgba(15,23,42,0.05)]'
-                        : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900 md:text-white/80 md:hover:bg-white/10 md:hover:text-white'
-                    )}
-                  >
-                    <Icon className={cn('h-5 w-5 flex-shrink-0', isActive ? 'text-slate-900 md:text-slate-900' : 'text-slate-400 md:text-white/70')} />
-                    {item.label}
-                  </a>
-                )}
+                <Link
+                  href={item.href}
+                  onClick={() => setIsOpen(false)}
+                  className={cn(
+                    'flex min-h-[52px] items-center gap-3 px-4 py-3 text-[15px] font-medium transition-all md:min-h-[48px] md:rounded-2xl md:text-sm',
+                    isActive
+                      ? 'bg-white text-slate-950 font-semibold shadow-[inset_0_0_0_1px_rgba(15,23,42,0.05)] md:bg-white md:text-slate-950 md:shadow-[inset_0_0_0_1px_rgba(15,23,42,0.05)]'
+                      : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900 md:text-white/80 md:hover:bg-white/10 md:hover:text-white'
+                  )}
+                >
+                  <Icon className={cn('h-5 w-5 flex-shrink-0', isActive ? 'text-slate-900 md:text-slate-900' : 'text-slate-400 md:text-white/70')} />
+                  {item.label}
+                </Link>
               </li>
             )
           })}
@@ -216,7 +201,7 @@ export function SidebarClient({ userRole, userProfile }: SidebarClientProps) {
   return (
     <>
       {/* Desktop Sidebar - hidden when printing */}
-      <aside className="no-print hidden md:flex w-64 flex-col h-screen-zoom bg-[#0e1925] fixed left-0 top-0 z-30">
+      <aside className="no-print fixed left-0 top-0 z-30 hidden h-[100dvh] w-64 flex-col bg-[#0e1925] md:flex">
         {sidebarContent}
       </aside>
 
@@ -234,7 +219,7 @@ export function SidebarClient({ userRole, userProfile }: SidebarClientProps) {
         {/* Mobile Sidebar - hidden when printing */}
         <aside
           className={cn(
-            'no-print fixed left-0 top-0 z-[70] flex h-screen-zoom w-[86vw] max-w-[348px] flex-col rounded-r-[32px] border-r border-slate-200/70 bg-[linear-gradient(180deg,rgba(248,250,252,0.98)_0%,rgba(236,242,247,0.98)_100%)] shadow-[0_24px_60px_rgba(15,23,42,0.22)] transition-all duration-300 ease-in-out safe-bottom touch-pan-y md:hidden',
+            'no-print fixed left-0 top-0 z-[70] flex h-[100dvh] w-[86vw] max-w-[348px] flex-col rounded-r-[32px] border-r border-slate-200/70 bg-[linear-gradient(180deg,rgba(248,250,252,0.98)_0%,rgba(236,242,247,0.98)_100%)] shadow-[0_24px_60px_rgba(15,23,42,0.22)] transition-all duration-300 ease-in-out safe-bottom touch-pan-y md:hidden',
             isOpen
               ? 'pointer-events-auto visible translate-x-0 opacity-100'
               : 'pointer-events-none invisible -translate-x-full opacity-0'

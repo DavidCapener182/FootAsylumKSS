@@ -24,6 +24,12 @@ import {
 import { CalendarDayEvent } from './calendar-day-event'
 import { CalendarEventModal } from './calendar-event-modal'
 import type { CalendarData, CompletedStore, PlannedRoute } from '@/app/actions/calendar'
+import {
+  ALL_CALENDAR_EVENT_TYPES_VISIBLE,
+  filterCalendarDayEvents,
+  toggleCalendarEventVisibility,
+  type CalendarEventVisibility,
+} from '@/lib/calendar-event-filter'
 
 interface CalendarClientProps {
   initialData: CalendarData
@@ -118,6 +124,9 @@ export function CalendarClient({ initialData }: CalendarClientProps) {
   const [currentMonth, setCurrentMonth] = useState(initialData.month)
   const [currentYear, setCurrentYear] = useState(initialData.year)
   const [calendarData, setCalendarData] = useState(initialData)
+  const [eventVisibility, setEventVisibility] = useState<CalendarEventVisibility>(
+    ALL_CALENDAR_EVENT_TYPES_VISIBLE
+  )
   const [selectedEvent, setSelectedEvent] = useState<{
     type: 'planned' | 'completed'
     data: PlannedRoute | CompletedStore
@@ -158,7 +167,10 @@ export function CalendarClient({ initialData }: CalendarClientProps) {
 
     while (cursor <= calendarEnd) {
       const dateStr = format(cursor, 'yyyy-MM-dd')
-      const dayData = dataMap.get(dateStr) || { plannedRoutes: [], completedStores: [] }
+      const dayData = filterCalendarDayEvents(
+        dataMap.get(dateStr) || { plannedRoutes: [], completedStores: [] },
+        eventVisibility
+      )
       const isCurrentMonth = cursor.getMonth() === currentDate.getMonth() && cursor.getFullYear() === currentDate.getFullYear()
 
       cells.push({
@@ -173,7 +185,7 @@ export function CalendarClient({ initialData }: CalendarClientProps) {
     }
 
     return cells
-  }, [calendarData.days, currentDate])
+  }, [calendarData.days, currentDate, eventVisibility])
 
   const daysWithEvents = useMemo(
     () =>
@@ -325,17 +337,19 @@ export function CalendarClient({ initialData }: CalendarClientProps) {
             <div className="flex gap-1">
               <button
                 type="button"
+                aria-label="Previous month"
                 onClick={() => handleMonthChange('prev')}
                 className="min-h-[44px] min-w-[44px] rounded-2xl border border-slate-200 p-2 text-slate-500 transition-colors hover:bg-slate-50 md:min-h-0 md:min-w-0 md:rounded-lg"
               >
-                <ChevronLeft size={18} />
+                <ChevronLeft size={18} aria-hidden="true" />
               </button>
               <button
                 type="button"
+                aria-label="Next month"
                 onClick={() => handleMonthChange('next')}
                 className="min-h-[44px] min-w-[44px] rounded-2xl border border-slate-200 p-2 text-slate-500 transition-colors hover:bg-slate-50 md:min-h-0 md:min-w-0 md:rounded-lg"
               >
-                <ChevronRight size={18} />
+                <ChevronRight size={18} aria-hidden="true" />
               </button>
             </div>
           </div>
@@ -344,16 +358,36 @@ export function CalendarClient({ initialData }: CalendarClientProps) {
             <div className="flex w-full rounded-2xl bg-slate-100 p-1 sm:w-auto sm:rounded-xl">
               <button
                 type="button"
-                className="flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-xl bg-white px-3 py-1.5 text-xs font-bold text-blue-600 shadow-sm sm:min-h-0 sm:flex-none"
+                aria-pressed={eventVisibility.planned}
+                onClick={() =>
+                  setEventVisibility((current) =>
+                    toggleCalendarEventVisibility(current, 'planned')
+                  )
+                }
+                className={`flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-xl px-3 py-1.5 text-xs font-bold transition-colors sm:min-h-0 sm:flex-none ${
+                  eventVisibility.planned
+                    ? 'bg-white text-blue-600 shadow-sm'
+                    : 'text-slate-500 hover:bg-white/50'
+                }`}
               >
-                <Filter size={14} />
+                <Filter size={14} aria-hidden="true" />
                 Planned Route
               </button>
               <button
                 type="button"
-                className="flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-xl px-3 py-1.5 text-xs font-bold text-emerald-600 transition-colors hover:bg-white/50 sm:min-h-0 sm:flex-none"
+                aria-pressed={eventVisibility.completed}
+                onClick={() =>
+                  setEventVisibility((current) =>
+                    toggleCalendarEventVisibility(current, 'completed')
+                  )
+                }
+                className={`flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-xl px-3 py-1.5 text-xs font-bold transition-colors sm:min-h-0 sm:flex-none ${
+                  eventVisibility.completed
+                    ? 'bg-white text-emerald-600 shadow-sm'
+                    : 'text-slate-500 hover:bg-white/50'
+                }`}
               >
-                <CheckCircle2 size={14} />
+                <CheckCircle2 size={14} aria-hidden="true" />
                 Completed Store
               </button>
             </div>
@@ -427,7 +461,11 @@ export function CalendarClient({ initialData }: CalendarClientProps) {
           {daysWithEvents.length === 0 ? (
             <div className="p-12 text-center text-slate-500">
               <CalendarIcon size={32} className="mx-auto mb-3 opacity-20" />
-              <p className="font-medium">No events scheduled this month.</p>
+              <p className="font-medium">
+                {eventVisibility.planned || eventVisibility.completed
+                  ? 'No matching events this month.'
+                  : 'Select an event type to show calendar activity.'}
+              </p>
             </div>
           ) : (
             <div className="divide-y divide-slate-100">

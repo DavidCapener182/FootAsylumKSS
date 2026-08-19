@@ -1,5 +1,10 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import {
+  accountHasApplicationAccess,
+  type AccountStatus,
+} from '@/lib/account-lifecycle'
+import { hasRequiredMfaForRole, roleRequiresMfa } from '@/lib/mfa/policy'
 
 export type UserRole = 'admin' | 'ops' | 'readonly' | 'client' | 'pending'
 
@@ -7,6 +12,10 @@ export interface UserProfile {
   id: string
   full_name: string | null
   role: UserRole
+  account_status: AccountStatus
+  status_changed_at: string
+  status_changed_by_user_id: string | null
+  status_change_reason: string | null
   created_at: string
 }
 
@@ -32,9 +41,11 @@ export async function getUserProfile(): Promise<UserProfile | null> {
     .from('fa_profiles')
     .select('*')
     .eq('id', user.id)
-    .single()
+    .maybeSingle()
 
-  if (error || !profile) return null
+  if (error || !profile || !accountHasApplicationAccess(profile.account_status as AccountStatus)) {
+    return null
+  }
 
   return profile
 }
@@ -56,6 +67,27 @@ export async function requireAuth() {
 
   if (!session) {
     redirect('/login')
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from('fa_profiles')
+    .select('role, account_status')
+    .eq('id', user.id)
+    .maybeSingle()
+
+  if (
+    profileError
+    || !profile
+    || !accountHasApplicationAccess(profile.account_status as AccountStatus)
+  ) {
+    redirect('/login/account-setup')
+  }
+
+  if (
+    roleRequiresMfa(profile.role)
+    && !(await hasRequiredMfaForRole(supabase.auth, profile.role))
+  ) {
+    redirect('/login/mfa')
   }
 
   return session

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import type {
   EmpEventDayKioskStaffResult,
+  EmpEventDayKioskUnavailableStaffResult,
   EmpEventDayKioskUnavailableReason,
 } from '@/lib/emp/event-day-data'
 import { formatAppDate, formatAppTime } from '@/lib/utils'
@@ -52,7 +53,7 @@ export function KioskStaffSearch({
   mode: 'clock-in' | 'clock-out'
   query: string
   staff: EmpEventDayKioskStaffResult | null
-  unavailableStaff: EmpEventDayKioskStaffResult | null
+  unavailableStaff: EmpEventDayKioskUnavailableStaffResult | null
   unavailableReason: EmpEventDayKioskUnavailableReason | null
   lookupStatus: LookupStatus
   isBusy: boolean
@@ -123,13 +124,7 @@ export function KioskStaffSearch({
                   </div>
                   <div>
                     <div className="text-3xl font-black text-slate-950">{unavailableStaff.staffName}</div>
-                    <div className="mt-1 text-base font-semibold text-slate-600">
-                      {[unavailableStaff.agency, unavailableStaff.position, unavailableStaff.area].filter(Boolean).join(' · ') || 'Shift details'}
-                    </div>
                   </div>
-                </div>
-                <div className="rounded-lg bg-white px-4 py-3 text-base font-black text-slate-900 shadow-sm">
-                  {shiftLabel(unavailableStaff.shiftStart, unavailableStaff.shiftEnd)}
                 </div>
               </div>
               <div className="mt-5 rounded-lg bg-amber-100 px-5 py-4 text-lg font-black text-amber-950">

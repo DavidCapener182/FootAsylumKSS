@@ -17,7 +17,7 @@ export async function uploadAuditPDF(
   auditNumber: 1 | 2,
   file: File
 ) {
-  await requirePermission('manageAudits')
+  const { supabase } = await requirePermission('manageAudits')
   const adminSupabase = createAdminSupabaseClient()
 
   // Validate file type
@@ -51,7 +51,10 @@ export async function uploadAuditPDF(
     ? 'compliance_audit_1_pdf_path' 
     : 'compliance_audit_2_pdf_path'
 
-  const { error: updateError } = await adminSupabase
+  // Database writes stay on the authenticated client so RLS and the
+  // actor-attributing audit trigger remain in force. Admin access is only for
+  // the private storage bucket.
+  const { error: updateError } = await supabase
     .from('fa_stores')
     .update({ [pdfColumn]: filePath })
     .eq('id', storeId)
@@ -99,7 +102,7 @@ export async function deleteAuditPDF(
   storeId: string,
   auditNumber: 1 | 2
 ) {
-  await requirePermission('manageAudits')
+  const { supabase } = await requirePermission('manageAudits')
   const adminSupabase = createAdminSupabaseClient()
 
   // Get current PDF path
@@ -107,7 +110,7 @@ export async function deleteAuditPDF(
     ? 'compliance_audit_1_pdf_path' 
     : 'compliance_audit_2_pdf_path'
 
-  const { data: store, error: fetchError } = await adminSupabase
+  const { data: store, error: fetchError } = await supabase
     .from('fa_stores')
     .select(pdfColumn)
     .eq('id', storeId)
@@ -133,7 +136,7 @@ export async function deleteAuditPDF(
   }
 
   // Update store record to remove PDF path
-  const { error: updateError } = await adminSupabase
+  const { error: updateError } = await supabase
     .from('fa_stores')
     .update({ [pdfColumn]: null })
     .eq('id', storeId)

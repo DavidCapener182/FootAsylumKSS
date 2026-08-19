@@ -55,6 +55,17 @@ const optionalIsoText = optionalText.refine((value) => {
   return !Number.isNaN(Date.parse(value))
 }, 'Invalid date/time')
 
+const eventDateText = z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/, 'Event date is required')
+  .refine((value) => {
+    const date = new Date(`${value}T12:00:00.000Z`)
+    return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value
+  }, 'Invalid event date')
+
+const workerVerificationCode = z.string({
+  required_error: 'Worker verification code is required',
+  invalid_type_error: 'Worker verification code is required',
+}).trim().regex(/^\d{4}$/, 'Enter the final 4 digits of your mobile or SIA badge')
+
 export const staffImportRowSchema = z.object({
   staffName: z.string().trim().min(1, 'Staff name is required'),
   agency: optionalText,
@@ -110,11 +121,12 @@ const equipmentQuestionSchema = z.object({
 export const clockInSchema = z.object({
   staffShiftId: z.string().uuid(),
   pin: optionalText.optional(),
+  workerVerificationCode,
   nameQuery: z.string({
     required_error: 'Name is required',
     invalid_type_error: 'Name is required',
   }).trim().min(2, 'Keep typing your name'),
-  eventDate: optionalText.optional(),
+  eventDate: eventDateText,
   deviceLabel: optionalText,
   equipment: equipmentQuestionSchema,
 })
@@ -122,11 +134,12 @@ export const clockInSchema = z.object({
 export const clockOutSchema = z.object({
   staffShiftId: z.string().uuid(),
   pin: optionalText.optional(),
+  workerVerificationCode,
   nameQuery: z.string({
     required_error: 'Name is required',
     invalid_type_error: 'Name is required',
   }).trim().min(2, 'Keep typing your name'),
-  eventDate: optionalText.optional(),
+  eventDate: eventDateText,
   deviceLabel: optionalText,
   returns: z.array(z.object({
     assignmentId: z.string().uuid(),
@@ -192,8 +205,12 @@ export const kioskNameLookupSchema = z.object({
     required_error: 'Name is required',
     invalid_type_error: 'Name is required',
   }).trim().min(2, 'Keep typing your name'),
-  eventDate: optionalText.optional(),
+  eventDate: eventDateText,
   mode: z.enum(['clock_in', 'clock_out']).default('clock_in'),
+})
+
+export const kioskClockedInLookupSchema = kioskNameLookupSchema.extend({
+  workerVerificationCode,
 })
 
 export const adminWalkUpStaffSchema = z.object({
@@ -218,6 +235,8 @@ export const adminNoShowSchema = z.object({
 
 export const eventDaySettingsSchema = z.object({
   pin: optionalText.optional(),
+  clearPin: z.boolean().optional(),
+  eventDate: eventDateText.optional(),
   kioskLabel: optionalText.optional(),
   timezone: z.string().trim().min(1).default('Europe/London'),
   mealTokenTotal: z.coerce.number().int().min(0, 'Meal token total cannot be negative').nullable().optional(),

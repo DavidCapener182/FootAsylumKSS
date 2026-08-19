@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { type Browser, type Page } from 'puppeteer'
 import { launchPuppeteerBrowser } from '@/lib/pdf/puppeteer-browser'
+import { reportPermissionErrorResponse, requireReportAccess } from '@/lib/reports/authorization'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -57,6 +58,8 @@ export async function POST(request: NextRequest) {
   let browser: Browser | null = null
 
   try {
+    await requireReportAccess()
+
     const body = ((await request.json().catch(() => ({}))) || {}) as ExactPdfRequestBody
     const html = typeof body.html === 'string' ? body.html.trim() : ''
 
@@ -126,6 +129,9 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (error: any) {
+    const permissionResponse = reportPermissionErrorResponse(error)
+    if (permissionResponse) return permissionResponse
+
     console.error('Error generating exact newsletter PDF:', error)
 
     return NextResponse.json(

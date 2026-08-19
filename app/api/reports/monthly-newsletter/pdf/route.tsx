@@ -1,13 +1,13 @@
 import React from 'react'
 import { NextRequest, NextResponse } from 'next/server'
 import { renderToBuffer } from '@react-pdf/renderer'
-import { createClient } from '@/lib/supabase/server'
 import { buildMonthlyNewsletterData } from '@/lib/reports/monthly-newsletter'
 import type {
   MonthlyNewsletterRequestBody,
   NewsletterAIPromptPack,
 } from '@/lib/reports/monthly-newsletter-types'
 import { MonthlyNewsletterPDF } from '@/lib/pdf/monthly-newsletter-document-v5'
+import { reportPermissionErrorResponse, requireReportAccess } from '@/lib/reports/authorization'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -54,14 +54,7 @@ function parseAiPromptPack(value: unknown): NewsletterAIPromptPack | null {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { supabase } = await requireReportAccess()
 
     const body = ((await request.json().catch(() => ({}))) || {}) as MonthlyNewsletterRequestBody & {
       aiPromptPack?: unknown
@@ -118,6 +111,9 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (error: any) {
+    const permissionResponse = reportPermissionErrorResponse(error)
+    if (permissionResponse) return permissionResponse
+
     console.error('Error generating monthly newsletter PDF:', error)
     return NextResponse.json(
       { error: error?.message || 'Failed to generate monthly newsletter PDF' },

@@ -1,0 +1,33 @@
+name: Deployment schema contract
+
+on:
+  workflow_call:
+    secrets:
+      SUPABASE_SCHEMA_CONTRACT_DATABASE_URL:
+        description: Read-capable PostgreSQL URL for the deployment target
+        required: true
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PUPPETEER_SKIP_DOWNLOAD: 'true'
+
+jobs:
+  schema-contract:
+    name: Verify target schema without mutation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Compare target database with the deployment contract
+        run: npm run check:schema
+        env:
+          SUPABASE_SCHEMA_CONTRACT_DATABASE_URL: ${{ secrets.SUPABASE_SCHEMA_CONTRACT_DATABASE_URL }}

@@ -1,0 +1,59 @@
+{
+  "migrationDirectory": "supabase/migrations",
+  "columns": [
+    { "schema": "public", "table": "fa_profiles", "sourceMigration": "20260819231543_add_account_lifecycle_controls.sql", "names": ["account_status", "status_changed_at", "status_changed_by_user_id", "status_change_reason"] },
+    { "schema": "public", "table": "fa_activity_log", "sourceMigration": "20260819231032_harden_fa_activity_log_integrity.sql", "names": ["source", "correlation_id"] },
+    { "schema": "public", "table": "fa_incident_reference_counters", "sourceMigration": "20260819230804_atomic_incident_references.sql", "names": ["incident_year", "last_value"] },
+    { "schema": "public", "table": "emp_event_day_settings", "sourceMigration": "20260819230958_harden_emp_event_day_kiosk.sql", "names": ["kiosk_access_id", "kiosk_event_date", "kiosk_token_issued_at", "kiosk_token_expires_at", "kiosk_revoked_at"] },
+    { "schema": "public", "table": "emp_event_kiosk_request_limits", "sourceMigration": "20260819230958_harden_emp_event_day_kiosk.sql", "names": ["key_hash", "action", "request_count", "locked_until"] },
+    { "schema": "public", "table": "emp_event_kiosk_request_events", "sourceMigration": "20260819230958_harden_emp_event_day_kiosk.sql", "names": ["kiosk_access_id", "event_date", "correlation_id", "action", "outcome", "status_code"] }
+  ],
+  "functions": [
+    { "schema": "public", "name": "fa_generate_incident_reference" },
+    { "schema": "public", "name": "fa_log_activity" },
+    { "schema": "public", "name": "fa_reject_activity_log_mutation" },
+    { "schema": "public", "name": "fa_log_profile_security_change" },
+    { "schema": "public", "name": "fa_admin_change_user_access" },
+    { "schema": "public", "name": "emp_consume_event_day_kiosk_limit" },
+    { "schema": "fa_private", "name": "get_user_role" }
+  ],
+  "policies": [
+    { "schema": "public", "table": "fa_activity_log", "name": "Users can view activity logs", "command": "SELECT" },
+    { "schema": "storage", "table": "objects", "name": "Admin full access to attachments bucket", "command": "ALL" },
+    { "schema": "storage", "table": "objects", "name": "Ops can upload attachments", "command": "INSERT" },
+    { "schema": "storage", "table": "objects", "name": "Readonly can view attachments", "command": "SELECT" }
+  ],
+  "forbiddenPolicies": [
+    { "schema": "public", "table": "fa_activity_log", "name": "System can insert activity logs" }
+  ],
+  "rlsTables": [
+    { "schema": "public", "table": "fa_activity_log" },
+    { "schema": "public", "table": "fa_incident_reference_counters" },
+    { "schema": "public", "table": "emp_event_kiosk_request_limits" },
+    { "schema": "public", "table": "emp_event_kiosk_request_events" }
+  ],
+  "triggers": [
+    { "schema": "public", "table": "fa_activity_log", "name": "fa_activity_log_append_only" },
+    { "schema": "public", "table": "fa_profiles", "name": "fa_profiles_security_activity_log" },
+    { "schema": "public", "table": "fa_profiles", "name": "fa_profiles_guard_security_mutation" }
+  ],
+  "buckets": ["fa-attachments", "cmp-documents", "emp-documents"],
+  "forbiddenPrivileges": [
+    { "role": "anon", "schema": "public", "table": "fa_activity_log", "privilege": "INSERT" },
+    { "role": "authenticated", "schema": "public", "table": "fa_activity_log", "privilege": "INSERT" },
+    { "role": "authenticated", "schema": "public", "table": "fa_activity_log", "privilege": "UPDATE" },
+    { "role": "authenticated", "schema": "public", "table": "fa_activity_log", "privilege": "DELETE" },
+    { "role": "service_role", "schema": "public", "table": "fa_activity_log", "privilege": "UPDATE" },
+    { "role": "service_role", "schema": "public", "table": "fa_activity_log", "privilege": "DELETE" },
+    { "role": "anon", "schema": "public", "table": "fa_profiles", "privilege": "INSERT" },
+    { "role": "anon", "schema": "public", "table": "fa_profiles", "privilege": "DELETE" },
+    { "role": "authenticated", "schema": "public", "table": "fa_profiles", "privilege": "INSERT" },
+    { "role": "authenticated", "schema": "public", "table": "fa_profiles", "privilege": "DELETE" },
+    { "role": "anon", "schema": "public", "table": "fa_incident_reference_counters", "privilege": "SELECT" },
+    { "role": "authenticated", "schema": "public", "table": "fa_incident_reference_counters", "privilege": "SELECT" },
+    { "role": "anon", "schema": "public", "table": "emp_event_kiosk_request_events", "privilege": "SELECT" },
+    { "role": "authenticated", "schema": "public", "table": "emp_event_kiosk_request_events", "privilege": "SELECT" },
+    { "role": "anon", "schema": "public", "table": "emp_event_kiosk_request_limits", "privilege": "SELECT" },
+    { "role": "authenticated", "schema": "public", "table": "emp_event_kiosk_request_limits", "privilege": "SELECT" }
+  ]
+}

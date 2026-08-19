@@ -2,34 +2,24 @@
 
 import { logActivity } from '@/lib/activity-log'
 import { revalidatePath } from 'next/cache'
-import { FaIncidentCategory, FaSeverity, FaIncidentStatus } from '@/types/db'
+import { FaIncidentStatus } from '@/types/db'
 import { requirePermission } from '@/lib/permissions'
-
-export interface CreateIncidentInput {
-  store_id: string
-  incident_category: FaIncidentCategory
-  severity: FaSeverity
-  summary: string
-  description?: string
-  occurred_at: string
-  persons_involved?: unknown
-  injury_details?: unknown
-  witnesses?: unknown
-  riddor_reportable?: boolean
-}
+import { createIncidentInputSchema, type CreateIncidentInput } from '@/lib/incidents/schema'
 
 export async function createIncident(input: CreateIncidentInput) {
   const { supabase, userId } = await requirePermission('manageIncidents')
+  const parsedInput = createIncidentInputSchema.parse(input)
 
-  // Generate reference number
-  const { data: refData } = await supabase.rpc('fa_generate_incident_reference')
-  const reference_no = refData || `INC-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`
+  const { data: refData, error: referenceError } = await supabase.rpc('fa_generate_incident_reference')
+  if (referenceError || typeof refData !== 'string' || !/^INC-\d{4}-\d{6,}$/.test(refData)) {
+    throw new Error(`Failed to allocate incident reference: ${referenceError?.message || 'Invalid reference returned'}`)
+  }
 
   const { data: incident, error } = await supabase
     .from('fa_incidents')
     .insert({
-      ...input,
-      reference_no,
+      ...parsedInput,
+      reference_no: refData,
       reported_by_user_id: userId,
       reported_at: new Date().toISOString(),
       status: 'open',
@@ -39,16 +29,6 @@ export async function createIncident(input: CreateIncidentInput) {
 
   if (error) {
     throw new Error(`Failed to create incident: ${error.message}`)
-  }
-
-  // Log activity (trigger will also log, but explicit log for clarity)
-  try {
-    await logActivity('incident', incident.id, 'CREATED', {
-      new: incident,
-    })
-  } catch (logError) {
-    // Log error but don't fail the incident creation
-    console.error('Failed to log activity for incident creation:', logError)
   }
 
   revalidatePath('/incidents')
@@ -152,12 +132,6 @@ export async function updateIncident(id: string, updates: Partial<CreateIncident
     throw new Error(`Failed to update incident: ${error.message}`)
   }
 
-  // Log activity
-  await logActivity('incident', id, 'UPDATED', {
-    old: currentIncident,
-    new: incident,
-  })
-
   revalidatePath('/incidents')
   revalidatePath(`/incidents/${id}`)
   return incident
@@ -196,10 +170,17 @@ export async function assignInvestigator(incidentId: string, investigatorId: str
     throw new Error(`Failed to assign investigator: ${error.message}`)
   }
 
-  await logActivity('incident', incidentId, 'UPDATED', {
+  await logActivity(
+    'incident',
+    incidentId,
+    investigatorId === 'unassigned' || !investigatorId
+      ? 'INVESTIGATOR_UNASSIGNED'
+      : 'INVESTIGATOR_ASSIGNED',
+    {
     action: investigatorId === 'unassigned' || !investigatorId ? 'Investigator unassigned' : 'Investigator assigned',
     investigator_id: updateData.assigned_investigator_user_id,
-  })
+    }
+  )
 
   revalidatePath('/incidents')
   revalidatePath(`/incidents/${incidentId}`)
@@ -251,15 +232,13 @@ export async function deleteIncident(id: string) {
     throw new Error(`Failed to delete incident: ${deleteError.message}`)
   }
 
-  // Log activity (trigger will also log, but explicit log for clarity)
-  try {
+  // Active incidents are captured by the database DELETE trigger. The legacy
+  // archive does not have that trigger, so retain one trusted semantic event.
+  if (tableName === 'fa_closed_incidents') {
     await logActivity('incident', id, 'DELETED', {
       old: currentIncident,
-      message: `Incident ${currentIncident.reference_no || id} deleted.`,
+      message: `Archived incident ${currentIncident.reference_no || id} deleted.`,
     })
-  } catch (logError) {
-    // Log error but don't fail the deletion
-    console.error('Failed to log activity for incident deletion:', logError)
   }
 
   revalidatePath('/incidents')

@@ -10,6 +10,12 @@
     "type-check": "tsc --noEmit",
     "test": "vitest",
     "test:run": "vitest run",
+    "test:security": "vitest run supabase/migrations scripts/schema-contract.test.mjs lib/emp/event-day-kiosk-security.test.ts lib/permissions.test.ts lib/reports/authorization.test.ts middleware.test.ts",
+    "test:e2e": "playwright test",
+    "test:e2e:desktop": "playwright test --project=desktop-chromium",
+    "test:e2e:mobile": "playwright test --project=mobile-chromium",
+    "check:schema": "node scripts/check-schema-contract.mjs",
+    "check:bundle": "node scripts/check-bundle-size.mjs",
     "seed-fra-template": "node scripts/seed-fra-template.js"
   },
   "dependencies": {
@@ -55,6 +61,8 @@
     "zod": "^3.22.0"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@playwright/test": "^1.62.1",
     "@types/node": "^20.11.0",
     "@types/pg": "^8.18.0",
     "@types/react": "^18.2.0",
