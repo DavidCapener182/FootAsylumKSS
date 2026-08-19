@@ -157,7 +157,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
   const [isResolvingOverdueRoute, setIsResolvingOverdueRoute] = useState(false)
   
   // Route creation state
-  const [routeManager, setRouteManager] = useState<string | undefined>(undefined)
+  const [routeManager, setRouteManager] = useState<string>('')
   const [routeDate, setRouteDate] = useState<string>(getTodayDateInputValue)
   const [routeArea, setRouteArea] = useState<string | null>(null)
   const [routeSelectedStores, setRouteSelectedStores] = useState<Set<string>>(new Set())
@@ -848,7 +848,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
       setStores(updatedStores)
       
       // Reset form
-      setRouteManager(undefined)
+      setRouteManager('')
       setRouteDate('')
       setRouteArea(null)
       setRouteSelectedStores(new Set())
