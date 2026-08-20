@@ -9,7 +9,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { getSafeMfaRedirect } from '@/lib/mfa/redirect'
+import { getSafeAuthRedirect } from '@/lib/auth-redirect'
 
 function LoginContent() {
   const router = useRouter()
@@ -28,7 +28,7 @@ function LoginContent() {
     }
   }, [searchParams])
 
-  const redirectTo = getSafeMfaRedirect(searchParams?.get('redirectTo'))
+  const redirectTo = getSafeAuthRedirect(searchParams?.get('redirectTo'))
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

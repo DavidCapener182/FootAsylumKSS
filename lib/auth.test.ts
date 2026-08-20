@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mockGetUser = vi.fn()
 const mockGetSession = vi.fn()
-const mockGetAuthenticatorAssuranceLevel = vi.fn()
 const mockMaybeSingle = vi.fn()
 const mockEq = vi.fn(() => ({ maybeSingle: mockMaybeSingle }))
 const mockSelect = vi.fn(() => ({ eq: mockEq }))
@@ -16,7 +15,6 @@ vi.mock('@/lib/supabase/server', () => ({
     auth: {
       getUser: mockGetUser,
       getSession: mockGetSession,
-      mfa: { getAuthenticatorAssuranceLevel: mockGetAuthenticatorAssuranceLevel },
     },
     from: mockFrom,
   })),
@@ -36,10 +34,6 @@ describe('auth account status boundary', () => {
     })
     mockMaybeSingle.mockResolvedValue({
       data: { role: 'readonly', account_status: 'active' },
-      error: null,
-    })
-    mockGetAuthenticatorAssuranceLevel.mockResolvedValue({
-      data: { currentLevel: 'aal2', nextLevel: 'aal2' },
       error: null,
     })
   })
@@ -65,21 +59,7 @@ describe('auth account status boundary', () => {
     }
   )
 
-  it('redirects an active AAL1 administrator to the MFA flow', async () => {
-    mockMaybeSingle.mockResolvedValueOnce({
-      data: { role: 'admin', account_status: 'active' },
-      error: null,
-    })
-    mockGetAuthenticatorAssuranceLevel.mockResolvedValueOnce({
-      data: { currentLevel: 'aal1', nextLevel: 'aal2' },
-      error: null,
-    })
-    const { requireAuth } = await import('./auth')
-
-    await expect(requireAuth()).rejects.toThrow('REDIRECT:/login/mfa')
-  })
-
-  it('returns the active administrator session at AAL2', async () => {
+  it('returns an active administrator session without an authenticator-assurance API', async () => {
     mockMaybeSingle.mockResolvedValueOnce({
       data: { role: 'admin', account_status: 'active' },
       error: null,

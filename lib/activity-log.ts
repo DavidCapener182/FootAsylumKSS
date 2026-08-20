@@ -41,7 +41,7 @@ export async function logActivity(
   }
 
   // Re-authorize at the service-role boundary instead of relying solely on
-  // the calling action. This also enforces active-account and MFA policy.
+  // the calling action. This also enforces active-account and role policy.
   const { userId } = await requirePermission(requiredPermission)
 
   // Browser-facing roles cannot INSERT into the audit table. After validating

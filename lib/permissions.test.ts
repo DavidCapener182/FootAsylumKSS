@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mockGetUser = vi.fn()
-const mockGetAuthenticatorAssuranceLevel = vi.fn()
 const mockMaybeSingle = vi.fn()
 const mockEq = vi.fn(() => ({ maybeSingle: mockMaybeSingle }))
 const mockSelect = vi.fn(() => ({ eq: mockEq }))
@@ -10,7 +9,6 @@ const mockFrom = vi.fn(() => ({ select: mockSelect }))
 const mockSupabase = {
   auth: {
     getUser: mockGetUser,
-    mfa: { getAuthenticatorAssuranceLevel: mockGetAuthenticatorAssuranceLevel },
   },
   from: mockFrom,
 }
@@ -23,10 +21,6 @@ describe('server permission enforcement', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockGetUser.mockResolvedValue({ data: { user: { id: 'user-1' } } })
-    mockGetAuthenticatorAssuranceLevel.mockResolvedValue({
-      data: { currentLevel: 'aal2', nextLevel: 'aal2' },
-      error: null,
-    })
     mockMaybeSingle.mockResolvedValue({
       data: { role: 'readonly', account_status: 'active' },
       error: null,
@@ -81,21 +75,17 @@ describe('server permission enforcement', () => {
     }
   )
 
-  it('rejects an active admin permission at AAL1', async () => {
+  it('returns an active administrator permission without an authenticator-assurance API', async () => {
     mockMaybeSingle.mockResolvedValueOnce({
       data: { role: 'admin', account_status: 'active' },
       error: null,
     })
-    mockGetAuthenticatorAssuranceLevel.mockResolvedValueOnce({
-      data: { currentLevel: 'aal1', nextLevel: 'aal2' },
-      error: null,
-    })
     const { requirePermission } = await import('./permissions')
 
-    await expect(requirePermission('adminUsers')).rejects.toMatchObject({
-      name: 'PermissionError',
-      status: 403,
-      message: 'Multi-factor authentication is required',
+    await expect(requirePermission('adminUsers')).resolves.toMatchObject({
+      userId: 'user-1',
+      role: 'admin',
+      accountStatus: 'active',
     })
   })
 })

@@ -1,10 +1,11 @@
-import { MfaFlow } from '@/components/auth/mfa-flow'
-import { getSafeMfaRedirect } from '@/lib/mfa/redirect'
+import { redirect } from 'next/navigation'
 
-type MfaPageProps = {
+import { getSafeAuthRedirect } from '@/lib/auth-redirect'
+
+type RetiredMfaPageProps = {
   searchParams?: { redirectTo?: string | string[] }
 }
 
-export default function MfaPage({ searchParams }: MfaPageProps) {
-  return <MfaFlow redirectTo={getSafeMfaRedirect(searchParams?.redirectTo)} />
+export default function RetiredMfaPage({ searchParams }: RetiredMfaPageProps) {
+  redirect(getSafeAuthRedirect(searchParams?.redirectTo))
 }

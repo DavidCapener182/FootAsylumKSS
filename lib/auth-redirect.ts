@@ -3,9 +3,9 @@ const MAX_REDIRECT_LENGTH = 2048
 
 /**
  * Accepts only an application-local path. Auth routes are excluded so a
- * completed MFA flow cannot redirect back into an authentication loop.
+ * completed sign-in cannot redirect back into an authentication loop.
  */
-export function getSafeMfaRedirect(value: string | string[] | null | undefined): string {
+export function getSafeAuthRedirect(value: string | string[] | null | undefined): string {
   const candidate = Array.isArray(value) ? value[0] : value
 
   if (
@@ -20,8 +20,8 @@ export function getSafeMfaRedirect(value: string | string[] | null | undefined):
   }
 
   try {
-    const parsed = new URL(candidate, 'https://mfa.local')
-    if (parsed.origin !== 'https://mfa.local' || parsed.pathname.startsWith('/login')) {
+    const parsed = new URL(candidate, 'https://auth.local')
+    if (parsed.origin !== 'https://auth.local' || parsed.pathname.startsWith('/login')) {
       return DEFAULT_REDIRECT
     }
 
@@ -29,9 +29,4 @@ export function getSafeMfaRedirect(value: string | string[] | null | undefined):
   } catch {
     return DEFAULT_REDIRECT
   }
-}
-
-export function getLoginHref(redirectTo: string): string {
-  const safeRedirect = getSafeMfaRedirect(redirectTo)
-  return `/login?redirectTo=${encodeURIComponent(safeRedirect)}`
 }

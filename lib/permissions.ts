@@ -2,7 +2,6 @@ import { createClient } from '@/lib/supabase/server'
 import type { UserRole } from '@/lib/auth'
 import { can, type Permission } from '@/lib/role-capabilities'
 import { accountHasApplicationAccess, type AccountStatus } from '@/lib/account-lifecycle'
-import { hasRequiredMfaForRole, roleRequiresMfa } from '@/lib/mfa/policy'
 
 export type PermissionContext = {
   supabase: ReturnType<typeof createClient>
@@ -67,13 +66,6 @@ export async function requirePermission(permission: Permission): Promise<Permiss
 
   const role = profile.role as UserRole
   const accountStatus = profile.account_status as AccountStatus
-  if (
-    roleRequiresMfa(role)
-    && !(await hasRequiredMfaForRole(supabase.auth, role))
-  ) {
-    throw new PermissionError('Multi-factor authentication is required', 403)
-  }
-
   if (!can(role, permission)) {
     throw new PermissionError(PERMISSION_MESSAGES[permission], 403)
   }

@@ -4,7 +4,6 @@ import {
   accountHasApplicationAccess,
   type AccountStatus,
 } from '@/lib/account-lifecycle'
-import { hasRequiredMfaForRole, roleRequiresMfa } from '@/lib/mfa/policy'
 
 export type UserRole = 'admin' | 'ops' | 'readonly' | 'client' | 'pending'
 
@@ -81,13 +80,6 @@ export async function requireAuth() {
     || !accountHasApplicationAccess(profile.account_status as AccountStatus)
   ) {
     redirect('/login/account-setup')
-  }
-
-  if (
-    roleRequiresMfa(profile.role)
-    && !(await hasRequiredMfaForRole(supabase.auth, profile.role))
-  ) {
-    redirect('/login/mfa')
   }
 
   return session

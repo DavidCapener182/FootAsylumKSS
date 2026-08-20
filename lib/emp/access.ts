@@ -3,7 +3,6 @@ import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { requireAuth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { accountHasApplicationAccess, type AccountStatus } from '@/lib/account-lifecycle'
-import { hasRequiredMfaForRole } from '@/lib/mfa/policy'
 
 export class EmpAccessError extends Error {
   constructor(message = 'Unauthorized') {
@@ -45,10 +44,6 @@ async function getEmpAdminProfile() {
   const profile = await getEmpProfileForUser(user.id)
   if (profile.role !== 'admin') {
     throw new EmpAccessError('Unauthorized - EMP access is restricted to administrators')
-  }
-
-  if (!(await hasRequiredMfaForRole(authSupabase.auth, profile.role))) {
-    throw new EmpAccessError('Multi-factor authentication is required for EMP access')
   }
 
   return { user, profile }

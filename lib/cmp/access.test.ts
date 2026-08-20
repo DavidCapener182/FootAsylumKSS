@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mockGetUser = vi.fn()
-const mockGetAuthenticatorAssuranceLevel = vi.fn()
 const mockSingle = vi.fn()
 const mockEq = vi.fn(() => ({ single: mockSingle }))
 const mockSelect = vi.fn(() => ({ eq: mockEq }))
@@ -11,7 +10,6 @@ vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(() => ({
     auth: {
       getUser: mockGetUser,
-      mfa: { getAuthenticatorAssuranceLevel: mockGetAuthenticatorAssuranceLevel },
     },
   })),
 }))
@@ -24,10 +22,6 @@ describe('CMP account status access', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockGetUser.mockResolvedValue({ data: { user: { id: 'user-1' } } })
-    mockGetAuthenticatorAssuranceLevel.mockResolvedValue({
-      data: { currentLevel: 'aal2', nextLevel: 'aal2' },
-      error: null,
-    })
   })
 
   it('accepts an active administrator', async () => {
@@ -50,13 +44,9 @@ describe('CMP account status access', () => {
     await expect(isCurrentCmpAdmin()).resolves.toBe(false)
   })
 
-  it('rejects an active AAL1 administrator', async () => {
+  it('rejects an active non-administrator', async () => {
     mockSingle.mockResolvedValue({
-      data: { id: 'user-1', role: 'admin', account_status: 'active' },
-      error: null,
-    })
-    mockGetAuthenticatorAssuranceLevel.mockResolvedValueOnce({
-      data: { currentLevel: 'aal1', nextLevel: 'aal2' },
+      data: { id: 'user-1', role: 'ops', account_status: 'active' },
       error: null,
     })
     const { isCurrentCmpAdmin } = await import('./access')
