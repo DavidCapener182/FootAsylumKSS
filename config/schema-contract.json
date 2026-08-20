@@ -6,7 +6,14 @@
     { "schema": "public", "table": "fa_incident_reference_counters", "sourceMigration": "20260819230804_atomic_incident_references.sql", "names": ["incident_year", "last_value"] },
     { "schema": "public", "table": "emp_event_day_settings", "sourceMigration": "20260819230958_harden_emp_event_day_kiosk.sql", "names": ["kiosk_access_id", "kiosk_event_date", "kiosk_token_issued_at", "kiosk_token_expires_at", "kiosk_revoked_at"] },
     { "schema": "public", "table": "emp_event_kiosk_request_limits", "sourceMigration": "20260819230958_harden_emp_event_day_kiosk.sql", "names": ["key_hash", "action", "request_count", "locked_until"] },
-    { "schema": "public", "table": "emp_event_kiosk_request_events", "sourceMigration": "20260819230958_harden_emp_event_day_kiosk.sql", "names": ["kiosk_access_id", "event_date", "correlation_id", "action", "outcome", "status_code"] }
+    { "schema": "public", "table": "emp_event_kiosk_request_events", "sourceMigration": "20260819230958_harden_emp_event_day_kiosk.sql", "names": ["kiosk_access_id", "event_date", "correlation_id", "action", "outcome", "status_code"] },
+    { "schema": "public", "table": "fa_audit_instances", "sourceMigration": "20260820094619_add_operational_workspace_models.sql", "names": ["assigned_auditor_user_id", "scheduled_at", "due_at", "evidence_complete", "template_version"] },
+    { "schema": "public", "table": "fa_actions", "sourceMigration": "20260820094619_add_operational_workspace_models.sql", "names": ["blocked_reason", "reassignment_reason", "verification_status", "recurrence_rule", "dependency_action_ids"] },
+    { "schema": "public", "table": "fa_store_actions", "sourceMigration": "20260820094619_add_operational_workspace_models.sql", "names": ["assigned_to_user_id", "evidence_required", "blocked_reason", "reassignment_reason", "verification_status", "recurrence_rule", "dependency_action_ids"] },
+    { "schema": "public", "table": "emp_event_control_log_entries", "sourceMigration": "20260820094619_add_operational_workspace_models.sql", "names": ["client_request_id"] },
+    { "schema": "public", "table": "fa_saved_views", "sourceMigration": "20260820094619_add_operational_workspace_models.sql", "names": ["owner_user_id", "feature", "filters", "visible_columns", "density", "is_default"] },
+    { "schema": "public", "table": "fa_report_versions", "sourceMigration": "20260820094619_add_operational_workspace_models.sql", "names": ["report_type", "status", "data_cutoff_at", "file_name", "generated_by_user_id", "completed_at"] },
+    { "schema": "public", "table": "kss_plan_versions", "sourceMigration": "20260820094619_add_operational_workspace_models.sql", "names": ["plan_type", "plan_id", "version_number", "status", "snapshot", "created_by_user_id"] }
   ],
   "functions": [
     { "schema": "public", "name": "fa_generate_incident_reference" },
@@ -15,7 +22,8 @@
     { "schema": "public", "name": "fa_log_profile_security_change" },
     { "schema": "public", "name": "fa_admin_change_user_access" },
     { "schema": "public", "name": "emp_consume_event_day_kiosk_limit" },
-    { "schema": "fa_private", "name": "get_user_role" }
+    { "schema": "fa_private", "name": "get_user_role" },
+    { "schema": "public", "name": "kss_transition_plan" }
   ],
   "policies": [
     { "schema": "public", "table": "fa_activity_log", "name": "Users can view activity logs", "command": "SELECT" },
@@ -30,7 +38,13 @@
     { "schema": "public", "table": "fa_activity_log" },
     { "schema": "public", "table": "fa_incident_reference_counters" },
     { "schema": "public", "table": "emp_event_kiosk_request_limits" },
-    { "schema": "public", "table": "emp_event_kiosk_request_events" }
+    { "schema": "public", "table": "emp_event_kiosk_request_events" },
+    { "schema": "public", "table": "fa_saved_views" },
+    { "schema": "public", "table": "fa_planning_settings" },
+    { "schema": "public", "table": "fa_report_versions" },
+    { "schema": "public", "table": "kss_plan_versions" },
+    { "schema": "public", "table": "kss_plan_review_comments" },
+    { "schema": "public", "table": "kss_plan_acknowledgements" }
   ],
   "triggers": [
     { "schema": "public", "table": "fa_activity_log", "name": "fa_activity_log_append_only" },

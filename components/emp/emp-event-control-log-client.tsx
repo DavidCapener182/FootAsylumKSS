@@ -37,6 +37,9 @@ import {
   type EmpEventControlLogType,
 } from '@/lib/emp/event-control-log-options'
 import { cn, formatAppDateTime, formatAppTime } from '@/lib/utils'
+import { OfflineStatus } from '@/components/offline/offline-status'
+import { useOfflineSync } from '@/components/offline/offline-sync-provider'
+import { getOfflineDraft } from '@/lib/offline/indexed-db'
 
 type FormState = {
   loggedAt: string
@@ -502,6 +505,8 @@ function normalizeInitialSuggestions(value: EmpEventControlLogData['suggestions'
 }
 
 export function EmpEventControlLogClient({ initialData }: { initialData: EmpEventControlLogData }) {
+  const { isOnline, saveDraft, discardDraft, queueRequest } = useOfflineSync()
+  const eventLogDraftId = `event-log:${initialData.plan.id}`
   const [entries, setEntries] = useState(() => sortEntries(initialData.entries))
   const [savedSuggestions, setSavedSuggestions] = useState(() => normalizeInitialSuggestions(initialData.suggestions))
   const [form, setForm] = useState<FormState>(() => buildEmptyFormState())
@@ -580,6 +585,24 @@ export function EmpEventControlLogClient({ initialData }: { initialData: EmpEven
   const updateForm = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((current) => ({ ...current, [key]: value }))
   }
+
+  useEffect(() => {
+    void getOfflineDraft<FormState>(eventLogDraftId).then((draft) => {
+      if (draft?.payload && (draft.payload.occurrence || draft.payload.actionTaken)) {
+        setForm(draft.payload)
+        setUseLiveTimestamp(false)
+        setNotice('Recovered an event-control entry saved on this device.')
+      }
+    })
+  }, [eventLogDraftId])
+
+  useEffect(() => {
+    if (!form.occurrence.trim() && !form.actionTaken.trim()) return
+    const timer = window.setTimeout(() => {
+      void saveDraft({ id: eventLogDraftId, kind: 'event-log', recordId: initialData.plan.id, payload: form })
+    }, 350)
+    return () => window.clearTimeout(timer)
+  }, [eventLogDraftId, form, initialData.plan.id, saveDraft])
 
   useEffect(() => {
     if (!useLiveTimestamp) return
@@ -683,7 +706,7 @@ export function EmpEventControlLogClient({ initialData }: { initialData: EmpEven
 
   const createLogEntry = (
     entryForm: FormState,
-    onSuccess: (entry: EmpEventControlLogEntry) => void
+    onSuccess: (entry: EmpEventControlLogEntry | null) => void
   ) => {
     if (!entryForm.occurrence.trim()) {
       setError('Add the radio message or occurrence before saving the log entry.')
@@ -694,15 +717,26 @@ export function EmpEventControlLogClient({ initialData }: { initialData: EmpEven
       try {
         setError(null)
         setNotice(null)
+        const requestBody = {
+          planId: initialData.plan.id,
+          ...entryForm,
+          loggedAt: toIsoTimestamp(entryForm.loggedAt),
+        }
+        if (!isOnline) {
+          await saveDraft({ id: eventLogDraftId, kind: 'event-log', recordId: initialData.plan.id, payload: entryForm })
+          await queueRequest({
+            kind: 'event-log',
+            draftId: eventLogDraftId,
+            request: { url: '/api/emp/event-control-log', method: 'POST', body: requestBody },
+          })
+          onSuccess(null)
+          return
+        }
         const response = await fetch('/api/emp/event-control-log', {
           method: 'POST',
           credentials: 'same-origin',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            planId: initialData.plan.id,
-            ...entryForm,
-            loggedAt: toIsoTimestamp(entryForm.loggedAt),
-          }),
+          body: JSON.stringify(requestBody),
         })
         const data = await response.json().catch(() => ({}))
         if (!response.ok) {
@@ -711,6 +745,7 @@ export function EmpEventControlLogClient({ initialData }: { initialData: EmpEven
 
         const createdEntry = data.entry as EmpEventControlLogEntry
         setEntries((current) => sortEntries([createdEntry, ...current]))
+        await discardDraft(eventLogDraftId)
         onSuccess(createdEntry)
       } catch (submitError: any) {
         setError(submitError?.message || 'Failed to add log entry')
@@ -729,7 +764,7 @@ export function EmpEventControlLogClient({ initialData }: { initialData: EmpEven
         priority: current.priority,
       }))
       setUseLiveTimestamp(true)
-      setNotice(`Log ${formatLogNumber(entry.logNumber)} added.`)
+      setNotice(entry ? `Log ${formatLogNumber(entry.logNumber)} added.` : 'Entry queued safely on this device and will sync when connectivity returns.')
     })
   }
 
@@ -751,7 +786,7 @@ export function EmpEventControlLogClient({ initialData }: { initialData: EmpEven
       setSelectedQuickActionId(null)
       setQuickActionAnswers({})
       setQuickActionError(null)
-      setNotice(`${selectedQuickAction.label} added as log ${formatLogNumber(entry.logNumber)}.`)
+      setNotice(entry ? `${selectedQuickAction.label} added as log ${formatLogNumber(entry.logNumber)}.` : `${selectedQuickAction.label} queued on this device for sync.`)
     })
   }
 
@@ -944,10 +979,10 @@ export function EmpEventControlLogClient({ initialData }: { initialData: EmpEven
               Record the source, occurrence, action, priority, and current status while the message is fresh.
             </p>
           </div>
-          <Button type="button" variant="outline" onClick={() => setQuickActionsOpen(true)} className="w-full shrink-0 md:w-auto">
+          <div className="flex w-full flex-col gap-2 md:w-auto md:items-end"><OfflineStatus compact /><Button type="button" variant="outline" onClick={() => setQuickActionsOpen(true)} className="w-full shrink-0 md:w-auto">
             <ListChecks className="mr-2 h-4 w-4" />
             Quick actions
-          </Button>
+          </Button></div>
         </div>
 
         <datalist id="event-control-contact-options">

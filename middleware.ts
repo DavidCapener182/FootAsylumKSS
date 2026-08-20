@@ -71,6 +71,7 @@ export async function middleware(request: NextRequest) {
   const isAuthRoute = request.nextUrl.pathname.startsWith('/login')
   const isApiRoute = request.nextUrl.pathname.startsWith('/api/')
   const isAccountSetupRoute = request.nextUrl.pathname === '/login/account-setup'
+  const isOfflineRoute = request.nextUrl.pathname === '/offline'
   const isPasswordRecoveryRoute =
     request.nextUrl.pathname.startsWith('/login/forgot-password')
     || request.nextUrl.pathname.startsWith('/login/reset-password')
@@ -83,7 +84,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Protect routes - redirect to login if not authenticated
-  if (!user && !isAuthRoute && !isEventDayKioskRoute) {
+  if (!user && !isAuthRoute && !isEventDayKioskRoute && !isOfflineRoute) {
     if (isApiRoute) {
       return NextResponse.json(
         { error: 'Authentication required. Refresh the page and sign in again.' },
@@ -99,7 +100,7 @@ export async function middleware(request: NextRequest) {
   // Authentication alone does not authorize platform access. Authenticated
   // users must have a trusted administrator-provisioned profile before any
   // protected page or API request can proceed.
-  if (user && !isEventDayKioskRoute && !isPasswordRecoveryRoute) {
+  if (user && !isEventDayKioskRoute && !isPasswordRecoveryRoute && !isOfflineRoute) {
     const { data: profile, error: profileError } = await supabase
       .from('fa_profiles')
       .select('id, role, account_status')

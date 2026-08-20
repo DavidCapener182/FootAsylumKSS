@@ -14,6 +14,7 @@ import { PriorityStoresPanel } from './priority-stores-panel'
 import { QuickLinksPanel } from './quick-links-panel'
 import { RecentActivityPanel } from './recent-activity-panel'
 import { UpcomingVisitsPanel } from './upcoming-visits-panel'
+import { TodayMobile } from './today-mobile'
 
 const ReportModal = dynamic(
   () => import('./report-modal').then((mod) => mod.ReportModal),
@@ -22,9 +23,10 @@ const ReportModal = dynamic(
 
 interface DashboardClientProps {
   initialData: DashboardData
+  profileName?: string | null
 }
 
-export function DashboardClient({ initialData }: DashboardClientProps) {
+export function DashboardClient({ initialData, profileName }: DashboardClientProps) {
   const [data] = useState<DashboardData>(initialData)
   const [isReportOpen, setIsReportOpen] = useState(false)
   const [reportLoading, setReportLoading] = useState(false)
@@ -61,7 +63,9 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
   }
 
   return (
-    <div className="min-h-full bg-slate-50">
+    <>
+    <TodayMobile data={data} profileName={profileName} />
+    <div className="hidden min-h-full bg-slate-50 md:block">
       {isReportOpen ? (
         <ReportModal
           isOpen={isReportOpen}
@@ -104,5 +108,6 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
         </div>
       </div>
     </div>
+    </>
   )
 }

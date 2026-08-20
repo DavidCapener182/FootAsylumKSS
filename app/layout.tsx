@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
+import { ServiceWorkerRegister } from '@/components/offline/service-worker-register'
+import { WebVitalsReporter } from '@/components/observability/web-vitals-reporter'
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -43,6 +45,8 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className} suppressHydrationWarning>
         {children}
+        <ServiceWorkerRegister />
+        <WebVitalsReporter />
       </body>
     </html>
   )

@@ -121,6 +121,7 @@ export function ActionsTableRow({ action, canManageActions = true }: ActionsTabl
         onActionUpdated={() => {
           setModalOpen(false)
         }}
+        canManageActions={canManageActions}
       />
     </>
   )

@@ -8,15 +8,17 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { ExternalLink } from 'lucide-react'
 import { getStoreActionListTitle } from '@/lib/store-action-titles'
+import { ActionWorkflowEditor } from '@/components/shared/action-workflow-editor'
 
 interface ViewActionModalProps {
   action: any
   open: boolean
   onOpenChange: (open: boolean) => void
   onActionUpdated?: () => void
+  canManageActions?: boolean
 }
 
-export function ViewActionModal({ action, open, onOpenChange, onActionUpdated }: ViewActionModalProps) {
+export function ViewActionModal({ action, open, onOpenChange, onActionUpdated, canManageActions = true }: ViewActionModalProps) {
   if (!action) return null
 
   const isStoreAction = action.source_type === 'store' || !action.incident_id
@@ -135,6 +137,7 @@ export function ViewActionModal({ action, open, onOpenChange, onActionUpdated }:
               </p>
             </div>
           )}
+          {canManageActions ? <ActionWorkflowEditor action={action} onSaved={onActionUpdated} /> : null}
         </div>
 
         <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center pt-3 md:pt-4 border-t gap-3">

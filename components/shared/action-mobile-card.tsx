@@ -146,6 +146,7 @@ export function ActionMobileCard({ action, canManageActions = true }: ActionMobi
         onActionUpdated={() => {
           setModalOpen(false)
         }}
+        canManageActions={canManageActions}
       />
     </>
   )

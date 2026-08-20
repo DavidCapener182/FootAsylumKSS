@@ -30,6 +30,9 @@ import { cn, formatAppDate } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { getFRAStatusFromDate } from '@/lib/compliance-forecast'
 import { extractFraRiskRatingFromResponses } from '@/lib/fra/risk-rating-from-responses'
+import { useOfflineSync } from '@/components/offline/offline-sync-provider'
+import { OfflineStatus } from '@/components/offline/offline-status'
+import { getOfflineDraft } from '@/lib/offline/indexed-db'
 import { 
   getTemplates, 
   getTemplate, 
@@ -156,9 +159,12 @@ type PreviousFailure = {
 
 type PreviousFailureMap = Record<string, PreviousFailure>
 
-export function AuditLabClient() {
-  const [activeTab, setActiveTab] = useState('templates')
-  const [view, setView] = useState<'templates' | 'template-builder' | 'audit-form' | 'audit-execution'>('templates')
+export type AuditLabInitialTab = 'templates' | 'active-audits' | 'history' | 'dashboard' | 'import'
+export type AuditLabInitialView = 'templates' | 'template-builder' | 'audit-form' | 'audit-execution'
+
+export function AuditLabClient({ initialTab = 'templates', initialView = 'templates' }: { initialTab?: AuditLabInitialTab; initialView?: AuditLabInitialView }) {
+  const [activeTab, setActiveTab] = useState<AuditLabInitialTab>(initialTab)
+  const [view, setView] = useState<AuditLabInitialView>(initialView)
   const [templates, setTemplates] = useState<Template[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null)
@@ -525,7 +531,7 @@ export function AuditLabClient() {
       </nav>
 
       {/* Main Navigation Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as AuditLabInitialTab)} className="w-full">
         <div className="-mx-1 max-w-[calc(100vw-2rem)] overflow-x-auto px-1 pb-2 md:max-w-full">
           <TabsList className="inline-flex w-max min-w-full max-w-none bg-slate-100 p-1 min-h-[44px] md:grid md:w-full md:max-w-[820px] md:grid-cols-5">
           <TabsTrigger 
@@ -2468,6 +2474,8 @@ function AuditExecutionView({
   const [comments, setComments] = useState<Record<string, string>>({})
   const [completed, setCompleted] = useState(false)
   const [completing, setCompleting] = useState(false)
+  const [auditMessage, setAuditMessage] = useState<string | null>(null)
+  const { saveDraft, discardDraft, isOnline, isSyncing } = useOfflineSync()
 
   useEffect(() => {
     loadTemplate()
@@ -2502,8 +2510,48 @@ function AuditExecutionView({
       setComments(commentsMap)
     } catch (error) {
       console.error('Error loading responses:', error)
+      const deviceDraft = await getOfflineDraft<{ responses: Record<string, any>; comments: Record<string, string> }>(`audit-${instanceId}`).catch(() => null)
+      if (deviceDraft?.payload) {
+        setResponses(deviceDraft.payload.responses)
+        setComments(deviceDraft.payload.comments)
+        setAuditMessage('Platform data is unavailable. Recovered the audit draft saved on this device.')
+      }
     }
   }
+
+  useEffect(() => {
+    if (loading) return
+    const timeout = window.setTimeout(() => {
+      void saveDraft({ id: `audit-${instanceId}`, kind: 'audit', recordId: instanceId, payload: { responses, comments } })
+    }, 500)
+    return () => window.clearTimeout(timeout)
+  }, [comments, instanceId, loading, responses, saveDraft])
+
+  useEffect(() => {
+    if (!isOnline) return
+    let cancelled = false
+    async function restoreDeviceDraftToPlatform() {
+      const deviceDraft = await getOfflineDraft<{ responses: Record<string, any>; comments: Record<string, string> }>(`audit-${instanceId}`).catch(() => null)
+      if (!deviceDraft?.payload || cancelled) return
+      try {
+        setSaving(true)
+        for (const [questionId, response] of Object.entries(deviceDraft.payload.responses)) {
+          await saveAuditResponse(instanceId, questionId, {
+            response_value: typeof response?.response_value === 'string' ? response.response_value : null,
+            response_json: response?.response_json || null,
+          })
+        }
+        await discardDraft(`audit-${instanceId}`)
+        if (!cancelled) setAuditMessage('Device draft synchronised to the platform.')
+      } catch {
+        if (!cancelled) setAuditMessage('The device draft is retained because synchronisation did not complete.')
+      } finally {
+        if (!cancelled) setSaving(false)
+      }
+    }
+    void restoreDeviceDraftToPlatform()
+    return () => { cancelled = true }
+  }, [discardDraft, instanceId, isOnline])
 
   const sections = template?.sections || []
   const currentSection = sections[currentSectionIndex]
@@ -2602,15 +2650,20 @@ function AuditExecutionView({
   }
 
   const handleCompleteAudit = async () => {
+    if (!isOnline || isSyncing) {
+      setAuditMessage('The audit is saved on this device. Reconnect before final completion so the platform can validate every mandatory response.')
+      return
+    }
     try {
       setCompleting(true)
       const result = await completeAudit(instanceId)
       setCompleted(true)
+      await discardDraft(`audit-${instanceId}`)
       // Reload responses to get updated status
       await loadResponses()
     } catch (error) {
       console.error('Error completing audit:', error)
-      alert('Failed to complete audit. Please try again.')
+      setAuditMessage('The audit could not be completed. Your device draft has been retained; retry when the platform is available.')
     } finally {
       setCompleting(false)
     }
@@ -2642,6 +2695,10 @@ function AuditExecutionView({
       } 
     }))
     
+    if (!isOnline) {
+      setAuditMessage('Answer saved on this device. It will remain a draft until you reconnect.')
+      return
+    }
     try {
       setSaving(true)
       await saveAuditResponse(instanceId, questionId, {
@@ -2666,6 +2723,11 @@ function AuditExecutionView({
     const currentResponse = responses[questionId]
     const existingJson = currentResponse?.response_json || {}
     
+    if (!isOnline) {
+      setResponses(prev => ({ ...prev, [questionId]: { ...currentResponse, response_json: { ...existingJson, comment: comment || undefined } } }))
+      setAuditMessage('Comment saved on this device. It will remain a draft until you reconnect.')
+      return
+    }
     try {
       setSaving(true)
       await saveAuditResponse(instanceId, questionId, {
@@ -2695,6 +2757,10 @@ function AuditExecutionView({
   }
 
   const handleFileUpload = async (questionId: string, file: File) => {
+    if (!isOnline) {
+      setAuditMessage('Reconnect before adding this evidence file. Written answers remain saved in the device draft.')
+      return
+    }
     try {
       setUploadingFiles(prev => ({ ...prev, [questionId]: true }))
       await uploadAuditMedia(instanceId, questionId, file)
@@ -2702,7 +2768,7 @@ function AuditExecutionView({
       await loadResponses()
     } catch (error) {
       console.error('Error uploading file:', error)
-      alert(`Failed to upload file: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      setAuditMessage(`Evidence upload failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
     } finally {
       setUploadingFiles(prev => ({ ...prev, [questionId]: false }))
     }
@@ -3325,10 +3391,12 @@ function AuditExecutionView({
               Saving...
             </div>
           )}
+          <OfflineStatus compact />
         </div>
       </CardHeader>
       <CardContent>
         <div className="space-y-6">
+          {auditMessage ? <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm font-medium text-amber-950">{auditMessage}</div> : null}
           {/* Section Score */}
           {currentSectionScore.questions > 0 && (
             <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 mb-4">

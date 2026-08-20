@@ -16,9 +16,10 @@ import {
   getStoreComplianceSummary,
 } from '@/lib/compliance-ui'
 import Link from 'next/link'
+import type { StoreDirectoryRow } from '@/features/stores/types'
 
 interface StoreDirectoryProps {
-  stores: any[]
+  stores: StoreDirectoryRow[]
 }
 
 export function StoreDirectory({ stores }: StoreDirectoryProps) {
@@ -151,7 +152,7 @@ export function StoreDirectory({ stores }: StoreDirectoryProps) {
                     {group.stores.length} stores
                   </p>
                 </summary>
-                <div className="grid grid-cols-2 gap-2.5">
+                <div className="grid grid-cols-1 gap-2.5">
                   {group.stores.map((store) => (
                     <StoreMobileCard key={store.id} store={store} />
                   ))}

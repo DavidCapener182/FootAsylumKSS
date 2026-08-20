@@ -19,6 +19,9 @@ import {
 } from '@/lib/fra/risk-rating'
 import { getFraAssessmentReference } from '@/lib/utils'
 import { FRA_TEMPLATE_VARIANTS } from '@/lib/fra/template-profiles'
+import { OfflineStatus } from '@/components/offline/offline-status'
+import { useOfflineSync } from '@/components/offline/offline-sync-provider'
+import { getOfflineDraft } from '@/lib/offline/indexed-db'
 
 /** Parse floor area string to sq ft. Supports values in sq ft and m². */
 function parseFloorAreaSqFt(s: string | null | undefined): number | null {
@@ -346,6 +349,7 @@ async function optimizeImageForUpload(file: File): Promise<File> {
 }
 
 export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showPrintHeaderFooter }: FRAReportViewProps) {
+  const { isOnline, saveDraft, discardDraft } = useOfflineSync()
   const showHeaderFooter = showPrintHeaderFooter === true
   const isPreOpeningAssessment = data.assessmentContext === 'pre_opening'
   const currentFraTemplateVariant = data.fraTemplateVariant || (isPreOpeningAssessment ? FRA_TEMPLATE_VARIANTS.NEW_STORE_PRE_OPENING : null)
@@ -368,6 +372,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [offlineMessage, setOfflineMessage] = useState<string | null>(null)
   const [showDebug, setShowDebug] = useState(false) // Data source badges hidden by default
   const [showFirePlanPhoto, setShowFirePlanPhoto] = useState(true)
   const [customData, setCustomData] = useState({
@@ -397,6 +402,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
   const editingRef = useRef(editing)
   const instanceIdRef = useRef(data.fraInstance?.id as string | undefined)
   const onDataUpdateRef = useRef(onDataUpdate)
+  const fraDraftId = data.fraInstance?.id ? `fra:${data.fraInstance.id}` : null
   const lowerEscapeEvidence = String(data.escapeRoutesEvidence || '').toLowerCase()
   const lowerFireDoorText = `${String(data.internalFireDoors || '')} ${String(data.compartmentationStatus || '')}`.toLowerCase()
   const fallbackHeldOpenSentences = lowerFireDoorText.match(/[^.!?\n]*\b(held open|wedged open|propped open)\b[^.!?\n]*/gi) || []
@@ -568,6 +574,23 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
   }, [customData])
 
   useEffect(() => {
+    if (!fraDraftId) return
+    void getOfflineDraft<typeof customData>(fraDraftId).then((draft) => {
+      if (!draft?.payload) return
+      setCustomData(draft.payload)
+      setOfflineMessage('Recovered FRA edits saved on this device.')
+    })
+  }, [fraDraftId])
+
+  useEffect(() => {
+    if (!fraDraftId || !editing) return
+    const timer = window.setTimeout(() => {
+      void saveDraft({ id: fraDraftId, kind: 'fra', recordId: data.fraInstance?.id || null, payload: customData })
+    }, 350)
+    return () => window.clearTimeout(timer)
+  }, [customData, data.fraInstance?.id, editing, fraDraftId, saveDraft])
+
+  useEffect(() => {
     editingRef.current = editing
   }, [editing])
 
@@ -585,6 +608,11 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
       const instanceId = instanceIdRef.current
       if (!instanceId) {
         throw new Error('Missing FRA instance id')
+      }
+      if (!isOnline) {
+        if (fraDraftId) await saveDraft({ id: fraDraftId, kind: 'fra', recordId: instanceId, payload: customDataRef.current })
+        setOfflineMessage('Changes are saved on this device. Reconnect before submitting them to the platform.')
+        return false
       }
       const response = await fetch('/api/fra-reports/save-custom-data', {
         method: 'POST',
@@ -608,12 +636,14 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
       }
 
       setSaved(true)
+      if (fraDraftId) await discardDraft(fraDraftId)
+      setOfflineMessage(null)
       setEditing(false)
       setTimeout(() => setSaved(false), 3000)
       return true
     } catch (error: any) {
       console.error('Error saving custom data:', error)
-      alert(`Failed to save: ${error.message}`)
+      setOfflineMessage(`Failed to save: ${error.message}`)
       return false
     } finally {
       setSaving(false)
@@ -1917,7 +1947,8 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
             )}
           </div>
           {editing && (
-            <div className="flex items-center gap-3 pt-4 border-t">
+            <div className="flex flex-wrap items-center gap-3 pt-4 border-t">
+              <OfflineStatus compact />
               <Button
                 onClick={handleSave}
                 disabled={saving}
@@ -1965,6 +1996,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
               {saved && (
                 <span className="text-sm text-green-600">Saved successfully!</span>
               )}
+              {offlineMessage ? <span role="status" className="w-full text-sm text-amber-700">{offlineMessage}</span> : null}
             </div>
           )}
           <div>

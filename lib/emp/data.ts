@@ -1944,6 +1944,7 @@ export async function createEmpEventControlLogEntry(input: {
   owner?: string | null
   priority?: string
   status?: string
+  clientRequestId?: string
 }) {
   const { supabase, profile } = await getEmpUserContext()
   await getPlanOrThrow(supabase, input.planId)
@@ -1974,9 +1975,20 @@ export async function createEmpEventControlLogEntry(input: {
       created_by_user_id: profile.id,
       updated_by_user_id: profile.id,
       updated_at: nowIso,
+      client_request_id: clean(input.clientRequestId) || null,
     })
     .select('id, plan_id, log_number, logged_at, from_call_sign, to_call_sign, occurrence, message_type, action_taken, owner, priority, status, created_at, updated_at')
     .single()
+
+  if (error?.code === '23505' && clean(input.clientRequestId)) {
+    const { data: existing, error: existingError } = await (supabase as any)
+      .from('emp_event_control_log_entries')
+      .select('id, plan_id, log_number, logged_at, from_call_sign, to_call_sign, occurrence, message_type, action_taken, owner, priority, status, created_at, updated_at')
+      .eq('plan_id', input.planId)
+      .eq('client_request_id', clean(input.clientRequestId))
+      .single()
+    if (!existingError && existing) return buildEventControlLogEntry(existing as EmpEventControlLogEntryRow)
+  }
 
   if (error || !data) {
     throwEmpEventControlLogOperationError('Failed to create EMP event control log entry', error)

@@ -1,8 +1,10 @@
 import { requireReportAccess } from '@/lib/reports/authorization'
-import ReportsClient from './reports-client'
+import { ReportsCentre } from '@/components/reports/reports-centre'
+import { getRecentReportVersions } from '@/features/reports/query-service'
 
 export default async function ReportsPage() {
   await requireReportAccess()
+  const versions = await getRecentReportVersions()
 
-  return <ReportsClient />
+  return <ReportsCentre versions={versions} />
 }

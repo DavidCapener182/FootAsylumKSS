@@ -1129,6 +1129,18 @@ export default function ReportsClient() {
       link.click()
       document.body.removeChild(link)
       URL.revokeObjectURL(url)
+
+      const versionResponse = await fetch('/api/reports/versions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reportType: 'monthly-area-newsletter',
+          fileName: filename,
+          dataCutoffAt: new Date().toISOString(),
+          configuration: { month: newsletterMonth, areaCode: report.areaCode, exact: true },
+        }),
+      })
+      if (!versionResponse.ok) throw new Error('The PDF downloaded, but its generation record could not be saved.')
     } catch (error) {
       setNewsletterError(error instanceof Error ? error.message : 'Failed to download newsletter')
     } finally {

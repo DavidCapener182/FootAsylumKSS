@@ -22,6 +22,11 @@ export type UnifiedAction = {
   updated_at: string | null
   evidence_required?: boolean
   completion_notes?: string | null
+  blocked_reason?: string | null
+  reassignment_reason?: string | null
+  verification_status?: 'not_required' | 'awaiting_evidence' | 'awaiting_verification' | 'verified' | 'rejected'
+  recurrence_rule?: string | null
+  dependency_action_ids?: string[]
   incident_id: string | null
   incident: { reference_no: string } | null
   assigned_to: { id: string; full_name: string | null } | null

@@ -57,6 +57,7 @@ export async function POST(request: NextRequest) {
       owner: body?.owner,
       priority: body?.priority,
       status: body?.status,
+      clientRequestId: String(request.headers.get('x-idempotency-key') || '').trim() || undefined,
     })
 
     return NextResponse.json({ entry })

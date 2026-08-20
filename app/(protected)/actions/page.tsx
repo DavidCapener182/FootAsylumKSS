@@ -13,6 +13,8 @@ import { formatStoreActionQuestionForDisplay } from '@/lib/store-action-titles'
 import { buildStoreSummaryBullets as buildPersistedStoreSummaryBullets } from '@/lib/actions/action-summary'
 import { getUnifiedActions } from '@/features/actions/query-service'
 import type { ActionFilters, UnifiedAction } from '@/features/actions/types'
+import { getSavedViews } from '@/features/saved-views/query-service'
+import { SavedViewBar } from '@/components/shared/saved-view-bar'
 
 export default async function ActionsPage({
   searchParams,
@@ -32,7 +34,7 @@ export default async function ActionsPage({
   const { profile } = await requireRole(['admin', 'ops', 'client', 'readonly'])
   const canManageActions = can(profile?.role, 'manageActions')
   const filters: ActionFilters = {
-    assigned_to: searchParams.assigned_to || undefined,
+    assigned_to: searchParams.view === 'my_work' ? profile.id : searchParams.assigned_to || undefined,
     status: searchParams.status && searchParams.status !== 'all' ? searchParams.status : undefined,
     overdue: searchParams.overdue === 'true',
     priority: searchParams.priority && searchParams.priority !== 'all' ? searchParams.priority : undefined,
@@ -45,7 +47,11 @@ export default async function ActionsPage({
     date_to: searchParams.date_to || undefined,
     view: searchParams.view || undefined,
   }
-  const { actions, storeQuestionOptions } = await getUnifiedActions(filters)
+  const [{ actions, storeQuestionOptions }, { actions: overviewActions }, savedViews] = await Promise.all([
+    getUnifiedActions(filters),
+    getUnifiedActions(),
+    getSavedViews('actions'),
+  ])
 
   // Calculate stats
   const totalActions = actions.length
@@ -181,6 +187,16 @@ export default async function ActionsPage({
     })
 
   const quickViews = [
+    { id: 'my_work', title: 'My Work', count: overviewActions.filter((action) => action.assigned_to?.id === profile.id && !['complete', 'completed', 'cancelled'].includes(action.status)).length, href: '/actions?view=my_work', detail: 'Work assigned directly to you' },
+    { id: 'my_team', title: 'My Team', count: overviewActions.filter((action) => !['complete', 'completed', 'cancelled'].includes(action.status)).length, href: '/actions?view=my_team', detail: 'All active team work' },
+    { id: 'overdue', title: 'Overdue', count: overviewActions.filter((action) => !['complete', 'completed', 'cancelled'].includes(action.status) && action.due_date < today.toISOString().slice(0, 10)).length, href: '/actions?view=overdue', detail: 'Past due and incomplete' },
+    { id: 'due_week', title: 'Due This Week', count: overviewActions.filter((action) => !['complete', 'completed', 'cancelled'].includes(action.status) && action.due_date >= today.toISOString().slice(0, 10) && action.due_date <= nextWeek.toISOString().slice(0, 10)).length, href: '/actions?view=due_week', detail: 'Due in the next seven days' },
+    { id: 'priority_one', title: 'Priority One', count: overviewActions.filter((action) => ['urgent', 'high', 'p1'].includes(action.priority.toLowerCase()) && !['complete', 'completed', 'cancelled'].includes(action.status)).length, href: '/actions?view=priority_one', detail: 'Highest priority work' },
+    { id: 'blocked', title: 'Blocked', count: overviewActions.filter((action) => Boolean(action.blocked_reason)).length, href: '/actions?view=blocked', detail: 'Work requiring intervention' },
+    { id: 'awaiting_evidence', title: 'Awaiting Evidence', count: overviewActions.filter((action) => action.verification_status === 'awaiting_evidence').length, href: '/actions?view=awaiting_evidence', detail: 'Completion proof outstanding' },
+    { id: 'awaiting_verification', title: 'Awaiting Verification', count: overviewActions.filter((action) => action.verification_status === 'awaiting_verification').length, href: '/actions?view=awaiting_verification', detail: 'Ready for manager verification' },
+    { id: 'completed', title: 'Completed', count: overviewActions.filter((action) => ['complete', 'completed'].includes(action.status)).length, href: '/actions?view=completed', detail: 'Completed work history' },
+    /* Legacy analytical views retained for desktop triage. */
     {
       id: 'high_priority',
       title: 'High Priority',
@@ -236,6 +252,8 @@ export default async function ActionsPage({
         </div>
       </div>
       </div>
+
+      <SavedViewBar feature="actions" initialViews={savedViews} currentFilters={filters as Record<string, unknown>} />
 
       {/* Stats Overview */}
       <div className="grid grid-cols-2 gap-2 md:grid-cols-5 md:gap-4">

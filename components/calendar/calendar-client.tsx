@@ -48,7 +48,10 @@ async function fetchCalendarData(month: number, year: number): Promise<CalendarD
   return getCalendarData(month, year)
 }
 
-function getManagerCapacitySummary(days: CalendarData['days']) {
+export function getManagerCapacitySummary(
+  days: CalendarData['days'],
+  settings: { workingDayHours: number; visitHoursPerStop: number; travelHoursPerStop: number }
+) {
   const managerMap = new Map<
     string,
     {
@@ -79,8 +82,8 @@ function getManagerCapacitySummary(days: CalendarData['days']) {
       }
 
       const storeStops = route.storeCount || route.stores?.length || 0
-      const visitHours = storeStops * 1.75
-      const driveHours = Math.max(0.5, storeStops * 0.5)
+      const visitHours = storeStops * settings.visitHoursPerStop
+      const driveHours = storeStops > 0 ? Math.max(settings.travelHoursPerStop, storeStops * settings.travelHoursPerStop) : 0
       const estimatedHours = visitHours + driveHours
       const manager = managerMap.get(managerName)!
 
@@ -98,13 +101,13 @@ function getManagerCapacitySummary(days: CalendarData['days']) {
     const [managerName] = dayKey.split('::')
     const manager = managerMap.get(managerName)
     if (!manager) return
-    if (hours > 8) manager.overbookedDays += 1
+    if (hours > settings.workingDayHours) manager.overbookedDays += 1
     if (hours > manager.busiestDayHours) manager.busiestDayHours = hours
   })
 
   return Array.from(managerMap.values())
     .map((manager) => {
-      const capacityHours = manager.activeDays.size * 8
+      const capacityHours = manager.activeDays.size * settings.workingDayHours
       const utilizationPct = capacityHours > 0 ? Math.round((manager.estimatedHours / capacityHours) * 100) : 0
       return {
         managerName: manager.managerName,
@@ -132,6 +135,7 @@ export function CalendarClient({ initialData }: CalendarClientProps) {
     data: PlannedRoute | CompletedStore
     date: string
   } | null>(null)
+  const [capacitySettings, setCapacitySettings] = useState({ workingDayHours: 8, visitHoursPerStop: 1.75, travelHoursPerStop: 0.5 })
 
   const currentDate = useMemo(() => new Date(currentYear, currentMonth - 1, 1), [currentMonth, currentYear])
   const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -148,8 +152,7 @@ export function CalendarClient({ initialData }: CalendarClientProps) {
     () => calendarData.days.filter((day) => day.plannedRoutes.length > 0 || day.completedStores.length > 0).length,
     [calendarData.days]
   )
-  const managerCapacity = useMemo(() => getManagerCapacitySummary(calendarData.days), [calendarData.days])
-  const topManager = managerCapacity[0] || null
+  const managerCapacity = useMemo(() => getManagerCapacitySummary(calendarData.days, capacitySettings), [calendarData.days, capacitySettings])
 
   const calendarCells = useMemo<CalendarCell[]>(() => {
     const monthStart = startOfMonth(currentDate)
@@ -282,48 +285,18 @@ export function CalendarClient({ initialData }: CalendarClientProps) {
           </h2>
           <span className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-500">
             <Target size={14} />
-            8H TARGET/DAY
+            {capacitySettings.workingDayHours}H TARGET/DAY
           </span>
         </div>
+        <div className="mb-4 grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:grid-cols-3" aria-label="Capacity assumptions">
+          <CapacityInput label="Working day" value={capacitySettings.workingDayHours} suffix="hours" onChange={(value) => setCapacitySettings((current) => ({ ...current, workingDayHours: value }))} />
+          <CapacityInput label="Visit per stop" value={capacitySettings.visitHoursPerStop} suffix="hours" step={0.25} onChange={(value) => setCapacitySettings((current) => ({ ...current, visitHoursPerStop: value }))} />
+          <CapacityInput label="Travel per stop" value={capacitySettings.travelHoursPerStop} suffix="hours" step={0.25} onChange={(value) => setCapacitySettings((current) => ({ ...current, travelHoursPerStop: value }))} />
+        </div>
 
-        {topManager ? (
-          <div className="max-w-2xl">
-            <div className="mb-2 flex items-end justify-between">
-              <span className="font-bold text-slate-900">{topManager.managerName}</span>
-              <span
-                className={`rounded px-2 py-0.5 text-xs font-bold ${
-                  topManager.utilizationPct > 100
-                    ? 'bg-red-100 text-red-800'
-                    : topManager.utilizationPct > 85
-                    ? 'bg-amber-100 text-amber-800'
-                    : 'bg-emerald-100 text-emerald-800'
-                }`}
-              >
-                {topManager.utilizationPct}%
-              </span>
-            </div>
-            <div className="mb-3 h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
-              <div
-                className={`h-full rounded-full ${
-                  topManager.utilizationPct > 100
-                    ? 'bg-red-500'
-                    : topManager.utilizationPct > 85
-                    ? 'bg-amber-500'
-                    : 'bg-emerald-500'
-                }`}
-                style={{ width: `${Math.min(100, topManager.utilizationPct)}%` }}
-              />
-            </div>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-medium text-slate-500 sm:gap-x-4">
-              <span className="flex items-center gap-1.5">
-                <Navigation size={12} /> {topManager.storeStops} stops • {topManager.estimatedHours}h across {topManager.activeDays}{' '}
-                day{topManager.activeDays === 1 ? '' : 's'}
-              </span>
-              <span className="hidden h-1 w-1 rounded-full bg-slate-300 md:block" />
-              <span className="flex items-center gap-1.5">
-                <Clock size={12} /> Busiest day: {topManager.busiestDayHours}h
-              </span>
-            </div>
+        {managerCapacity.length ? (
+          <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
+            {managerCapacity.map((manager) => <ManagerCapacityCard key={manager.managerName} manager={manager} />)}
           </div>
         ) : (
           <p className="text-sm italic text-slate-500">No planned route capacity available for this month.</p>
@@ -517,4 +490,15 @@ export function CalendarClient({ initialData }: CalendarClientProps) {
       {selectedEvent ? <CalendarEventModal event={selectedEvent} onClose={() => setSelectedEvent(null)} /> : null}
     </div>
   )
+}
+
+function CapacityInput({ label, value, suffix, step = 0.5, onChange }: { label: string; value: number; suffix: string; step?: number; onChange: (value: number) => void }) {
+  return <label className="text-xs font-bold text-slate-600">{label}<span className="mt-1 flex items-center gap-2"><input type="number" min={0.25} max={24} step={step} value={value} onChange={(event) => onChange(Math.max(0.25, Number(event.target.value) || step))} className="min-h-[44px] min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 text-base text-slate-950" /><span className="font-medium text-slate-500">{suffix}</span></span></label>
+}
+
+function ManagerCapacityCard({ manager }: { manager: ReturnType<typeof getManagerCapacitySummary>[number] }) {
+  const tone = manager.utilizationPct > 100 ? 'red' : manager.utilizationPct > 85 ? 'amber' : 'emerald'
+  const badge = tone === 'red' ? 'bg-red-100 text-red-800' : tone === 'amber' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'
+  const bar = tone === 'red' ? 'bg-red-500' : tone === 'amber' ? 'bg-amber-500' : 'bg-emerald-500'
+  return <article className="rounded-xl border border-slate-200 p-3"><div className="mb-2 flex items-end justify-between gap-2"><span className="truncate font-bold text-slate-900">{manager.managerName}</span><span className={`rounded px-2 py-0.5 text-xs font-bold ${badge}`}>{manager.utilizationPct}%</span></div><div className="mb-3 h-2.5 overflow-hidden rounded-full bg-slate-100"><div className={`h-full rounded-full ${bar}`} style={{ width: `${Math.min(100, manager.utilizationPct)}%` }} /></div><div className="space-y-1 text-xs font-medium text-slate-500"><span className="flex items-center gap-1.5"><Navigation size={12} />{manager.storeStops} stops • {manager.estimatedHours}h across {manager.activeDays} day{manager.activeDays === 1 ? '' : 's'}</span><span className="flex items-center gap-1.5"><Clock size={12} />Busiest: {manager.busiestDayHours}h{manager.overbookedDays ? ` • ${manager.overbookedDays} conflict day${manager.overbookedDays === 1 ? '' : 's'}` : ''}</span></div></article>
 }

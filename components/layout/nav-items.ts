@@ -33,7 +33,7 @@ export const navItems: NavItem[] = [
   { href: '/dashboard', label: 'Today', icon: LayoutDashboard, section: 'Today' },
   { href: '/audit-tracker', label: 'Audits', icon: ClipboardList, section: 'Assurance' },
   { href: '/fire-risk-assessment', label: 'Fire Risk Assessments', icon: Flame, section: 'Assurance' },
-  { href: '/audit-lab', label: 'SafeHub', icon: ShieldCheck, section: 'Assurance', allowedRoles: ['admin', 'ops'] },
+  { href: '/audit-lab/templates', label: 'SafeHub', icon: ShieldCheck, section: 'Assurance', allowedRoles: ['admin', 'ops'] },
   { href: '/actions', label: 'Actions', icon: CheckSquare, section: 'Assurance' },
   { href: '/incidents', label: 'Incidents', icon: AlertTriangle, section: 'Assurance' },
   { href: '/stores', label: 'Store Directory', icon: Store, section: 'Stores' },

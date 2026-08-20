@@ -7,6 +7,7 @@ import { SidebarProvider } from '@/components/layout/sidebar-provider'
 import { Toaster } from '@/components/ui/toaster'
 import { ReleaseNotesModal } from '@/components/ReleaseNotesModal'
 import { accountHasApplicationAccess, type AccountStatus } from '@/lib/account-lifecycle'
+import { OfflineSyncProvider } from '@/components/offline/offline-sync-provider'
 
 export default async function ProtectedLayout({
   children,
@@ -52,6 +53,7 @@ export default async function ProtectedLayout({
   }
 
   return (
+    <OfflineSyncProvider>
     <SidebarProvider>
       <div className="flex min-h-[100dvh] bg-[#071321] md:h-[100dvh] md:min-h-0 md:overflow-hidden">
         <Sidebar />
@@ -68,5 +70,6 @@ export default async function ProtectedLayout({
       <ReleaseNotesModal />
       <Toaster />
     </SidebarProvider>
+    </OfflineSyncProvider>
   )
 }

@@ -27,6 +27,11 @@ const incidentActionRowSchema = z.object({
   updated_at: z.string().nullable(),
   evidence_required: z.boolean(),
   completion_notes: z.string().nullable(),
+  blocked_reason: z.string().nullable().optional(),
+  reassignment_reason: z.string().nullable().optional(),
+  verification_status: z.enum(['not_required', 'awaiting_evidence', 'awaiting_verification', 'verified', 'rejected']).optional(),
+  recurrence_rule: z.string().nullable().optional(),
+  dependency_action_ids: z.array(z.string()).optional(),
   incident_id: z.string(),
   assigned_to: assignedProfileSchema,
   incident: incidentRelationSchema,
@@ -53,6 +58,13 @@ const storeActionRowSchema = z.object({
   created_at: z.string().nullable(),
   updated_at: z.string().nullable(),
   completion_notes: z.string().nullable(),
+  evidence_required: z.boolean().optional(),
+  blocked_reason: z.string().nullable().optional(),
+  reassignment_reason: z.string().nullable().optional(),
+  verification_status: z.enum(['not_required', 'awaiting_evidence', 'awaiting_verification', 'verified', 'rejected']).optional(),
+  recurrence_rule: z.string().nullable().optional(),
+  dependency_action_ids: z.array(z.string()).optional(),
+  assigned_to: assignedProfileSchema.optional(),
   store: storeSchema,
 }).passthrough()
 
@@ -97,6 +109,11 @@ export function presentUnifiedActions(
     updated_at: action.updated_at,
     evidence_required: action.evidence_required,
     completion_notes: action.completion_notes,
+    blocked_reason: action.blocked_reason || null,
+    reassignment_reason: action.reassignment_reason || null,
+    verification_status: action.verification_status || 'not_required',
+    recurrence_rule: action.recurrence_rule || null,
+    dependency_action_ids: action.dependency_action_ids || [],
     incident_id: action.incident_id,
     incident: action.incident,
     assigned_to: action.assigned_to,
@@ -118,13 +135,19 @@ export function presentUnifiedActions(
       created_at: action.created_at,
       updated_at: action.updated_at,
       completion_notes: action.completion_notes,
+      evidence_required: action.evidence_required || false,
+      blocked_reason: action.blocked_reason || null,
+      reassignment_reason: action.reassignment_reason || null,
+      verification_status: action.verification_status || 'not_required',
+      recurrence_rule: action.recurrence_rule || null,
+      dependency_action_ids: action.dependency_action_ids || [],
       incident_id: null,
       incident: action.store
         ? { reference_no: action.store.store_code ? `${action.store.store_code} - ${action.store.store_name}` : action.store.store_name }
         : { reference_no: 'Store Action' },
-      assigned_to: areaCode
+      assigned_to: action.assigned_to || (areaCode
         ? { id: `area:${areaCode}`, full_name: getInternalAreaDisplayName(areaCode, { includeCode: false, fallback: `Area ${areaCode}` }) }
-        : null,
+        : null),
       source_type: 'store',
       store_question: storeQuestion,
       store: action.store,
@@ -136,6 +159,20 @@ export function presentUnifiedActions(
 
   if (filters.assigned_to) actions = actions.filter((action) => action.assigned_to?.id === filters.assigned_to)
   if (filters.priority) actions = actions.filter((action) => action.priority === filters.priority)
+
+  const today = new Date().toISOString().slice(0, 10)
+  const endOfWeek = new Date()
+  endOfWeek.setDate(endOfWeek.getDate() + 7)
+  const active = (action: UnifiedAction) => !['complete', 'completed', 'cancelled'].includes(action.status.toLowerCase())
+  if (filters.view === 'my_work' && filters.assigned_to) actions = actions.filter((action) => action.assigned_to?.id === filters.assigned_to && active(action))
+  if (filters.view === 'my_team') actions = actions.filter(active)
+  if (filters.view === 'overdue') actions = actions.filter((action) => active(action) && action.due_date < today)
+  if (filters.view === 'due_week') actions = actions.filter((action) => active(action) && action.due_date >= today && action.due_date <= endOfWeek.toISOString().slice(0, 10))
+  if (filters.view === 'priority_one') actions = actions.filter((action) => active(action) && ['urgent', 'high', 'p1'].includes(action.priority.toLowerCase()))
+  if (filters.view === 'blocked') actions = actions.filter((action) => active(action) && Boolean(action.blocked_reason))
+  if (filters.view === 'awaiting_evidence') actions = actions.filter((action) => action.verification_status === 'awaiting_evidence')
+  if (filters.view === 'awaiting_verification') actions = actions.filter((action) => action.verification_status === 'awaiting_verification')
+  if (filters.view === 'completed') actions = actions.filter((action) => ['complete', 'completed'].includes(action.status.toLowerCase()))
 
   if (filters.q) {
     const query = filters.q.trim().toLowerCase()
@@ -175,6 +212,7 @@ export async function getUnifiedActions(filters: ActionFilters = {}): Promise<Un
   let incidentQuery = supabase
     .from('fa_actions')
     .select(`id, title, description, priority, due_date, status, created_at, updated_at, evidence_required, completion_notes, incident_id,
+      blocked_reason, reassignment_reason, verification_status, recurrence_rule, dependency_action_ids,
       assigned_to:fa_profiles!fa_actions_assigned_to_user_id_fkey(id, full_name),
       incident:fa_incidents!fa_actions_incident_id_fkey(reference_no)`)
     .order('due_date', { ascending: true })
@@ -183,6 +221,8 @@ export async function getUnifiedActions(filters: ActionFilters = {}): Promise<Un
   let storeQuery = supabase
     .from('fa_store_actions')
     .select(`id, title, description, source_flagged_item, priority, due_date, status, created_at, updated_at, completion_notes,
+      evidence_required, blocked_reason, reassignment_reason, verification_status, recurrence_rule, dependency_action_ids,
+      assigned_to:fa_profiles!fa_store_actions_assigned_to_user_id_fkey(id, full_name),
       store:fa_stores!fa_store_actions_store_id_fkey(id, store_name, store_code, region, compliance_audit_1_overall_pct, compliance_audit_2_overall_pct, compliance_audit_2_assigned_manager_user_id)`)
     .order('due_date', { ascending: true })
     .limit(2001)

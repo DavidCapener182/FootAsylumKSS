@@ -12,6 +12,7 @@ import { createClient } from '@/lib/supabase/client'
 import type { UserRole } from '@/lib/auth'
 import { getCmpPageTitle, isCmpSectionPath } from './cmp-chrome'
 import { getEmpPageTitle, isEmpSectionPath } from './emp-chrome'
+import { CommandPalette } from './command-palette'
 import {
   Dialog,
   DialogContent,
@@ -658,7 +659,10 @@ export function HeaderClient({ signOut, currentUser }: HeaderClientProps) {
               </p>
             </div>
           ) : (
-            <StoreSearch />
+            <>
+              <StoreSearch />
+              <CommandPalette role={currentUser.role} />
+            </>
           )}
         </div>
 
