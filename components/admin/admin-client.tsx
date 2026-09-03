@@ -8,6 +8,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Loader2, Save, RefreshCw, UserPlus, Mail, PauseCircle, PlayCircle, UserX } from 'lucide-react'
 import {
   activateAccount,
@@ -23,6 +32,20 @@ import { UserRole } from '@/lib/auth'
 import { formatAppDateTime } from '@/lib/utils'
 import { accountStatusLabel, type AccountStatus } from '@/lib/account-lifecycle'
 
+type AccountStatusAction = 'activate' | 'suspend' | 'reactivate' | 'deactivate'
+
+type PendingAdminAction =
+  | {
+      kind: 'role'
+      user: UserWithProfile
+      newRole: UserRole
+    }
+  | {
+      kind: 'status'
+      user: UserWithProfile
+      action: AccountStatusAction
+    }
+
 export function AdminClient() {
   const [users, setUsers] = useState<UserWithProfile[]>([])
   const [loading, setLoading] = useState(true)
@@ -36,6 +59,8 @@ export function AdminClient() {
   const [inviting, setInviting] = useState(false)
   const [inviteSuccess, setInviteSuccess] = useState<string | null>(null)
   const [changingStatusUser, setChangingStatusUser] = useState<string | null>(null)
+  const [pendingAdminAction, setPendingAdminAction] = useState<PendingAdminAction | null>(null)
+  const [accountAccessReason, setAccountAccessReason] = useState('')
   
   const pendingUsers = users.filter(
     (user) => user.account_status === 'invited' || user.account_status === 'pending'
@@ -77,41 +102,16 @@ export function AdminClient() {
     }
   }
 
-  const handleSaveRole = async (userId: string) => {
+  const handleSaveRole = (userId: string) => {
     const newRole = roleChanges.get(userId)
     if (!newRole) return
 
     const user = users.find((candidate) => candidate.id === userId)
     if (!user) return
 
-    const reason = window.prompt(
-      user.account_status === 'invited' || user.account_status === 'pending'
-        ? `Reason for approving ${user.email} as ${newRole}:`
-        : `Reason for changing ${user.email} from ${user.role} to ${newRole}:`
-    )
-    if (reason === null) return
-    if (reason.trim().length < 3) {
-      setError('A reason of at least 3 characters is required')
-      return
-    }
-
-    setSaving(userId)
+    setPendingAdminAction({ kind: 'role', user, newRole })
+    setAccountAccessReason('')
     setError(null)
-    try {
-      const result = await updateUserRole(userId, newRole, reason)
-      setInviteSuccess(result.message || 'User role updated successfully')
-      await loadUsers()
-      
-      // Remove from changes map
-      const newChanges = new Map(roleChanges)
-      newChanges.delete(userId)
-      setRoleChanges(newChanges)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update role')
-      console.error('Error updating role:', err)
-    } finally {
-      setSaving(null)
-    }
   }
 
   const handleInviteUser = async (e: React.FormEvent) => {
@@ -143,57 +143,98 @@ export function AdminClient() {
     }
   }
 
-  const handleAccountStatusChange = async (
+  const handleAccountStatusChange = (
     user: UserWithProfile,
-    action: 'activate' | 'suspend' | 'reactivate' | 'deactivate'
+    action: AccountStatusAction
   ) => {
-    const actionLabel = {
-      activate: 'activating',
-      suspend: 'suspending',
-      reactivate: 'reactivating',
-      deactivate: 'deactivating',
-    }[action]
-    const reason = window.prompt(`Reason for ${actionLabel} ${user.email}:`)
-    if (reason === null) return
-    if (reason.trim().length < 3) {
+    setPendingAdminAction({ kind: 'status', user, action })
+    setAccountAccessReason('')
+    setError(null)
+  }
+
+  const closeAccountAccessDialog = () => {
+    if (saving || changingStatusUser) return
+    setPendingAdminAction(null)
+    setAccountAccessReason('')
+  }
+
+  const confirmPendingAdminAction = async () => {
+    if (!pendingAdminAction) return
+
+    const reason = accountAccessReason.trim()
+    if (reason.length < 3) {
       setError('A reason of at least 3 characters is required')
       return
     }
 
-    if (
-      action === 'deactivate'
-      && !window.confirm(
-        `Deactivate "${user.email}"? Their profile and audit history will be preserved, but application access will be blocked.`
-      )
-    ) {
-      return
-    }
-
-    setChangingStatusUser(user.id)
+    const { user } = pendingAdminAction
     setError(null)
-    try {
-      const result = action === 'activate'
-        ? await activateAccount(user.id, reason)
-        : action === 'suspend'
-          ? await suspendAccount(user.id, reason)
-          : action === 'reactivate'
-            ? await reactivateAccount(user.id, reason)
-            : await deactivateAccount(user.id, reason)
 
-      if (!result || typeof (result as any).success !== 'boolean') {
-        throw new Error('Account status change failed: unexpected response from server')
-      }
-      if (result.success) {
-        await loadUsers()
+    try {
+      if (pendingAdminAction.kind === 'role') {
+        setSaving(user.id)
+        const result = await updateUserRole(user.id, pendingAdminAction.newRole, reason)
+        setInviteSuccess(result.message || 'User role updated successfully')
+        const newChanges = new Map(roleChanges)
+        newChanges.delete(user.id)
+        setRoleChanges(newChanges)
+      } else {
+        setChangingStatusUser(user.id)
+        const { action } = pendingAdminAction
+        const result = action === 'activate'
+          ? await activateAccount(user.id, reason)
+          : action === 'suspend'
+            ? await suspendAccount(user.id, reason)
+            : action === 'reactivate'
+              ? await reactivateAccount(user.id, reason)
+              : await deactivateAccount(user.id, reason)
+
+        if (!result || typeof (result as any).success !== 'boolean') {
+          throw new Error('Account status change failed: unexpected response from server')
+        }
         setInviteSuccess(result.message || 'Account status updated successfully')
       }
+
+      setPendingAdminAction(null)
+      setAccountAccessReason('')
+      await loadUsers()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update account status')
-      console.error('Error updating account status:', err)
+      setError(err instanceof Error ? err.message : 'Failed to update account access')
+      console.error('Error updating account access:', err)
     } finally {
+      setSaving(null)
       setChangingStatusUser(null)
     }
   }
+
+  const pendingActionTitle = pendingAdminAction?.kind === 'role'
+    ? pendingAdminAction.user.account_status === 'invited'
+      || pendingAdminAction.user.account_status === 'pending'
+      ? `Approve ${pendingAdminAction.user.email}`
+      : `Change access for ${pendingAdminAction.user.email}`
+    : pendingAdminAction
+      ? `${pendingAdminAction.action[0].toUpperCase()}${pendingAdminAction.action.slice(1)} ${pendingAdminAction.user.email}`
+      : 'Update account access'
+
+  const pendingActionDescription = pendingAdminAction?.kind === 'role'
+    ? `Set this account to ${pendingAdminAction.newRole}. Invited and pending accounts become active when their role is approved.`
+    : pendingAdminAction?.action === 'deactivate'
+      ? 'Their profile and audit history will be preserved, but application access will be blocked.'
+      : 'This change takes effect immediately and will be recorded in the account audit history.'
+
+  const pendingActionButtonLabel = pendingAdminAction?.kind === 'role'
+    ? pendingAdminAction.user.account_status === 'invited'
+      || pendingAdminAction.user.account_status === 'pending'
+      ? 'Approve account'
+      : 'Save role'
+    : pendingAdminAction
+      ? `${pendingAdminAction.action[0].toUpperCase()}${pendingAdminAction.action.slice(1)} account`
+      : 'Confirm change'
+
+  const pendingActionIsSaving = Boolean(
+    pendingAdminAction
+      && (saving === pendingAdminAction.user.id || changingStatusUser === pendingAdminAction.user.id)
+  )
 
   const getRoleBadgeColor = (role: UserRole) => {
     switch (role) {
@@ -837,6 +878,51 @@ export function AdminClient() {
           </div>
         </CardContent>
       </Card>
+
+      <Dialog
+        open={pendingAdminAction !== null}
+        onOpenChange={(open) => {
+          if (!open) closeAccountAccessDialog()
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{pendingActionTitle}</DialogTitle>
+            <DialogDescription>{pendingActionDescription}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="account-access-reason">Account access reason</Label>
+            <Textarea
+              id="account-access-reason"
+              value={accountAccessReason}
+              onChange={(event) => setAccountAccessReason(event.target.value)}
+              placeholder="Add a reason for the audit history"
+              disabled={pendingActionIsSaving}
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={closeAccountAccessDialog}
+              disabled={pendingActionIsSaving}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant={pendingAdminAction?.kind === 'status' && pendingAdminAction.action === 'deactivate'
+                ? 'destructive'
+                : 'default'}
+              onClick={confirmPendingAdminAction}
+              disabled={pendingActionIsSaving || accountAccessReason.trim().length < 3}
+            >
+              {pendingActionIsSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {pendingActionButtonLabel}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

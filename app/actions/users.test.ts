@@ -165,5 +165,8 @@ describe('administrator account lifecycle', () => {
     expect(adminSource).not.toMatch(/delete user/i)
     expect(adminSource).not.toMatch(/\bTrash2\b/)
     expect(adminSource).toMatch(/Deactivate/)
+    expect(adminSource).not.toContain('window.prompt(')
+    expect(adminSource).not.toContain('window.confirm(')
+    expect(adminSource).toContain('Account access reason')
   })
 })
