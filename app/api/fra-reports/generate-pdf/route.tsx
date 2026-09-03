@@ -6,6 +6,7 @@ import type { Browser } from 'puppeteer'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
+export const maxDuration = 300
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
@@ -34,7 +35,10 @@ export async function GET(request: NextRequest) {
     const protocol = request.headers.get('x-forwarded-proto') || 'http'
     const host = request.headers.get('host') || 'localhost:3000'
     const baseUrl = `${protocol}://${host}`
-    const reportUrl = `${baseUrl}/print/fra-report?instanceId=${instanceId}&forPdf=1`
+    // Storage already supplies resized, quality-limited report images. Loading the
+    // regular print view avoids recompressing every evidence photo inside the
+    // serverless request, which can exhaust the export timeout on photo-heavy FRAs.
+    const reportUrl = `${baseUrl}/print/fra-report?instanceId=${instanceId}`
 
     browser = await launchPuppeteerBrowser()
 
