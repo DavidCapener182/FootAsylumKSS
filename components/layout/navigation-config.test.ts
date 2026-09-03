@@ -38,4 +38,15 @@ describe('role-aware product navigation', () => {
     expect(adminMore).toContain('/admin/event-day')
     expect(opsMore).not.toContain('/admin/event-day')
   })
+
+  it('hides staff operational destinations from client navigation', () => {
+    const clientMore = getMobileMoreItems('client').map((item) => item.href)
+
+    expect(clientMore).not.toContain('/actions')
+    expect(clientMore).not.toContain('/incidents')
+    expect(clientMore).not.toContain('/reports')
+    expect(navItems.find((item) => item.href === '/actions')?.clientHidden).toBe(true)
+    expect(navItems.find((item) => item.href === '/incidents')?.clientHidden).toBe(true)
+    expect(navItems.find((item) => item.href === '/reports')?.clientHidden).toBe(true)
+  })
 })

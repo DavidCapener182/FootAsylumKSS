@@ -823,7 +823,7 @@ export function AdminClient() {
                 Client
               </Badge>
               <span className="text-muted-foreground">
-                KSS x Footasylum - Limited read-only access. Can only view incidents, actions, audits, and stores. Cannot access route planning or activity logs.
+                KSS x Footasylum - Limited read-only access. Client navigation shows audits, fire risk assessments, stores, and calendar; staff operational links are hidden.
               </span>
             </div>
             <div>

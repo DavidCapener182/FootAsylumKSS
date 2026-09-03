@@ -11,6 +11,16 @@ const incidentSchema = z.object({ id: z.string().uuid(), reference_no: z.string(
 const storeActionSchema = z.object({ id: z.string().uuid(), title: z.string(), source_flagged_item: z.string().nullable(), description: z.string().nullable(), priority: z.string(), status: z.string(), due_date: z.string(), created_at: z.string(), store_id: z.string().uuid() }).passthrough()
 const incidentActionSchema = z.object({ id: z.string().uuid(), title: z.string(), status: z.string(), due_date: z.string(), completed_at: z.string().nullable(), incident_id: z.string().uuid(), incident: z.object({ reference_no: z.string() }).nullable() }).passthrough()
 
+const POSTGREST_IN_FILTER_CHUNK_SIZE = 100
+
+function chunkIds(ids: string[]): string[][] {
+  const chunks: string[][] = []
+  for (let index = 0; index < ids.length; index += POSTGREST_IN_FILTER_CHUNK_SIZE) {
+    chunks.push(ids.slice(index, index + POSTGREST_IN_FILTER_CHUNK_SIZE))
+  }
+  return chunks
+}
+
 export async function getStoreDirectoryData(): Promise<StoreDirectoryResult> {
   const supabase = createClient()
   const storesResult = await supabase.from('fa_stores').select('*').order('store_name', { ascending: true })
@@ -42,11 +52,19 @@ export async function getStoreDirectoryData(): Promise<StoreDirectoryResult> {
   }
 
   const incidentIds = Array.from(incidentStore.keys())
-  const incidentActionsResult = incidentIds.length
-    ? await supabase.from('fa_actions').select('id, title, status, due_date, completed_at, incident_id, incident:fa_incidents!fa_actions_incident_id_fkey(reference_no)').in('incident_id', incidentIds)
-    : { data: [], error: null }
-  if (incidentActionsResult.error) throw new Error(`Unable to load incident actions: ${incidentActionsResult.error.message}`)
-  const incidentActions = z.array(incidentActionSchema).parse(incidentActionsResult.data || [])
+  const incidentActionResults = await Promise.all(
+    chunkIds(incidentIds).map((ids) =>
+      supabase
+        .from('fa_actions')
+        .select('id, title, status, due_date, completed_at, incident_id, incident:fa_incidents!fa_actions_incident_id_fkey(reference_no)')
+        .in('incident_id', ids)
+    )
+  )
+  const incidentActionRows = incidentActionResults.flatMap((result) => {
+    if (result.error) throw new Error(`Unable to load incident actions: ${result.error.message}`)
+    return result.data || []
+  })
+  const incidentActions = z.array(incidentActionSchema).parse(incidentActionRows)
 
   const actionsByStore = new Map<string, StoreDirectoryAction[]>()
   for (const action of storeActions) {
