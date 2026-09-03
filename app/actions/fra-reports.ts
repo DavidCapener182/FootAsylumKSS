@@ -2085,9 +2085,9 @@ export async function mapHSAuditToFRAData(
   }
 
   // Build FRA data structure with debug source tracking
-  const appointedPersonValue = extractedManagerName 
-    || storeManagerName?.value 
+  const appointedPersonValue = storeManagerName?.value 
     || storeManagerName?.comment 
+    || extractedManagerName 
     || (typeof storeManagerSignature?.value === 'object' && storeManagerSignature.value !== null 
       ? (storeManagerSignature.value as any).name || (storeManagerSignature.value as any).signature_name
       : typeof storeManagerSignature?.value === 'string' 
@@ -2164,7 +2164,11 @@ export async function mapHSAuditToFRAData(
       address: 'DATABASE',
       responsiblePerson: 'DEFAULT',
       ultimateResponsiblePerson: 'DEFAULT',
-      appointedPerson: (extractedManagerName || storeManagerName?.value || storeManagerName?.comment || storeManagerSignature?.value) ? (pdfExtractedData.storeManager ? 'PDF' : 'H&S_AUDIT') : 'DEFAULT',
+      appointedPerson: editedExtractedData?.storeManager
+        ? 'REVIEW'
+        : (extractedManagerName || storeManagerName?.value || storeManagerName?.comment || storeManagerSignature?.value)
+          ? (pdfExtractedData.storeManager ? 'PDF' : 'H&S_AUDIT')
+          : 'DEFAULT',
       assessorName: 'DATABASE',
       assessmentDate: hsAuditConductedAt ? (pdfExtractedData.conductedDate ? 'PDF' : 'H&S_AUDIT') : 'FRA_INSTANCE',
       assessmentStartTime: editedExtractedData?.assessmentStartTime?.trim()
