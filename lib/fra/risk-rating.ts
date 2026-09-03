@@ -2,6 +2,12 @@ export type FRARiskLikelihood = 'Low' | 'Normal' | 'High'
 export type FRARiskConsequence = 'Slight Harm' | 'Moderate Harm' | 'Extreme Harm'
 export type FRAOverallRisk = 'Tolerable' | 'Moderate' | 'Substantial' | 'Intolerable'
 
+export type FRAManualRiskRatingOverride = {
+  likelihood: FRARiskLikelihood
+  consequence: FRARiskConsequence
+  reason: string
+}
+
 export type FRARiskFindings = {
   escape_routes_obstructed: boolean
   fire_exits_obstructed: boolean
@@ -59,6 +65,39 @@ export const FRA_RISK_MATRIX: Record<FRARiskLikelihood, Record<FRARiskConsequenc
 
 export const FRA_RISK_LIKELIHOOD_ORDER: FRARiskLikelihood[] = ['High', 'Normal', 'Low']
 export const FRA_RISK_CONSEQUENCE_ORDER: FRARiskConsequence[] = ['Slight Harm', 'Moderate Harm', 'Extreme Harm']
+
+const FRA_RISK_LIKELIHOODS = new Set<FRARiskLikelihood>(['Low', 'Normal', 'High'])
+const FRA_RISK_CONSEQUENCES = new Set<FRARiskConsequence>(['Slight Harm', 'Moderate Harm', 'Extreme Harm'])
+
+/**
+ * Manual calibration is deliberately structured and requires an assessor reason.
+ * The overall rating is always derived from the same matrix as automatic ratings,
+ * preventing an internally inconsistent likelihood/consequence/overall combination.
+ */
+export function normalizeFRAManualRiskRatingOverride(value: unknown): FRAManualRiskRatingOverride | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+
+  const candidate = value as Record<string, unknown>
+  const likelihood = candidate.likelihood
+  const consequence = candidate.consequence
+  const reason = typeof candidate.reason === 'string' ? candidate.reason.trim() : ''
+
+  if (
+    typeof likelihood !== 'string'
+    || !FRA_RISK_LIKELIHOODS.has(likelihood as FRARiskLikelihood)
+    || typeof consequence !== 'string'
+    || !FRA_RISK_CONSEQUENCES.has(consequence as FRARiskConsequence)
+    || !reason
+  ) {
+    return null
+  }
+
+  return {
+    likelihood: likelihood as FRARiskLikelihood,
+    consequence: consequence as FRARiskConsequence,
+    reason,
+  }
+}
 
 function hasExtremeConsequenceTriggers(findings: FRARiskFindings): boolean {
   const routeCompromise = findings.escape_routes_obstructed || findings.fire_exits_obstructed

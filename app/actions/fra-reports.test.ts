@@ -162,9 +162,16 @@ vi.mock('@/lib/fra/risk-rating', () => ({
   buildFRARiskSummary: vi.fn().mockReturnValue('Low'),
   computeFRARiskRating: vi.fn().mockReturnValue({
     likelihood: 'Low',
-    consequences: 'Moderate Harm',
-    summary: 'Low',
+    consequence: 'Moderate Harm',
+    overall: 'Tolerable',
+    rationale: [],
   }),
+  FRA_RISK_MATRIX: {
+    Low: { 'Slight Harm': 'Tolerable', 'Moderate Harm': 'Tolerable', 'Extreme Harm': 'Moderate' },
+    Normal: { 'Slight Harm': 'Tolerable', 'Moderate Harm': 'Moderate', 'Extreme Harm': 'Substantial' },
+    High: { 'Slight Harm': 'Moderate', 'Moderate Harm': 'Substantial', 'Extreme Harm': 'Intolerable' },
+  },
+  normalizeFRAManualRiskRatingOverride: vi.fn().mockReturnValue(null),
 }))
 
 vi.mock('@/lib/fra/pdf-parser', async () => {

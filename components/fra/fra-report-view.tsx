@@ -12,6 +12,7 @@ import {
   FRA_RISK_CONSEQUENCE_ORDER,
   FRA_RISK_LIKELIHOOD_ORDER,
   FRA_RISK_MATRIX,
+  normalizeFRAManualRiskRatingOverride,
   type FRAOverallRisk,
   type FRARiskConsequence,
   type FRARiskFindings,
@@ -218,6 +219,8 @@ interface FRAData {
   actionPlanLevel?: string
   riskRatingRationale?: string[]
   fireFindings?: FRARiskFindings
+  /** Assessor-calibrated likelihood/consequence. Overall risk is derived from the standard matrix. */
+  manualRiskRatingOverride?: unknown
   actionPlanItems?: Array<{ recommendation: string; priority: 'Low' | 'Medium' | 'High'; dueNote?: string }>
   /** Intumescent strips on fire doors present (custom toggle). When false, an action plan item is added. */
   intumescentStripsPresent?: boolean
@@ -439,12 +442,18 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
     fire_panel_access_obstructed: (data.fireFindings ?? fallbackFindings).fire_panel_access_obstructed || panelFaultSignal,
   }
   const displayRiskRating = computeFRARiskRating(fireFindings)
+  const manualRiskRatingOverride = normalizeFRAManualRiskRatingOverride(data.manualRiskRatingOverride)
   const effectiveFloorCount = parseFloorCount(customData.numberOfFloors || data.numberOfFloors)
-  const effectiveRiskLikelihood: FRARiskLikelihood = displayRiskRating.likelihood
-  const effectiveRiskConsequence: FRARiskConsequence = displayRiskRating.consequence
+  const effectiveRiskLikelihood: FRARiskLikelihood = manualRiskRatingOverride?.likelihood ?? displayRiskRating.likelihood
+  const effectiveRiskConsequence: FRARiskConsequence = manualRiskRatingOverride?.consequence ?? displayRiskRating.consequence
   const matrixDerivedOverallRisk = FRA_RISK_MATRIX[effectiveRiskLikelihood][effectiveRiskConsequence]
   const effectiveOverallRisk = matrixDerivedOverallRisk
-  const displayRiskSummary = buildFRARiskSummary(fireFindings, displayRiskRating)
+  const displayRiskSummary = buildFRARiskSummary(fireFindings, {
+    ...displayRiskRating,
+    likelihood: effectiveRiskLikelihood,
+    consequence: effectiveRiskConsequence,
+    overall: effectiveOverallRisk,
+  })
   const consistencyNarratives = buildFRAConsistencyNarratives(
     fireFindings,
     effectiveOverallRisk as FRAOverallRisk
@@ -3077,6 +3086,12 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
           </span>
           .
         </p>
+        {manualRiskRatingOverride && (
+          <p className="mb-4 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+            <span className="font-semibold">Assessor calibration applied:</span>{' '}
+            {manualRiskRatingOverride.reason}
+          </p>
+        )}
         <p className="text-sm mb-4">
           It is considered that the following recommendations should be implemented to reduce fire risk to the target level:{' '}
           <span className={`inline-block px-3 py-1.5 font-bold text-base rounded border align-middle ${getOverallRiskBadgeClass('Tolerable')}`}>

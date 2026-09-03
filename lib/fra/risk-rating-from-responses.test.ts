@@ -79,6 +79,27 @@ describe('buildFraRiskFindingsFromResponses', () => {
     expect(extractFraRiskRatingFromResponses(responses as any)).toBe('Tolerable')
   })
 
+  it('persists a reasoned assessor calibration using the standard risk matrix', () => {
+    const responses = [
+      {
+        response_value: null,
+        response_json: {
+          fra_extracted_data: {
+            escapeRoutesEvidence: 'A fire exit was obstructed at the time of assessment.',
+            manualRiskRatingOverride: {
+              likelihood: 'High',
+              consequence: 'Moderate Harm',
+              reason: 'Urgent corrective action is required, calibrated below intolerable risk.',
+            },
+          },
+        },
+        fa_audit_template_questions: { question_text: 'Metadata' },
+      },
+    ]
+
+    expect(extractFraRiskRatingFromResponses(responses as any)).toBe('Substantial')
+  })
+
   it('treats combustible storage "No" without route obstruction text as poor storage, not route compromise', () => {
     const responses = [
       {

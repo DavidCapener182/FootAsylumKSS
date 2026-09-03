@@ -1,4 +1,10 @@
-import { computeFRARiskRating, type FRAOverallRisk, type FRARiskFindings } from '@/lib/fra/risk-rating'
+import {
+  computeFRARiskRating,
+  FRA_RISK_MATRIX,
+  normalizeFRAManualRiskRatingOverride,
+  type FRAOverallRisk,
+  type FRARiskFindings,
+} from '@/lib/fra/risk-rating'
 
 export const FRA_OVERALL_RISK_ORDER = ['Tolerable', 'Moderate', 'Substantial', 'Intolerable'] as const
 
@@ -266,8 +272,15 @@ export function buildFraRiskFindingsFromResponses(responses: FRAResponseLike[]):
 export function extractFraRiskRatingFromResponses(responses: FRAResponseLike[]): FRAOverallRisk | null {
   if (!responses.length) return null
 
-  // Prefer evidence-based calculation. Do not trust fra_custom_data / fra_extracted_data rating
-  // fields here — they are often stale caches written by older saves and would override findings.
+  // A structured assessor calibration is intentional, matrix-consistent and requires a reason.
+  // Legacy scalar rating fields remain ignored because they are often stale caches.
+  const manualRiskRatingOverride = normalizeFRAManualRiskRatingOverride(
+    getExtractedData(responses).manualRiskRatingOverride
+  )
+  if (manualRiskRatingOverride) {
+    return FRA_RISK_MATRIX[manualRiskRatingOverride.likelihood][manualRiskRatingOverride.consequence]
+  }
+
   const findings = buildFraRiskFindingsFromResponses(responses)
   return computeFRARiskRating(findings).overall
 }

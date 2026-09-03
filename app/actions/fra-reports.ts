@@ -11,7 +11,13 @@ import {
   extractFraPdfDataFromText,
   parseAuditDateString,
 } from '@/lib/fra/pdf-parser'
-import { buildFRARiskSummary, computeFRARiskRating, type FRARiskFindings } from '@/lib/fra/risk-rating'
+import {
+  buildFRARiskSummary,
+  computeFRARiskRating,
+  FRA_RISK_MATRIX,
+  normalizeFRAManualRiskRatingOverride,
+  type FRARiskFindings,
+} from '@/lib/fra/risk-rating'
 import { requirePermission } from '@/lib/permissions'
 import {
   FRA_TEMPLATE_VARIANTS,
@@ -2001,7 +2007,21 @@ export async function mapHSAuditToFRAData(
     extinguishers_serviced_current: extinguishersServicedCurrent,
   }
   const calculatedRiskRating = computeFRARiskRating(fireFindings)
-  const calculatedRiskSummary = buildFRARiskSummary(fireFindings, calculatedRiskRating)
+  const manualRiskRatingOverride = normalizeFRAManualRiskRatingOverride(
+    editedExtractedData?.manualRiskRatingOverride
+  )
+  const effectiveRiskRating = manualRiskRatingOverride
+    ? {
+        likelihood: manualRiskRatingOverride.likelihood,
+        consequence: manualRiskRatingOverride.consequence,
+        overall: FRA_RISK_MATRIX[manualRiskRatingOverride.likelihood][manualRiskRatingOverride.consequence],
+        rationale: [
+          ...calculatedRiskRating.rationale,
+          `Assessor calibration: ${manualRiskRatingOverride.reason}`,
+        ],
+      }
+    : calculatedRiskRating
+  const calculatedRiskSummary = buildFRARiskSummary(fireFindings, effectiveRiskRating)
   const cleanedCompartmentationStatus = sanitizeExtractedValue(
     String(selectedCompartmentationStatus || '').replace(/\s+yes\.?$/i, '')
   )
@@ -2565,12 +2585,13 @@ Sprinkler heads are installed throughout the premises in accordance with the ori
     fraInstance: fraInstance,
     // Photos from H&S audit
     photos: (hsAudit as any)?.media || null,
-    // Risk Rating (deterministic from observed findings; do not use legacy extracted overrides)
-    riskRatingLikelihood: calculatedRiskRating.likelihood,
-    riskRatingConsequences: calculatedRiskRating.consequence,
+    // Risk Rating (automatic from findings unless a structured, reasoned assessor calibration is present)
+    riskRatingLikelihood: effectiveRiskRating.likelihood,
+    riskRatingConsequences: effectiveRiskRating.consequence,
     summaryOfRiskRating: calculatedRiskSummary,
-    actionPlanLevel: calculatedRiskRating.overall,
-    riskRatingRationale: calculatedRiskRating.rationale,
+    actionPlanLevel: effectiveRiskRating.overall,
+    riskRatingRationale: effectiveRiskRating.rationale,
+    manualRiskRatingOverride,
     fireFindings: fireFindings,
     // Recommended Actions: use edited action plan if set; otherwise derive from PDF/H&S findings
     actionPlanItems: (() => {

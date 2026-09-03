@@ -3,6 +3,7 @@ import {
   buildFRAConsistencyNarratives,
   buildFRARiskSummary,
   computeFRARiskRating,
+  normalizeFRAManualRiskRatingOverride,
   type FRAOverallRisk,
   type FRARiskFindings,
 } from './risk-rating'
@@ -255,6 +256,27 @@ describe('computeFRARiskRating', () => {
     expect(summary).toContain('obstructed escape routes/back-of-house circulation routes')
     expect(summary).toContain('Likelihood is assessed as Normal')
     expect(summary).toContain('overall fire risk as Moderate')
+  })
+})
+
+describe('normalizeFRAManualRiskRatingOverride', () => {
+  it('accepts a reasoned, matrix-compatible assessor calibration', () => {
+    expect(normalizeFRAManualRiskRatingOverride({
+      likelihood: 'High',
+      consequence: 'Moderate Harm',
+      reason: '  Significant findings require urgent action but do not justify an intolerable rating.  ',
+    })).toEqual({
+      likelihood: 'High',
+      consequence: 'Moderate Harm',
+      reason: 'Significant findings require urgent action but do not justify an intolerable rating.',
+    })
+  })
+
+  it('rejects an override without an assessor reason', () => {
+    expect(normalizeFRAManualRiskRatingOverride({
+      likelihood: 'High',
+      consequence: 'Moderate Harm',
+    })).toBeNull()
   })
 })
 
