@@ -1691,7 +1691,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
             </div>
           ) : (
             <>
-              <div className="space-y-2.5 md:hidden">
+              <div className="space-y-2.5 xl:hidden">
                 {plannedRoutes.map((group) => {
                   const groupKey =
                     (group as any)._groupKey ||
@@ -1910,7 +1910,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
                 })}
               </div>
 
-              <div className="hidden max-w-full rounded-md border border-slate-200 bg-white md:block">
+              <div className="hidden max-w-full rounded-md border border-slate-200 bg-white xl:block">
               <div className="max-h-[460px] overflow-auto">
                 <Table>
                   <TableHeader className="sticky top-0 bg-white z-10 border-b border-slate-200">

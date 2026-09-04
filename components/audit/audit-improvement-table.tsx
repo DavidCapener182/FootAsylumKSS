@@ -179,7 +179,7 @@ export function AuditImprovementTable({
         </div>
       </div>
 
-      <div className="space-y-2 md:hidden">
+      <div className="space-y-2 xl:hidden">
         {rankedStores.length === 0 ? (
           <div className="rounded-2xl border bg-white px-4 py-8 text-center text-sm text-muted-foreground">
             No stores have two scored audits matching your filters.
@@ -257,7 +257,7 @@ export function AuditImprovementTable({
         )}
       </div>
 
-      <div className="hidden overflow-hidden rounded-xl border bg-white shadow-sm md:flex md:flex-col">
+      <div className="hidden overflow-hidden rounded-xl border bg-white shadow-sm xl:flex xl:flex-col">
         <div className="border-b bg-white">
           <Table className="w-full border-separate border-spacing-0" style={{ tableLayout: 'fixed' }}>
             <colgroup>

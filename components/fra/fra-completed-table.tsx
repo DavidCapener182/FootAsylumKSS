@@ -217,7 +217,7 @@ export function FRACompletedTable({
               type="button"
               onClick={onDownloadAllCompleted}
               disabled={Boolean(isDownloadingAll) || (downloadAllCount || 0) === 0}
-              className="hidden md:inline-flex"
+              className="hidden xl:inline-flex"
             >
               <Download className="mr-2 h-4 w-4" />
               {isDownloadingAll ? 'Preparing ZIP...' : `Download Completed FRAs (${downloadAllCount || 0})`}
@@ -244,7 +244,7 @@ export function FRACompletedTable({
         ) : null}
 
         {/* Fixed Header */}
-        <div className="hidden md:block border-b desktop-table-head overflow-x-auto">
+        <div className="hidden xl:block border-b desktop-table-head overflow-x-auto">
           <Table className="w-full border-separate border-spacing-0" style={{ tableLayout: 'fixed' }}>
             <colgroup>
               <col style={{ width: '40px' }} />
@@ -276,7 +276,7 @@ export function FRACompletedTable({
         {/* Scrollable Body */}
         <div className="h-[70vh] overflow-y-auto relative">
           {/* Mobile (fit-to-screen columns only) */}
-          <div className="md:hidden">
+          <div className="xl:hidden">
             <div className="sticky top-0 z-10 bg-white border-b">
               <Table className="w-full border-separate border-spacing-0">
                 <TableHeader>
@@ -348,7 +348,7 @@ export function FRACompletedTable({
           </div>
 
           {/* Desktop */}
-          <div className="hidden md:block overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
+          <div className="hidden xl:block overflow-x-auto -mx-4 px-4 xl:mx-0 xl:px-0">
             <Table className="w-full border-separate border-spacing-0 min-w-[820px]" style={{ tableLayout: 'fixed' }}>
               <colgroup>
                 <col style={{ width: '40px' }} />

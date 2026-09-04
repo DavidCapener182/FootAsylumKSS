@@ -128,7 +128,7 @@ export function StoreDirectory({ stores }: StoreDirectoryProps) {
 
       <CardContent className="p-0">
         {/* Mobile Card View */}
-        <div className="space-y-3 p-3 md:hidden">
+        <div className="space-y-3 p-3 xl:hidden">
           {groupedStores.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-xl border border-slate-200 bg-slate-50/70 py-12 text-slate-500">
               <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-slate-100">
@@ -163,7 +163,7 @@ export function StoreDirectory({ stores }: StoreDirectoryProps) {
         </div>
 
         {/* Desktop Table View */}
-        <div className="hidden md:block">
+        <div className="hidden xl:block">
           <div className="max-h-[68vh] overflow-auto">
             <Table>
               <TableHeader className="sticky top-0 z-10 bg-slate-50">

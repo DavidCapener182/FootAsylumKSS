@@ -14,12 +14,12 @@ export function PriorityStoresPanel({ stores }: { stores: PriorityStore[] }) {
         <EmptyState icon={Store} title="No priority stores" description="No stores currently need follow-up attention." />
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-2 md:hidden">
+          <div className="grid grid-cols-2 gap-2 xl:hidden">
             {stores.map((store) => (
               <PriorityStoreCard key={store.id} store={store} />
             ))}
           </div>
-          <div className="hidden overflow-x-auto md:block">
+          <div className="hidden overflow-x-auto xl:block">
             <table className="w-full min-w-[520px] text-left text-sm">
               <thead>
                 <tr className="border-b border-slate-100 text-xs font-semibold uppercase tracking-wide text-slate-400">

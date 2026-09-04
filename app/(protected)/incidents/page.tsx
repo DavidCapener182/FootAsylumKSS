@@ -499,7 +499,7 @@ export default async function IncidentsPage({
 
       <Card className="rounded-xl border-slate-200 bg-white shadow-sm sm:rounded-2xl">
         <CardContent className="p-3 md:p-5">
-          <form method="get" className="space-y-2.5 md:hidden">
+          <form method="get" className="space-y-2.5 xl:hidden">
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <Input
@@ -588,7 +588,7 @@ export default async function IncidentsPage({
             </details>
           </form>
 
-          <form method="get" className="hidden grid-cols-1 gap-2 md:grid md:grid-cols-8">
+          <form method="get" className="hidden grid-cols-1 gap-2 xl:grid xl:grid-cols-8">
             <div className="relative md:col-span-2">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
               <Input
@@ -831,7 +831,7 @@ export default async function IncidentsPage({
         </CardHeader>
         <CardContent className="p-0">
           {/* Mobile Card View */}
-          <div className="space-y-2.5 p-3 md:hidden">
+          <div className="space-y-2.5 p-3 xl:hidden">
             {incidents.length === 0 ? (
               <div className="flex flex-col items-center justify-center text-slate-500 py-12">
                 <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center mb-3">
@@ -848,7 +848,7 @@ export default async function IncidentsPage({
           </div>
 
           {/* Desktop Table View */}
-          <div className="hidden md:block">
+          <div className="hidden xl:block">
             <Table>
               <TableHeader className="bg-slate-50">
                 <TableRow>
@@ -1032,13 +1032,13 @@ export default async function IncidentsPage({
                     </div>
                   </summary>
 
-                  <div className="space-y-2.5 p-3 md:hidden">
+                  <div className="space-y-2.5 p-3 xl:hidden">
                     {group.incidents.map((incident) => (
                       <ClosedIncidentMobileCard key={incident.id} incident={incident} />
                     ))}
                   </div>
 
-                  <div className="hidden md:block">
+                  <div className="hidden xl:block">
                     <Table>
                       <TableHeader className="bg-slate-50">
                         <TableRow>
@@ -1202,7 +1202,7 @@ export default async function IncidentsPage({
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="hidden md:block">
+          <div className="hidden xl:block">
             <Table>
               <TableHeader className="bg-red-50/40">
                 <TableRow>
@@ -1268,7 +1268,7 @@ export default async function IncidentsPage({
             </Table>
           </div>
 
-          <div className="space-y-2.5 p-3 md:hidden">
+          <div className="space-y-2.5 p-3 xl:hidden">
             {riddorIncidents.length === 0 ? (
               <p className="text-sm text-slate-500 text-center py-4">
                 No RIDDOR incidents for this filter set.
@@ -1320,7 +1320,7 @@ export default async function IncidentsPage({
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="hidden md:block">
+          <div className="hidden xl:block">
             <Table>
               <TableHeader className="bg-slate-50">
                 <TableRow>
@@ -1409,7 +1409,7 @@ export default async function IncidentsPage({
             </Table>
           </div>
 
-          <div className="space-y-2.5 p-3 md:hidden">
+          <div className="space-y-2.5 p-3 xl:hidden">
             {claims.length === 0 ? (
               <p className="text-sm text-slate-500 text-center py-4">No claims found for this filter set.</p>
             ) : (

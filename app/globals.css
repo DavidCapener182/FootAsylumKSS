@@ -96,9 +96,21 @@
     }
   }
   /* Optimize text rendering on mobile */
-  p, span, div, li, td, th {
+  p, span, div, li {
     word-wrap: break-word;
     overflow-wrap: break-word;
+  }
+  /*
+   * Tables have their own horizontal overflow region. Breaking every table
+   * label at arbitrary characters made compact desktop views unreadable
+   * (for example, "Audit" rendering as "Audi" / "t"). Keep normal word
+   * boundaries and let the table scroll when its columns need more room.
+   */
+  th,
+  td {
+    word-wrap: normal;
+    overflow-wrap: normal;
+    word-break: normal;
   }
   /* Touch-friendly interactions */
   button, a, input, select, textarea {
@@ -213,11 +225,15 @@
     .desktop-table-comfortable thead th {
       padding-top: 0.58rem;
       padding-bottom: 0.58rem;
+      padding-left: 0.65rem;
+      padding-right: 0.65rem;
     }
 
     .desktop-table-comfortable tbody td {
       padding-top: 0.56rem;
       padding-bottom: 0.56rem;
+      padding-left: 0.65rem;
+      padding-right: 0.65rem;
     }
 
     .desktop-table-comfortable tbody button {

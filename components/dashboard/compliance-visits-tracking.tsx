@@ -98,7 +98,7 @@ export function ComplianceVisitsTracking({ stores }: ComplianceVisitsTrackingPro
           </div>
         </div>
 
-        <div className="md:hidden space-y-2 max-h-[380px] overflow-y-auto pr-0.5">
+        <div className="xl:hidden space-y-2 max-h-[380px] overflow-y-auto pr-0.5">
           {stores.map((store) => {
             const hasPlan = !!store.compliance_audit_2_planned_date
             return (
@@ -127,7 +127,7 @@ export function ComplianceVisitsTracking({ stores }: ComplianceVisitsTrackingPro
           })}
         </div>
 
-        <div className="hidden md:block rounded-xl border border-amber-200/80 bg-white/95 max-w-full">
+        <div className="hidden xl:block rounded-xl border border-amber-200/80 bg-white/95 max-w-full">
           <div className="max-h-[330px] overflow-auto overscroll-x-contain touch-pan-x touch-pan-y">
             <Table className="min-w-[700px]">
               <TableHeader className="sticky top-0 bg-white z-10 border-b border-slate-200">

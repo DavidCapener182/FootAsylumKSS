@@ -202,7 +202,7 @@ export function AuditLeagueTable({
         </div>
       ) : null}
 
-      <div className="space-y-2 md:hidden">
+      <div className="space-y-2 xl:hidden">
         {rankedStores.length === 0 ? (
           <div className="rounded-2xl border bg-white px-4 py-8 text-center text-sm text-muted-foreground">
             No stores found matching your filters.
@@ -269,7 +269,7 @@ export function AuditLeagueTable({
       </div>
 
       {/* Desktop Table Container */}
-      <div className="hidden rounded-xl border bg-white shadow-sm overflow-hidden md:flex flex-col">
+      <div className="hidden rounded-xl border bg-white shadow-sm overflow-hidden xl:flex flex-col">
         {/* Fixed Header - OUTSIDE scroll container on desktop, INSIDE on mobile */}
         <div className="hidden md:block border-b bg-white overflow-x-auto">
           <Table className="w-full border-separate border-spacing-0" style={{ tableLayout: 'fixed' }}>

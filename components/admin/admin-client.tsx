@@ -481,7 +481,7 @@ export function AdminClient() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3 md:hidden">
+            <div className="space-y-3 xl:hidden">
               {pendingUsers.map((user) => {
                 const pendingRole = roleChanges.get(user.id)
                 const displayRole = pendingRole || user.role
@@ -546,7 +546,7 @@ export function AdminClient() {
                 )
               })}
             </div>
-            <div className="hidden md:block rounded-md border border-yellow-200 overflow-hidden bg-white">
+            <div className="hidden xl:block rounded-md border border-yellow-200 overflow-hidden bg-white">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -637,7 +637,7 @@ export function AdminClient() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="space-y-3 md:hidden">
+          <div className="space-y-3 xl:hidden">
             {users.length === 0 ? (
               <div className="rounded-lg border p-6 text-center text-sm text-muted-foreground">
                 No users found
@@ -725,7 +725,7 @@ export function AdminClient() {
               })
             )}
           </div>
-          <div className="hidden md:block rounded-md border overflow-hidden">
+          <div className="hidden xl:block rounded-md border overflow-hidden">
             <Table>
               <TableHeader>
                 <TableRow>
