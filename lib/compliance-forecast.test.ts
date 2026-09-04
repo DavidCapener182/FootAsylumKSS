@@ -1,5 +1,30 @@
 import { describe, expect, it } from 'vitest'
-import { computeRevisitRiskForecast } from '@/lib/compliance-forecast'
+import { computeComplianceForecast, computeRevisitRiskForecast } from '@/lib/compliance-forecast'
+
+describe('computeComplianceForecast', () => {
+  it('carries the completed audit lifecycle into each priority-store forecast', () => {
+    const result = computeComplianceForecast([
+      {
+        id: 'bromborough',
+        store_name: 'Bromborough',
+        store_code: 'S0120',
+        region: 'Lancashire & Merseyside',
+        compliance_audit_1_date: '2026-07-01',
+        compliance_audit_1_overall_pct: 83,
+        compliance_audit_2_date: '2026-09-02',
+        compliance_audit_2_overall_pct: 76.8,
+        compliance_audit_2_planned_date: null,
+        fire_risk_assessment_date: '2026-09-02',
+      },
+    ], { referenceDate: new Date('2026-09-04T12:00:00Z') })
+
+    expect(result.stores[0]).toMatchObject({
+      latestAuditScore: 76.8,
+      audit1Complete: true,
+      audit2Complete: true,
+    })
+  })
+})
 
 describe('computeRevisitRiskForecast', () => {
   it('predicts revisit risk for borderline stores with unresolved P1/P2 fire actions', () => {

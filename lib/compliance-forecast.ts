@@ -25,6 +25,8 @@ export interface StoreRiskForecast {
   overdueActions: number
   fraStatus: FRAStatus
   latestAuditScore: number | null
+  audit1Complete: boolean
+  audit2Complete: boolean
   plannedDate: string | null
   drivers: string[]
 }
@@ -191,6 +193,12 @@ export function computeComplianceForecast(
     const overdueActions = overdueActionsByStore[store.id] || 0
     const fraStatus = getFRAStatusFromDate(store.fire_risk_assessment_date, referenceDate)
     const latestAuditScore = getLatestAuditScore(store)
+    const audit1Complete = Boolean(
+      store.compliance_audit_1_date && typeof store.compliance_audit_1_overall_pct === 'number'
+    )
+    const audit2Complete = Boolean(
+      store.compliance_audit_2_date && typeof store.compliance_audit_2_overall_pct === 'number'
+    )
     const plannedDateObj = parseDate(store.compliance_audit_2_planned_date)
 
     let riskScore = 15
@@ -265,6 +273,8 @@ export function computeComplianceForecast(
       overdueActions,
       fraStatus,
       latestAuditScore,
+      audit1Complete,
+      audit2Complete,
       plannedDate: store.compliance_audit_2_planned_date,
       drivers: drivers.slice(0, 4),
     } satisfies StoreRiskForecast

@@ -77,6 +77,19 @@ export function getStatusTone(label: string): StatusBadgeTone {
   return 'muted'
 }
 
+function getPriorityAuditStatus(store: Record<string, unknown>) {
+  const latestAuditScore = typeof store.latestAuditScore === 'number' ? store.latestAuditScore : null
+  const hasPlannedVisit = Boolean(store.plannedDate)
+
+  if (latestAuditScore !== null && latestAuditScore < 80) {
+    return hasPlannedVisit ? 'Revisit Planned' : 'Revisit Required'
+  }
+
+  if (store.audit2Complete === true) return 'Audit 2 Complete'
+  if (store.audit1Complete === true) return hasPlannedVisit ? 'Audit 2 Planned' : 'Second Audit Required'
+  return 'Not Started'
+}
+
 export function normalisePriorityStores(data: DashboardData): PriorityStore[] {
   const fromForecast = Array.isArray(data.complianceForecast?.stores)
     ? data.complianceForecast.stores.map((storeValue) => {
@@ -86,7 +99,7 @@ export function normalisePriorityStores(data: DashboardData): PriorityStore[] {
         return {
           id: String(store.storeId || store.id || store.storeName),
           name: String(store.storeName || store.name || 'Unknown Store'),
-          auditStatus: drivers.includes('second') || drivers.includes('audit') ? 'Second Audit Required' : 'Not Started',
+          auditStatus: getPriorityAuditStatus(store),
           fraStatus,
           openActions: safeNumber(store.overdueActions ?? store.actionCount ?? store.count),
           href: store.storeId ? `/stores/${store.storeId}` : '/stores',
@@ -96,14 +109,24 @@ export function normalisePriorityStores(data: DashboardData): PriorityStore[] {
   if (fromForecast.length > 0) return fromForecast
 
   const fromSecondVisits = Array.isArray(data.storesNeedingSecondVisit)
-    ? data.storesNeedingSecondVisit.map((store: Record<string, unknown>) => ({
-        id: String(store.id || store.store_id || store.store_name),
-        name: String(store.store_name || store.storeName || 'Unknown Store'),
-        auditStatus: store.compliance_audit_2_planned_date ? 'Audit 2 Planned' : 'Second Audit Required',
-        fraStatus: 'FRA Required',
-        openActions: safeNumber(store.openActions ?? store.count),
-        href: store.id ? `/stores/${store.id}` : '/stores',
-      }))
+    ? data.storesNeedingSecondVisit.map((store: Record<string, unknown>) => {
+        const audit1Score = typeof store.compliance_audit_1_overall_pct === 'number'
+          ? store.compliance_audit_1_overall_pct
+          : null
+        const isRevisit = audit1Score !== null && audit1Score < 80
+        const isPlanned = Boolean(store.compliance_audit_2_planned_date)
+
+        return {
+          id: String(store.id || store.store_id || store.store_name),
+          name: String(store.store_name || store.storeName || 'Unknown Store'),
+          auditStatus: isRevisit
+            ? (isPlanned ? 'Revisit Planned' : 'Revisit Required')
+            : (isPlanned ? 'Audit 2 Planned' : 'Second Audit Required'),
+          fraStatus: 'FRA Required',
+          openActions: safeNumber(store.openActions ?? store.count),
+          href: store.id ? `/stores/${store.id}` : '/stores',
+        }
+      })
     : []
   if (fromSecondVisits.length > 0) return fromSecondVisits
 
