@@ -5,6 +5,8 @@ const mockImportPdfActions = vi.fn()
 vi.mock('@/lib/audit/import-pdf-actions',()=>({importAuditPdfActions:mockImportPdfActions}))
 vi.mock('next/cache',()=>({revalidatePath:vi.fn()}))
 
+const mockUpdateSingle = vi.fn()
+const mockUpdateQuery: any = { select: () => ({ single: mockUpdateSingle }), eq: () => mockUpdateQuery, is: () => mockUpdateQuery }
 const mockAuthenticatedUpdateEq = vi.fn()
 const mockAuthenticatedUpdate = vi.fn(() => ({ eq: mockAuthenticatedUpdateEq }))
 const mockAuthenticatedSingle = vi.fn()
@@ -54,7 +56,9 @@ describe('audit PDF actions', () => {
     })
     mockAdminUpload.mockResolvedValue({ error: null })
     mockAdminRemove.mockResolvedValue({ error: null })
-    mockAuthenticatedUpdateEq.mockResolvedValue({ error: null })
+    mockAuthenticatedUpdateEq.mockReturnValue(mockUpdateQuery)
+    mockUpdateSingle.mockResolvedValue({data:{id:'store-123'},error:null})
+    mockAuthenticatedSingle.mockResolvedValue({data:{compliance_audit_1_pdf_path:null,compliance_audit_2_pdf_path:null},error:null})
   })
 
   it('uploads through admin storage but attributes the store mutation to the authenticated client', async () => {
@@ -73,6 +77,7 @@ describe('audit PDF actions', () => {
     expect(mockAuthenticatedFrom).toHaveBeenCalledWith('fa_stores')
     expect(mockAuthenticatedUpdate).toHaveBeenCalledWith({
       compliance_audit_1_pdf_path: filePath,
+      compliance_audit_2_pdf_path: null,
     })
     expect(mockAuthenticatedUpdateEq).toHaveBeenCalledWith('id', 'store-123')
     expect(mockAdminFrom).not.toHaveBeenCalled()

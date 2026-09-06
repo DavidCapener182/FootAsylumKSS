@@ -1,3 +1,4 @@
+import { saveLatestAuditPdf } from '@/lib/audit/save-latest-pdf'
 import { importAuditPdfActions } from '@/lib/audit/import-pdf-actions'
 import { revalidatePath } from 'next/cache'
 import { NextRequest, NextResponse } from 'next/server'
@@ -31,47 +32,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'File size must be less than 500MB' }, { status: 400 })
     }
 
-    const fileExt = 'pdf'
-    const timestamp = Date.now()
-    const fileName = `audit-${auditNumber}-${timestamp}.${fileExt}`
-    const filePath = `store/${storeId}/${fileName}`
-
-    // Upload to storage
-    const { error: uploadError } = await adminSupabase.storage
-      .from('fa-attachments')
-      .upload(filePath, file, {
-        contentType: 'application/pdf',
-        upsert: false
-      })
-
-    if (uploadError) {
-      return NextResponse.json({ error: `Failed to upload file: ${uploadError.message}` }, { status: 500 })
-    }
-
-    // Update the store record with the PDF path
-    const pdfColumn = auditNumber === 1 
-      ? 'compliance_audit_1_pdf_path' 
-      : 'compliance_audit_2_pdf_path'
-
-    // Keep the database mutation on the authenticated client so RLS applies
-    // and the audit trigger can attribute the write through auth.uid(). The
-    // service-role client is intentionally restricted to storage operations.
-    const { error: updateError } = await supabase
-      .from('fa_stores')
-      .update({ [pdfColumn]: filePath })
-      .eq('id', storeId).select('id').single()
-
-    if (updateError) {
-      // Clean up uploaded file if DB update fails
-      await adminSupabase.storage.from('fa-attachments').remove([filePath])
-      return NextResponse.json({ error: `Failed to update store record: ${updateError.message}` }, { status: 500 })
-    }
+    const { filePath, paths, cleanupWarning } = await saveLatestAuditPdf({
+      supabase, storageClient: adminSupabase, storeId, auditNumber, file,
+    })
 
     const actionImport = await importAuditPdfActions({supabase,userId,storeId,auditNumber,filePath,file})
     revalidatePath('/actions')
     revalidatePath('/audit-tracker')
     revalidatePath(`/stores/${storeId}`)
-    return NextResponse.json({ success: true, filePath, actionImport })
+    return NextResponse.json({ success: true, filePath, paths, cleanupWarning, actionImport })
   } catch (error) {
     console.error('Error uploading audit PDF:', error)
     return NextResponse.json(

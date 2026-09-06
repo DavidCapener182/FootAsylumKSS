@@ -1,10 +1,10 @@
 'use server'
 
+import { revalidatePath } from 'next/cache'
+import { saveLatestAuditPdf } from '@/lib/audit/save-latest-pdf'
 import { importAuditPdfActions } from '@/lib/audit/import-pdf-actions'
 import { requirePermission } from '@/lib/permissions'
 import { createAdminSupabaseClient } from '@/lib/supabase/admin'
-
-const MAX_AUDIT_PDF_SIZE_BYTES = 500 * 1024 * 1024
 
 /**
  * Upload a PDF file for a compliance audit
@@ -21,52 +21,15 @@ export async function uploadAuditPDF(
   const { supabase, userId } = await requirePermission('manageAudits')
   const adminSupabase = createAdminSupabaseClient()
 
-  // Validate file type
-  if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
-    throw new Error('Only PDF files are allowed')
-  }
-
-  if (file.size > MAX_AUDIT_PDF_SIZE_BYTES) {
-    throw new Error('File size must be less than 500MB')
-  }
-
-  const fileExt = 'pdf'
-  const timestamp = Date.now()
-  const fileName = `audit-${auditNumber}-${timestamp}.${fileExt}`
-  const filePath = `store/${storeId}/${fileName}`
-
-  // Upload to storage
-  const { error: uploadError } = await adminSupabase.storage
-    .from('fa-attachments')
-    .upload(filePath, file, {
-      contentType: 'application/pdf',
-      upsert: false // Don't overwrite existing files
-    })
-
-  if (uploadError) {
-    throw new Error(`Failed to upload file: ${uploadError.message}`)
-  }
-
-  // Update the store record with the PDF path
-  const pdfColumn = auditNumber === 1 
-    ? 'compliance_audit_1_pdf_path' 
-    : 'compliance_audit_2_pdf_path'
-
-  // Database writes stay on the authenticated client so RLS and the
-  // actor-attributing audit trigger remain in force. Admin access is only for
-  // the private storage bucket.
-  const { error: updateError } = await supabase
-    .from('fa_stores')
-    .update({ [pdfColumn]: filePath })
-    .eq('id', storeId)
-
-  if (updateError) {
-    // Clean up uploaded file if DB update fails
-    await adminSupabase.storage.from('fa-attachments').remove([filePath])
-    throw new Error(`Failed to update store record: ${updateError.message}`)
-  }
+  const { filePath, cleanupWarning } = await saveLatestAuditPdf({
+    supabase, storageClient: adminSupabase, storeId, auditNumber, file,
+  })
 
   const result = await importAuditPdfActions({supabase,userId,storeId,auditNumber,filePath,file})
+  revalidatePath('/audit-tracker')
+  revalidatePath('/actions')
+  revalidatePath(`/stores/${storeId}`)
+  if (cleanupWarning) throw new Error(cleanupWarning)
   if (result.warning) throw new Error(`PDF saved. Action import needs review: ${result.warning}`)
   return filePath
 }

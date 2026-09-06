@@ -39,12 +39,10 @@ export async function saveComplianceAudit(input: SaveComplianceAuditInput) {
     updateData.compliance_audit_1_date = input.date
     updateData.compliance_audit_1_overall_pct = pctNum
     updateData.action_plan_1_sent = autoActionPlanSent
-    if (input.pdfPath) updateData.compliance_audit_1_pdf_path = input.pdfPath
   } else {
     updateData.compliance_audit_2_date = input.date
     updateData.compliance_audit_2_overall_pct = pctNum
     updateData.action_plan_2_sent = autoActionPlanSent
-    if (input.pdfPath) updateData.compliance_audit_2_pdf_path = input.pdfPath
   }
 
   let totalAudits = 0
@@ -52,12 +50,13 @@ export async function saveComplianceAudit(input: SaveComplianceAuditInput) {
   if (input.auditNumber === 2 || input.currentAudit2Complete) totalAudits += 1
   updateData.total_audits_to_date = totalAudits
 
-  const { data, error } = await supabase
-    .from('fa_stores')
-    .update(updateData)
-    .eq('id', input.storeId)
-    .select()
-    .single()
+  // The upload endpoint has already linked the PDF. Do not re-link a stale
+  // upload if another report was saved while this form was submitting.
+  let update = supabase.from('fa_stores').update(updateData).eq('id', input.storeId)
+  if (input.pdfPath) {
+    update = update.eq(`compliance_audit_${input.auditNumber}_pdf_path`, input.pdfPath)
+  }
+  const { data, error } = await update.select().single()
 
   if (error) {
     throw new Error(`Failed to save audit data: ${error.message}`)

@@ -162,6 +162,7 @@ export function AuditTable({
   const [updateScoreError, setUpdateScoreError] = useState<string | null>(null)
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
   const [deletePdfDialog, setDeletePdfDialog] = useState<DeleteAuditPdfState | null>(null)
+  const [archivedPdfStore, setArchivedPdfStore] = useState<string | null>(null)
   const [tableMessage, setTableMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [storeActionsModalOpen, setStoreActionsModalOpen] = useState(false)
   const [storeActionsRow, setStoreActionsRow] = useState<AuditRow | null>(null)
@@ -469,6 +470,7 @@ export function AuditTable({
 
           pdfPath = result.filePath
           actionImportMessage = result.actionImport?.warning ? ` PDF saved; action import needs review: ${result.actionImport.warning}` : ` ${result.actionImport?.count || 0} actions imported.`
+          if (result.cleanupWarning) actionImportMessage += ` ${result.cleanupWarning}`
         } catch (uploadError) {
           console.error('PDF upload error:', uploadError)
           const uploadErrorMessage = uploadError instanceof Error ? uploadError.message : 'Unknown error'
@@ -570,10 +572,10 @@ export function AuditTable({
       
       if (hasAudit1 && !hasAudit2) {
         setSelectedAuditForUpload(1)
-      } else if (hasAudit2 && !hasAudit1) {
+      } else if (hasAudit2) {
         setSelectedAuditForUpload(2)
       } else {
-        // Both exist or neither exists - user must select
+        // Neither audit exists - user must select
         setSelectedAuditForUpload(null)
       }
     }
@@ -623,8 +625,8 @@ export function AuditTable({
         if (row.id === pdfUploadRow.id) {
           return {
             ...row,
-            compliance_audit_1_pdf_path: selectedAuditForUpload === 1 ? result.filePath : row.compliance_audit_1_pdf_path,
-            compliance_audit_2_pdf_path: selectedAuditForUpload === 2 ? result.filePath : row.compliance_audit_2_pdf_path,
+            compliance_audit_1_pdf_path: result.paths.compliance_audit_1_pdf_path,
+            compliance_audit_2_pdf_path: result.paths.compliance_audit_2_pdf_path,
           }
         }
         return row
@@ -641,7 +643,7 @@ export function AuditTable({
       if (fileInput) fileInput.value = ''
       setTableMessage({
         type: 'success',
-        text: `Audit ${selectedAudit} PDF uploaded for ${storeName}. ${result.actionImport?.warning ? `Action import needs review: ${result.actionImport.warning}` : `${result.actionImport?.count || 0} actions imported.`}`,
+        text: `Audit ${selectedAudit} PDF uploaded for ${storeName}. ${result.actionImport?.warning ? `Action import needs review: ${result.actionImport.warning}` : `${result.actionImport?.count || 0} actions imported.`}${result.cleanupWarning ? ` ${result.cleanupWarning}` : ''}`,
       })
     } catch (error) {
       console.error('Error uploading PDF:', error)
@@ -816,6 +818,11 @@ export function AuditTable({
           {pdf ? (
             <button type="button" className="audit-document" onClick={() => handleViewPDF(row, auditNumber)}
               title={`View Audit ${auditNumber} PDF`} aria-label={`View Audit ${auditNumber} PDF for ${row.store_name}`}>
+              <File className="h-3.5 w-3.5" /><span>PDF</span>
+            </button>
+          ) : auditNumber === 1 && complete && row.compliance_audit_2_pdf_path ? (
+            <button type="button" className="audit-document" onClick={() => setArchivedPdfStore(row.store_name)}
+              title="Audit 1 PDF: Saved to SharePoint" aria-label={`Audit 1 PDF for ${row.store_name}: Saved to SharePoint`}>
               <File className="h-3.5 w-3.5" /><span>PDF</span>
             </button>
           ) : canManageAudits && complete ? (
@@ -1310,7 +1317,7 @@ export function AuditTable({
           <DialogHeader>
             <DialogTitle>Upload Audit PDF</DialogTitle>
             <DialogDescription>
-              {pdfUploadRow?.store_name}
+              {pdfUploadRow?.store_name}. Only the latest audit PDF is kept. A successful upload replaces the previous PDF; audit dates, scores and actions remain.
             </DialogDescription>
           </DialogHeader>
           
@@ -1327,7 +1334,7 @@ export function AuditTable({
                     <SelectValue placeholder="Select audit..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="1">Audit 1</SelectItem>
+                    <SelectItem value="1" disabled={!!pdfUploadRow.compliance_audit_2_pdf_path}>Audit 1</SelectItem>
                     <SelectItem value="2">Audit 2</SelectItem>
                   </SelectContent>
                 </Select>
@@ -1375,6 +1382,16 @@ export function AuditTable({
               {uploadingPdf ? 'Uploading...' : 'Upload'}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!archivedPdfStore} onOpenChange={(open) => { if (!open) setArchivedPdfStore(null) }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Audit 1 PDF — {archivedPdfStore}</DialogTitle>
+            <DialogDescription>Saved to SharePoint</DialogDescription>
+          </DialogHeader>
+          <DialogFooter><Button onClick={() => setArchivedPdfStore(null)}>Close</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 

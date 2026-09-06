@@ -8,9 +8,11 @@ vi.mock('next/cache',()=>({revalidatePath:vi.fn()}))
 const mockAdminStorageUpload = vi.fn()
 const mockAdminStorageRemove = vi.fn()
 const mockAuthenticatedStoreUpdateSingle = vi.fn()
-const mockAuthenticatedStoreUpdateEq = vi.fn(() => ({select:()=>({single:mockAuthenticatedStoreUpdateSingle})}))
+const mockReadSingle = vi.fn()
+const mockUpdateQuery: any = { select: () => ({ single: mockAuthenticatedStoreUpdateSingle }), eq: (...args: unknown[]) => mockAuthenticatedStoreUpdateEq(...args), is: () => mockUpdateQuery }
+const mockAuthenticatedStoreUpdateEq = vi.fn((..._args: unknown[]) => mockUpdateQuery)
 const mockAuthenticatedStoreUpdate = vi.fn(() => ({ eq: mockAuthenticatedStoreUpdateEq }))
-const mockAuthenticatedFrom = vi.fn(() => ({ update: mockAuthenticatedStoreUpdate }))
+const mockAuthenticatedFrom = vi.fn(() => ({ update: mockAuthenticatedStoreUpdate, select: () => ({ eq: () => ({ single: mockReadSingle }) }) }))
 const mockAdminFrom = vi.fn()
 
 const mockAuthenticatedSupabase = {
@@ -59,7 +61,8 @@ describe('audit PDF upload route', () => {
     })
     mockAdminStorageUpload.mockResolvedValue({ error: null })
     mockAdminStorageRemove.mockResolvedValue({ error: null })
-    mockAuthenticatedStoreUpdateSingle.mockResolvedValue({ error: null })
+    mockAuthenticatedStoreUpdateSingle.mockResolvedValue({ data: { id: 'store-123' }, error: null })
+    mockReadSingle.mockResolvedValue({ data: { compliance_audit_1_pdf_path: null, compliance_audit_2_pdf_path: null }, error: null })
   })
 
   it('checks manageAudits, uses admin storage, and updates through the authenticated client', async () => {
@@ -84,6 +87,7 @@ describe('audit PDF upload route', () => {
     )
     expect(mockAuthenticatedFrom).toHaveBeenCalledWith('fa_stores')
     expect(mockAuthenticatedStoreUpdate).toHaveBeenCalledWith({
+      compliance_audit_1_pdf_path: null,
       compliance_audit_2_pdf_path: expect.stringMatching(/^store\/store-123\/audit-2-.*\.pdf$/),
     })
     expect(mockAuthenticatedStoreUpdateEq).toHaveBeenCalledWith('id', 'store-123')
