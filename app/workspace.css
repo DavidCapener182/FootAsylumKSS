@@ -231,7 +231,13 @@
 
 /* Phone layouts prioritise the working area over repeated chrome. */
 @media screen and (max-width: 767px) {
-  :root { --mobile-header-height: 68px; }
+  /* Reserve the status bar plus a neutral buffer for the system's blurred edge.
+     HeaderClient measures the full padded height after hydration. */
+  :root { --mobile-header-height: calc(81px + env(safe-area-inset-top, 0px)); }
+  .workspace-header {
+    padding-top: calc(env(safe-area-inset-top, 0px) + .75rem);
+    background: var(--workspace-ink);
+  }
   .workspace-main { padding-top: calc(var(--mobile-header-height) + .75rem); padding-bottom: calc(5.5rem + env(safe-area-inset-bottom)); }
   .workspace-search-compact { position: static; flex: 0 0 auto; }
   .workspace-search-expanded { position: absolute; top: calc(100% - 1px); left: 12px; right: 12px; width: auto; padding: 8px; border-radius: 0 0 12px 12px; background: #202922; box-shadow: 0 12px 24px #15201220; }

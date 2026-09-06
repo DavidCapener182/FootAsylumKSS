@@ -576,7 +576,7 @@ export function HeaderClient({ signOut, currentUser }: HeaderClientProps) {
   return (
     <header
       ref={headerRef}
-      className="workspace-header no-print fixed inset-x-0 top-0 z-30 border-b border-white/8 bg-[linear-gradient(180deg,rgba(6,22,37,0.98)_0%,rgba(5,20,33,0.94)_100%)] px-3 pt-[env(safe-area-inset-top)] backdrop-blur-xl md:relative md:flex md:h-16 md:items-center md:justify-between md:border-b-0 md:bg-[#0e1925] md:px-6 md:pt-0 lg:px-8"
+      className="workspace-header no-print fixed inset-x-0 top-0 z-30 border-b border-white/8 bg-[linear-gradient(180deg,rgba(6,22,37,0.98)_0%,rgba(5,20,33,0.94)_100%)] px-3 md:backdrop-blur-xl md:relative md:flex md:h-16 md:items-center md:justify-between md:border-b-0 md:bg-[#0e1925] md:px-6 md:pt-0 lg:px-8"
     >
       <div className="flex w-full flex-col gap-3 pb-3 pt-3 md:flex-row md:items-center md:justify-between md:gap-4 md:pb-0 md:pt-0">
         <div className="flex items-center gap-2 md:hidden">
