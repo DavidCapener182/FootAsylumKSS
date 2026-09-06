@@ -1,5 +1,6 @@
 'use server'
 
+import { importAuditPdfActions } from '@/lib/audit/import-pdf-actions'
 import { requirePermission } from '@/lib/permissions'
 import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 
@@ -17,7 +18,7 @@ export async function uploadAuditPDF(
   auditNumber: 1 | 2,
   file: File
 ) {
-  const { supabase } = await requirePermission('manageAudits')
+  const { supabase, userId } = await requirePermission('manageAudits')
   const adminSupabase = createAdminSupabaseClient()
 
   // Validate file type
@@ -65,6 +66,8 @@ export async function uploadAuditPDF(
     throw new Error(`Failed to update store record: ${updateError.message}`)
   }
 
+  const result = await importAuditPdfActions({supabase,userId,storeId,auditNumber,filePath,file})
+  if (result.warning) throw new Error(`PDF saved. Action import needs review: ${result.warning}`)
   return filePath
 }
 

@@ -100,10 +100,10 @@ export function CmpWorkspaceClient({ plans }: { plans: CmpPlanSummary[] }) {
 
   return (
     <div className="space-y-3 sm:space-y-6">
-      <div className="flex flex-col gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 sm:gap-4 sm:rounded-2xl sm:p-6">
+      <div className="workspace-intro flex flex-col gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 sm:gap-4 sm:rounded-2xl sm:p-6">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="space-y-1">
-            <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Crowd Management Plans</h1>
+            <h1 className="workspace-title text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Crowd Management Plans</h1>
             <p className="hidden text-sm text-slate-600 sm:block">
               Admin-only KSS workspace for crowd management and security operations plans.
             </p>

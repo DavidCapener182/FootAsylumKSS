@@ -477,14 +477,14 @@ export default async function IncidentsPage({
   const formatDelta = (value: number) => (value > 0 ? `+${value}%` : `${value}%`)
 
   return (
-    <div className="min-h-full bg-slate-50">
-      <div className="flex flex-col gap-3 border-b border-slate-200 bg-white px-4 py-3 sm:px-6 sm:py-4 lg:flex-row lg:items-center lg:justify-between">
+    <div className="workspace-page-inset min-h-full bg-slate-50">
+      <div className="workspace-intro flex flex-col gap-3 border-b border-slate-200 bg-white px-4 py-3 sm:px-6 sm:py-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0 flex-1 space-y-1">
           <div className="flex items-center gap-2 text-slate-900">
             <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-700 sm:h-10 sm:w-10">
               <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5" />
             </div>
-            <h1 className="text-xl font-bold tracking-tight text-slate-950 sm:text-2xl">Incidents</h1>
+            <h1 className="workspace-title text-xl font-bold tracking-tight text-slate-950 sm:text-2xl">Incidents</h1>
           </div>
           <p className="hidden max-w-2xl text-sm text-slate-500 sm:block md:ml-12">
             Track safety incidents, manage investigations, and monitor resolution progress.

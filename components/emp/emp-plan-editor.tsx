@@ -612,8 +612,8 @@ export function EmpPlanEditor({ initialData }: { initialData: EmpPlanEditorData 
   }
 
   return (
-    <div className="space-y-3 sm:space-y-6">
-      <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:gap-4 sm:rounded-2xl sm:p-6">
+    <div className="workspace-page-inset workspace-plan-editor space-y-3 sm:space-y-6">
+      <div className="workspace-intro flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:gap-4 sm:rounded-2xl sm:p-6">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-slate-500">
@@ -622,7 +622,7 @@ export function EmpPlanEditor({ initialData }: { initialData: EmpPlanEditorData 
                 Back to EMP workspace
               </a>
             </div>
-            <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">{editorData.plan.title}</h1>
+            <h1 className="workspace-title text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">{editorData.plan.title}</h1>
             <p className="text-sm text-slate-500">{editorData.template.title}</p>
             <p className="hidden max-w-3xl text-sm leading-6 text-slate-600 sm:block">
               This is the KSS master EMP. Generic operational wording is prefilled so you only need

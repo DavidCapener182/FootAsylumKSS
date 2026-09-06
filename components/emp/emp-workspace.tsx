@@ -148,11 +148,11 @@ export function EmpWorkspace({ plans }: { plans: EmpPlanSummary[] }) {
   const sortedActivePlans = sortActiveEmpPlansByDate(activePlans)
 
   return (
-    <div className="space-y-3 sm:space-y-6">
-      <div className="flex flex-col gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 sm:gap-4 sm:rounded-2xl sm:p-6">
+    <div className="space-y-3 md:px-6 md:py-5 lg:px-8 sm:space-y-6">
+      <div className="workspace-intro flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-3 sm:gap-4 sm:rounded-2xl sm:p-6">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="space-y-1">
-            <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Event Management Plans</h1>
+            <h1 className="workspace-title text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Event Management Plans</h1>
             <p className="hidden text-sm text-slate-600 sm:block">
               Admin-only KSS workspace for event management and security operations plans.
             </p>
@@ -168,6 +168,9 @@ export function EmpWorkspace({ plans }: { plans: EmpPlanSummary[] }) {
                 Create from EMP Template
               </button>
             </form>
+            <details className="w-full rounded-xl border border-slate-200 bg-white md:w-auto">
+              <summary className="min-h-[44px] cursor-pointer px-4 py-3 text-sm font-semibold text-slate-700">More starting options</summary>
+              <div className="grid gap-2 p-3">
             <form method="post" action="/api/emp/create" className="inline-flex w-full md:w-auto">
               <input type="hidden" name="kind" value="download" />
               <input type="hidden" name="redirectTo" value="/admin/event-management-plans/:planId" />
@@ -199,11 +202,13 @@ export function EmpWorkspace({ plans }: { plans: EmpPlanSummary[] }) {
                 New EMP
               </button>
             </form>
+              </div>
+            </details>
           </div>
         </div>
       </div>
 
-      <Card>
+      <Card className="workspace-feature">
         <CardHeader>
           <CardTitle>Reusable EMP Template</CardTitle>
         </CardHeader>

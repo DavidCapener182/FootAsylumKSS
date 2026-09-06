@@ -12,5 +12,6 @@ describe('Input', () => {
     expect(html).toContain('pr-4')
     expect(html).not.toContain(' px-4')
     expect(html).not.toContain(' sm:px-3')
+    expect(html).not.toContain(' sm:pl-3')
   })
 })

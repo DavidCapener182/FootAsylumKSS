@@ -154,7 +154,7 @@ export async function POST(request: NextRequest) {
         .from('fa_actions')
         .select('id, status, due_date, priority, incident:fa_incidents!fa_actions_incident_id_fkey(store_id)'),
       supabase
-        .from('fa_store_actions')
+        .from('fa_current_store_actions')
         .select('id, status, due_date, priority, store_id')
         .not('status', 'eq', 'cancelled'),
     ])

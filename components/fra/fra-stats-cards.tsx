@@ -1,7 +1,7 @@
 'use client'
 
+import { WorkspaceMetrics } from '@/components/product/workspace-metrics'
 import { useMemo } from 'react'
-import { Flame, Store, AlertCircle } from 'lucide-react'
 import { FRARow, storeNeedsFRA, getFRAStatus } from './fra-table-helpers'
 
 interface FRAStatsCardsProps {
@@ -54,49 +54,5 @@ export function FRAStatsCards({ stores, selectedArea }: FRAStatsCardsProps) {
     return { storesRequiringFRA, frasCompleted, frasDueOrOverdue }
   }, [filteredStores])
 
-  return (
-    <>
-      <div className="col-span-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl md:col-span-1 md:p-5">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 md:text-xs md:tracking-wider">
-              Stores Requiring FRA
-            </p>
-            <p className="mt-0.5 text-2xl font-black text-amber-600 md:mt-1 md:text-4xl">{stats.storesRequiringFRA}</p>
-          </div>
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-100 text-amber-600 md:h-12 md:w-12">
-            <Flame className="h-4 w-4 md:h-6 md:w-6" />
-          </div>
-        </div>
-      </div>
-      
-      <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl md:p-5">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 md:text-xs md:tracking-wider">
-              FRAs Completed
-            </p>
-            <p className="mt-0.5 text-2xl font-black text-emerald-600 md:mt-1 md:text-4xl">{stats.frasCompleted}</p>
-          </div>
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 md:h-12 md:w-12">
-            <Store className="h-4 w-4 md:h-6 md:w-6" />
-          </div>
-        </div>
-      </div>
-
-      <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl md:p-5">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 md:text-xs md:tracking-wider">
-              Due / Overdue
-            </p>
-            <p className="mt-0.5 text-2xl font-black text-red-600 md:mt-1 md:text-4xl">{stats.frasDueOrOverdue}</p>
-          </div>
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-red-100 text-red-600 md:h-12 md:w-12">
-            <AlertCircle className="h-4 w-4 md:h-6 md:w-6" />
-          </div>
-        </div>
-      </div>
-    </>
-  )
+  return <WorkspaceMetrics label="Fire safety overview" items={[{ label: 'Stores requiring FRA', value: stats.storesRequiringFRA, attention: stats.storesRequiringFRA > 0 }, { label: 'FRAs completed', value: stats.frasCompleted, detail: 'In-date assessments' }, { label: 'Due / overdue', value: stats.frasDueOrOverdue, attention: stats.frasDueOrOverdue > 0 }]} />
 }

@@ -70,7 +70,7 @@ export async function getDashboardData(): Promise<DashboardData> {
         compliance_audit_2_planned_date, fire_risk_assessment_date`).eq('is_active', true),
       supabase.from('fa_incidents').select('store_id, status, severity, occurred_at'),
       supabase.from('fa_actions').select('status, priority, due_date'),
-      supabase.from('fa_store_actions').select('store_id, status, priority, due_date'),
+      supabase.from('fa_current_store_actions').select('store_id, status, priority, due_date'),
       supabase.from('fa_activity_log').select('id, action, entity_type, details, created_at, performed_by:fa_profiles!fa_activity_log_performed_by_user_id_fkey(full_name)').order('created_at', { ascending: false }).limit(20),
       supabase.from('fa_stores').select('id, store_name, store_code, region, compliance_audit_2_planned_date').eq('is_active', true).not('compliance_audit_2_planned_date', 'is', null).gte('compliance_audit_2_planned_date', today).order('compliance_audit_2_planned_date'),
     ])

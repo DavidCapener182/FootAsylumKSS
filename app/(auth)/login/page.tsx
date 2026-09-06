@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import Image from 'next/image'
+import { WorkspaceBrand } from '@/components/layout/workspace-brand'
 import Link from 'next/link'
 import { Eye, EyeOff, LockKeyhole, ShieldCheck } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -65,34 +65,26 @@ function LoginContent() {
 
   return (
     <div className="min-h-screen bg-[#071321]">
-      <div className="grid min-h-screen lg:grid-cols-[minmax(0,1.04fr)_minmax(460px,0.96fr)]">
-        <section className="relative flex min-h-[42vh] overflow-hidden bg-[#071321] px-6 py-8 text-white sm:px-10 lg:min-h-screen lg:px-14 lg:py-12">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_20%,rgba(120,255,160,0.14),transparent_28%),linear-gradient(145deg,#071321_0%,#0e1925_48%,#102640_100%)]" />
+      <div className="grid min-h-screen grid-rows-[auto_1fr] lg:grid-rows-1 lg:grid-cols-[minmax(0,1.04fr)_minmax(460px,0.96fr)]">
+        <section className="login-brand-panel relative flex overflow-hidden bg-[#171b20] px-6 py-8 text-white sm:px-10 lg:min-h-screen lg:px-14 lg:py-12">
+          <div className="absolute inset-0 opacity-20 bg-[linear-gradient(125deg,transparent_60%,#ffffff12_60%,#ffffff12_61%,transparent_61%)]" />
           <div className="relative z-10 flex w-full max-w-2xl flex-col justify-between">
             <div className="flex items-center gap-3">
-              <div className="relative h-16 w-32 sm:h-20 sm:w-40">
-                <Image
-                  src="/fa-logo.png"
-                  alt="KSS x Footasylum"
-                  fill
-                  sizes="160px"
-                  className="object-contain"
-                  priority
-                />
-              </div>
+              <WorkspaceBrand className="text-white" />
               <div className="hidden h-10 w-px bg-white/20 sm:block" />
               <p className="hidden max-w-40 text-xs font-semibold uppercase tracking-[0.18em] text-slate-300 sm:block">
                 Authorised access
               </p>
             </div>
 
-            <div className="py-10 lg:py-16">
+            <div className="hidden py-10 lg:block lg:py-16">
               <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/8 px-3 py-1.5 text-xs font-semibold text-lime-200">
                 <ShieldCheck className="h-4 w-4" />
                 Secure compliance operations
               </div>
-              <h1 className="max-w-3xl text-3xl font-semibold leading-tight text-white sm:text-4xl lg:text-5xl">
-                KSS x Footasylum Audit & Fire Safety Platform
+              <h1 className="login-title max-w-xl text-5xl font-semibold leading-[1.02] text-white lg:text-7xl">
+                Safer stores.
+                <br />Stronger standards.
               </h1>
               <p className="mt-5 max-w-2xl text-sm leading-6 text-slate-300 sm:text-base">
                 A secure operational system for tracking store audits, fire risk assessments, compliance actions, visit planning and reporting.
@@ -100,7 +92,7 @@ function LoginContent() {
 
               <div className="mt-8 hidden gap-3 text-sm text-slate-200 sm:grid sm:grid-cols-2">
                 {[
-                  'Track audit progress across the estate',
+                  'Track audit progress across your stores',
                   'Monitor fire risk assessment status',
                   'Manage audit and FRA actions',
                   'Plan visits and regional routes',
@@ -114,19 +106,19 @@ function LoginContent() {
               </div>
             </div>
 
-            <p className="hidden max-w-xl text-xs leading-5 text-slate-400 sm:block">
+            <p className="hidden max-w-xl text-xs leading-5 text-slate-400 lg:block">
               Access is restricted to authorised KSS and Footasylum users. Activity may be monitored for compliance and system security.
             </p>
           </div>
         </section>
 
         <main className="flex min-h-[58vh] items-center justify-center bg-slate-50 px-4 py-8 sm:px-6 lg:min-h-screen lg:px-10">
-          <div className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-6 shadow-[0_24px_70px_rgba(15,23,42,0.14)] sm:p-8">
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_8px_40px_rgba(15,23,42,0.05)] sm:p-8">
             <div className="mb-7">
               <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-lg bg-[#0e1925] text-white">
                 <LockKeyhole className="h-5 w-5" />
               </div>
-              <h2 className="text-2xl font-semibold text-slate-950">Sign in to your account</h2>
+              <h2 className="login-title text-4xl font-semibold text-slate-950">Sign in to your account</h2>
               <p className="mt-2 text-sm leading-5 text-slate-600">
                 Access is restricted to authorised KSS and Footasylum users.
               </p>
@@ -169,7 +161,7 @@ function LoginContent() {
                 </div>
               </div>
               {error && (
-                <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                <div role="alert" className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
                   {error}
                 </div>
               )}

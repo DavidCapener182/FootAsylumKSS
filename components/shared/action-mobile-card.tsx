@@ -22,7 +22,7 @@ export function ActionMobileCard({ action, canManageActions = true }: ActionMobi
   const isStoreAction = action.source_type === 'store' || !action.incident_id
   const displayTitle = isStoreAction ? getStoreActionListTitle(action) : action.title
   const isOverdue = new Date(action.due_date) < new Date() && 
-    !['complete', 'cancelled'].includes(action.status)
+    !action.archived && !['complete', 'cancelled'].includes(action.status)
   const assigneeName = action.assigned_to?.full_name?.trim() || ''
   const assigneeInitials = assigneeName
     ? assigneeName.includes(' ')
@@ -76,7 +76,7 @@ export function ActionMobileCard({ action, canManageActions = true }: ActionMobi
             {/* Status - 1 column */}
             <div className="flex flex-col">
               <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Status</p>
-              <StatusBadge status={action.status} type="action" />
+              <StatusBadge status={action.status} type="action" label={action.archived && !['complete','cancelled'].includes(action.status) ? 'Archived · 6 months' : undefined} />
             </div>
             
             {/* Priority - 1 column */}
@@ -122,6 +122,9 @@ export function ActionMobileCard({ action, canManageActions = true }: ActionMobi
 
             {/* Actions */}
             <div className="flex items-center gap-1 flex-shrink-0">
+              {isStoreAction && canManageActions && !action.archived ? (
+                <CloseActionButton actionId={action.id} actionTitle={action.title} currentStatus={action.status} sourceType="store" />
+              ) : null}
               {!isStoreAction && canManageActions ? (
                 <>
                   <div className="scale-90">

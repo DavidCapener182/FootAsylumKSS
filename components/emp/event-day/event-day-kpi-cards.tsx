@@ -1,5 +1,5 @@
 import { BadgeCheck, Clock, Headphones, Radio, Utensils, Users } from 'lucide-react'
-import { Card, CardContent } from '@/components/ui/card'
+import { WorkspaceMetrics } from '@/components/product/workspace-metrics'
 import type { EmpEventDayAdminData } from '@/lib/emp/event-day-data'
 
 const KPI_CONFIG = [
@@ -12,28 +12,9 @@ const KPI_CONFIG = [
 ] as const
 
 export function EventDayKpiCards({ metrics }: { metrics: EmpEventDayAdminData['metrics'] }) {
-  return (
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
-      {KPI_CONFIG.map((item) => {
-        const Icon = item.icon
-        const subValue = 'subKey' in item ? metrics[item.subKey] : null
-        return (
-          <Card key={item.key} className="rounded-lg">
-            <CardContent className="flex items-center justify-between p-4">
-              <div>
-                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{item.label}</p>
-                <p className="mt-1 text-2xl font-bold text-slate-900">{metrics[item.key]}</p>
-                {'subLabel' in item ? (
-                  <p className="mt-1 text-xs font-medium text-slate-500">
-                    {subValue === null ? 'Stock not set' : `${subValue} ${item.subLabel}`}
-                  </p>
-                ) : null}
-              </div>
-              <Icon className={`h-6 w-6 ${item.tone}`} />
-            </CardContent>
-          </Card>
-        )
-      })}
-    </div>
-  )
+  return <WorkspaceMetrics label="Event day overview" items={KPI_CONFIG.map(item => ({
+    label: item.label,
+    value: metrics[item.key],
+    detail: 'subKey' in item ? (metrics[item.subKey] === null ? 'Stock not set' : `${metrics[item.subKey]} ${item.subLabel}`) : undefined,
+  }))} />
 }

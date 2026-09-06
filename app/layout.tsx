@@ -1,10 +1,20 @@
 import type { Metadata, Viewport } from "next"
 import { Inter } from "next/font/google"
+import localFont from "next/font/local"
 import "./globals.css"
+import "./workspace.css"
 import { ServiceWorkerRegister } from '@/components/offline/service-worker-register'
 import { WebVitalsReporter } from '@/components/observability/web-vitals-reporter'
 
 const inter = Inter({ subsets: ["latin"] })
+const display = localFont({
+  src: [
+    { path: "./fonts/barlow-condensed-semibold.ttf", weight: "600", style: "normal" },
+    { path: "./fonts/barlow-condensed-bold.ttf", weight: "700", style: "normal" },
+  ],
+  variable: "--font-display",
+  display: "swap",
+})
 
 export const metadata: Metadata = {
   title: "KSS x Footasylum Audit & Fire Safety Platform",
@@ -43,7 +53,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={inter.className} suppressHydrationWarning>
+      <body className={`${inter.className} ${display.variable}`} suppressHydrationWarning>
         {children}
         <ServiceWorkerRegister />
         <WebVitalsReporter />

@@ -339,13 +339,13 @@ export function CmpMasterTemplatesClient() {
   }
 
   return (
-    <div className="space-y-3 sm:space-y-6">
-      <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 sm:rounded-2xl sm:p-6">
+    <div className="workspace-page-inset space-y-3 sm:space-y-6">
+      <div className="workspace-intro rounded-xl border border-emerald-200 bg-emerald-50 p-3 sm:rounded-2xl sm:p-6">
         <div className="space-y-3 sm:space-y-4">
           <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
             <div className="space-y-2">
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Master Templates</h1>
+                <h1 className="workspace-title text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Master Templates</h1>
                 <Badge variant="outline">{CMP_MASTER_TEMPLATES.length} documents</Badge>
               </div>
               <p className="hidden max-w-3xl text-sm text-slate-600 sm:block">
@@ -434,8 +434,14 @@ export function CmpMasterTemplatesClient() {
         </div>
       </div>
 
-      <div className="grid gap-3 sm:gap-6 xl:grid-cols-[320px_minmax(0,1fr)] xl:items-start">
-        <aside className="overflow-hidden rounded-lg border border-slate-200 bg-white xl:sticky xl:top-6 xl:flex xl:max-h-[calc(100vh-3rem)] xl:flex-col">
+      <label className="block rounded-xl border border-slate-200 bg-white p-4 xl:hidden">
+        <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-600">Choose document</span>
+        <select aria-label="Choose document" value={activeTemplateId} onChange={(event) => setActiveTemplateId(event.target.value)} className="min-h-[44px] w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 text-base text-slate-950">
+          {TEMPLATE_GROUPS.map((group) => <optgroup key={group.category} label={group.category}>{group.templates.map((template) => <option key={template.id} value={template.id}>{template.title}</option>)}</optgroup>)}
+        </select>
+      </label>
+      <div className="grid min-w-0 grid-cols-1 gap-3 sm:gap-6 xl:grid-cols-[320px_minmax(0,1fr)] xl:items-start">
+        <aside className="hidden min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-white xl:sticky xl:top-6 xl:flex xl:max-h-[calc(100vh-3rem)] xl:flex-col">
           <div className="border-b border-slate-200 px-3 py-3 sm:px-5 sm:py-5">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
               Crowd Management
@@ -493,7 +499,7 @@ export function CmpMasterTemplatesClient() {
           </div>
         </aside>
 
-        <div className="space-y-3 sm:space-y-4">
+        <div className="min-w-0 space-y-3 sm:space-y-4">
           <section className="rounded-xl border border-slate-200 bg-white p-3 sm:p-5">
             <div className="flex flex-col gap-3 sm:gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div className="space-y-2">
@@ -505,7 +511,7 @@ export function CmpMasterTemplatesClient() {
                   </Badge>
                 </div>
                 <p className="max-w-3xl text-sm leading-6 text-slate-600">{activeTemplate.description}</p>
-                <p className="text-sm font-medium text-slate-500">{activeTemplate.filename}</p>
+                <p className="break-words text-sm font-medium text-slate-500 [overflow-wrap:anywhere]">{activeTemplate.filename}</p>
               </div>
 
               <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">

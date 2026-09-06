@@ -14,7 +14,7 @@ const governance = [
 export default async function PrivacyPage() {
   await requireAuth()
   return (
-    <div className="space-y-4 pb-8 sm:space-y-6">
+    <div className="space-y-4 pb-8 md:px-6 md:py-5 lg:px-8 sm:space-y-6">
       <PageHeader
         eyebrow="Governance"
         title="Privacy and data protection"
@@ -23,7 +23,7 @@ export default async function PrivacyPage() {
         primaryAction={<Button asChild className="min-h-[44px]"><Link href="/privacy/gdpr">Read detailed GDPR policy</Link></Button>}
       />
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Policy governance status">
+      <section className="workspace-governance grid grid-cols-2 gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Policy governance status">
         {governance.map((item) => {
           const Icon = item.icon
           return (

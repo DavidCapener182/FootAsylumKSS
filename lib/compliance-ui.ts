@@ -1,3 +1,4 @@
+import { isHistoricalStoreAction } from '@/lib/actions/action-history'
 export type StoreComplianceLevel = 'green' | 'amber' | 'red' | 'grey'
 
 export type AuditLifecycleStatus =
@@ -79,7 +80,7 @@ export function getAuditLifecycle(store: any): AuditLifecycleSummary {
 }
 
 export function getOpenActions(actions: any[] | null | undefined): any[] {
-  return (actions || []).filter((action) => !['complete', 'cancelled'].includes(String(action?.status || '').toLowerCase()))
+  return (actions || []).filter((action) => !isHistoricalStoreAction(action))
 }
 
 export function getOverdueActions(actions: any[] | null | undefined): any[] {

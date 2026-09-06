@@ -14,8 +14,8 @@ export function EmptyState({
   className?: string
 }) {
   return (
-    <div className={cn('rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 p-6 text-center', className)}>
-      <Icon className="mx-auto h-8 w-8 text-slate-300" />
+    <div className={cn('rounded-2xl border border-slate-200 bg-slate-50/70 px-6 py-10 text-center', className)}>
+      <Icon className="mx-auto h-10 w-10 rounded-xl bg-white p-2 text-slate-500 shadow-sm" />
       <p className="mt-3 text-sm font-semibold text-slate-800">{title}</p>
       <p className="mt-1 text-xs leading-5 text-slate-500">{description}</p>
     </div>

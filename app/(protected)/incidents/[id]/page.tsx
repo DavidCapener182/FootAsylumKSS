@@ -422,9 +422,9 @@ export default async function IncidentDetailPage({
     <div className="space-y-3 p-0 sm:space-y-6">
       <IncidentBreadcrumb referenceNo={incident.reference_no} />
 
-      <div className="flex flex-col justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:gap-4 sm:rounded-2xl sm:p-5 md:flex-row md:items-start">
+      <div className="workspace-intro flex flex-col justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:gap-4 sm:rounded-2xl sm:p-5 md:flex-row md:items-start">
         <div>
-          <h1 className="mb-1 break-words font-mono text-xl font-bold tracking-tight text-slate-800 sm:mb-2 sm:text-3xl">
+          <h1 className="workspace-title mb-1 break-words font-mono text-xl font-bold tracking-tight text-slate-800 sm:mb-2 sm:text-3xl">
             {incident.reference_no}
           </h1>
           <p className="line-clamp-2 text-sm font-medium text-slate-600 sm:text-lg">

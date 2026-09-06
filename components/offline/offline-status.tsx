@@ -4,9 +4,10 @@ import { RefreshCw } from 'lucide-react'
 import { OfflineSyncIndicator } from '@/components/product'
 import { useOfflineSync } from './offline-sync-provider'
 
-export function OfflineStatus({ compact = false }: { compact?: boolean }) {
+export function OfflineStatus({ compact = false, attentionOnly = false }: { compact?: boolean; attentionOnly?: boolean }) {
   const { isOnline, isSyncing, pendingCount, failedCount, draftsCount, syncNow } = useOfflineSync()
   const state = !isOnline ? 'offline' : isSyncing ? 'syncing' : 'online'
+  if (attentionOnly && isOnline && !isSyncing && pendingCount === 0 && failedCount === 0) return null
 
   return (
     <div className="flex flex-wrap items-center gap-2" aria-live="polite">

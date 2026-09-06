@@ -24,6 +24,22 @@ const NON_ACTIONABLE_STORE_QUESTIONS = new Set<string>([
   'Fire Extinguisher Service?',
 ])
 
+export async function completeStoreAction(actionId: string) {
+  const { supabase } = await requirePermission('manageActions')
+  const { data: action, error } = await supabase
+    .from('fa_store_actions')
+    .update({ status: 'complete', completed_at: new Date().toISOString() })
+    .eq('id', actionId)
+    .in('status', ['open', 'in_progress', 'blocked'])
+    .select('id, store_id')
+    .maybeSingle()
+  if (error) throw new Error(`Unable to complete store action: ${error.message}`)
+  revalidatePath('/actions')
+  revalidatePath('/audit-tracker')
+  revalidatePath('/dashboard')
+  if (action) revalidatePath(`/stores/${action.store_id}`)
+}
+
 export interface CreateStoreActionInput {
   title: string
   description?: string
@@ -126,7 +142,7 @@ export async function createStoreActions(
   }
 
   const { data: existingActiveRows, error: existingError } = await supabase
-    .from('fa_store_actions')
+    .from('fa_current_store_actions')
     .select('id, title, status')
     .eq('store_id', storeId)
     .in('status', ['open', 'in_progress'])

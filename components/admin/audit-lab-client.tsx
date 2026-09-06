@@ -162,7 +162,7 @@ type PreviousFailureMap = Record<string, PreviousFailure>
 export type AuditLabInitialTab = 'templates' | 'active-audits' | 'history' | 'dashboard' | 'import'
 export type AuditLabInitialView = 'templates' | 'template-builder' | 'audit-form' | 'audit-execution'
 
-export function AuditLabClient({ initialTab = 'templates', initialView = 'templates' }: { initialTab?: AuditLabInitialTab; initialView?: AuditLabInitialView }) {
+export function AuditLabClient({ initialTab = 'templates', initialView = 'templates', embedded = false }: { initialTab?: AuditLabInitialTab; initialView?: AuditLabInitialView; embedded?: boolean }) {
   const [activeTab, setActiveTab] = useState<AuditLabInitialTab>(initialTab)
   const [view, setView] = useState<AuditLabInitialView>(initialView)
   const [templates, setTemplates] = useState<Template[]>([])
@@ -532,6 +532,7 @@ export function AuditLabClient({ initialTab = 'templates', initialView = 'templa
 
       {/* Main Navigation Tabs */}
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as AuditLabInitialTab)} className="w-full">
+        {!embedded && (
         <div className="-mx-1 max-w-[calc(100vw-2rem)] overflow-x-auto px-1 pb-2 md:max-w-full">
           <TabsList className="inline-flex w-max min-w-full max-w-none bg-slate-100 p-1 min-h-[44px] md:grid md:w-full md:max-w-[820px] md:grid-cols-5">
           <TabsTrigger 
@@ -566,8 +567,9 @@ export function AuditLabClient({ initialTab = 'templates', initialView = 'templa
           </TabsTrigger>
           </TabsList>
         </div>
+        )}
 
-        <TabsContent value="templates" className="mt-6 max-w-full overflow-x-hidden">
+        <TabsContent value="templates" {...(embedded ? { 'aria-labelledby': undefined, 'aria-label': 'Templates' } : {})} className="mt-6 max-w-full overflow-x-hidden">
           {view === 'templates' && (
             <TemplatesLibraryView 
               templates={templates}
@@ -614,7 +616,7 @@ export function AuditLabClient({ initialTab = 'templates', initialView = 'templa
           )}
         </TabsContent>
 
-        <TabsContent value="active-audits" className="mt-6">
+        <TabsContent value="active-audits" {...(embedded ? { 'aria-labelledby': undefined, 'aria-label': 'Active audits' } : {})} className="mt-6">
           <ActiveAuditsView 
             audits={activeAudits} 
             loading={loadingAudits} 
@@ -659,7 +661,7 @@ export function AuditLabClient({ initialTab = 'templates', initialView = 'templa
           />
         </TabsContent>
 
-        <TabsContent value="history" className="mt-6">
+        <TabsContent value="history" {...(embedded ? { 'aria-labelledby': undefined, 'aria-label': 'Audit history' } : {})} className="mt-6">
           {historyNotice && (
             <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
               {historyNotice}
@@ -700,7 +702,7 @@ export function AuditLabClient({ initialTab = 'templates', initialView = 'templa
           />
         </TabsContent>
 
-        <TabsContent value="dashboard" className="mt-3 sm:mt-6">
+        <TabsContent value="dashboard" {...(embedded ? { 'aria-labelledby': undefined, 'aria-label': 'Audit insights' } : {})} className="mt-3 sm:mt-6">
           <div className="space-y-3 sm:space-y-6">
             <Card>
               <CardHeader>
@@ -1045,7 +1047,7 @@ export function AuditLabClient({ initialTab = 'templates', initialView = 'templa
           </div>
         </TabsContent>
 
-        <TabsContent value="import" className="mt-6">
+        <TabsContent value="import" {...(embedded ? { 'aria-labelledby': undefined, 'aria-label': 'Import audits' } : {})} className="mt-6">
           <ImportAuditView
             templates={templates}
             onAuditCreated={(templateId, instanceId) => {

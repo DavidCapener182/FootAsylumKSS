@@ -14,9 +14,9 @@ const LegacyReportBuilder = dynamic(() => import('@/app/(protected)/reports/repo
 
 const catalogue = [
   { title: 'Monthly area briefings', description: 'Area audit, FRA, action and predicted-revisit dashboards.', icon: Newspaper, tab: 'build' },
-  { title: 'Incident register', description: 'Role-scoped incident data cut with investigation and RIDDOR fields.', icon: FileSpreadsheet, tab: 'build' },
+  { title: 'Incident register', description: 'Incident records, investigations and RIDDOR screening in one export.', icon: FileSpreadsheet, tab: 'build' },
   { title: 'Action register', description: 'Incident and store action exports with due-date and evidence status.', icon: FileDown, tab: 'build' },
-  { title: 'Audit performance', description: 'Store and area score reporting from the authoritative audit dataset.', icon: BarChart3, tab: 'build' },
+  { title: 'Audit performance', description: 'Compare audit scores across stores and areas.', icon: BarChart3, tab: 'build' },
   { title: 'Weekly operations digest', description: 'A controlled seven-day operational summary for managers.', icon: CalendarRange, tab: 'build' },
 ]
 
@@ -25,12 +25,12 @@ export function ReportsCentre({ versions }: { versions: ReportVersion[] }) {
   const workspace = searchParams?.get('workspace')
   const defaultWorkspace = workspace === 'build' ? 'build' : workspace === 'recent' ? 'recent' : 'catalogue'
   return (
-    <div className="min-h-screen bg-slate-50 px-3 py-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-slate-50 px-0 py-0 md:py-5 md:px-6 lg:px-8">
       <div className="mx-auto max-w-[1600px]">
-        <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-xs font-bold uppercase tracking-[0.16em] text-lime-600">Controlled reporting</p>
-          <h1 className="mt-1 text-2xl font-bold text-slate-950 sm:text-3xl">Reports Centre</h1>
-          <p className="mt-2 max-w-3xl text-sm text-slate-600">Choose a report, build it from live role-scoped data, and retain an exact generation record with its data cut-off.</p>
+        <div className="workspace-intro mb-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-lime-700">Controlled reporting</p>
+          <h1 className="workspace-title mt-1 text-2xl font-bold text-slate-950 sm:text-3xl">Reports Centre</h1>
+          <p className="mt-2 max-w-3xl text-sm text-slate-600">Build a clear picture of compliance. Create reports from current data or revisit your previous exports.</p>
         </div>
 
         <Tabs defaultValue={defaultWorkspace} key={defaultWorkspace}>
@@ -40,8 +40,8 @@ export function ReportsCentre({ versions }: { versions: ReportVersion[] }) {
             <TabsTrigger value="build" className="min-h-[44px] rounded-xl">Build</TabsTrigger>
           </TabsList>
           <TabsContent value="catalogue" className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {catalogue.map(({ title, description, icon: Icon }) => (
-              <Card key={title} className="border-slate-200 shadow-sm">
+            {catalogue.map(({ title, description, icon: Icon }, index) => (
+              <Card key={title} className={`workspace-report-card ${index === 0 ? 'workspace-feature md:col-span-2' : ''}`}>
                 <CardHeader><div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-950 text-lime-300"><Icon className="h-5 w-5" /></div><CardTitle className="pt-2 text-base">{title}</CardTitle></CardHeader>
                 <CardContent><p className="min-h-10 text-sm text-slate-600">{description}</p><Button asChild variant="outline" className="mt-4 min-h-[44px] w-full"><Link href="/reports?workspace=build">Open builder</Link></Button></CardContent>
               </Card>

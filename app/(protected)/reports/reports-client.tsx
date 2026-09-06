@@ -1151,14 +1151,14 @@ export default function ReportsClient() {
   return (
     <div className="flex min-h-screen max-w-full flex-col gap-3 overflow-x-hidden bg-slate-50 px-0 py-0 sm:gap-6 sm:px-6 sm:py-5 lg:px-8">
       {/* Header Section */}
-      <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-5 md:p-6">
+      <div className="workspace-intro rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-5 md:p-6">
         <div className="flex flex-col justify-between gap-3 md:flex-row md:items-start">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-lime-600">
               <FileSpreadsheet className="h-4 w-4" />
               Compliance Reporting
             </div>
-            <h1 className="mt-1 text-xl font-bold tracking-tight text-slate-950 sm:mt-2 sm:text-3xl">Reports & Exports</h1>
+            <h1 className="workspace-title mt-1 text-xl font-bold tracking-tight text-slate-950 sm:mt-2 sm:text-3xl">Reports & Exports</h1>
             <p className="mt-1 hidden max-w-2xl text-sm leading-6 text-slate-500 sm:block">
               Build client-ready compliance outputs with clear export controls.
             </p>

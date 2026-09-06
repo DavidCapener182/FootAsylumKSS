@@ -65,7 +65,7 @@ export function DashboardClient({ initialData, profileName }: DashboardClientPro
   return (
     <>
     <TodayMobile data={data} profileName={profileName} />
-    <div className="hidden min-h-full bg-slate-50 md:block">
+    <div className="dashboard-workspace hidden min-h-full bg-slate-50 md:block">
       {isReportOpen ? (
         <ReportModal
           isOpen={isReportOpen}
@@ -80,17 +80,19 @@ export function DashboardClient({ initialData, profileName }: DashboardClientPro
       <DashboardHeader onGenerateReport={handleGenerateReport} reportLoading={reportLoading} />
 
       <div className="space-y-3 px-3 py-3 pb-28 sm:space-y-6 sm:px-6 sm:py-5 sm:pb-5 lg:px-8">
-        <NeedsAttentionSection data={data} />
-        <KpiGrid data={data} />
+        <div className="overview-overview-grid">
+          <KpiGrid data={data} />
+          <NeedsAttentionSection data={data} />
+        </div>
 
         <div className="grid gap-3 md:gap-6 xl:grid-cols-12">
-          <div className="xl:col-span-5">
+          <div className="xl:col-span-6">
             <ComplianceProgressPanel data={data} />
           </div>
-          <div className="xl:col-span-4">
+          <div className="xl:col-span-6">
             <PriorityStoresPanel stores={normalisePriorityStores(data).slice(0, 4)} />
           </div>
-          <div className="xl:col-span-3">
+          <div className="xl:col-span-12">
             <UpcomingVisitsPanel routes={Array.isArray(data.plannedRoutes) ? data.plannedRoutes : []} />
           </div>
         </div>

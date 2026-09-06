@@ -4,16 +4,18 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { CheckCircle2, Loader2 } from 'lucide-react'
 import { updateAction } from '@/app/actions/actions'
+import { completeStoreAction } from '@/app/actions/store-actions'
 import { useRouter } from 'next/navigation'
 
 interface CloseActionButtonProps {
   actionId: string
   actionTitle: string
   currentStatus: string
+  sourceType?: 'incident' | 'store'
   onComplete?: () => void
 }
 
-export function CloseActionButton({ actionId, actionTitle, currentStatus, onComplete }: CloseActionButtonProps) {
+export function CloseActionButton({ actionId, actionTitle, currentStatus, sourceType = 'incident', onComplete }: CloseActionButtonProps) {
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
   const isComplete = currentStatus === 'complete' || currentStatus === 'cancelled'
@@ -27,7 +29,8 @@ export function CloseActionButton({ actionId, actionTitle, currentStatus, onComp
 
     setIsLoading(true)
     try {
-      await updateAction(actionId, { status: 'complete' })
+      if (sourceType === 'store') await completeStoreAction(actionId)
+      else await updateAction(actionId, { status: 'complete' })
       onComplete?.()
       router.refresh()
     } catch (error) {
@@ -64,4 +67,3 @@ export function CloseActionButton({ actionId, actionTitle, currentStatus, onComp
     </Button>
   )
 }
-

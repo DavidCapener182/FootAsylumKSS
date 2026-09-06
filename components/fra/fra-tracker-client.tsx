@@ -160,8 +160,8 @@ export function FRATrackerClient({ stores, userRole }: FRATrackerClientProps) {
   }
 
   return (
-    <div className="space-y-3 sm:space-y-6">
-      <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-5 md:p-6">
+    <div className="space-y-3 md:px-6 md:py-5 lg:px-8 sm:space-y-6">
+      <div className="workspace-intro rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-5 md:p-6">
         <div className="space-y-3 sm:space-y-5">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
@@ -169,7 +169,7 @@ export function FRATrackerClient({ stores, userRole }: FRATrackerClientProps) {
                 <Flame size={14} />
                 Fire Compliance Monitoring
               </div>
-              <h1 className="text-xl font-bold tracking-tight text-slate-950 sm:text-3xl">Fire Risk Assessment</h1>
+              <h1 className="workspace-title text-xl font-bold tracking-tight text-slate-950 sm:text-3xl">Fire Risk Assessment</h1>
               <p className="mt-1 hidden max-w-2xl text-sm leading-6 text-slate-500 sm:block">
                 Track Fire Risk Assessments for stores that have completed audits. FRAs must be renewed every 12 months.
               </p>
@@ -185,7 +185,7 @@ export function FRATrackerClient({ stores, userRole }: FRATrackerClientProps) {
             </button>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-3">
+          <div className="min-w-0">
             <FRAStatsCards stores={stores} selectedArea={areaFilter} />
           </div>
         </div>
@@ -232,12 +232,12 @@ export function FRATrackerClient({ stores, userRole }: FRATrackerClientProps) {
         </div>
 
         {attentionRows.length > 0 ? (
-          <div className="grid grid-cols-2 gap-2 p-3 sm:gap-3 sm:p-4 md:grid-cols-2 md:p-6 xl:grid-cols-3">
+          <div className="grid grid-cols-1 gap-2 p-3 sm:grid-cols-2 sm:gap-3 sm:p-4 md:grid-cols-2 md:p-6 xl:grid-cols-3">
             {attentionRows.slice(0, 6).map(({ row, status, daysUntilDue, nextDueDate }) => (
               <div key={row.id} className="rounded-xl border border-slate-200 bg-slate-50/70 p-2.5 sm:rounded-2xl sm:p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <h3 className="truncate text-xs font-bold text-slate-900 sm:text-sm">{row.store_name}</h3>
+                    <h3 className="text-sm font-bold text-slate-900 sm:text-sm">{row.store_name}</h3>
                     <p className="mt-0.5 text-xs text-slate-500">
                       {[row.store_code, row.region].filter(Boolean).join(' · ') || 'Store details pending'}
                     </p>

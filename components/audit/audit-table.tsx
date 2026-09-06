@@ -1,12 +1,12 @@
 'use client'
 
-import { Fragment, useMemo, useState, useEffect, useCallback } from 'react'
+import { useMemo, useState, useEffect, useCallback } from 'react'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 import { getInternalAreaDisplayName } from '@/lib/areas'
-import { cn, getDisplayStoreCode } from '@/lib/utils'
+import { cn, getDisplayStoreCode, formatPercent } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { UserRole } from '@/lib/auth'
 import { getAuditPDFDownloadUrl, deleteAuditPDF } from '@/app/actions/audit-pdfs'
@@ -21,7 +21,6 @@ import { StoreActionsModal } from './store-actions-modal'
 import { 
   AuditRow, 
   pctBadge, 
-  boolBadge, 
   formatDate, 
   getLatestPct, 
   getCompletedAuditCount,
@@ -197,7 +196,7 @@ export function AuditTable({
     try {
       const supabase = createClient()
       const { data, error } = await supabase
-        .from('fa_store_actions')
+        .from('fa_current_store_actions')
         .select('store_id, status')
         .in('store_id', storeIds)
 
@@ -357,7 +356,6 @@ export function AuditTable({
 
   const hasActiveFilters = search.trim().length > 0 || area !== 'all' || hideCompleted
   const activeFilterCount = Number(search.trim().length > 0) + Number(area !== 'all') + Number(hideCompleted)
-  const desktopTableDensityClass = 'desktop-table-comfortable'
 
   const resetFilters = () => {
     setSearch('')
@@ -445,6 +443,7 @@ export function AuditTable({
 
     setSaving(true)
     setTableMessage(null)
+    let actionImportMessage = ''
 
     try {
       // Upload PDF if provided
@@ -469,6 +468,7 @@ export function AuditTable({
           }
 
           pdfPath = result.filePath
+          actionImportMessage = result.actionImport?.warning ? ` PDF saved; action import needs review: ${result.actionImport.warning}` : ` ${result.actionImport?.count || 0} actions imported.`
         } catch (uploadError) {
           console.error('PDF upload error:', uploadError)
           const uploadErrorMessage = uploadError instanceof Error ? uploadError.message : 'Unknown error'
@@ -513,7 +513,7 @@ export function AuditTable({
       const auditLabel = auditNumber === 2 && addAuditState.isRevisit ? 'Revisit (Audit 2)' : `Audit ${auditNumber}`
       setTableMessage({
         type: 'success',
-        text: `${auditLabel} saved for ${storeName}. Action Plan set to ${autoActionPlanSent ? 'Yes' : 'No'}.`,
+        text: `${auditLabel} saved for ${storeName}. Action Plan set to ${autoActionPlanSent ? 'Yes' : 'No'}.${actionImportMessage}`,
       })
     } catch (error) {
       console.error('Error saving audit:', error)
@@ -630,6 +630,7 @@ export function AuditTable({
         return row
       }))
 
+      await loadStoreActionCounts()
       setPdfUploadDialogOpen(false)
       setPdfUploadRow(null)
       setPdfUploadFile(null)
@@ -640,7 +641,7 @@ export function AuditTable({
       if (fileInput) fileInput.value = ''
       setTableMessage({
         type: 'success',
-        text: `Audit ${selectedAudit} PDF uploaded for ${storeName}.`,
+        text: `Audit ${selectedAudit} PDF uploaded for ${storeName}. ${result.actionImport?.warning ? `Action import needs review: ${result.actionImport.warning}` : `${result.actionImport?.count || 0} actions imported.`}`,
       })
     } catch (error) {
       console.error('Error uploading PDF:', error)
@@ -792,44 +793,43 @@ export function AuditTable({
     void loadStoreActionCounts()
   }
 
-  const renderDateCell = (row: AuditRow, date: string | null, pct: number | null, auditNum: 1 | 2) => {
-    // Warehouses can have completed audits without a percentage score.
-    if (auditNum === 2 && pct === null && !isWarehouseAuditRow(row)) {
-      return <span className="text-sm text-muted-foreground">—</span>
-    }
-    
-    return <span className="text-sm text-muted-foreground">{formatDate(date)}</span>
-  }
-
-  const renderActionPlanCell = (value: boolean | null, row: AuditRow, auditNum: 1 | 2) => {
-    if (!hasCompletedAudit(row, auditNum)) {
-      return <span className="text-sm text-muted-foreground">—</span>
-    }
-    
-    return boolBadge(value)
-  }
-
-  const renderPercentageCell = (value: number | null, storeId: string, auditNum: 1 | 2) => {
-    if (value === null || value === undefined) {
-      return pctBadge(value)
-    }
-
-    if (!canManageAudits) {
-      return pctBadge(value)
-    }
+  const renderAuditSummary = (row: AuditRow, auditNumber: 1 | 2) => {
+    const date = auditNumber === 1 ? row.compliance_audit_1_date : row.compliance_audit_2_date
+    const score = auditNumber === 1 ? row.compliance_audit_1_overall_pct : row.compliance_audit_2_overall_pct
+    const pdf = auditNumber === 1 ? row.compliance_audit_1_pdf_path : row.compliance_audit_2_pdf_path
+    const planSent = auditNumber === 1 ? row.action_plan_1_sent : row.action_plan_2_sent
+    const complete = hasCompletedAudit(row, auditNumber)
+    const scoreTone = score === null ? 'unscored' : score >= 90 ? 'good' : score >= 80 ? 'watch' : 'attention'
 
     return (
-      <button
-        type="button"
-        onClick={() => {
-          const row = localRows.find(r => r.id === storeId)
-          if (row) handleOpenUpdateScore(row, auditNum)
-        }}
-        className="inline-flex items-center justify-center hover:opacity-80 transition-opacity"
-        title="Update audit score"
-      >
-        {pctBadge(value)}
-      </button>
+      <div className="audit-record">
+        <div className="audit-record-top">
+          {score !== null ? (
+            canManageAudits ? (
+              <button type="button" className={`audit-score audit-score-${scoreTone}`}
+                onClick={() => handleOpenUpdateScore(row, auditNumber)}
+                title="Update audit score" aria-label={`Update Audit ${auditNumber} score for ${row.store_name}: ${formatPercent(score)}`}>
+                {formatPercent(score)}
+              </button>
+            ) : <span className={`audit-score audit-score-${scoreTone}`}>{formatPercent(score)}</span>
+          ) : <span className="audit-unrecorded">{complete ? 'Completed' : date ? 'Awaiting score' : 'Not recorded'}</span>}
+          {pdf ? (
+            <button type="button" className="audit-document" onClick={() => handleViewPDF(row, auditNumber)}
+              title={`View Audit ${auditNumber} PDF`} aria-label={`View Audit ${auditNumber} PDF for ${row.store_name}`}>
+              <File className="h-3.5 w-3.5" /><span>PDF</span>
+            </button>
+          ) : canManageAudits && complete ? (
+            <button type="button" className="audit-document" onClick={() => handleOpenPDFUpload(row, auditNumber)}
+              title={`Upload Audit ${auditNumber} PDF`} aria-label={`Upload Audit ${auditNumber} PDF for ${row.store_name}`}>
+              <Upload className="h-3.5 w-3.5" /><span>PDF</span>
+            </button>
+          ) : null}
+        </div>
+        {date ? <span className="audit-record-date">{formatDate(date)}</span> : null}
+        {complete ? <span className={cn('audit-plan-note', planSent && 'audit-plan-sent')}>
+          Plan sent: {planSent === null ? 'Not recorded' : planSent ? 'Yes' : 'No'}
+        </span> : null}
+      </div>
     )
   }
 
@@ -920,7 +920,7 @@ export function AuditTable({
       </div>
 
       {/* Desktop Controls */}
-      <div className="hidden xl:flex flex-col gap-4 rounded-2xl border border-slate-200 bg-slate-50/50 p-4 xl:flex-row xl:items-center xl:justify-between">
+      <div className="audit-filter-bar hidden xl:flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <div className="relative w-full sm:w-72">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -975,9 +975,9 @@ export function AuditTable({
             Reset
           </Button>
         </div>
-        <div className="flex items-center gap-3 lg:border-l lg:border-slate-200 lg:pl-4">
+        <div className="flex shrink-0 items-center gap-3">
           <div className="text-sm text-slate-500">
-            Showing {filtered.length} of {localRows.length} active audit-tracker stores
+            <strong className="text-slate-800">{filtered.length}</strong> of {localRows.length} stores
           </div>
         </div>
       </div>
@@ -1052,7 +1052,7 @@ export function AuditTable({
                     const auditLifecycle = getAuditLifecycle(row)
 
                     return (
-                      <div key={row.id} className="mobile-card-surface rounded-2xl border p-3.5 shadow-sm">
+                      <div key={row.id} className="audit-mobile-card rounded-2xl border p-3.5">
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
                             <button
@@ -1075,24 +1075,16 @@ export function AuditTable({
                           </div>
                         </div>
 
-                        <div className="mt-3 grid grid-cols-2 gap-2">
-                          <div className="rounded-xl border bg-white/90 px-2.5 py-2">
-                            <div className="text-[10px] uppercase tracking-wide text-slate-500">Audit 1</div>
-                            <div className="mt-1 text-xs text-slate-700 leading-tight">
-                              {formatDate(row.compliance_audit_1_date)}
+                        <div className="audit-mobile-records mt-3 grid grid-cols-2 gap-3">
+                          {([1, 2] as const).map((number) => (
+                            <div key={number} className="min-w-0">
+                              <div className="audit-record-label">Audit {number}</div>
+                              {renderAuditSummary(row, number)}
                             </div>
-                            <div className="mt-1">{pctBadge(row.compliance_audit_1_overall_pct)}</div>
-                          </div>
-                          <div className="rounded-xl border bg-white/90 px-2.5 py-2">
-                            <div className="text-[10px] uppercase tracking-wide text-slate-500">Audit 2</div>
-                            <div className="mt-1 text-xs text-slate-700 leading-tight">
-                              {formatDate(row.compliance_audit_2_date)}
-                            </div>
-                            <div className="mt-1">{pctBadge(row.compliance_audit_2_overall_pct)}</div>
-                          </div>
+                          ))}
                         </div>
 
-                        <div className="mt-3 space-y-2.5 border-t border-slate-200/80 pt-3">
+                        <div className={cn("audit-mobile-actions", (upcomingActionFlag || (canManageAudits && nextAudit !== null)) && "mt-3 flex flex-wrap gap-2 border-t border-slate-200/80 pt-3")}>
                           {upcomingActionFlag ? (
                             <Button
                               size="sm"
@@ -1124,54 +1116,6 @@ export function AuditTable({
                             </Button>
                           ) : null}
 
-                          {hasCompletedAudit(row, 1) || hasCompletedAudit(row, 2) ? (
-                            <div className="space-y-1">
-                              <div className="text-[10px] uppercase tracking-wide text-slate-500">Audit PDFs</div>
-                              <div className="flex flex-wrap items-center gap-2">
-                                {hasCompletedAudit(row, 1) ? (
-                                  row.compliance_audit_1_pdf_path ? (
-                                    <>
-                                      <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        onClick={() => handleViewPDF(row, 1)}
-                                        className="h-8 border border-slate-200 bg-white px-2.5 text-xs text-slate-700 hover:bg-slate-50"
-                                      >
-                                        <File className="h-3.5 w-3.5 mr-1" />
-                                        Audit 1
-                                      </Button>
-                                    </>
-                                  ) : canManageAudits ? (
-                                    <Button size="sm" variant="outline" onClick={() => handleOpenPDFUpload(row, 1)} className="h-8 border-slate-300 bg-white">
-                                      <Upload className="h-3 w-3 mr-1" />
-                                      Upload A1 PDF
-                                    </Button>
-                                  ) : null
-                                ) : null}
-
-                                {hasCompletedAudit(row, 2) ? (
-                                  row.compliance_audit_2_pdf_path ? (
-                                    <>
-                                      <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        onClick={() => handleViewPDF(row, 2)}
-                                        className="h-8 border border-slate-200 bg-white px-2.5 text-xs text-slate-700 hover:bg-slate-50"
-                                      >
-                                        <File className="h-3.5 w-3.5 mr-1" />
-                                        Audit 2
-                                      </Button>
-                                    </>
-                                  ) : canManageAudits ? (
-                                    <Button size="sm" variant="outline" onClick={() => handleOpenPDFUpload(row, 2)} className="h-8 border-slate-300 bg-white">
-                                      <Upload className="h-3 w-3 mr-1" />
-                                      Upload A2 PDF
-                                    </Button>
-                                  ) : null
-                                ) : null}
-                              </div>
-                            </div>
-                          ) : null}
                         </div>
                       </div>
                     )
@@ -1183,274 +1127,67 @@ export function AuditTable({
         )}
       </div>
 
-      {/* Desktop Table Container */}
-      <div className="hidden xl:flex rounded-2xl border desktop-table-shell shadow-sm overflow-hidden flex-col">
-        <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
-          <div className="min-w-[1180px]">
-            <Table className={cn('w-full border-separate border-spacing-0', desktopTableDensityClass)} style={{ tableLayout: 'fixed' }}>
-              <colgroup>
-                <col style={{ width: '164px' }} />
-                <col style={{ width: '88px' }} />
-                <col style={{ width: '136px' }} />
-                <col style={{ width: '92px' }} />
-                <col style={{ width: '72px' }} />
-                <col style={{ width: '60px' }} />
-                <col style={{ width: '44px' }} />
-                <col style={{ width: '92px' }} />
-                <col style={{ width: '72px' }} />
-                <col style={{ width: '60px' }} />
-                <col style={{ width: '44px' }} />
-                <col style={{ width: '58px' }} />
-                <col style={{ width: '170px' }} />
-              </colgroup>
-              <TableHeader className="desktop-table-head border-b border-slate-200">
-                <TableRow className="hover:bg-transparent">
-                  <TableHead className="audit-table-sticky-left audit-table-sticky-head bg-white text-[11px] font-semibold uppercase tracking-wide text-slate-500">Store</TableHead>
-                  <TableHead className="bg-transparent text-[11px] font-semibold uppercase tracking-wide text-slate-500">Area</TableHead>
-                  <TableHead className="bg-transparent text-[11px] font-semibold uppercase tracking-wide text-slate-500">Status</TableHead>
-                  <TableHead className="bg-transparent text-[11px] font-semibold uppercase tracking-wide text-slate-500">Audit 1 Date</TableHead>
-                  <TableHead className="bg-transparent text-[11px] font-semibold uppercase tracking-wide text-slate-500">Action Plan 1</TableHead>
-                  <TableHead className="bg-transparent text-[11px] font-semibold uppercase tracking-wide text-slate-500">Audit 1 %</TableHead>
-                  <TableHead className="bg-transparent text-center text-[11px] font-semibold uppercase tracking-wide text-slate-500">PDF</TableHead>
-                  <TableHead className="bg-transparent text-[11px] font-semibold uppercase tracking-wide text-slate-500">Audit 2 Date</TableHead>
-                  <TableHead className="bg-transparent text-[11px] font-semibold uppercase tracking-wide text-slate-500">Action Plan 2</TableHead>
-                  <TableHead className="bg-transparent text-[11px] font-semibold uppercase tracking-wide text-slate-500">Audit 2 %</TableHead>
-                  <TableHead className="bg-transparent text-center text-[11px] font-semibold uppercase tracking-wide text-slate-500">PDF</TableHead>
-                  <TableHead className="text-right pr-4 bg-transparent text-[11px] font-semibold uppercase tracking-wide text-slate-500">Total Audits</TableHead>
-                  <TableHead className="audit-table-sticky-right audit-table-sticky-head bg-white text-[11px] font-semibold uppercase tracking-wide text-slate-500">Actions</TableHead>
+      {/* One semantic table keeps audit headings aligned with their records. */}
+      <div className="audit-register hidden xl:block">
+        <Table className="audit-register-table">
+          <caption className="sr-only">Store audit records grouped by area. Scores, dates, action plans and PDF documents for each audit.</caption>
+          <colgroup><col style={{ width: '23%' }} /><col style={{ width: '18%' }} /><col style={{ width: '21%' }} /><col style={{ width: '21%' }} /><col style={{ width: '17%' }} /></colgroup>
+          <TableHeader>
+            <TableRow>
+              <TableHead scope="col">Store</TableHead>
+              <TableHead scope="col">Status</TableHead>
+              <TableHead scope="col">Audit 1</TableHead>
+              <TableHead scope="col">Audit 2</TableHead>
+              <TableHead scope="col">Follow-up</TableHead>
+            </TableRow>
+          </TableHeader>
+          {grouped.length === 0 ? (
+            <TableBody><TableRow><TableCell colSpan={5} className="py-10 text-center text-muted-foreground">No audit data found matching your filters.</TableCell></TableRow></TableBody>
+          ) : grouped.map(([groupKey, areaRows]) => {
+            const validScores = areaRows.map(getLatestPct).filter((score): score is number => score !== null)
+            const average = validScores.length ? validScores.reduce((sum, score) => sum + score, 0) / validScores.length : null
+            return (
+              <TableBody key={groupKey}>
+                <TableRow className="audit-area-row">
+                  <TableHead scope="rowgroup" colSpan={5}>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3"><span className="audit-area-marker" aria-hidden="true" />{getInternalAreaDisplayName(groupKey, { fallback: groupKey })}<span className="audit-area-count">{areaRows.length} store{areaRows.length === 1 ? '' : 's'}</span></div>
+                      <span className="audit-area-average">Area average <strong>{average === null ? '—' : formatPercent(average)}</strong><span className="sr-only"> from {validScores.length} scored stores</span></span>
+                    </div>
+                  </TableHead>
                 </TableRow>
-              </TableHeader>
-            </Table>
-            <div className="h-[70vh] overflow-y-auto">
-              <Table className={cn('w-full border-separate border-spacing-0', desktopTableDensityClass)} style={{ tableLayout: 'fixed' }}>
-                <colgroup>
-                <col style={{ width: '164px' }} />
-                <col style={{ width: '88px' }} />
-                <col style={{ width: '136px' }} />
-                  <col style={{ width: '92px' }} />
-                  <col style={{ width: '72px' }} />
-                  <col style={{ width: '60px' }} />
-                  <col style={{ width: '44px' }} />
-                  <col style={{ width: '92px' }} />
-                  <col style={{ width: '72px' }} />
-                  <col style={{ width: '60px' }} />
-                  <col style={{ width: '44px' }} />
-                  <col style={{ width: '58px' }} />
-                  <col style={{ width: '170px' }} />
-                </colgroup>
-                <TableBody>
-              {grouped.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={13} className="text-center text-muted-foreground py-10">
-                    No audit data found matching your filters.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                grouped.map(([groupKey, areaRows]) => {
-                  
-                  // --- CALCULATE AREA AVERAGE DYNAMICALLY ---
-                  // 1. Map rows to their latest percentage
-                  const validScores = areaRows
-                    .map(r => getLatestPct(r))
-                    .filter((score): score is number => score !== null);
-                  
-                  // 2. Calculate Average
-                  const totalScore = validScores.reduce((acc, cur) => acc + cur, 0);
-                  const calculatedAverage = validScores.length > 0 
-                    ? totalScore / validScores.length 
-                    : null;
-                  
+                {areaRows.map((row) => {
+                  const flag = getUpcomingActionFlag(row)
+                  const lifecycle = getAuditLifecycle(row)
+                  const nextAudit = getNextAuditNumber(row)
+                  const count = getCompletedAuditCount(row)
                   return (
-                    <Fragment key={groupKey}>
-                      {/* Area Divider Row */}
-                      <TableRow className="desktop-group-bar hover:bg-transparent">
-                        <TableCell 
-                          colSpan={13} 
-                          className="py-1.5 px-4 border-y border-slate-200/70"
-                        >
-                          <div className="flex items-center justify-between w-full">
-                            <span className="font-bold text-slate-700">
-                              {getInternalAreaDisplayName(groupKey, { fallback: groupKey })}
-                            </span>
-                            <div className="flex items-center gap-3">
-                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                                Area Average ({validScores.length} stores)
-                              </span>
-                              {pctBadge(calculatedAverage)}
-                            </div>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-
-                      {/* Store Rows */}
-                      {areaRows.map((row) => {
-                        const upcomingActionFlag = getUpcomingActionFlag(row)
-                        const auditLifecycle = getAuditLifecycle(row)
-
-                        return (
-                        <TableRow
-                          key={row.id}
-                          className="group transition-colors hover:bg-slate-50/70"
-                        >
-                          <TableCell className="audit-table-sticky-left font-semibold text-sm border-b bg-white group-hover:bg-slate-50">
-                            <div className="flex flex-col items-start gap-1">
-                              <button
-                                type="button"
-                                onClick={() => handleOpenStoreActionsModal(row)}
-                                className="max-w-[120px] truncate text-left text-sm font-semibold text-slate-900 underline-offset-2 hover:text-blue-700 hover:underline"
-                                title="Open store actions"
-                              >
-                                {row.store_name}
-                              </button>
-                              <span className="font-mono text-xs font-medium text-slate-500">
-                                {getDisplayStoreCode(row.store_code) || '—'}
-                              </span>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-xs text-muted-foreground border-b bg-white group-hover:bg-slate-50">
-                            {getInternalAreaDisplayName(row.region, { fallback: '—' })}
-                          </TableCell>
-                          <TableCell className="font-semibold text-sm border-b bg-white group-hover:bg-slate-50">
-                            <div className="flex flex-col items-start gap-1">
-                              {upcomingActionFlag ? (
-                                <button
-                                  type="button"
-                                  onClick={() => handleOpenStoreActionsModal(row)}
-                                  title={upcomingActionFlag.title}
-                                  className={cn(
-                                    'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold',
-                                    upcomingActionFlag.isDebugPreview
-                                      ? 'border-violet-300 bg-violet-50 text-violet-700 hover:bg-violet-100'
-                                      : 'border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100'
-                                  )}
-                                >
-                                  <BellRing className="h-3 w-3" />
-                                  {upcomingActionFlag.isDebugPreview ? 'Debug preview' : 'Previous actions'}
-                                </button>
-                              ) : null}
-                              <StatusBadge type="audit" status={auditLifecycle.status} label={auditLifecycle.label} />
-                            </div>
-                          </TableCell>
-                          
-                          <TableCell className="border-b bg-white group-hover:bg-slate-50">{renderDateCell(row, row.compliance_audit_1_date, row.compliance_audit_1_overall_pct, 1)}</TableCell>
-                          <TableCell className="border-b bg-white group-hover:bg-slate-50">{renderActionPlanCell(row.action_plan_1_sent, row, 1)}</TableCell>
-                          <TableCell className="border-b bg-white group-hover:bg-slate-50">{renderPercentageCell(row.compliance_audit_1_overall_pct, row.id, 1)}</TableCell>
-                          <TableCell className="border-b bg-white group-hover:bg-slate-50 text-center">
-                            <div className="flex items-center justify-center gap-1">
-                              {row.compliance_audit_1_pdf_path ? (
-                                <>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => handleViewPDF(row, 1)}
-                                    className="h-7 border border-slate-200 bg-white px-2 hover:bg-slate-50"
-                                    title="View Audit 1 PDF"
-                                  >
-                                    <File className="h-4 w-4 text-slate-700" />
-                                  </Button>
-                                </>
-                              ) : canManageAudits && hasCompletedAudit(row, 1) ? (
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => handleOpenPDFUpload(row, 1)}
-                                  className="h-7 border border-slate-300 bg-white px-2 text-xs hover:bg-slate-50"
-                                  title="Upload Audit 1 PDF"
-                                >
-                                  <Upload className="h-3 w-3 text-slate-600" />
-                                </Button>
-                              ) : (
-                                <span className="text-sm text-muted-foreground">—</span>
-                              )}
-                            </div>
-                          </TableCell>
-                          
-                          <TableCell className="border-b bg-white group-hover:bg-slate-50">{renderDateCell(row, row.compliance_audit_2_date, row.compliance_audit_2_overall_pct, 2)}</TableCell>
-                          <TableCell className="border-b bg-white group-hover:bg-slate-50">{renderActionPlanCell(row.action_plan_2_sent, row, 2)}</TableCell>
-                          <TableCell className="border-b bg-white group-hover:bg-slate-50">{renderPercentageCell(row.compliance_audit_2_overall_pct, row.id, 2)}</TableCell>
-                          <TableCell className="border-b bg-white group-hover:bg-slate-50 text-center">
-                            <div className="flex items-center justify-center gap-1">
-                              {row.compliance_audit_2_pdf_path ? (
-                                <>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => handleViewPDF(row, 2)}
-                                    className="h-7 border border-slate-200 bg-white px-2 hover:bg-slate-50"
-                                    title="View Audit 2 PDF"
-                                  >
-                                    <File className="h-4 w-4 text-slate-700" />
-                                  </Button>
-                                </>
-                              ) : canManageAudits && hasCompletedAudit(row, 2) ? (
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => handleOpenPDFUpload(row, 2)}
-                                  className="h-7 border border-slate-300 bg-white px-2 text-xs hover:bg-slate-50"
-                                  title="Upload Audit 2 PDF"
-                                >
-                                  <Upload className="h-3 w-3 text-slate-600" />
-                                </Button>
-                              ) : (
-                                <span className="text-sm text-muted-foreground">—</span>
-                              )}
-                            </div>
-                          </TableCell>
-                          
-                          <TableCell className="text-right pr-4 font-mono text-xs text-muted-foreground border-b bg-white group-hover:bg-slate-50">
-                            {getCompletedAuditCount(row)}
-                          </TableCell>
-                          
-                          <TableCell className="audit-table-sticky-right border-b bg-white group-hover:bg-slate-50">
-                            <div className="flex flex-col gap-1.5 min-w-[180px]">
-                              {upcomingActionFlag ? (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => handleOpenStoreActionsModal(row)}
-                                  title={upcomingActionFlag.title}
-                                  className={cn(
-                                    'h-7 px-2 text-xs whitespace-nowrap',
-                                    upcomingActionFlag.isDebugPreview
-                                      ? 'border-violet-300 bg-violet-50 text-violet-700 hover:bg-violet-100'
-                                      : 'border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100'
-                                  )}
-                                >
-                                  <BellRing className="h-3.5 w-3.5 mr-1.5" />
-                                  {upcomingActionFlag.isDebugPreview
-                                    ? `Debug Preview (${upcomingActionFlag.actionCount})`
-                                    : `Previous Actions (${upcomingActionFlag.actionCount})`}
-                                </Button>
-                              ) : null}
-
-                              {canManageAudits && getNextAuditNumber(row) !== null ? (
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="default"
-                                  onClick={() => handleAddAudit(row)}
-                                  className="h-7 bg-slate-900 px-2 text-xs text-white whitespace-nowrap hover:bg-slate-800"
-                                >
-                                  Add Audit
-                                </Button>
-                              ) : null}
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                        )
-                      })}
-                    </Fragment>
+                    <TableRow key={row.id} className="audit-store-row">
+                      <TableCell>
+                        <button type="button" className="audit-store-name" onClick={() => handleOpenStoreActionsModal(row)} title="Open store actions">{row.store_name}</button>
+                        <div className="audit-store-meta"><span>{getDisplayStoreCode(row.store_code) || '—'}</span><span>{count} audit{count === 1 ? '' : 's'}</span></div>
+                      </TableCell>
+                      <TableCell><StatusBadge type="audit" status={lifecycle.status} label={lifecycle.label} /></TableCell>
+                      <TableCell>{renderAuditSummary(row, 1)}</TableCell>
+                      <TableCell>{renderAuditSummary(row, 2)}</TableCell>
+                      <TableCell>
+                        <div className="audit-follow-up">
+                          {flag ? <button type="button" className="audit-previous-actions" onClick={() => handleOpenStoreActionsModal(row)} title={flag.title}>
+                            <BellRing className="h-3.5 w-3.5" />{flag.isDebugPreview ? 'Preview' : 'Previous actions'}<span>{flag.actionCount}</span>
+                          </button> : null}
+                          {canManageAudits && nextAudit !== null ? <Button type="button" size="sm" variant="outline" onClick={() => handleAddAudit(row)} className="audit-add-button">+ Add Audit {nextAudit}</Button> : null}
+                          {!flag && (!canManageAudits || nextAudit === null) ? <span className="audit-unrecorded">—</span> : null}
+                        </div>
+                      </TableCell>
+                    </TableRow>
                   )
-                })
-              )}
-            </TableBody>
-          </Table>
-        </div>
+                })}
+              </TableBody>
+            )
+          })}
+        </Table>
       </div>
-    </div>
-  </div>
-      
+
       {/* PDF Viewer Modal */}
       <PDFViewerModal
         open={pdfViewerOpen}

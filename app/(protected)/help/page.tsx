@@ -163,7 +163,7 @@ export default async function HelpPage({ searchParams }: { searchParams?: { q?: 
     : HELP_GUIDES
 
   return (
-    <div className="space-y-4 pb-8 sm:space-y-6">
+    <div className="space-y-4 pb-8 md:px-6 md:py-5 lg:px-8 sm:space-y-6">
       <PageHeader
         eyebrow="Support"
         title="Help Centre"
@@ -171,7 +171,7 @@ export default async function HelpPage({ searchParams }: { searchParams?: { q?: 
         breadcrumbs={[{ label: 'Today', href: '/dashboard' }, { label: 'Help Centre' }]}
       />
 
-      <form action="/help" method="get" role="search" className="border-y border-slate-200 bg-white p-4 sm:rounded-2xl sm:border">
+      <form action="/help" method="get" role="search" className="workspace-help-search border-y border-slate-200 bg-white p-4 sm:rounded-2xl sm:border">
         <label htmlFor="help-search" className="text-sm font-semibold text-slate-900">Search help</label>
         <div className="mt-2 flex flex-col gap-2 sm:flex-row">
           <div className="relative min-w-0 flex-1">

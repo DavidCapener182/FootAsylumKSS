@@ -5,19 +5,19 @@ export default async function AdminPage() {
   await requireRole(['admin'])
 
   return (
-    <div className="space-y-3 sm:space-y-6">
-      <div>
-        <h1 className="text-xl font-bold tracking-tight sm:text-3xl">User Management</h1>
+    <div className="space-y-3 md:px-6 md:py-5 lg:px-8 sm:space-y-6">
+      <div className="workspace-intro rounded-2xl border border-slate-200 bg-white p-4 sm:p-6">
+        <h1 className="workspace-title text-xl font-bold tracking-tight sm:text-3xl">User Management</h1>
         <p className="mt-1 hidden text-sm text-muted-foreground sm:mt-2 sm:block sm:text-base">
           Manage user roles and permissions. Only accessible to administrators.
         </p>
       </div>
 
       {/* Admin Tools */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
-        <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-lg sm:border-blue-200 sm:bg-blue-50 sm:p-4 sm:shadow-none">
+      <div className="workspace-tool-grid grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div className="workspace-feature rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-lg sm:border-blue-200 sm:bg-blue-50 sm:p-4 sm:shadow-none">
           <h2 className="mb-1 text-sm font-semibold text-slate-900 sm:mb-2 sm:text-lg sm:text-blue-900">SafeHub</h2>
-          <p className="mb-3 hidden text-sm text-slate-600 sm:block sm:text-blue-700">
+          <p className="mb-3 text-sm text-slate-600 sm:block sm:text-blue-700">
             Safety Culture-style audit pages for templates, execution, and compliance tracking.
           </p>
           <a
@@ -28,9 +28,9 @@ export default async function AdminPage() {
           </a>
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-lg sm:border-emerald-200 sm:bg-emerald-50 sm:p-4 sm:shadow-none">
+        <div className="workspace-feature workspace-feature-lime rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-lg sm:border-emerald-200 sm:bg-emerald-50 sm:p-4 sm:shadow-none">
           <h2 className="mb-1 text-sm font-semibold text-slate-900 sm:mb-2 sm:text-lg sm:text-emerald-900">Event Management Plans</h2>
-          <p className="mb-3 hidden text-sm text-slate-600 sm:block sm:text-emerald-700">
+          <p className="mb-3 text-sm text-slate-600 sm:block sm:text-emerald-700">
             Admin-only KSS workspace for site-specific event operations plans.
           </p>
           <a

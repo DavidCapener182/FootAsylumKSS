@@ -767,7 +767,7 @@ export async function buildMonthlyNewsletterData(
 
     {
       const result = await supabase
-        .from('fa_store_actions')
+        .from('fa_current_store_actions')
         .select(selectWithSummary)
         .in('store_id', storeIds)
         .not('status', 'in', '(complete,cancelled)')
@@ -780,7 +780,7 @@ export async function buildMonthlyNewsletterData(
 
     if (storeActionsError && /priority_summary/i.test(storeActionsError.message || '')) {
       const retry = await supabase
-        .from('fa_store_actions')
+        .from('fa_current_store_actions')
         .select(selectWithoutSummary)
         .in('store_id', storeIds)
         .not('status', 'in', '(complete,cancelled)')

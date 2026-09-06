@@ -506,13 +506,13 @@ export function EmpEventDayAdminClient({ initialData }: { initialData: EmpEventD
   return (
     <div className="min-h-screen bg-slate-100 p-3 sm:p-4 md:p-6">
       <div className="mx-auto max-w-7xl space-y-4">
-        <div className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-4 md:flex-row md:items-center md:justify-between">
+        <div className="workspace-intro flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-4 md:flex-row md:items-center md:justify-between">
           <div className="space-y-1">
             <a href="/admin/event-management-plans" className="inline-flex items-center text-sm font-medium text-slate-500 hover:text-slate-900">
               <ArrowLeft className="mr-2 h-4 w-4" />
               EMP Workspace
             </a>
-            <h1 className="text-2xl font-bold text-slate-950">Event Day Operations</h1>
+            <h1 className="workspace-title text-2xl font-bold text-slate-950">Event Day Operations</h1>
             <p className="text-sm text-slate-500">{data.plan.eventName || data.plan.title}</p>
           </div>
           <div className="flex flex-wrap gap-2">

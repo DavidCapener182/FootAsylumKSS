@@ -75,7 +75,7 @@ function buildAddress(store: StoreSearchResult): string {
   return [store.address_line_1, store.city, store.postcode].filter(Boolean).join(', ')
 }
 
-export function StoreSearch() {
+export function StoreSearch({ compactMobile = false }: { compactMobile?: boolean }) {
   const pathname = usePathname()
 
   const [query, setQuery] = useState('')
@@ -318,7 +318,7 @@ export function StoreSearch() {
 
   return (
     <>
-      <div ref={containerRef} className="relative flex items-center gap-2 flex-1">
+      <div ref={containerRef} className={cn("relative flex items-center gap-2 flex-1", compactMobile && "workspace-search-compact")}>
         {/* Desktop search */}
         <div className="hidden md:block w-full max-w-[420px]">
           <div ref={anchorRef} className="relative">
@@ -356,7 +356,7 @@ export function StoreSearch() {
         {/* Mobile search button + inline search */}
         <div className="w-full md:hidden">
           {mobileSearchOpen ? (
-            <div ref={anchorRef} className="relative w-full">
+            <div ref={anchorRef} className={cn("relative w-full", compactMobile && "workspace-search-expanded")}>
               <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/55" />
               <Input
                 autoFocus
@@ -394,7 +394,7 @@ export function StoreSearch() {
             <Button
               type="button"
               variant="ghost"
-              className="h-11 w-full justify-start gap-2 rounded-[18px] border border-white/10 bg-white/8 px-3 text-sm font-medium !text-white/70 shadow-[0_10px_24px_rgba(2,12,24,0.14)] hover:bg-white/12 hover:!text-white"
+              className={cn("h-11 gap-2 rounded-xl border border-white/10 bg-white/8 text-sm font-medium !text-white/70 hover:bg-white/12 hover:!text-white", compactMobile ? "w-11 min-w-[44px] justify-center p-0" : "w-full justify-start px-3")}
               onClick={() => {
                 setMobileSearchOpen(true)
                 // open dropdown once user types
@@ -402,7 +402,7 @@ export function StoreSearch() {
               aria-label="Search stores"
             >
               <Search className="h-4 w-4 text-white/55" />
-              <span>Search stores or managers</span>
+              {!compactMobile && <span>Search stores or managers</span>}
             </Button>
           )}
         </div>

@@ -1,3 +1,4 @@
+import { isHistoricalStoreAction } from '@/lib/actions/action-history'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { getInternalAreaDisplayName } from '@/lib/areas'
@@ -74,6 +75,7 @@ function dedupeVisibleStoreActions(actions: UnifiedAction[]) {
 
   for (const action of actions) {
     const status = action.status.toLowerCase()
+    if (action.source_audit_date || action.archived) { nonActiveActions.push(action); continue }
     if (!['open', 'in_progress'].includes(status)) {
       nonActiveActions.push(action)
       continue
@@ -129,6 +131,11 @@ export function presentUnifiedActions(
       title: action.title,
       description: action.description,
       source_flagged_item: action.source_flagged_item,
+      active_until: action.active_until as string | null,
+      source_audit_date: action.source_audit_date as string | null,
+      source_audit_number: action.source_audit_number as number | null,
+      source_pdf_path: action.source_pdf_path as string | null,
+      archived: isHistoricalStoreAction(action as {status:string;active_until?:string|null}),
       priority: action.priority,
       due_date: action.due_date,
       status: action.status,
@@ -152,10 +159,13 @@ export function presentUnifiedActions(
       store_question: storeQuestion,
       store: action.store,
     }
-  }).filter((action) => !isSuppressedStoreActionQuestion(action.store_question || action.title))
+  }).filter((action) => action.archived || action.source_audit_date || !isSuppressedStoreActionQuestion(action.store_question || action.title))
 
   let actions = [...incidentActions, ...dedupeVisibleStoreActions(storeActions)]
     .sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime())
+
+  if (filters.view === 'history') actions = actions.filter(action => action.source_type === 'store' && action.archived)
+  else if (!['all_records','completed'].includes(filters.view || '') && !['complete','cancelled'].includes(filters.status || '')) actions = actions.filter(action => !action.archived)
 
   if (filters.assigned_to) actions = actions.filter((action) => action.assigned_to?.id === filters.assigned_to)
   if (filters.priority) actions = actions.filter((action) => action.priority === filters.priority)
@@ -163,7 +173,7 @@ export function presentUnifiedActions(
   const today = new Date().toISOString().slice(0, 10)
   const endOfWeek = new Date()
   endOfWeek.setDate(endOfWeek.getDate() + 7)
-  const active = (action: UnifiedAction) => !['complete', 'completed', 'cancelled'].includes(action.status.toLowerCase())
+  const active = (action: UnifiedAction) => !action.archived && !['complete', 'completed', 'cancelled'].includes(action.status.toLowerCase())
   if (filters.view === 'my_work' && filters.assigned_to) actions = actions.filter((action) => action.assigned_to?.id === filters.assigned_to && active(action))
   if (filters.view === 'my_team') actions = actions.filter(active)
   if (filters.view === 'overdue') actions = actions.filter((action) => active(action) && action.due_date < today)
@@ -220,7 +230,7 @@ export async function getUnifiedActions(filters: ActionFilters = {}): Promise<Un
 
   let storeQuery = supabase
     .from('fa_store_actions')
-    .select(`id, title, description, source_flagged_item, priority, due_date, status, created_at, updated_at, completion_notes,
+    .select(`id, title, description, source_flagged_item, active_until, source_audit_date, source_audit_number, source_pdf_path, priority, due_date, status, created_at, updated_at, completion_notes,
       evidence_required, blocked_reason, reassignment_reason, verification_status, recurrence_rule, dependency_action_ids,
       assigned_to:fa_profiles!fa_store_actions_assigned_to_user_id_fkey(id, full_name),
       store:fa_stores!fa_store_actions_store_id_fkey(id, store_name, store_code, region, compliance_audit_1_overall_pct, compliance_audit_2_overall_pct, compliance_audit_2_assigned_manager_user_id)`)

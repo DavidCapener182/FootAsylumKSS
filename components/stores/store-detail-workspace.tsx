@@ -1,6 +1,8 @@
 'use client'
 
+import { WorkspaceMetrics } from '@/components/product/workspace-metrics'
 import Link from 'next/link'
+import { isHistoricalStoreAction } from '@/lib/actions/action-history'
 import { useRouter } from 'next/navigation'
 import { useMemo, useState } from 'react'
 import { format } from 'date-fns'
@@ -123,7 +125,7 @@ export function StoreDetailWorkspace({ store, incidents, actions, userRole, crmD
   )
 
   const ongoingActions = useMemo(
-    () => actions.filter((action) => !['complete', 'cancelled'].includes(String(action.status || '').toLowerCase())),
+    () => actions.filter((action) => !isHistoricalStoreAction(action)),
     [actions]
   )
 
@@ -290,7 +292,7 @@ export function StoreDetailWorkspace({ store, incidents, actions, userRole, crmD
   }
 
   return (
-    <div className="space-y-3 sm:space-y-6">
+    <div className="workspace-page-inset space-y-3 sm:space-y-6">
       <nav className="flex items-center gap-2 text-xs text-slate-400 sm:text-sm">
         <Link href="/stores" className="transition-colors hover:text-blue-600">
           Stores / CRM
@@ -299,15 +301,15 @@ export function StoreDetailWorkspace({ store, incidents, actions, userRole, crmD
         <span className="font-medium text-slate-900">{store.store_name}</span>
       </nav>
 
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm sm:rounded-2xl">
-        <div className="flex flex-col items-start justify-between gap-3 p-3 sm:gap-5 sm:p-5 md:flex-row md:items-center md:p-6">
+      <div className="workspace-intro overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm sm:rounded-2xl">
+        <div className="flex flex-col items-start justify-between gap-3 p-3 sm:gap-5 sm:p-5 md:p-0">
           <div className="flex items-center gap-3 sm:gap-5">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 sm:h-16 sm:w-16 sm:rounded-2xl">
               <Store size={24} />
             </div>
             <div>
               <div className="mb-1 flex flex-wrap items-center gap-2 sm:gap-3">
-                <h1 className="text-xl font-bold tracking-tight sm:text-2xl md:text-3xl">{store.store_name}</h1>
+                <h1 className="workspace-title text-xl font-bold tracking-tight sm:text-2xl md:text-3xl">{store.store_name}</h1>
                 <span
                   className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
                     store.is_active ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'
@@ -338,24 +340,11 @@ export function StoreDetailWorkspace({ store, incidents, actions, userRole, crmD
             </div>
           </div>
 
-          <div className="grid w-full grid-cols-3 gap-2 border-t border-slate-100 pt-3 md:w-auto md:min-w-[420px] md:border-t-0 md:pt-0">
-            <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 sm:rounded-2xl sm:px-4 sm:py-3">
-              <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">Audit</p>
-              <p className="text-lg font-black text-slate-900">
-                {typeof latestAuditScore === 'number' ? `${latestAuditScore.toFixed(1)}%` : '—'}
-              </p>
-            </div>
-            <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 sm:rounded-2xl sm:px-4 sm:py-3">
-              <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">Open Actions</p>
-              <p className={`text-lg font-black ${overdueActions.length > 0 ? 'text-rose-600' : 'text-blue-600'}`}>
-                {ongoingActions.length}
-              </p>
-            </div>
-            <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 sm:rounded-2xl sm:px-4 sm:py-3">
-              <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">FRA</p>
-              <div className="pt-0.5">{renderFRAStatusBadge(fraStatus, fraDaysUntilDue)}</div>
-            </div>
-          </div>
+          <WorkspaceMetrics className="w-full" label="Store compliance overview" items={[
+            { label: 'Latest audit', value: typeof latestAuditScore === 'number' ? `${latestAuditScore.toFixed(1)}%` : '—' },
+            { label: 'Open actions', value: ongoingActions.length, attention: overdueActions.length > 0 },
+            { label: 'FRA', value: renderFRAStatusBadge(fraStatus, fraDaysUntilDue) },
+          ]} />
         </div>
       </div>
 
@@ -369,11 +358,11 @@ export function StoreDetailWorkspace({ store, incidents, actions, userRole, crmD
               key={tab}
               onClick={() => setActiveTab(value)}
               className={`relative whitespace-nowrap pb-3 text-sm font-semibold transition-all sm:pb-4 ${
-                isActive ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'
+                isActive ? 'text-[#334e27]' : 'text-slate-400 hover:text-slate-600'
               }`}
             >
               {tab}
-              {isActive ? <div className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full bg-blue-600" /> : null}
+              {isActive ? <div className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full bg-[#334e27]" /> : null}
             </button>
           )
         })}
@@ -532,7 +521,7 @@ export function StoreDetailWorkspace({ store, incidents, actions, userRole, crmD
               <div>
                 <h3 className="text-base font-bold text-slate-900 sm:text-lg">Store Actions</h3>
                 <p className="hidden text-sm text-slate-500 sm:block">
-                  Add direct store actions from flagged audit text or review existing open/completed tasks.
+                  Second-audit PDF findings are added automatically. Review current actions or open their history.
                 </p>
                 <p className="mt-2 text-xs text-slate-500">
                   {directStoreActions.length} direct store actions • {incidentLinkedActions.length} incident-linked actions
@@ -544,7 +533,7 @@ export function StoreDetailWorkspace({ store, incidents, actions, userRole, crmD
                 disabled={!canCreateStoreActions}
                 className="w-full sm:w-auto"
               >
-                Add Actions From Parser
+                Review Store Actions
               </Button>
             </div>
             {!canCreateStoreActions ? (
@@ -561,13 +550,14 @@ export function StoreDetailWorkspace({ store, incidents, actions, userRole, crmD
 
           <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm sm:rounded-2xl">
             <div className="border-b border-slate-200 bg-slate-50/50 px-3 py-3 sm:px-6 sm:py-4">
-              <h4 className="font-bold text-slate-900">Action List</h4>
+              <h4 className="font-bold text-slate-900">Current Actions</h4>
+              <Link href={`/actions?view=history&q=${encodeURIComponent(store.store_name)}`} className="mt-2 inline-block text-sm underline underline-offset-4">View completed and expired actions in history</Link>
             </div>
             <div className="divide-y divide-slate-100">
-              {actions.length === 0 ? (
-                <div className="p-3 text-sm text-slate-500 sm:p-6">No actions logged for this store.</div>
+              {ongoingActions.length === 0 ? (
+                <div className="p-3 text-sm text-slate-500 sm:p-6">No current actions for this store.</div>
               ) : (
-                actions.map((action) => (
+                ongoingActions.map((action) => (
                   <div key={action.id} className="space-y-2.5 p-3 sm:space-y-3 sm:p-5">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <p className="text-sm font-semibold text-slate-900">

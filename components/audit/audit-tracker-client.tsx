@@ -19,16 +19,16 @@ export function AuditTrackerClient({ stores, userRole }: AuditTrackerClientProps
   const [areaFilter, setAreaFilter] = useState<string>('all')
 
   return (
-    <div className="max-w-full space-y-6 overflow-x-hidden">
-      <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:p-6">
+    <div className="max-w-full space-y-4 overflow-x-hidden md:space-y-6 md:px-6 md:py-5 lg:px-8">
+      <div className="workspace-intro min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:p-6">
         <div className="space-y-5">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div className="min-w-0">
-              <div className="mb-1.5 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-lime-600 md:text-xs">
+              <div className="mb-1.5 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-lime-700 md:text-xs">
                 <ClipboardCheck size={14} />
                 Compliance Monitoring
               </div>
-              <h1 className="text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">Audit Tracker</h1>
+              <h1 className="workspace-title text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">Audit Tracker</h1>
               <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
                 Track compliance scores, view audit history, and monitor network performance across all regions.
               </p>
@@ -44,7 +44,7 @@ export function AuditTrackerClient({ stores, userRole }: AuditTrackerClientProps
             </form>
           </div>
 
-          <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
+          <div className="min-w-0">
             <AuditStatsCards stores={stores} selectedArea={areaFilter} />
           </div>
         </div>

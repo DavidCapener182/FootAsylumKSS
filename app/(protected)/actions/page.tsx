@@ -1,3 +1,4 @@
+import { WorkspaceMetrics } from '@/components/product/workspace-metrics'
 import { requireRole } from '@/lib/auth'
 import { can } from '@/lib/role-capabilities'
 import { Button } from '@/components/ui/button'
@@ -32,7 +33,7 @@ export default async function ActionsPage({
   }
 }) {
   const { profile } = await requireRole(['admin', 'ops', 'client', 'readonly'])
-  const canManageActions = can(profile?.role, 'manageActions')
+  const canManageActions = can(profile?.role, 'manageActions') && !['history','completed'].includes(searchParams.view || '')
   const filters: ActionFilters = {
     assigned_to: searchParams.view === 'my_work' ? profile.id : searchParams.assigned_to || undefined,
     status: searchParams.status && searchParams.status !== 'all' ? searchParams.status : undefined,
@@ -49,7 +50,7 @@ export default async function ActionsPage({
   }
   const [{ actions, storeQuestionOptions }, { actions: overviewActions }, savedViews] = await Promise.all([
     getUnifiedActions(filters),
-    getUnifiedActions(),
+    getUnifiedActions({view:'all_records'}),
     getSavedViews('actions'),
   ])
 
@@ -57,11 +58,11 @@ export default async function ActionsPage({
   const totalActions = actions.length
   const overdueCount = actions.filter(action => {
     const isOverdue = new Date(action.due_date) < new Date() && 
-      !['complete', 'cancelled'].includes(action.status)
+      !action.archived && !['complete', 'cancelled'].includes(action.status)
     return isOverdue
   }).length
   const activeActions = actions.filter(action => 
-    !['complete', 'cancelled'].includes(action.status)
+    !action.archived && !['complete', 'cancelled'].includes(action.status)
   ).length
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -142,7 +143,7 @@ export default async function ActionsPage({
     .map(([, value]) => ({
       ...value,
       summaryBullets: value.isStoreGroup ? buildPersistedStoreSummaryBullets(value.actions) : [],
-      activeCount: value.actions.filter((action) => !['complete', 'cancelled'].includes(action.status)).length,
+      activeCount: value.actions.filter((action) => !action.archived && !['complete', 'cancelled'].includes(action.status)).length,
       highPriorityCount: value.actions.filter((action) => ['urgent', 'high'].includes(String(action.priority).toLowerCase())).length,
       nextDueTime: Math.min(
         ...value.actions
@@ -187,20 +188,20 @@ export default async function ActionsPage({
     })
 
   const quickViews = [
-    { id: 'my_work', title: 'My Work', count: overviewActions.filter((action) => action.assigned_to?.id === profile.id && !['complete', 'completed', 'cancelled'].includes(action.status)).length, href: '/actions?view=my_work', detail: 'Work assigned directly to you' },
-    { id: 'my_team', title: 'My Team', count: overviewActions.filter((action) => !['complete', 'completed', 'cancelled'].includes(action.status)).length, href: '/actions?view=my_team', detail: 'All active team work' },
-    { id: 'overdue', title: 'Overdue', count: overviewActions.filter((action) => !['complete', 'completed', 'cancelled'].includes(action.status) && action.due_date < today.toISOString().slice(0, 10)).length, href: '/actions?view=overdue', detail: 'Past due and incomplete' },
-    { id: 'due_week', title: 'Due This Week', count: overviewActions.filter((action) => !['complete', 'completed', 'cancelled'].includes(action.status) && action.due_date >= today.toISOString().slice(0, 10) && action.due_date <= nextWeek.toISOString().slice(0, 10)).length, href: '/actions?view=due_week', detail: 'Due in the next seven days' },
-    { id: 'priority_one', title: 'Priority One', count: overviewActions.filter((action) => ['urgent', 'high', 'p1'].includes(action.priority.toLowerCase()) && !['complete', 'completed', 'cancelled'].includes(action.status)).length, href: '/actions?view=priority_one', detail: 'Highest priority work' },
-    { id: 'blocked', title: 'Blocked', count: overviewActions.filter((action) => Boolean(action.blocked_reason)).length, href: '/actions?view=blocked', detail: 'Work requiring intervention' },
-    { id: 'awaiting_evidence', title: 'Awaiting Evidence', count: overviewActions.filter((action) => action.verification_status === 'awaiting_evidence').length, href: '/actions?view=awaiting_evidence', detail: 'Completion proof outstanding' },
-    { id: 'awaiting_verification', title: 'Awaiting Verification', count: overviewActions.filter((action) => action.verification_status === 'awaiting_verification').length, href: '/actions?view=awaiting_verification', detail: 'Ready for manager verification' },
-    { id: 'completed', title: 'Completed', count: overviewActions.filter((action) => ['complete', 'completed'].includes(action.status)).length, href: '/actions?view=completed', detail: 'Completed work history' },
+    { id: 'my_work', title: 'My Work', count: overviewActions.filter((action) => action.assigned_to?.id === profile.id && !action.archived && !['complete', 'completed', 'cancelled'].includes(action.status)).length, href: '/actions?view=my_work', detail: 'Work assigned directly to you' },
+    { id: 'my_team', title: 'My Team', count: overviewActions.filter((action) => !action.archived && !['complete', 'completed', 'cancelled'].includes(action.status)).length, href: '/actions?view=my_team', detail: 'All active team work' },
+    { id: 'overdue', title: 'Overdue', count: overviewActions.filter((action) => !action.archived && !['complete', 'completed', 'cancelled'].includes(action.status) && action.due_date < today.toISOString().slice(0, 10)).length, href: '/actions?view=overdue', detail: 'Past due and incomplete' },
+    { id: 'due_week', title: 'Due This Week', count: overviewActions.filter((action) => !action.archived && !['complete', 'completed', 'cancelled'].includes(action.status) && action.due_date >= today.toISOString().slice(0, 10) && action.due_date <= nextWeek.toISOString().slice(0, 10)).length, href: '/actions?view=due_week', detail: 'Due in the next seven days' },
+    { id: 'priority_one', title: 'Priority One', count: overviewActions.filter((action) => ['urgent', 'high', 'p1'].includes(action.priority.toLowerCase()) && !action.archived && !['complete', 'completed', 'cancelled'].includes(action.status)).length, href: '/actions?view=priority_one', detail: 'Highest priority work' },
+    { id: 'blocked', title: 'Blocked', count: overviewActions.filter((action) => !action.archived && Boolean(action.blocked_reason)).length, href: '/actions?view=blocked', detail: 'Work requiring intervention' },
+    { id: 'awaiting_evidence', title: 'Awaiting Evidence', count: overviewActions.filter((action) => !action.archived && action.verification_status === 'awaiting_evidence').length, href: '/actions?view=awaiting_evidence', detail: 'Completion proof outstanding' },
+    { id: 'awaiting_verification', title: 'Awaiting Verification', count: overviewActions.filter((action) => !action.archived && action.verification_status === 'awaiting_verification').length, href: '/actions?view=awaiting_verification', detail: 'Ready for manager verification' },
+    { id: 'history', title: 'History', count: overviewActions.filter((action) => action.archived).length, href: '/actions?view=history', detail: 'Completed and expired store actions' },
     /* Legacy analytical views retained for desktop triage. */
     {
       id: 'high_priority',
       title: 'High Priority',
-      count: actions.filter((action) => ['urgent', 'high'].includes(String(action.priority).toLowerCase()) && !['complete', 'cancelled'].includes(action.status)).length,
+      count: actions.filter((action) => ['urgent', 'high'].includes(String(action.priority).toLowerCase()) && !action.archived && !['complete', 'cancelled'].includes(action.status)).length,
       href: '/actions?view=high_priority',
       detail: 'High and urgent work first',
     },
@@ -238,14 +239,14 @@ export default async function ActionsPage({
     <div className="flex min-h-screen flex-col gap-3 bg-slate-50 px-0 py-0 sm:gap-6 sm:px-6 sm:py-5 lg:px-8">
       
       {/* Header Section */}
-      <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-5 md:p-6">
+      <div className="workspace-intro rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-5 md:p-6">
       <div className="flex flex-col justify-between gap-3 md:flex-row md:items-start">
         <div className="space-y-1 flex-1 min-w-0">
-          <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-lime-600">
+          <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-lime-700">
             <CheckSquare2 className="h-4 w-4" />
             Action Management
           </div>
-          <h1 className="mt-1 text-xl font-bold tracking-tight text-slate-950 sm:mt-2 sm:text-3xl">Actions</h1>
+          <h1 className="workspace-title mt-1 text-xl font-bold tracking-tight text-slate-950 sm:mt-2 sm:text-3xl">Actions</h1>
           <p className="mt-1 hidden max-w-2xl text-sm leading-6 text-slate-500 sm:block">
             Track audit, FRA and store follow-up actions, monitor due dates, and manage completion evidence.
           </p>
@@ -253,75 +254,29 @@ export default async function ActionsPage({
       </div>
       </div>
 
-      <SavedViewBar feature="actions" initialViews={savedViews} currentFilters={filters as Record<string, unknown>} />
+      <details className="rounded-xl border border-slate-200 bg-white">
+        <summary className="min-h-[44px] cursor-pointer px-4 py-3 text-sm font-semibold text-slate-600">Saved views</summary>
+        <SavedViewBar feature="actions" initialViews={savedViews} currentFilters={filters as Record<string, unknown>} />
+      </details>
 
-      {/* Stats Overview */}
-      <div className="grid grid-cols-2 gap-2 md:grid-cols-5 md:gap-4">
-        <Card className="bg-white shadow-sm border-slate-200">
-          <CardContent className="flex h-full flex-col justify-between gap-3 p-3 md:flex-row md:items-center md:p-6">
-            <div className="space-y-1 flex-1 min-w-0">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 md:text-xs">Total Actions</p>
-              <p className="text-xl md:text-2xl font-bold text-slate-900">{totalActions}</p>
-            </div>
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 md:ml-2 md:h-10 md:w-10">
-              <FileText className="h-4 w-4 md:h-5 md:w-5 text-slate-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-white shadow-sm border-slate-200">
-          <CardContent className="flex h-full flex-col justify-between gap-3 p-3 md:flex-row md:items-center md:p-6">
-            <div className="space-y-1 flex-1 min-w-0">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 md:text-xs">Active</p>
-              <p className="text-xl md:text-2xl font-bold text-blue-600">{activeActions}</p>
-            </div>
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-50 md:ml-2 md:h-10 md:w-10">
-              <Clock className="h-4 w-4 md:h-5 md:w-5 text-blue-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-white shadow-sm border-slate-200">
-          <CardContent className="flex h-full flex-col justify-between gap-3 p-3 md:flex-row md:items-center md:p-6">
-            <div className="space-y-1 flex-1 min-w-0">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 md:text-xs">Overdue</p>
-              <p className="text-xl md:text-2xl font-bold text-rose-600">{overdueCount}</p>
-            </div>
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-50 md:ml-2 md:h-10 md:w-10">
-              <AlertCircle className="h-4 w-4 md:h-5 md:w-5 text-rose-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-white shadow-sm border-slate-200">
-          <CardContent className="flex h-full flex-col justify-between gap-3 p-3 md:flex-row md:items-center md:p-6">
-            <div className="space-y-1 flex-1 min-w-0">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 md:text-xs">Due Today</p>
-              <p className="text-xl md:text-2xl font-bold text-amber-600">{dueTodayCount}</p>
-            </div>
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-50 md:ml-2 md:h-10 md:w-10">
-              <CalendarClock className="h-4 w-4 md:h-5 md:w-5 text-amber-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-white shadow-sm border-slate-200">
-          <CardContent className="flex h-full flex-col justify-between gap-3 p-3 md:flex-row md:items-center md:p-6">
-            <div className="space-y-1 flex-1 min-w-0">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 md:text-xs">Due Soon</p>
-              <p className="text-xl md:text-2xl font-bold text-blue-600">{dueSoonCount}</p>
-            </div>
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-50 md:ml-2 md:h-10 md:w-10">
-              <TimerReset className="h-4 w-4 md:h-5 md:w-5 text-blue-600" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <WorkspaceMetrics label="Action overview" items={[
+        { label: 'Total actions', value: totalActions },
+        { label: 'Active', value: activeActions },
+        { label: 'Overdue', value: overdueCount, attention: overdueCount > 0 },
+        { label: 'Due today', value: dueTodayCount, attention: dueTodayCount > 0 },
+        { label: 'Due soon', value: dueSoonCount },
+      ]} />
 
-      <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
+      <div aria-label="Action views" className="grid grid-flow-col auto-cols-max grid-rows-2 gap-2 overflow-x-auto pb-2 md:flex md:flex-wrap">
         {quickViews.map((view) => {
           const isActive = filters.view === view.id
           return (
             <Link
               key={view.id}
               href={view.href}
-              className={`min-w-0 rounded-xl border p-2.5 transition sm:rounded-2xl sm:p-4 ${
+              aria-current={isActive ? 'page' : undefined}
+              title={view.detail}
+              className={`min-h-[44px] min-w-0 rounded-xl border px-3 py-2.5 transition-colors ${
                 isActive
                   ? 'border-slate-900 bg-slate-900 text-white shadow-sm'
                   : 'border-slate-200 bg-white text-slate-800 hover:border-slate-300 hover:bg-slate-50'
@@ -333,7 +288,7 @@ export default async function ActionsPage({
                   {view.count}
                 </span>
               </div>
-              <p className={`mt-1 hidden text-xs sm:block ${isActive ? 'text-white/70' : 'text-slate-500'}`}>{view.detail}</p>
+              <p className="sr-only">{view.detail}</p>
             </Link>
           )
         })}

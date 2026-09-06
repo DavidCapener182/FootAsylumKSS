@@ -15,11 +15,11 @@ export function Panel({
   children: React.ReactNode
 }) {
   return (
-    <section className="h-full rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-5">
+    <section className="workspace-panel h-full rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-5">
       <div className="mb-3 flex items-center justify-between gap-3 sm:mb-5">
         <h2 className="flex min-w-0 items-center gap-2 text-xs font-bold text-slate-900 sm:text-sm">
           <Icon className="h-4 w-4 flex-shrink-0 text-slate-500" />
-          <span className="truncate">{title}</span>
+          <span>{title}</span>
         </h2>
         {actionHref && actionLabel ? (
           <Link href={actionHref} prefetch={false} className="max-w-[8rem] flex-shrink-0 truncate text-[11px] font-semibold text-blue-600 hover:text-blue-800 sm:text-xs">
@@ -38,7 +38,7 @@ export function ProgressBar({ value, className }: { value: number; className: st
   const width = Math.max(0, Math.min(100, Math.round(Number.isFinite(value) ? value : 0)))
 
   return (
-    <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100 sm:h-2">
+    <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100 sm:h-2 mt-3">
       <div className={`h-full rounded-full transition-all duration-700 ${className}`} style={{ width: `${width}%` }} />
     </div>
   )

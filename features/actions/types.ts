@@ -15,6 +15,11 @@ export type UnifiedAction = {
   title: string
   description: string | null
   source_flagged_item?: string | null
+  active_until?: string | null
+  source_audit_date?: string | null
+  source_audit_number?: number | null
+  source_pdf_path?: string | null
+  archived?: boolean
   priority: string
   due_date: string
   status: string

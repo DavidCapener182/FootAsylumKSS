@@ -49,7 +49,7 @@ const supabase = {
       }
     }
 
-    if (table === 'fa_store_actions') {
+    if (table === 'fa_current_store_actions') {
       return {
         select: vi.fn(() => ({
           in: vi.fn(async () => ({ data: [], error: null })),

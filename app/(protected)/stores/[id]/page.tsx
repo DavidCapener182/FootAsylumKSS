@@ -94,7 +94,7 @@ async function getStoreActions(storeIds: string[]) {
 
   const { data: storeActions, error: storeActionsError } = await supabase
     .from('fa_store_actions')
-    .select('id, title, source_flagged_item, description, priority, status, due_date, completed_at, created_at')
+    .select('id, title, source_flagged_item, description, priority, status, due_date, completed_at, created_at, active_until, source_audit_date, source_audit_number')
     .in('store_id', storeIds)
     .order('due_date', { ascending: false })
     .order('created_at', { ascending: false })

@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mockRequirePermission = vi.fn()
+const mockImportPdfActions = vi.fn()
+vi.mock('@/lib/audit/import-pdf-actions',()=>({importAuditPdfActions:mockImportPdfActions}))
+vi.mock('next/cache',()=>({revalidatePath:vi.fn()}))
 
 const mockAuthenticatedUpdateEq = vi.fn()
 const mockAuthenticatedUpdate = vi.fn(() => ({ eq: mockAuthenticatedUpdateEq }))
@@ -42,6 +45,7 @@ vi.mock('@/lib/supabase/admin', () => ({
 describe('audit PDF actions', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockImportPdfActions.mockResolvedValue({status:'imported',count:2,total:2,warning:null})
     mockRequirePermission.mockResolvedValue({
       supabase: authenticatedSupabase,
       userId: 'user-1',

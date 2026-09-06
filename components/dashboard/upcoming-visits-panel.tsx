@@ -14,7 +14,7 @@ export function UpcomingVisitsPanel({ routes }: { routes: Array<Record<string, u
       {visits.length === 0 ? (
         <EmptyState icon={CalendarDays} title="No upcoming visits planned" description="Plan compliance visits from route planning." />
       ) : (
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-1 sm:gap-3">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 xl:grid-cols-4">
           {visits.map((visit) => (
             <div key={visit.id} className="min-w-0 rounded-xl border border-slate-100 bg-slate-50/70 p-2.5 sm:p-3">
               <div className="flex items-start justify-between gap-2">

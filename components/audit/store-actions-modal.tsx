@@ -1,5 +1,7 @@
 'use client'
 
+import { isHistoricalStoreAction } from '@/lib/actions/action-history'
+import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
@@ -47,6 +49,9 @@ interface ExistingStoreAction {
   priority: StoreActionPriority
   status: string
   due_date: string
+  active_until?: string | null
+  source_audit_date?: string | null
+  source_audit_number?: number | null
 }
 
 interface StoreActionsModalProps {
@@ -169,7 +174,7 @@ export function StoreActionsModal({
         const supabase = createClient()
         const { data, error } = await supabase
           .from('fa_store_actions')
-          .select('id, title, source_flagged_item, description, priority, status, due_date')
+          .select('id, title, source_flagged_item, description, priority, status, due_date, active_until, source_audit_date, source_audit_number')
           .eq('store_id', row.id)
           .order('due_date', { ascending: true })
           .order('created_at', { ascending: true })
@@ -358,6 +363,27 @@ export function StoreActionsModal({
     }
   }
 
+  const [checkingPdf, setCheckingPdf] = useState(false)
+  const [pdfCheckMessage, setPdfCheckMessage] = useState<string | null>(null)
+  useEffect(() => { setPdfCheckMessage(null) }, [row?.id, open])
+  const checkAuditPdf = async () => {
+    if (!row) return
+    setCheckingPdf(true); setPdfCheckMessage(null)
+    try {
+      const response = await fetch('/api/audit-pdfs/import-actions', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({storeId:row.id})})
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || 'Unable to check PDF')
+      setPdfCheckMessage(result.warning || `${result.count} new actions added. ${result.total} flagged items checked; previously imported items were kept.`)
+      if (!result.warning) {
+        const {data,error}=await createClient().from('fa_store_actions').select('id, title, source_flagged_item, description, priority, status, due_date, active_until, source_audit_date, source_audit_number').eq('store_id',row.id).order('due_date',{ascending:true})
+        if (error) throw error
+        setExistingActions((data || []) as ExistingStoreAction[])
+        onActionsCreated?.(result.count,row.store_name)
+      }
+    } catch (error) { setPdfCheckMessage(error instanceof Error ? error.message : 'Unable to check PDF') }
+    finally { setCheckingPdf(false) }
+  }
+
   const canonicalQuestions = useMemo(() => getCanonicalStoreActionQuestions(), [])
   const canonicalQuestionCount = canonicalQuestions.length
   const selectedCount = generatedActions.filter((action) => action.include && action.title.trim()).length
@@ -371,7 +397,7 @@ export function StoreActionsModal({
         <DialogHeader>
           <DialogTitle>{row ? `${row.store_name} Actions` : 'Store Actions'}</DialogTitle>
           <DialogDescription>
-            Review flagged items, generate actions, then confirm before saving to Supabase.
+            Flagged PDF findings are added automatically. Completed and expired actions remain in history.
           </DialogDescription>
         </DialogHeader>
 
@@ -400,6 +426,14 @@ export function StoreActionsModal({
               </div>
             </div>
 
+            {canCreate && row.compliance_audit_2_pdf_path ? (
+              <div className="rounded-xl border border-slate-200 p-3">
+                <p className="mb-2 text-xs text-slate-600">Second-audit PDFs are checked for flagged items on upload. Actions move to history when completed or six months after the audit.</p>
+                <Button variant="outline" onClick={checkAuditPdf} disabled={checkingPdf}>{checkingPdf ? 'Checking PDF…' : 'Check Audit 2 PDF for actions'}</Button>
+                {pdfCheckMessage ? <p role="status" className="mt-2 text-sm">{pdfCheckMessage}</p> : null}
+              </div>
+            ) : null}
+
             {existingActionsError ? (
               <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
                 {existingActionsError}
@@ -413,11 +447,13 @@ export function StoreActionsModal({
             ) : hasExistingActions ? (
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <p className="text-sm font-semibold text-slate-800">Existing Store Tasks</p>
-                  <span className="text-xs text-slate-500">{existingActions.length} total</span>
+                  <p className="text-sm font-semibold text-slate-800">Current Store Actions</p>
+                  <span className="text-xs text-slate-500">{existingActions.filter(action => !isHistoricalStoreAction(action)).length} current</span>
                 </div>
+                <Link href={`/actions?view=history&q=${encodeURIComponent(row.store_name)}`} className="inline-flex min-h-11 items-center text-sm font-semibold underline underline-offset-4">View completed and expired actions ({existingActions.filter(action => isHistoricalStoreAction(action)).length})</Link>
+                {existingActions.every(action => isHistoricalStoreAction(action)) ? <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-600">No current store actions. Previous findings are archived in history.</p> : null}
                 <div className="space-y-2.5">
-                  {existingActions.map((action, index) => (
+                  {existingActions.filter(action => !isHistoricalStoreAction(action)).map((action, index) => (
                     <div key={action.id} className="rounded-lg border border-slate-200 p-3 space-y-2">
                       <div className="flex items-center justify-between gap-3">
                         <p className="text-sm font-medium text-slate-900">Task {index + 1}</p>
@@ -441,7 +477,7 @@ export function StoreActionsModal({
                         <p className="text-sm text-slate-600">{action.description}</p>
                       ) : null}
                       <p className="text-xs text-slate-500">
-                        Review date: {new Date(action.due_date).toLocaleDateString('en-GB')}
+                        {action.source_audit_number ? `Audit ${action.source_audit_number} · ` : ''}{action.active_until ? 'Active until' : 'Review date'}: {new Date(action.active_until || action.due_date).toLocaleDateString('en-GB')}
                       </p>
                     </div>
                   ))}

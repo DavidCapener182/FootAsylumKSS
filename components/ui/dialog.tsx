@@ -19,7 +19,7 @@ const DialogOverlay = React.forwardRef<
   <DialogPrimitive.Overlay
     ref={ref}
     className={cn(
-      "fixed inset-0 z-50 bg-black/80  data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+      "fixed inset-0 z-50 bg-slate-950/45 backdrop-blur-[2px]  motion-reduce:!animate-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
       className
     )}
     {...props}
@@ -38,12 +38,12 @@ const DialogContent = React.forwardRef<
       className={cn(
         // Mobile: full width with minimal padding, top positioning, safe area insets
         "fixed left-0 right-0 top-0 z-50 grid h-[100dvh] max-h-[100dvh] w-full gap-4 overflow-y-auto border-0 border-b bg-background p-4 shadow-lg duration-200 md:rounded-none md:border md:rounded-lg",
-        "md:left-0 md:right-0 md:mx-auto md:top-[8dvh] md:h-auto md:w-[calc(100vw-2rem)] md:max-w-lg md:translate-x-0 md:translate-y-0 md:[transform:none] md:rounded-lg md:p-6 md:max-h-[90dvh]",
+        "md:left-0 md:right-0 md:mx-auto md:top-[8dvh] md:h-auto md:w-[calc(100vw-2rem)] md:max-w-lg md:translate-x-0 md:translate-y-0 md:[transform:none] md:rounded-2xl md:p-6 md:max-h-[90dvh]",
         // Safe area support for notched devices (applied via padding)
         "pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]",
         "md:pt-6 md:pb-6", // Override safe area on desktop
         // Mobile animations: slide up from bottom
-        "data-[state=open]:animate-in data-[state=closed]:animate-out",
+        "motion-reduce:!animate-none data-[state=open]:animate-in data-[state=closed]:animate-out",
         "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
         "data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom",
         // Desktop animations: disable transforms/animation to avoid text blur.

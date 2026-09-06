@@ -82,7 +82,7 @@ export function MobileTabBar({ userRole }: { userRole?: UserRole | null }) {
 
   return (
     <nav
-      className="no-print pointer-events-none fixed inset-x-0 z-40 px-4 pb-[max(0.95rem,env(safe-area-inset-bottom))] pt-3 md:hidden"
+      className="no-print pointer-events-none fixed inset-x-0 z-40 px-4 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-3 md:hidden"
       aria-label="Primary navigation"
       style={{ bottom: 'var(--mobile-tab-bottom-offset, 0px)' }}
     >
@@ -132,7 +132,7 @@ export function MobileTabBar({ userRole }: { userRole?: UserRole | null }) {
           </div>
         </div>
 
-        <div className="pointer-events-auto grid grid-cols-5 gap-1 rounded-[32px] border border-slate-200/85 bg-[rgba(248,250,252,0.94)] p-1.5 shadow-[0_16px_34px_rgba(15,23,42,0.14)] backdrop-blur-2xl supports-[backdrop-filter]:bg-[rgba(248,250,252,0.88)]">
+        <div className="pointer-events-auto grid grid-cols-5 gap-1 rounded-[22px] border border-slate-200/85 bg-[rgba(248,250,252,0.94)] p-1.5 shadow-[0_16px_34px_rgba(15,23,42,0.14)] backdrop-blur-2xl supports-[backdrop-filter]:bg-[rgba(248,250,252,0.88)]">
           {tabItems.map((item) => {
             const Icon = item.icon
             const isActive = matchesMobilePath(normalizedPathname, item.href)
@@ -142,7 +142,7 @@ export function MobileTabBar({ userRole }: { userRole?: UserRole | null }) {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  'flex min-h-[58px] flex-col items-center justify-center gap-1 rounded-[20px] px-1 py-2.5 text-[10px] font-semibold tracking-[0.01em] transition-[background-color,color,box-shadow]',
+                  'flex min-h-[50px] flex-col items-center justify-center gap-1 rounded-[15px] px-1 py-1.5 text-[10px] font-semibold tracking-[0.01em] transition-[background-color,color,box-shadow]',
                   isActive
                     ? 'bg-[#0e1925] text-white shadow-[0_8px_20px_rgba(14,25,37,0.22)]'
                     : 'text-slate-500 active:bg-white'
@@ -164,7 +164,7 @@ export function MobileTabBar({ userRole }: { userRole?: UserRole | null }) {
             type="button"
             onClick={() => setMoreOpen((prev) => !prev)}
             className={cn(
-              'flex min-h-[58px] flex-col items-center justify-center gap-1 rounded-[20px] px-1 py-2.5 text-[10px] font-semibold tracking-[0.01em] transition-[background-color,color,box-shadow] focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 focus-visible:ring-offset-white',
+              'flex min-h-[50px] flex-col items-center justify-center gap-1 rounded-[15px] px-1 py-1.5 text-[10px] font-semibold tracking-[0.01em] transition-[background-color,color,box-shadow] focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 focus-visible:ring-offset-white',
               moreActive
                 ? 'bg-[#0e1925] text-white shadow-[0_8px_20px_rgba(14,25,37,0.22)]'
                 : moreOpen

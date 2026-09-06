@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Sparkles } from 'lucide-react'
+import { ArrowUpRight } from 'lucide-react'
 import { requireRole } from '@/lib/auth'
 import { AuditLabClient, type AuditLabInitialTab, type AuditLabInitialView } from '@/components/admin/audit-lab-client'
 
@@ -8,7 +8,29 @@ const sections = [
   ['/audit-lab/review', 'Review'], ['/audit-lab/insights', 'Insights'], ['/audit-lab/import', 'Import'],
 ] as const
 
+const introductions: Record<string, [string, string]> = {
+  '/audit-lab/templates': ['Better checks. Clearer evidence.', 'Create and maintain the templates your team uses to check each store.'],
+  '/audit-lab/conduct': ['Ready for the next check.', 'Choose a template and record the findings, evidence and follow-up work.'],
+  '/audit-lab/active': ['Keep each audit moving.', 'Pick up audits in progress and continue the work already recorded.'],
+  '/audit-lab/review': ['Turn findings into follow-up.', 'Review completed audits and the evidence behind each result.'],
+  '/audit-lab/insights': ['See the bigger picture.', 'Explore audit performance and identify where to focus next.'],
+  '/audit-lab/import': ['Bring your records together.', 'Import existing audit records using the supported formats below.'],
+}
+
 export async function AuditLabWorkspace({ initialTab, initialView = 'templates', activeHref }: { initialTab: AuditLabInitialTab; initialView?: AuditLabInitialView; activeHref: string }) {
   await requireRole(['admin', 'ops'])
-  return <div className="min-h-[calc(100dvh-var(--mobile-header-height,0px))] max-w-full overflow-x-hidden bg-slate-50 md:min-h-screen"><header className="border-b border-slate-200 bg-white px-4 py-3 sm:px-6 sm:py-4"><div className="flex items-center gap-2"><div className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-100 text-violet-700"><Sparkles className="h-5 w-5" /></div><div><h1 className="text-xl font-bold tracking-tight text-slate-950 sm:text-2xl">SafeHub</h1><p className="hidden text-sm text-slate-500 sm:block">Build, conduct, review and improve assurance audits.</p></div></div><nav aria-label="SafeHub workspaces" className="-mx-1 mt-4 flex gap-1 overflow-x-auto px-1">{sections.map(([href, label]) => <Link key={href} href={href} className={`min-h-[44px] whitespace-nowrap rounded-xl px-3 py-2.5 text-sm font-semibold ${activeHref === href ? 'bg-violet-700 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>{label}</Link>)}</nav></header><div className="max-w-full overflow-x-hidden px-3 py-3 pb-28 sm:px-6 sm:py-5 sm:pb-5 lg:px-8"><AuditLabClient initialTab={initialTab} initialView={initialView} /></div></div>
+  const [title, description] = introductions[activeHref] || introductions['/audit-lab/templates']
+  return (
+    <div className="workspace-safehub space-y-6 md:px-6 md:py-5 lg:px-8">
+      <header className="workspace-intro"><p className="workspace-eyebrow">ASSURANCE WORKSPACE</p><h1 className="workspace-title mt-2">SafeHub</h1></header>
+      <section className="workspace-feature flex flex-col justify-between gap-5 p-6 md:flex-row md:items-center md:p-8">
+        <div><h2>{title}</h2><p className="mt-3 max-w-2xl text-sm leading-6">{description}</p></div>
+        <Link href="/audit-tracker" className="inline-flex min-h-[44px] shrink-0 items-center gap-3 text-sm font-semibold text-lime-300">Audit tracker <ArrowUpRight size={16} /></Link>
+      </section>
+      <nav aria-label="SafeHub workspaces" className="workspace-route-tabs flex gap-2 overflow-x-auto pb-1">
+        {sections.map(([href, label]) => <Link key={href} href={href} aria-current={activeHref === href ? 'page' : undefined} className="min-h-[44px] whitespace-nowrap rounded-lg px-4 py-3 text-sm font-semibold">{label}</Link>)}
+      </nav>
+      <AuditLabClient initialTab={initialTab} initialView={initialView} embedded />
+    </div>
+  )
 }

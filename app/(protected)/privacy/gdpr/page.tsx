@@ -231,11 +231,11 @@ export default async function GdprPage() {
 
   return (
     <div className="space-y-3 sm:space-y-6">
-      <section className="rounded-xl border border-slate-200 bg-gradient-to-r from-slate-900 to-slate-800 p-4 text-white sm:rounded-2xl sm:p-6">
+      <section className="workspace-feature rounded-xl border border-slate-200 bg-gradient-to-r from-slate-900 to-slate-800 p-4 text-white sm:rounded-2xl sm:p-6">
         <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-slate-200">
           <ShieldCheck className="h-3.5 w-3.5" /> GDPR Policy
         </div>
-        <h1 className="text-xl font-bold tracking-tight sm:text-3xl">GDPR Data-Point Policy</h1>
+        <h1 className="workspace-title text-xl font-bold tracking-tight sm:text-3xl">GDPR Data-Point Policy</h1>
         <p className="mt-2 hidden max-w-4xl text-sm text-slate-300 sm:block sm:text-base">
           This policy defines GDPR handling for each core data point used in the platform, including purpose,
           lawful basis, access scope, retention expectation, and control requirements.

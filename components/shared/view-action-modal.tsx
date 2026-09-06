@@ -24,7 +24,7 @@ export function ViewActionModal({ action, open, onOpenChange, onActionUpdated, c
   const isStoreAction = action.source_type === 'store' || !action.incident_id
   const displayTitle = isStoreAction ? getStoreActionListTitle(action) : action.title
   const isOverdue = new Date(action.due_date) < new Date() && 
-    !['complete', 'cancelled'].includes(action.status)
+    !action.archived && !['complete', 'cancelled'].includes(action.status)
   const assigneeName = action.assigned_to?.full_name?.trim() || ''
   const assigneeInitials = assigneeName
     ? assigneeName.includes(' ')
@@ -46,6 +46,7 @@ export function ViewActionModal({ action, open, onOpenChange, onActionUpdated, c
         </DialogHeader>
         
         <div className="space-y-4 md:space-y-6 py-2 md:py-4">
+          {action.source_audit_date ? <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">From Audit {action.source_audit_number} · {format(new Date(action.source_audit_date), 'dd MMM yyyy')}. {action.active_until ? `Moves to history on ${format(new Date(action.active_until), 'dd MMM yyyy')}, or when completed.` : ''}</div> : null}
           {/* Description */}
           {action.description && (
             <div>
@@ -65,7 +66,7 @@ export function ViewActionModal({ action, open, onOpenChange, onActionUpdated, c
             
             <div>
               <h3 className="text-xs sm:text-sm font-semibold text-slate-700 mb-2">Status</h3>
-              <StatusBadge status={action.status} type="action" />
+              <StatusBadge status={action.status} type="action" label={action.archived && !['complete','cancelled'].includes(action.status) ? 'Archived · 6 months' : undefined} />
             </div>
 
             <div>
@@ -137,7 +138,7 @@ export function ViewActionModal({ action, open, onOpenChange, onActionUpdated, c
               </p>
             </div>
           )}
-          {canManageActions ? <ActionWorkflowEditor action={action} onSaved={onActionUpdated} /> : null}
+          {canManageActions && !action.archived ? <ActionWorkflowEditor action={action} onSaved={onActionUpdated} /> : null}
         </div>
 
         <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center pt-3 md:pt-4 border-t gap-3">
@@ -156,9 +157,10 @@ export function ViewActionModal({ action, open, onOpenChange, onActionUpdated, c
             )}
           </div>
           <div className="flex justify-end">
-            {!isStoreAction && !['complete', 'cancelled'].includes(action.status) && (
+            {canManageActions && !action.archived && !['complete', 'cancelled'].includes(action.status) && (
               <CloseActionButton 
                 actionId={action.id} 
+                sourceType={isStoreAction ? 'store' : 'incident'}
                 actionTitle={action.title}
                 currentStatus={action.status}
                 onComplete={() => {

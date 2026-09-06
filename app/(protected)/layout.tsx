@@ -56,10 +56,11 @@ export default async function ProtectedLayout({
     <OfflineSyncProvider>
     <SidebarProvider>
       <div className="flex min-h-[100dvh] bg-[#071321] md:h-[100dvh] md:min-h-0 md:overflow-hidden">
+        <a href="#main-content" className="skip-link">Skip to content</a>
         <Sidebar />
         <div className="flex min-h-[100dvh] w-full min-w-0 flex-1 flex-col overflow-x-hidden bg-[#0e1925] md:ml-64 md:min-h-0 md:overflow-hidden">
           <Header />
-          <main className="box-border w-full min-w-0 max-w-full flex-1 overflow-x-hidden bg-[#edf2f7] px-3.5 pb-[calc(12rem+env(safe-area-inset-bottom))] pt-[calc(var(--mobile-header-height,0px)+1rem)] sm:px-4 sm:pt-[calc(var(--mobile-header-height,0px)+1rem)] md:min-h-0 md:overflow-y-auto md:bg-[#0e1925] md:p-0 md:[-webkit-overflow-scrolling:touch]">
+          <main id="main-content" tabIndex={-1} className="workspace-main box-border w-full min-w-0 max-w-full flex-1 overflow-x-hidden bg-[#edf2f7] px-3.5 pb-[calc(12rem+env(safe-area-inset-bottom))] pt-[calc(var(--mobile-header-height,0px)+1rem)] sm:px-4 sm:pt-[calc(var(--mobile-header-height,0px)+1rem)] md:min-h-0 md:overflow-y-auto md:bg-[#0e1925] md:p-0 md:[-webkit-overflow-scrolling:touch]">
             <div className="max-w-full overflow-x-hidden bg-transparent p-0 md:min-h-full main-content-wrapper">
               {children}
             </div>

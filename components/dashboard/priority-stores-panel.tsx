@@ -20,13 +20,13 @@ export function PriorityStoresPanel({ stores }: { stores: PriorityStore[] }) {
             ))}
           </div>
           <div className="hidden overflow-x-auto xl:block">
-            <table className="w-full min-w-[520px] text-left text-sm">
+            <table className="w-full min-w-[480px] text-left text-sm">
               <thead>
                 <tr className="border-b border-slate-100 text-xs font-semibold uppercase tracking-wide text-slate-400">
                   <th className="pb-3 pr-3">Store</th>
                   <th className="pb-3 pr-3">Audit Status</th>
                   <th className="pb-3 pr-3">FRA Status</th>
-                  <th className="pb-3 text-right">Open Actions</th>
+                  <th className="pb-3 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -41,7 +41,7 @@ export function PriorityStoresPanel({ stores }: { stores: PriorityStore[] }) {
                     <td className="py-3 pr-3"><StatusBadge label={store.fraStatus} tone={getStatusTone(store.fraStatus)} /></td>
                     <td className="py-3 text-right">
                       <Link href={store.href || '/actions'} prefetch={false} className="font-semibold text-red-600 hover:text-red-700">
-                        {store.openActions} Open Actions
+                        {store.openActions}<span className="sr-only"> open actions</span>
                       </Link>
                     </td>
                   </tr>

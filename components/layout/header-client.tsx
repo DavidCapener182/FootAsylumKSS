@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { AlertTriangle, LogOut, Menu } from 'lucide-react'
@@ -348,7 +348,7 @@ export function HeaderClient({ signOut, currentUser }: HeaderClientProps) {
     setIsOpen(!isOpen)
   }
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const root = document.documentElement
     const updateMobileHeaderHeight = () => {
       const headerHeight =
@@ -576,10 +576,10 @@ export function HeaderClient({ signOut, currentUser }: HeaderClientProps) {
   return (
     <header
       ref={headerRef}
-      className="no-print fixed inset-x-0 top-0 z-30 border-b border-white/8 bg-[linear-gradient(180deg,rgba(6,22,37,0.98)_0%,rgba(5,20,33,0.94)_100%)] px-3 pt-[env(safe-area-inset-top)] backdrop-blur-xl md:relative md:flex md:h-16 md:items-center md:justify-between md:border-b-0 md:bg-[#0e1925] md:px-6 md:pt-0 lg:px-8"
+      className="workspace-header no-print fixed inset-x-0 top-0 z-30 border-b border-white/8 bg-[linear-gradient(180deg,rgba(6,22,37,0.98)_0%,rgba(5,20,33,0.94)_100%)] px-3 pt-[env(safe-area-inset-top)] backdrop-blur-xl md:relative md:flex md:h-16 md:items-center md:justify-between md:border-b-0 md:bg-[#0e1925] md:px-6 md:pt-0 lg:px-8"
     >
-      <div className="flex w-full flex-col gap-3.5 pb-4 pt-3 md:flex-row md:items-center md:justify-between md:gap-4 md:pb-0 md:pt-0">
-        <div className="flex items-center gap-3 md:hidden">
+      <div className="flex w-full flex-col gap-3 pb-3 pt-3 md:flex-row md:items-center md:justify-between md:gap-4 md:pb-0 md:pt-0">
+        <div className="flex items-center gap-2 md:hidden">
           <button
             onClick={handleMenuClick}
             className={cn(
@@ -601,8 +601,9 @@ export function HeaderClient({ signOut, currentUser }: HeaderClientProps) {
           </div>
 
           <div className="flex items-center gap-2">
+            {!isKssPlanSection && <StoreSearch compactMobile />}
             {isKssPlanSection ? null : (
-              <div className="flex items-center gap-1.5" aria-label="Currently online users">
+              <div className="hidden items-center gap-1.5 min-[480px]:flex" aria-label="Currently online users">
                 {mobileVisibleUsers.map((user) => (
                   <div key={user.id} title={user.name} className="relative">
                     <div className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-white/10 text-[10px] font-bold text-white shadow-[0_8px_18px_rgba(2,12,24,0.14)] backdrop-blur-sm">
@@ -629,12 +630,6 @@ export function HeaderClient({ signOut, currentUser }: HeaderClientProps) {
             </Button>
           </div>
         </div>
-
-        {isKssPlanSection ? null : (
-          <div className="md:hidden">
-            <StoreSearch />
-          </div>
-        )}
 
         <div className="hidden min-w-0 flex-1 items-center gap-3 md:flex md:gap-4">
           <button

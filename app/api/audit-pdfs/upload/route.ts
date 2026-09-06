@@ -1,12 +1,16 @@
+import { importAuditPdfActions } from '@/lib/audit/import-pdf-actions'
+import { revalidatePath } from 'next/cache'
 import { NextRequest, NextResponse } from 'next/server'
 import { requirePermission } from '@/lib/permissions'
 import { createAdminSupabaseClient } from '@/lib/supabase/admin'
+
+export const maxDuration = 60
 
 const MAX_AUDIT_PDF_SIZE_BYTES = 500 * 1024 * 1024
 
 export async function POST(request: NextRequest) {
   try {
-    const { supabase } = await requirePermission('manageAudits')
+    const { supabase, userId } = await requirePermission('manageAudits')
     const adminSupabase = createAdminSupabaseClient()
 
     const formData = await request.formData()
@@ -14,7 +18,7 @@ export async function POST(request: NextRequest) {
     const auditNumber = parseInt(formData.get('auditNumber') as string) as 1 | 2
     const file = formData.get('file') as File
 
-    if (!storeId || !auditNumber || !file) {
+    if (!storeId || ![1,2].includes(auditNumber) || !(file instanceof File)) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
@@ -55,7 +59,7 @@ export async function POST(request: NextRequest) {
     const { error: updateError } = await supabase
       .from('fa_stores')
       .update({ [pdfColumn]: filePath })
-      .eq('id', storeId)
+      .eq('id', storeId).select('id').single()
 
     if (updateError) {
       // Clean up uploaded file if DB update fails
@@ -63,7 +67,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: `Failed to update store record: ${updateError.message}` }, { status: 500 })
     }
 
-    return NextResponse.json({ success: true, filePath })
+    const actionImport = await importAuditPdfActions({supabase,userId,storeId,auditNumber,filePath,file})
+    revalidatePath('/actions')
+    revalidatePath('/audit-tracker')
+    revalidatePath(`/stores/${storeId}`)
+    return NextResponse.json({ success: true, filePath, actionImport })
   } catch (error) {
     console.error('Error uploading audit PDF:', error)
     return NextResponse.json(

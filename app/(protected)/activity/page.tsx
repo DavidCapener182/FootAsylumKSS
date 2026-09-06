@@ -1,3 +1,4 @@
+import { WorkspaceMetrics } from '@/components/product/workspace-metrics'
 import { createClient } from '@/lib/supabase/server'
 import { requireRole } from '@/lib/auth'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -547,15 +548,15 @@ export default async function ActivityPage() {
   const dayGroups = Object.entries(activitiesByDay).sort((a, b) => b[0].localeCompare(a[0]))
 
   return (
-    <div className="flex flex-col gap-3 sm:gap-6">
-      <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-5 md:p-6">
+    <div className="flex flex-col gap-3 md:px-6 md:py-5 lg:px-8 sm:gap-6">
+      <div className="workspace-intro rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-5 md:p-6">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div className="min-w-0">
-            <div className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-lime-600">
+            <div className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-lime-700">
               <ShieldCheck className="h-3.5 w-3.5" />
               System Audit Trail
             </div>
-            <h1 className="mt-1 text-xl font-bold tracking-tight text-slate-950 sm:mt-2 sm:text-3xl">Recent Activity</h1>
+            <h1 className="workspace-title mt-1 text-xl font-bold tracking-tight text-slate-950 sm:mt-2 sm:text-3xl">Recent Activity</h1>
             <p className="mt-1 hidden max-w-2xl text-sm leading-6 text-slate-500 sm:block">
               Live timeline of audit, FRA, store, action and planning updates across the platform.
             </p>
@@ -566,24 +567,12 @@ export default async function ActivityPage() {
           </div>
         </div>
 
-        <div className="mt-3 grid grid-cols-2 gap-2 sm:mt-5 sm:gap-3 md:grid-cols-4">
-          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 sm:rounded-2xl sm:p-4">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Events</p>
-            <p className="mt-1 text-2xl font-bold text-slate-950">{totalActivities}</p>
-          </div>
-          <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-3 sm:rounded-2xl sm:p-4">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">Created</p>
-            <p className="mt-1 text-2xl font-bold text-emerald-700">{actionCounts.created}</p>
-          </div>
-          <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-3 sm:rounded-2xl sm:p-4">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-blue-700">Updated</p>
-            <p className="mt-1 text-2xl font-bold text-blue-700">{actionCounts.updated}</p>
-          </div>
-          <div className="rounded-xl border border-teal-100 bg-teal-50/50 p-3 sm:rounded-2xl sm:p-4">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-teal-700">Active Users</p>
-            <p className="mt-1 text-2xl font-bold text-teal-700">{activeUsers}</p>
-          </div>
-        </div>
+        <WorkspaceMetrics label="Activity overview" items={[
+          { label: 'Events', value: totalActivities },
+          { label: 'Created', value: actionCounts.created },
+          { label: 'Updated', value: actionCounts.updated },
+          { label: 'Active users', value: activeUsers },
+        ]} />
       </div>
 
       <div className="grid gap-3 sm:gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">

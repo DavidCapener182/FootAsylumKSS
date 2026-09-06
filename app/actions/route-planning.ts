@@ -645,7 +645,7 @@ export async function getRoutePreVisitBriefing(
       `)
       .in('id', uniqueStoreIds),
     supabase
-      .from('fa_store_actions')
+      .from('fa_current_store_actions')
       .select('id, store_id, title, status, priority, due_date, created_at')
       .in('store_id', uniqueStoreIds)
       .in('status', ['open', 'in_progress', 'blocked'])

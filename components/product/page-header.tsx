@@ -26,9 +26,9 @@ export function PageHeader({
   className?: string
 }) {
   return (
-    <header className={cn('border-b border-slate-200 bg-white px-4 py-5 sm:rounded-2xl sm:border sm:p-6 sm:shadow-sm', className)}>
+    <header className={cn('workspace-intro rounded-2xl border border-slate-200 bg-white px-4 py-5 sm:rounded-2xl sm:border sm:p-6 sm:shadow-sm', className)}>
       {breadcrumbs.length > 0 ? (
-        <nav aria-label="Breadcrumb" className="mb-3 overflow-x-auto">
+        <nav aria-label="Breadcrumb" className="mb-2 overflow-x-auto sm:mb-3">
           <ol className="flex min-w-max items-center gap-1 text-xs text-slate-500">
             {breadcrumbs.map((item, index) => (
               <li key={`${item.label}-${index}`} className="flex items-center gap-1">
@@ -46,10 +46,10 @@ export function PageHeader({
         </nav>
       ) : null}
 
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex flex-col gap-2 sm:gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           {eyebrow ? <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">{eyebrow}</p> : null}
-          <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">{title}</h1>
+          <h1 className="workspace-title mt-1 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">{title}</h1>
           {description ? <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">{description}</p> : null}
         </div>
         {primaryAction || secondaryActions ? (

@@ -1,5 +1,6 @@
 'use client'
 
+import { WorkspaceMetrics } from '@/components/product/workspace-metrics'
 import { useMemo, useState } from 'react'
 import {
   addDays,
@@ -246,61 +247,26 @@ export function CalendarClient({ initialData }: CalendarClientProps) {
   }
 
   return (
-    <div className="space-y-3 sm:space-y-6">
-      <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-5 md:p-6">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+    <div className="space-y-3 md:px-6 md:py-5 lg:px-8 sm:space-y-6">
+      <div className="workspace-intro rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-5 md:p-6">
+        <div className="flex flex-col gap-3">
           <div>
-            <div className="mb-1.5 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-lime-600 md:text-xs">
+            <div className="mb-1.5 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-lime-700 md:text-xs">
               <CalendarIcon size={14} />
               Calendar Overview
             </div>
-            <h1 className="text-xl font-bold tracking-tight text-slate-950 sm:text-3xl">{format(currentDate, 'MMMM yyyy')}</h1>
+            <h1 className="workspace-title text-xl font-bold tracking-tight text-slate-950 sm:text-3xl">{format(currentDate, 'MMMM yyyy')}</h1>
             <p className="mt-1 hidden max-w-xl text-sm leading-6 text-slate-500 sm:block">
               Monthly schedule for planned visits and completed compliance activity across your managed regions.
             </p>
           </div>
 
-          <div className="grid w-full grid-cols-3 gap-2 sm:gap-3 lg:w-auto">
-            <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-2.5 text-center sm:rounded-2xl sm:p-4">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-blue-700">Routes</p>
-              <p className="mt-1 text-xl font-bold leading-none text-blue-700 sm:text-2xl">{totalPlannedRoutes}</p>
-            </div>
-            <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-2.5 text-center sm:rounded-2xl sm:p-4">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">Completed</p>
-              <p className="mt-1 text-xl font-bold leading-none text-emerald-700 sm:text-2xl">{totalCompletedStores}</p>
-            </div>
-            <div className="rounded-xl border border-teal-100 bg-teal-50/50 p-2.5 text-center sm:rounded-2xl sm:p-4">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-teal-700">Active Days</p>
-              <p className="mt-1 text-xl font-bold leading-none text-teal-700 sm:text-2xl">{activeDays}</p>
-            </div>
-          </div>
+          <WorkspaceMetrics className="workspace-metrics-compact w-full" label="Month overview" items={[
+            { label: 'Routes', value: totalPlannedRoutes },
+            { label: 'Completed', value: totalCompletedStores },
+            { label: 'Active days', value: activeDays },
+          ]} />
         </div>
-      </div>
-
-      <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-4 md:p-6">
-        <div className="mb-3 flex flex-col gap-3 md:mb-6 md:flex-row md:items-center md:justify-between">
-          <h2 className="flex items-center gap-2 text-base font-bold text-slate-800 sm:text-lg">
-            <Users size={18} className="text-blue-500" />
-            Manager Capacity
-          </h2>
-          <span className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-500">
-            <Target size={14} />
-            {capacitySettings.workingDayHours}H TARGET/DAY
-          </span>
-        </div>
-        <div className="mb-4 grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:grid-cols-3" aria-label="Capacity assumptions">
-          <CapacityInput label="Working day" value={capacitySettings.workingDayHours} suffix="hours" onChange={(value) => setCapacitySettings((current) => ({ ...current, workingDayHours: value }))} />
-          <CapacityInput label="Visit per stop" value={capacitySettings.visitHoursPerStop} suffix="hours" step={0.25} onChange={(value) => setCapacitySettings((current) => ({ ...current, visitHoursPerStop: value }))} />
-          <CapacityInput label="Travel per stop" value={capacitySettings.travelHoursPerStop} suffix="hours" step={0.25} onChange={(value) => setCapacitySettings((current) => ({ ...current, travelHoursPerStop: value }))} />
-        </div>
-
-        {managerCapacity.length ? (
-          <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
-            {managerCapacity.map((manager) => <ManagerCapacityCard key={manager.managerName} manager={manager} />)}
-          </div>
-        ) : (
-          <p className="text-sm italic text-slate-500">No planned route capacity available for this month.</p>
-        )}
       </div>
 
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm sm:rounded-3xl">
@@ -486,6 +452,33 @@ export function CalendarClient({ initialData }: CalendarClientProps) {
           )}
         </div>
       </div>
+
+      <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-4 md:p-6">
+        <div className="mb-3 flex flex-col gap-3 md:mb-6 md:flex-row md:items-center md:justify-between">
+          <h2 className="flex items-center gap-2 text-base font-bold text-slate-800 sm:text-lg">
+            <Users size={18} className="text-blue-500" />
+            Manager Capacity
+          </h2>
+          <span className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-500">
+            <Target size={14} />
+            {capacitySettings.workingDayHours}H TARGET/DAY
+          </span>
+        </div>
+        <div className="mb-4 grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:grid-cols-3" aria-label="Capacity assumptions">
+          <CapacityInput label="Working day" value={capacitySettings.workingDayHours} suffix="hours" onChange={(value) => setCapacitySettings((current) => ({ ...current, workingDayHours: value }))} />
+          <CapacityInput label="Visit per stop" value={capacitySettings.visitHoursPerStop} suffix="hours" step={0.25} onChange={(value) => setCapacitySettings((current) => ({ ...current, visitHoursPerStop: value }))} />
+          <CapacityInput label="Travel per stop" value={capacitySettings.travelHoursPerStop} suffix="hours" step={0.25} onChange={(value) => setCapacitySettings((current) => ({ ...current, travelHoursPerStop: value }))} />
+        </div>
+
+        {managerCapacity.length ? (
+          <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
+            {managerCapacity.map((manager) => <ManagerCapacityCard key={manager.managerName} manager={manager} />)}
+          </div>
+        ) : (
+          <p className="text-sm italic text-slate-500">No planned route capacity available for this month.</p>
+        )}
+      </div>
+
 
       {selectedEvent ? <CalendarEventModal event={selectedEvent} onClose={() => setSelectedEvent(null)} /> : null}
     </div>

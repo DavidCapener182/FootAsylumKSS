@@ -33,7 +33,7 @@ export async function getStoreDirectoryData(): Promise<StoreDirectoryResult> {
 
   const [incidentsResult, storeActionsResult] = relatedIds.length ? await Promise.all([
     supabase.from('fa_incidents').select('id, reference_no, summary, status, closed_at, occurred_at, store_id').in('store_id', relatedIds),
-    supabase.from('fa_store_actions').select('id, title, source_flagged_item, description, priority, status, due_date, created_at, store_id').in('store_id', relatedIds),
+    supabase.from('fa_current_store_actions').select('id, title, source_flagged_item, description, priority, status, due_date, created_at, store_id').in('store_id', relatedIds),
   ]) : [{ data: [], error: null }, { data: [], error: null }]
   if (incidentsResult.error) throw new Error(`Unable to load store incidents: ${incidentsResult.error.message}`)
   if (storeActionsResult.error) throw new Error(`Unable to load store actions: ${storeActionsResult.error.message}`)

@@ -1,5 +1,6 @@
 'use client'
 
+import { WorkspaceMetrics } from '@/components/product/workspace-metrics'
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -1062,61 +1063,28 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
   })
 
   return (
-    <div className="space-y-3 sm:space-y-6">
-      <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-5 md:p-6">
+    <div className="space-y-3 md:px-6 md:py-5 lg:px-8 sm:space-y-6">
+      <div className="workspace-intro rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-5 md:p-6">
         <div>
           <div className="mb-3 flex flex-col items-start justify-between gap-3 sm:mb-5 md:flex-row md:items-center">
             <div>
-              <div className="mb-1.5 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-lime-600 md:text-xs">
+              <div className="mb-1.5 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-lime-700 md:text-xs">
                 <Navigation size={14} /> Route Optimization
               </div>
-              <h1 className="mb-1 text-xl font-bold tracking-tight text-slate-950 sm:text-3xl">Route Planning</h1>
+              <h1 className="workspace-title mb-1 text-xl font-bold tracking-tight text-slate-950 sm:text-3xl">Route Planning</h1>
               <p className="hidden max-w-2xl text-sm leading-6 text-slate-500 sm:block">
                 Build daily compliance routes, optimize store selection, and track planned rounds by area and manager.
               </p>
             </div>
-            <button className="flex min-h-[40px] items-center gap-2 rounded-xl bg-slate-950 px-3 py-2 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-slate-800 sm:min-h-[44px] sm:px-4 sm:text-sm">
-              Live Planner
-              <Navigation size={14} className="ml-1" />
-            </button>
+
           </div>
 
-          <div className="grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-4">
-            <div className="flex flex-col justify-between rounded-xl border border-blue-100 bg-blue-50/50 p-3 sm:rounded-2xl sm:p-4">
-              <div className="mb-2 flex items-center gap-2 text-blue-700">
-                <StoreIcon size={14} />
-                <span className="text-[10px] font-bold uppercase md:text-xs">Available Stores</span>
-              </div>
-              <p className="text-2xl font-bold text-blue-700 md:text-3xl">{availableStoreCount}</p>
-              <p className="mt-1 hidden text-[11px] text-blue-700/70 sm:block">Unplanned stores eligible for audit routing</p>
-            </div>
-
-            <div className="flex flex-col justify-between rounded-xl border border-emerald-100 bg-emerald-50/50 p-3 sm:rounded-2xl sm:p-4">
-              <div className="mb-2 flex items-center gap-2 text-emerald-700">
-                <MapIcon size={14} />
-                <span className="text-[10px] font-bold uppercase md:text-xs">Planned Routes</span>
-              </div>
-              <p className="text-2xl font-bold text-emerald-700 md:text-3xl">{plannedRouteCount}</p>
-              <p className="mt-1 hidden text-[11px] text-emerald-700/70 sm:block">Date and manager route groups</p>
-            </div>
-
-            <div className="flex flex-col justify-between rounded-xl border border-teal-100 bg-teal-50/50 p-3 sm:rounded-2xl sm:p-4">
-              <div className="mb-2 flex items-center gap-2 text-teal-700">
-                <CheckCircle2 size={14} />
-                <span className="text-[10px] font-bold uppercase md:text-xs">Planned Stores</span>
-              </div>
-              <p className="text-2xl font-bold text-teal-700 md:text-3xl">{plannedStoreCount}</p>
-              <p className="mt-1 hidden text-[11px] text-teal-700/70 sm:block">Stores already assigned to routes</p>
-            </div>
-
-            <div className="flex flex-col justify-between rounded-xl border border-amber-100 bg-amber-50/50 p-3 sm:rounded-2xl sm:p-4">
-              <div className="mb-2 flex items-center gap-2 text-amber-700">
-                <Users size={14} />
-                <span className="text-[10px] font-bold uppercase md:text-xs">Managers</span>
-              </div>
-              <p className="text-2xl font-bold text-amber-700 md:text-3xl">{managerCount}</p>
-            </div>
-          </div>
+          <WorkspaceMetrics label="Route overview" items={[
+            { label: 'Available stores', value: availableStoreCount, detail: 'Unplanned stores eligible for audit routing' },
+            { label: 'Planned routes', value: plannedRouteCount, detail: 'Date and manager route groups' },
+            { label: 'Planned stores', value: plannedStoreCount },
+            { label: 'Managers', value: managerCount },
+          ]} />
         </div>
       </div>
 

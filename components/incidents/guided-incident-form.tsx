@@ -166,13 +166,14 @@ export function GuidedIncidentForm() {
   })
 
   return (
-    <div className="space-y-4 sm:space-y-6">
-      <PageHeader eyebrow="Field report" title="Report an incident" description="Record the facts now. An authorised manager reviews RIDDOR decisions and escalation." breadcrumbs={[{ label: 'Incidents', href: '/incidents' }, { label: 'New report' }]} secondaryActions={<OfflineStatus compact />} />
+    <div className="workspace-incident-form space-y-3 sm:space-y-6">
+      <PageHeader eyebrow="Field report" title="Report an incident" description="Record the facts now. An authorised manager reviews RIDDOR decisions and escalation." breadcrumbs={[{ label: 'Incidents', href: '/incidents' }, { label: 'New report' }]} className="workspace-intro-compact" />
+      <OfflineStatus compact attentionOnly />
       {supporting.immediateDanger === 'yes' ? <EmergencyWarning /> : null}
       <div className="grid gap-4 lg:grid-cols-[240px_minmax(0,1fr)]">
         <StepNavigation step={step} setStep={setStep} />
         <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <header className="border-b border-slate-100 p-4 sm:p-6">
+          <header className="workspace-form-step border-b border-slate-100 p-4 sm:p-6">
             <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Step {step + 1} of {steps.length}</p>
             <h2 className="mt-1 text-xl font-bold text-slate-950">{steps[step]}</h2>
             <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-lime-500" style={{ width: `${((step + 1) / steps.length) * 100}%` }} /></div>

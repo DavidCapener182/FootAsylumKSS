@@ -471,7 +471,7 @@ export function EmpEventDayKioskClient({ token }: { token: string }) {
 
   if (step === 'loading' || !verified) {
     return (
-      <main className="min-h-[100dvh] bg-[#071018] text-white">
+      <main className="min-h-[100dvh] bg-[#202922] text-white">
         <div className="mx-auto flex min-h-[100dvh] max-w-xl flex-col justify-center px-5 py-8">
           <div className="rounded-lg border border-white/10 bg-white p-6 text-slate-950 shadow-2xl">
             <div className="mb-6 flex items-center gap-3">
@@ -479,7 +479,7 @@ export function EmpEventDayKioskClient({ token }: { token: string }) {
                 {isBusy ? <Loader2 className="h-6 w-6 animate-spin" /> : <ShieldCheck className="h-6 w-6" />}
               </div>
               <div>
-                <h1 className="text-2xl font-black">Staff Sign In / Out</h1>
+                <h1 className="workspace-title text-2xl font-black">Staff Sign In / Out</h1>
                 <p className="text-sm font-medium text-slate-500">{isBusy ? 'Loading tablet access.' : 'Tablet access is not available.'}</p>
               </div>
             </div>
@@ -498,15 +498,15 @@ export function EmpEventDayKioskClient({ token }: { token: string }) {
   }
 
   return (
-    <main className="min-h-[100dvh] bg-[#eef3f0] text-slate-950">
+    <main className="min-h-[100dvh] bg-[#f0f1eb] text-slate-950">
       <div className="mx-auto flex min-h-[100dvh] max-w-7xl flex-col px-4 py-4 sm:px-6">
-        <header className="mb-5 overflow-hidden rounded-lg bg-[#071018] text-white shadow-2xl shadow-slate-900/20">
+        <header className="mb-5 overflow-hidden rounded-lg bg-[#202922] text-white shadow-2xl shadow-slate-900/20">
           <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-end sm:justify-between sm:p-7">
             <div>
-              <p className="text-sm font-black uppercase tracking-[0.22em] text-emerald-300">Event Day Operations</p>
-              <h1 className="mt-2 text-3xl font-black sm:text-5xl">{verified.eventName || 'Staff Sign In / Out'}</h1>
+              <p className="text-sm font-black uppercase tracking-[0.22em] text-lime-300">Event Day Operations</p>
+              <h1 className="workspace-title mt-2 text-3xl font-black sm:text-5xl">{verified.eventName || 'Staff Sign In / Out'}</h1>
               <p className="mt-2 text-base font-semibold text-slate-300">{verified.kioskLabel || 'Tablet kiosk'}</p>
-              {isTabletLocked ? <p className="mt-3 text-xs font-black uppercase tracking-[0.18em] text-emerald-300">Tablet mode locked</p> : null}
+              {isTabletLocked ? <p className="mt-3 text-xs font-black uppercase tracking-[0.18em] text-lime-300">Tablet mode locked</p> : null}
             </div>
             {selectedEventDay ? (
               <div className="flex flex-wrap gap-2">

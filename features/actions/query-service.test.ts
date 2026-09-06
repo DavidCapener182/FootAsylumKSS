@@ -57,3 +57,11 @@ describe('unified action presentation service', () => {
     expect(() => presentUnifiedActions([{ ...incident, due_date: null }], [])).toThrow()
   })
 })
+
+it('keeps completed and expired store work in history, outside the default action queue',()=>{
+ const completed={...storeAction,status:'complete'}
+ const expired={...storeAction,id:'expired',active_until:'2000-01-01',source_audit_date:'1999-07-01'}
+ expect(presentUnifiedActions([], [completed,expired]).actions).toEqual([])
+ expect(presentUnifiedActions([], [completed,expired],{view:'history'}).actions).toHaveLength(2)
+ expect(presentUnifiedActions([], [expired],{view:'history'}).actions[0].status).toBe('open')
+})

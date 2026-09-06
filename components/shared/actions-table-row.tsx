@@ -22,7 +22,7 @@ export function ActionsTableRow({ action, canManageActions = true }: ActionsTabl
   const isStoreAction = action.source_type === 'store' || !action.incident_id
   const displayTitle = isStoreAction ? getStoreActionListTitle(action) : action.title
   const isOverdue = new Date(action.due_date) < new Date() && 
-    !['complete', 'cancelled'].includes(action.status)
+    !action.archived && !['complete', 'cancelled'].includes(action.status)
   const assigneeName = action.assigned_to?.full_name?.trim() || ''
   const assigneeInitials = assigneeName
     ? assigneeName.includes(' ')
@@ -85,7 +85,7 @@ export function ActionsTableRow({ action, canManageActions = true }: ActionsTabl
           )}
         </TableCell>
         <TableCell style={{ paddingTop: '0.5rem', paddingBottom: '0.5rem' }}>
-          <StatusBadge status={action.status} type="action" />
+          <StatusBadge status={action.status} type="action" label={action.archived && !['complete','cancelled'].includes(action.status) ? 'Archived · 6 months' : undefined} />
         </TableCell>
         <TableCell className="text-right" style={{ paddingTop: '0.5rem', paddingBottom: '0.5rem' }}>
           <div className="flex items-center justify-end gap-1.5">
@@ -110,6 +110,11 @@ export function ActionsTableRow({ action, canManageActions = true }: ActionsTabl
                   <DeleteActionButton actionId={action.id} actionTitle={action.title} />
                 </div>
               </>
+            ) : null}
+            {isStoreAction && canManageActions && !action.archived ? (
+              <div onClick={(event) => event.stopPropagation()}>
+                <CloseActionButton actionId={action.id} actionTitle={action.title} currentStatus={action.status} sourceType="store" />
+              </div>
             ) : null}
           </div>
         </TableCell>

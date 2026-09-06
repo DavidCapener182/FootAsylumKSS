@@ -882,8 +882,8 @@ export function EmpEventControlLogClient({ initialData }: { initialData: EmpEven
   }
 
   return (
-    <div className="space-y-3 sm:space-y-6">
-      <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-6">
+    <div className="workspace-page-inset space-y-3 sm:space-y-6">
+      <div className="workspace-intro rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-6">
         <div className="flex flex-col gap-3 sm:gap-4 xl:flex-row xl:items-start xl:justify-between">
           <div className="space-y-3">
             <a
@@ -895,7 +895,7 @@ export function EmpEventControlLogClient({ initialData }: { initialData: EmpEven
             </a>
             <div className="space-y-1">
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-xl font-bold tracking-tight text-slate-950 sm:text-2xl">Event Control Log</h1>
+                <h1 className="workspace-title text-xl font-bold tracking-tight text-slate-950 sm:text-2xl">Event Control Log</h1>
                 <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-700">
                   {initialData.plan.eventName || 'Event not set'}
                 </Badge>

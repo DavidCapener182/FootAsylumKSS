@@ -9,16 +9,15 @@ import { cn } from '@/lib/utils'
 import { UserRole, UserProfile } from '@/lib/auth'
 import { useSidebar } from './sidebar-provider'
 import { navItems, type NavItem } from './nav-items'
+import { WorkspaceBrand } from './workspace-brand'
 import { FeedbackModal } from '@/components/FeedbackModal'
 import {
   getCmpNavItems,
-  getCmpPageTitle,
   isCmpNavItemActive,
   isCmpSectionPath,
 } from './cmp-chrome'
 import {
   getEmpNavItems,
-  getEmpPageTitle,
   isEmpNavItemActive,
   isEmpSectionPath,
 } from './emp-chrome'
@@ -47,7 +46,6 @@ export function SidebarClient({ userRole, userProfile }: SidebarClientProps) {
   const isEmpSection = isEmpSectionPath(pathname)
   const isKssPlanSection = isCmpSection || isEmpSection
   const planNavItems = isEmpSection ? getEmpNavItems(pathname) : getCmpNavItems(pathname)
-  const planPageTitle = isEmpSection ? getEmpPageTitle(pathname) : getCmpPageTitle(pathname)
   const planBrand = isEmpSection ? 'KSS Event Management' : 'KSS Crowd Management'
 
   const filteredItems = (() => {
@@ -91,24 +89,11 @@ export function SidebarClient({ userRole, userProfile }: SidebarClientProps) {
     <>
       <div className="flex items-center justify-between px-5 pb-4 pt-[max(0.75rem,env(safe-area-inset-top))] md:h-20 md:px-6 md:py-0">
         <div className="flex items-center gap-3">
-          <div className="relative h-12 w-24 md:h-20 md:w-48">
-            <Image
-              src={isKssPlanSection ? '/kss-logo.png' : '/fa-logo.png'}
-              alt={isKssPlanSection ? planBrand : 'KSS x Footasylum'}
-              fill
-              sizes="192px"
-              className="object-contain"
-              style={isKssPlanSection ? undefined : { top: 4, left: 10 }}
-            />
-          </div>
-          <div className="min-w-0 md:hidden">
-            <p className="text-[11px] font-semibold tracking-[0.16em] text-slate-500">
-              {isKssPlanSection ? planBrand : 'KSS x Footasylum'}
-            </p>
-            <p className="text-sm font-semibold text-slate-900">
-              {isKssPlanSection ? planPageTitle : 'Navigation'}
-            </p>
-          </div>
+          {isKssPlanSection ? (
+            <div className="relative h-12 w-40">
+              <Image src="/kss-logo.png" alt={planBrand} fill sizes="160px" className="object-contain" />
+            </div>
+          ) : <WorkspaceBrand className="text-slate-950 md:text-white" />}
           <span className="sr-only">{isKssPlanSection ? planBrand : 'KSS x Footasylum'}</span>
         </div>
         <button
@@ -131,7 +116,7 @@ export function SidebarClient({ userRole, userProfile }: SidebarClientProps) {
                   {group.section}
                 </p>
               ) : null}
-              <ul className="md:space-y-1.5">
+              <ul className="md:space-y-0.5">
           {group.items.map((item) => {
             const Icon = item.icon
             const isActive = !item.action && (
@@ -145,7 +130,7 @@ export function SidebarClient({ userRole, userProfile }: SidebarClientProps) {
                 <li key={item.href} className="border-t border-slate-100 first:border-t-0 md:border-t-0">
                   <button
                     onClick={() => { setIsOpen(false); setFeedbackOpen(true) }}
-                    className="flex min-h-[52px] w-full items-center gap-3 px-4 py-3 text-[15px] font-medium text-slate-700 transition-all hover:bg-slate-50 hover:text-slate-900 md:min-h-[48px] md:rounded-2xl md:text-sm md:text-white/80 md:hover:bg-white/10 md:hover:text-white"
+                    className="flex min-h-[52px] w-full items-center gap-3 px-4 py-3 text-[15px] font-medium text-slate-700 transition-all hover:bg-slate-50 hover:text-slate-900 md:min-h-[40px] md:rounded-lg md:text-[13px] md:text-white/80 md:hover:bg-white/10 md:hover:text-white"
                   >
                     <Icon className="h-5 w-5 flex-shrink-0 text-slate-400 md:text-white/70" />
                     {item.label}
@@ -158,9 +143,10 @@ export function SidebarClient({ userRole, userProfile }: SidebarClientProps) {
               <li key={item.href} className="border-t border-slate-100 first:border-t-0 md:border-t-0">
                 <Link
                   href={item.href}
+                  aria-current={isActive ? 'page' : undefined}
                   onClick={() => setIsOpen(false)}
                   className={cn(
-                    'flex min-h-[52px] items-center gap-3 px-4 py-3 text-[15px] font-medium transition-all md:min-h-[48px] md:rounded-2xl md:text-sm',
+                    'flex min-h-[52px] items-center gap-3 px-4 py-3 text-[15px] font-medium transition-all md:min-h-[40px] md:rounded-lg md:text-[13px]',
                     isActive
                       ? 'bg-white text-slate-950 font-semibold shadow-[inset_0_0_0_1px_rgba(15,23,42,0.05)] md:bg-white md:text-slate-950 md:shadow-[inset_0_0_0_1px_rgba(15,23,42,0.05)]'
                       : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900 md:text-white/80 md:hover:bg-white/10 md:hover:text-white'
@@ -201,7 +187,7 @@ export function SidebarClient({ userRole, userProfile }: SidebarClientProps) {
   return (
     <>
       {/* Desktop Sidebar - hidden when printing */}
-      <aside className="no-print fixed left-0 top-0 z-30 hidden h-[100dvh] w-64 flex-col bg-[#0e1925] md:flex">
+      <aside className="workspace-sidebar no-print fixed left-0 top-0 z-30 hidden h-[100dvh] w-64 flex-col bg-[#0e1925] md:flex">
         {sidebarContent}
       </aside>
 
