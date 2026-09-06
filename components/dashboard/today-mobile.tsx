@@ -1,5 +1,6 @@
 'use client'
 
+import React from 'react'
 import Link from 'next/link'
 import { format } from 'date-fns'
 import { AlertTriangle, ArrowRight, ArrowUpRight, Camera, ClipboardCheck, Flame, MapPin, Navigation } from 'lucide-react'
@@ -9,7 +10,7 @@ import type { DashboardData } from './dashboard-types'
 import { normalisePriorityStores, normaliseUpcomingVisits, safeNumber } from './dashboard-utils'
 
 export function TodayMobile({ data, profileName }: { data: DashboardData; profileName?: string | null }) {
-  const nextVisit = normaliseUpcomingVisits(Array.isArray(data.plannedRoutes) ? data.plannedRoutes : [])[0]
+  const nextVisit = normaliseUpcomingVisits(Array.isArray(data.personalPlannedRoutes) ? data.personalPlannedRoutes : [])[0]
   const stores = normalisePriorityStores(data).slice(0, 3)
   const firstName = profileName?.trim().split(/\s+/)[0] || 'there'
   const shortcuts = [
@@ -28,7 +29,7 @@ export function TodayMobile({ data, profileName }: { data: DashboardData; profil
           <h3>{nextVisit.store}</h3>
           <p className="field-next-region"><MapPin size={15} aria-hidden="true" />{nextVisit.region}</p>
           <div className="field-next-actions"><Button asChild><Link href="/route-planning">Open route <ArrowUpRight size={16} /></Link></Button><Link href="/audit-tracker">Start visit <ArrowRight size={15} /></Link></div>
-        </> : <><h3>Your next visit starts here.</h3><p className="mt-3 text-sm">No upcoming visits planned.</p><Button asChild className="mt-5"><Link href="/route-planning">Plan a route <ArrowUpRight size={16} /></Link></Button></>}
+        </> : <><h3>Your next visit starts here.</h3><p className="mt-3 text-sm">No upcoming visits assigned to you.</p><Button asChild className="mt-5"><Link href="/route-planning">Plan a route <ArrowUpRight size={16} /></Link></Button></>}
         <Link className="field-schedule" href="/calendar">View full schedule <ArrowRight size={14} /></Link>
       </section>
       <nav className="field-shortcuts" aria-label="Quick actions">{shortcuts.map(({href,icon:Icon,label}) => <Link key={href} href={href}><span><Icon size={20} aria-hidden="true" /></span>{label}</Link>)}</nav>

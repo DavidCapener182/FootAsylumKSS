@@ -46,6 +46,7 @@ export type DashboardData = {
   storesNeedingSecondVisit?: Array<Record<string, unknown>>
   profiles?: Array<Record<string, unknown>>
   plannedRoutes?: Array<Record<string, unknown>>
+  personalPlannedRoutes?: Array<Record<string, unknown>>
   auditStats?: {
     totalStores?: number
     firstAuditsComplete?: number

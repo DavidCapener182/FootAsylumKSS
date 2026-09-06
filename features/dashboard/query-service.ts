@@ -41,6 +41,7 @@ const routeSchema = z.object({
   store_code: z.string().nullable(),
   region: z.string().nullable(),
   compliance_audit_2_planned_date: z.string(),
+  compliance_audit_2_assigned_manager_user_id: z.string().nullable(),
 })
 
 function assertResult<T>(label: string, result: { data: T | null; error: { message: string } | null }): T {
@@ -55,7 +56,7 @@ function dateOnly(value: string) {
   return parsed
 }
 
-export async function getDashboardData(): Promise<DashboardData> {
+export async function getDashboardData(currentUserId: string): Promise<DashboardData> {
   return observeQuery('dashboard.workspace', async () => {
     const supabase = createClient()
     const now = new Date()
@@ -72,7 +73,7 @@ export async function getDashboardData(): Promise<DashboardData> {
       supabase.from('fa_actions').select('status, priority, due_date'),
       supabase.from('fa_current_store_actions').select('store_id, status, priority, due_date'),
       supabase.from('fa_activity_log').select('id, action, entity_type, details, created_at, performed_by:fa_profiles!fa_activity_log_performed_by_user_id_fkey(full_name)').order('created_at', { ascending: false }).limit(20),
-      supabase.from('fa_stores').select('id, store_name, store_code, region, compliance_audit_2_planned_date').eq('is_active', true).not('compliance_audit_2_planned_date', 'is', null).gte('compliance_audit_2_planned_date', today).order('compliance_audit_2_planned_date'),
+      supabase.from('fa_stores').select('id, store_name, store_code, region, compliance_audit_2_planned_date, compliance_audit_2_assigned_manager_user_id').eq('is_active', true).not('compliance_audit_2_planned_date', 'is', null).gte('compliance_audit_2_planned_date', today).order('compliance_audit_2_planned_date').order('route_sequence', { nullsFirst: false }).order('store_name'),
     ])
 
     const stores = z.array(storeSchema).parse(assertResult('dashboard stores', storesResult)).filter((store) => !shouldHideStore(store))
@@ -138,6 +139,7 @@ export async function getDashboardData(): Promise<DashboardData> {
       storeCount: 1,
       stores: [{ id: route.id, name: route.store_name, store_code: route.store_code }],
       managerName: 'Assigned manager',
+      managerId: route.compliance_audit_2_assigned_manager_user_id,
     }))
 
     return {
@@ -150,6 +152,7 @@ export async function getDashboardData(): Promise<DashboardData> {
       severityCounts,
       recentActivity,
       plannedRoutes,
+      personalPlannedRoutes: plannedRoutes.filter((route) => route.managerId === currentUserId),
       storesNeedingSecondVisit: stores.filter((store) => store.compliance_audit_1_date && !store.compliance_audit_2_date),
       auditStats: {
         totalStores,
