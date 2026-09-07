@@ -42,6 +42,7 @@ export async function POST(request: NextRequest) {
     renderHeaders.set('x-fra-expected-images', JSON.stringify(before.images.map(image => image.path)))
     const generated = await generatePdf(new NextRequest(url, { headers: renderHeaders }))
     if (!generated.ok) throw new Error((await generated.json()).details || 'PDF generation failed')
+    const unusedImages: string[] = JSON.parse(generated.headers.get('x-fra-unused-images') || '[]')
     const bytes = Buffer.from(await generated.arrayBuffer())
     if (bytes.subarray(0,5).toString() !== '%PDF-' || bytes.length < 1000) throw new Error('Generated PDF is invalid')
     const after = await fraSourceSnapshot(supabase, instanceId)
@@ -57,10 +58,10 @@ export async function POST(request: NextRequest) {
     const { data: signed, error: signedError } = await bucket.createSignedUrl(path, 3600)
     if (signedError || !signed) throw new Error('Unable to open PDF for review')
     const { error: saveError } = await admin.from('fa_fra_publications').insert({ id, instance_id: instanceId, store_id: before.instance.store_id,
-      pdf_path: path, pdf_sha256: pdfHash(bytes), pdf_bytes: bytes.length, source_fingerprint: after.fingerprint, source_images: after.images, created_by: userId })
+      pdf_path: path, pdf_sha256: pdfHash(bytes), pdf_bytes: bytes.length, source_fingerprint: after.fingerprint, source_images: after.images.map(image => ({ ...image, included_in_pdf: !unusedImages.includes(image.path) })), created_by: userId })
     if (saveError) throw saveError
     uploadedPath = null
-    return NextResponse.json({ id, url: signed.signedUrl, bytes: bytes.length, sourceImages: after.images.length })
+    return NextResponse.json({ id, url: signed.signedUrl, bytes: bytes.length, sourceImages: after.images.length, unusedImages: unusedImages.length })
   } catch (error) {
     if (uploadedPath) await admin.storage.from('fa-attachments').remove([uploadedPath])
     return NextResponse.json({ error: error instanceof Error ? error.message : typeof error === 'object' && error && 'message' in error ? String(error.message) : 'Unable to prepare FRA PDF' }, { status: isPermissionError(error) ? error.status : 400 })

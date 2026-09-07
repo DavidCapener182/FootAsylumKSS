@@ -421,6 +421,7 @@ export default function FRAReportViewPage({
       </div>
       {saveError && <p role="alert" className="text-red-700">{saveError}</p>}
       <iframe title="FRA PDF for review" src={document.url} className="h-[70vh] w-full rounded border" />
+      {review?.unusedImages > 0 && <p className="text-sm text-amber-800">{review.unusedImages} stored source images are not used by this report layout. They will still be preserved in the SharePoint source-image archive. Check that the PDF includes every photograph you need before confirming.</p>}
       {review && <div className="flex flex-wrap items-center gap-4">
         <label className="flex items-center gap-2"><input type="checkbox" checked={reviewConfirmed} onChange={e => setReviewConfirmed(e.target.checked)} />I have checked this PDF and confirm it is ready to save.</label>
         <Button disabled={!reviewConfirmed || saving} onClick={handleConfirmPublication}>{saving ? 'Saving…' : 'Confirm & save final PDF'}</Button>

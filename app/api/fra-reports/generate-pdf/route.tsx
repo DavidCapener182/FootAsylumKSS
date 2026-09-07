@@ -174,13 +174,13 @@ export async function GET(request: NextRequest) {
     }
 
     const expectedImages: string[] = JSON.parse(request.headers.get('x-fra-expected-images') || '[]')
+    let unusedSourceImages: string[] = []
     if (expectedImages.length) {
-      const missing = await page.evaluate((paths: string[]) => {
+      unusedSourceImages = await page.evaluate((paths: string[]) => {
         const loaded = Array.from(document.images).filter(img => img.complete && img.naturalWidth > 0)
           .map(img => { try { return decodeURIComponent(img.currentSrc || img.src) } catch { return img.src } })
-        return paths.filter(path => !loaded.some(src => src.includes(path))).length
+        return paths.filter(path => !loaded.some(src => src.includes(path)))
       }, expectedImages)
-      if (missing) throw new Error(`${missing} source photographs were not included in the rendered report. Review the photo sections before finalising.`)
     }
     const brokenImages = await page.evaluate(() => Array.from(document.images).filter(img => !img.complete || img.naturalWidth === 0).length)
     if (brokenImages) throw new Error(`${brokenImages} report images did not load. PDF was not saved; retry after correcting the missing images.`)
@@ -233,6 +233,7 @@ export async function GET(request: NextRequest) {
     return new NextResponse(pdfBuffer as unknown as BodyInit, {
       headers: {
         'Content-Type': 'application/pdf',
+        'X-FRA-Unused-Images': JSON.stringify(unusedSourceImages),
         'Content-Disposition': `attachment; filename="${filename.replace(/"/g, '\\"')}"`,
         'Cache-Control': 'no-store, max-age=0',
       },
