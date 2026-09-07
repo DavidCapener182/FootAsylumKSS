@@ -142,8 +142,8 @@ function buildDeploymentAppendices(documents: EmpPreviewSourceDocument[]): EmpPr
           title: `Deployment: ${entry.title}`,
           description: `Source: ${typeof data.sourceFileName === 'string' ? data.sourceFileName : document.fileName} - DEPLOYMENT sheet.${typeof entry.note === 'string' ? ` ${entry.note}` : ''}`,
           blocks: Array.from({ length: Math.ceil(entry.rows.length / 14) }, (_, pageIndex) => ({
-            type: 'multi_table', headers: ['Outlet', 'Grade', 'Name', 'Company', 'Start', 'End', 'Hours', 'Cost GBP'],
-            rows: (entry.rows as string[][]).slice(pageIndex * 14, (pageIndex + 1) * 14),
+            type: 'multi_table', headers: ['Outlet', 'Grade', 'Name', 'Company', 'Start', 'End', 'Hours', ...(data.hideCosts === true ? [] : ['Cost GBP'])],
+            rows: (entry.rows as string[][]).slice(pageIndex * 14, (pageIndex + 1) * 14).map((row) => data.hideCosts === true ? row.slice(0, 7) : row),
             compact: true, landscape: true, avoidRowSplit: true, startOnNewPage: pageIndex > 0,
           })) as EmpPreviewBlock[],
         }]

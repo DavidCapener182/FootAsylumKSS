@@ -10,6 +10,19 @@ const document = {
 }
 
 describe('deployment appendix', () => {
+  it('omits costs from both preview and DOCX when the document hides them', () => {
+    const data = JSON.parse(document.extractedText)
+    data.hideCosts = true
+    data.days[0].rows[0][7] = '987.65'
+    const model = buildEmpPreviewModel({ fieldValues: {}, selectedAnnexes: [], documents: [{ ...document, extractedText: JSON.stringify(data) }] })
+    for (const html of [renderToStaticMarkup(createElement(EmpPreviewDocument, { model })), renderEmpPreviewHtml(model)]) {
+      expect(html).not.toContain('Cost GBP')
+      expect(html).not.toContain('987.65')
+      expect(html).toContain('Named Person')
+      expect(html).toContain('15:30')
+      expect(html).toContain('Hours')
+    }
+  })
   it('preserves every row, splits into bounded tables, and follows the complete risk assessment', () => {
     const model = buildEmpPreviewModel({ fieldValues: {}, selectedAnnexes: [], documents: [document] })
     expect(model.deploymentAppendices?.[0].blocks.map((b) => b.type === 'multi_table' ? b.rows.length : 0)).toEqual([14, 14, 4])
