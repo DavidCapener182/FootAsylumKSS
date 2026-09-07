@@ -55,6 +55,8 @@ jobs:
       - run: npm run build
       - name: Enforce client JavaScript budget
         run: npm run check:bundle
+      - name: Enforce server function trace budget
+        run: npm run check:function-storage
       - name: Save production build for browser tests
         uses: actions/upload-artifact@v4
         with:
