@@ -35,10 +35,8 @@ export async function GET(request: NextRequest) {
     const protocol = request.headers.get('x-forwarded-proto') || 'http'
     const host = request.headers.get('host') || 'localhost:3000'
     const baseUrl = `${protocol}://${host}`
-    // Storage already supplies resized, quality-limited report images. Loading the
-    // regular print view avoids recompressing every evidence photo inside the
-    // serverless request, which can exhaust the export timeout on photo-heavy FRAs.
-    const reportUrl = `${baseUrl}/print/fra-report?instanceId=${instanceId}`
+    // Embed compact copies while retaining the original photos for archiving.
+    const reportUrl = `${baseUrl}/print/fra-report?instanceId=${instanceId}&forPdf=1`
 
     browser = await launchPuppeteerBrowser()
 
@@ -178,7 +176,7 @@ export async function GET(request: NextRequest) {
     if (expectedImages.length) {
       unusedSourceImages = await page.evaluate((paths: string[]) => {
         const loaded = Array.from(document.images).filter(img => img.complete && img.naturalWidth > 0)
-          .map(img => { try { return decodeURIComponent(img.currentSrc || img.src) } catch { return img.src } })
+          .map(img => { try { return img.dataset.fraSourcePath || decodeURIComponent(img.currentSrc || img.src) } catch { return img.src } })
         return paths.filter(path => !loaded.some(src => src.includes(path)))
       }, expectedImages)
     }

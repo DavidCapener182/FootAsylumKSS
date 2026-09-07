@@ -1000,7 +1000,8 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
               <div key={idx} className={`relative fra-photo-block ${photoCardWidthClass}`}>
                 <div className={`relative fra-photo-image-frame ${imageWrapperClass}`} style={pdfImageFrameStyle}>
                 <img 
-                  src={photo.public_url || photo.file_path} 
+                  data-fra-source-path={photo.file_path}
+            src={photo.public_url || photo.file_path} 
                   alt={`${label} ${idx + 1}`}
                   className={imageClass}
                   style={pdfImageStyle}
@@ -1149,6 +1150,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
       <figure className="fra-visual-record-photo">
         <div style={frameStyle}>
           <img
+            data-fra-source-path={photo.file_path}
             src={photo.public_url || photo.file_path}
             alt={label}
             style={imageStyle}

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import sharp from 'sharp'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { mapHSAuditToFRAData } from '@/app/actions/fra-reports'
@@ -6,61 +7,20 @@ import { mapHSAuditToFRAData } from '@/app/actions/fra-reports'
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
-const PDF_PHOTO_MAX_EDGE = 520
-const PDF_PHOTO_JPEG_QUALITY = 45
 const REPORT_PHOTO_MAX_EDGE = 700
-
-type CanvasModule = {
-  createCanvas: (width: number, height: number) => {
-    getContext: (contextType: '2d') => {
-      fillStyle: string
-      fillRect: (x: number, y: number, width: number, height: number) => void
-      drawImage: (image: unknown, x: number, y: number, width: number, height: number) => void
-    }
-    toBuffer: (mime: 'image/jpeg', quality?: number) => Buffer
-  }
-  loadImage: (input: Buffer) => Promise<{ width: number; height: number }>
-}
-
-let canvasModule: CanvasModule | null = null
-
-function getCanvasModule(): CanvasModule {
-  if (canvasModule) return canvasModule
-  // Keep this native optional dependency out of Next's server bundle graph.
-  const runtimeRequire = new Function('moduleName', 'return require(moduleName)') as (moduleName: string) => CanvasModule
-  canvasModule = runtimeRequire('@napi-rs/canvas')
-  return canvasModule
-}
 
 async function compactImageForPdf(sourceUrl: string): Promise<string | null> {
   try {
     const response = await fetch(sourceUrl)
-    if (!response.ok) {
-      console.warn('FRA PDF photo compression skipped; image fetch failed:', response.status)
-      return null
-    }
-
+    if (!response.ok) return null
     const input = Buffer.from(await response.arrayBuffer())
     if (!input.length) return null
-
-    const { createCanvas, loadImage } = getCanvasModule()
-    const image = await loadImage(input)
-    const sourceWidth = image.width || 0
-    const sourceHeight = image.height || 0
-    if (sourceWidth <= 0 || sourceHeight <= 0) return null
-
-    const scale = Math.min(1, PDF_PHOTO_MAX_EDGE / Math.max(sourceWidth, sourceHeight))
-    const width = Math.max(1, Math.round(sourceWidth * scale))
-    const height = Math.max(1, Math.round(sourceHeight * scale))
-    const canvas = createCanvas(width, height)
-    const context = canvas.getContext('2d')
-    context.fillStyle = '#f8fafc'
-    context.fillRect(0, 0, width, height)
-    context.drawImage(image, 0, 0, width, height)
-
-    const output = canvas.toBuffer('image/jpeg', PDF_PHOTO_JPEG_QUALITY)
-    if (!output.length) return null
-
+    // Keep readable detail in the report; archive the original separately.
+    const output = await sharp(input).rotate()
+      .resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true })
+      .flatten({ background: '#ffffff' })
+      .jpeg({ quality: 85, mozjpeg: true, chromaSubsampling: '4:4:4' })
+      .toBuffer()
     return `data:image/jpeg;base64,${output.toString('base64')}`
   } catch (error) {
     console.warn('FRA PDF photo compression skipped:', error)
@@ -82,9 +42,6 @@ async function loadPlaceholderPhotos(
   const result: Record<string, { file_path: string; public_url: string; comment?: string }[]> = {}
   const prefix = `fra/${instanceId}/photos`
   const forPdf = options?.forPdf === true
-  const transformWidth = forPdf ? PDF_PHOTO_MAX_EDGE : REPORT_PHOTO_MAX_EDGE
-  const transformHeight = forPdf ? PDF_PHOTO_MAX_EDGE : REPORT_PHOTO_MAX_EDGE
-  const transformQuality = forPdf ? PDF_PHOTO_JPEG_QUALITY : 62
   let storageClient = supabase
   try {
     storageClient = createAdminSupabaseClient() as any
@@ -132,12 +89,12 @@ async function loadPlaceholderPhotos(
           const filePath = `${folderPath}/${f.name}`
           const { data: transformed, error: transformedError } = await storageClient.storage
             .from('fa-attachments')
-            .createSignedUrl(filePath, 120, {
+            .createSignedUrl(filePath, 120, forPdf ? undefined : {
               transform: {
-                width: transformWidth,
-                height: transformHeight,
+                width: REPORT_PHOTO_MAX_EDGE,
+                height: REPORT_PHOTO_MAX_EDGE,
                 resize: 'contain',
-                quality: transformQuality,
+                quality: 62,
               },
             })
 
