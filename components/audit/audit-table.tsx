@@ -537,7 +537,7 @@ export function AuditTable({
     setPdfViewerOpen(true)
   }
 
-  const handleGetPDFUrl = async () => {
+  const handleGetPDFUrl = useCallback(async () => {
     if (!selectedPdfRow) return null
     
     const pdfPath = selectedPdfRow.auditNumber === 1
@@ -546,13 +546,8 @@ export function AuditTable({
     
     if (!pdfPath) return null
     
-    try {
-      return await getAuditPDFDownloadUrl(pdfPath)
-    } catch (error) {
-      console.error('Error fetching PDF URL:', error)
-      return null
-    }
-  }
+    return getAuditPDFDownloadUrl(pdfPath)
+  }, [selectedPdfRow])
 
   const handleOpenPDFUpload = (row: AuditRow, auditNumber?: 1 | 2) => {
     if (!canManageAudits) {

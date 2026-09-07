@@ -1,5 +1,4 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { PDFParse } from 'pdf-parse'
 import { auditDateFromCover, coverMatchesStore, parsePdfFlaggedItems, sixMonthsAfter, pdfFindingActionRow } from './pdf-flagged-items'
 
 export async function importAuditPdfActions({supabase, userId, storeId, auditNumber, filePath, file}: {
@@ -13,6 +12,14 @@ export async function importAuditPdfActions({supabase, userId, storeId, auditNum
     if (storeError || !store) throw new Error('Store could not be verified')
     if (store[`compliance_audit_${auditNumber}_pdf_path`] !== filePath) throw new Error('The linked PDF changed; import needs review')
     if (file.size > 50 * 1024 * 1024) throw new Error('PDF saved; files over 50 MB require a separate action import')
+    // PDF.js needs DOMMatrix even for text extraction on serverless Node.
+    // Load it only while importing findings: opening a signed PDF URL must
+    // never initialize the parser or its optional native canvas dependency.
+    if (typeof globalThis.DOMMatrix === 'undefined') {
+      const { default: DOMMatrix } = await import('@thednp/dommatrix')
+      globalThis.DOMMatrix = DOMMatrix as unknown as typeof globalThis.DOMMatrix
+    }
+    const { PDFParse } = await import('pdf-parse')
     const parser = new PDFParse({data:Buffer.from(await file.arrayBuffer())})
     let parsed
     try { parsed = parsePdfFlaggedItems((await parser.getText()).pages) } finally { await parser.destroy() }

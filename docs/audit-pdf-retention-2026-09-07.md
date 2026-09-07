@@ -21,7 +21,11 @@ Supabase storage usage is averaged over the billing period; the usage warning ma
 
 ## Validation
 
-- Full unit suite: 440 tests across 97 files.
+- Full unit suite: 441 tests across 98 files.
 - Type check and production build passed.
 - Lint passed with three existing warnings outside this change.
 - PDF verification: exact extracted text for all 71 pages, unchanged page dimensions/link counts, full-page render comparisons and visual inspection, followed by fresh remote downloads matching the compressed SHA-256 hashes.
+
+## PDF viewer production correction
+
+The live check exposed a shared server-action initialization failure: the findings importer eagerly loaded PDF.js, whose optional native canvas package is absent in the production function. `DOMMatrix is not defined` prevented audit download URLs from being signed. Findings extraction now loads its parser only when needed, after installing the existing DOMMatrix shim. The viewer propagates actual errors rather than treating them as missing PDFs, and uses a stable URL callback. Regression verification reproduces the old initialization failure and proves download signing no longer loads the parser. Real Sunderland PDF text extraction also passed with native canvas deliberately unavailable.
