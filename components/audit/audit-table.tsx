@@ -13,7 +13,8 @@ import { getAuditPDFDownloadUrl, deleteAuditPDF } from '@/app/actions/audit-pdfs
 import { saveComplianceAudit, updateComplianceAuditScore } from '@/app/actions/stores'
 import { can } from '@/lib/role-capabilities'
 import { getAuditLifecycle } from '@/lib/compliance-ui'
-import { Upload, Eye, EyeOff, File, SlidersHorizontal, ChevronDown, ChevronUp, BellRing, Search } from 'lucide-react'
+import { getAuditSharePointFolder } from '@/lib/audit-sharepoint'
+import { Upload, Eye, EyeOff, File, SlidersHorizontal, ChevronDown, ChevronUp, BellRing, Search, ExternalLink } from 'lucide-react'
 import { PDFViewerModal } from '@/components/shared/pdf-viewer-modal'
 import { StatusBadge } from '@/components/shared/status-badge'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -54,6 +55,7 @@ interface DeleteAuditPdfState {
   row: AuditRow
   auditNumber: 1 | 2
 }
+
 
 const HS_AUDIT_INTERVAL_MONTHS = 3
 const PREVISIT_ACTION_FLAG_DAYS = 14
@@ -162,7 +164,6 @@ export function AuditTable({
   const [updateScoreError, setUpdateScoreError] = useState<string | null>(null)
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
   const [deletePdfDialog, setDeletePdfDialog] = useState<DeleteAuditPdfState | null>(null)
-  const [archivedPdfStore, setArchivedPdfStore] = useState<string | null>(null)
   const [tableMessage, setTableMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [storeActionsModalOpen, setStoreActionsModalOpen] = useState(false)
   const [storeActionsRow, setStoreActionsRow] = useState<AuditRow | null>(null)
@@ -796,6 +797,7 @@ export function AuditTable({
     const pdf = auditNumber === 1 ? row.compliance_audit_1_pdf_path : row.compliance_audit_2_pdf_path
     const planSent = auditNumber === 1 ? row.action_plan_1_sent : row.action_plan_2_sent
     const complete = hasCompletedAudit(row, auditNumber)
+    const archiveFolder = getAuditSharePointFolder(row.store_code, row.store_name)
     const scoreTone = score === null ? 'unscored' : score >= 90 ? 'good' : score >= 80 ? 'watch' : 'attention'
 
     return (
@@ -815,17 +817,28 @@ export function AuditTable({
               title={`View Audit ${auditNumber} PDF`} aria-label={`View Audit ${auditNumber} PDF for ${row.store_name}`}>
               <File className="h-3.5 w-3.5" /><span>PDF</span>
             </button>
+          ) : complete && archiveFolder ? (
+            <a className="audit-document" href={archiveFolder.url} target="_blank" rel="noopener noreferrer"
+              title={`Open ${row.store_name} H&S Audit folder in SharePoint (new tab)`}
+              aria-label={`Open ${row.store_name} H&S Audit folder in SharePoint (new tab)`}>
+              <ExternalLink className="h-3.5 w-3.5" /><span>SharePoint</span>
+            </a>
           ) : auditNumber === 1 && complete && row.compliance_audit_2_pdf_path ? (
-            <button type="button" className="audit-document" onClick={() => setArchivedPdfStore(row.store_name)}
-              title="Audit 1 PDF: Saved to SharePoint" aria-label={`Audit 1 PDF for ${row.store_name}: Saved to SharePoint`}>
-              <File className="h-3.5 w-3.5" /><span>PDF</span>
-            </button>
+            <span className="audit-document" title="A SharePoint folder has not been verified for this store">
+              <File className="h-3.5 w-3.5" /><span>Unavailable</span>
+            </span>
           ) : canManageAudits && complete ? (
             <button type="button" className="audit-document" onClick={() => handleOpenPDFUpload(row, auditNumber)}
               title={`Upload Audit ${auditNumber} PDF`} aria-label={`Upload Audit ${auditNumber} PDF for ${row.store_name}`}>
               <Upload className="h-3.5 w-3.5" /><span>PDF</span>
             </button>
           ) : null}
+          {!pdf && complete && archiveFolder && canManageAudits && !(auditNumber === 1 && row.compliance_audit_2_pdf_path) && (
+            <button type="button" className="audit-document" onClick={() => handleOpenPDFUpload(row, auditNumber)}
+              title={`Upload Audit ${auditNumber} PDF`} aria-label={`Upload Audit ${auditNumber} PDF for ${row.store_name}`}>
+              <Upload className="h-3.5 w-3.5" /><span>Upload</span>
+            </button>
+          )}
         </div>
         {date ? <span className="audit-record-date">{formatDate(date)}</span> : null}
         {complete ? <span className={cn('audit-plan-note', planSent && 'audit-plan-sent')}>
@@ -1377,16 +1390,6 @@ export function AuditTable({
               {uploadingPdf ? 'Uploading...' : 'Upload'}
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={!!archivedPdfStore} onOpenChange={(open) => { if (!open) setArchivedPdfStore(null) }}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Audit 1 PDF — {archivedPdfStore}</DialogTitle>
-            <DialogDescription>Saved to SharePoint</DialogDescription>
-          </DialogHeader>
-          <DialogFooter><Button onClick={() => setArchivedPdfStore(null)}>Close</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
