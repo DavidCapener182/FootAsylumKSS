@@ -11,6 +11,8 @@ export async function fraSourceSnapshot(supabase: any, instanceId: string) {
   if (responseError) throw new Error('Unable to verify FRA responses')
   const { data: store, error: storeError } = await supabase.from('fa_stores').select('*').eq('id', instance.store_id).single()
   if (storeError || !store) throw new Error('Store not found')
+  const { data: comments, error: commentError } = await supabase.from('fa_fra_photo_comments').select('file_path,comment').eq('audit_instance_id', instanceId).order('file_path')
+  if (commentError) throw new Error('Unable to verify photo comments')
   const bucket = createAdminSupabaseClient().storage.from('fa-attachments')
   const images: Array<{ path: string; bytes: number; updated_at: string; sha256: string }> = []
   async function walk(prefix: string) {
@@ -31,7 +33,7 @@ export async function fraSourceSnapshot(supabase: any, instanceId: string) {
   }
   await walk(`fra/${instanceId}/photos`)
   images.sort((a,b) => a.path.localeCompare(b.path))
-  const fingerprint = pdfHash(Buffer.from(JSON.stringify({ instance, responses, store, images })))
+  const fingerprint = pdfHash(Buffer.from(JSON.stringify({ instance, responses, store, comments, images })))
   return { fingerprint, images, instance, store }
 }
 
