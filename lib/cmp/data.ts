@@ -1,3 +1,4 @@
+import { optimizeStorageImage } from '@/lib/storage/optimize-image'
 import 'server-only'
 
 import { createClient } from '@/lib/supabase/server'
@@ -776,6 +777,7 @@ export async function uploadCmpSourceDocument(input: {
 
   const { extractTextFromSourceFile } = await import('@/lib/cmp/document-text')
   const extractedText = await extractTextFromSourceFile(input.file)
+  input = { ...input, file: await optimizeStorageImage(input.file) }
   const fileExt = input.file.name.split('.').pop()?.toLowerCase() || 'bin'
   const filePath = `${input.planId}/${Date.now()}-${sanitizeFileName(input.file.name || `source.${fileExt}`)}`
 

@@ -1,5 +1,7 @@
 'use server'
 
+import { optimizeStorageImage } from '@/lib/storage/optimize-image'
+
 import { createClient } from '@/lib/supabase/server'
 import { extractConductedDateFromPdfText, parseAuditDateString } from '@/lib/fra/pdf-parser'
 import { revalidatePath } from 'next/cache'
@@ -689,6 +691,7 @@ export async function uploadAuditMedia(
 ) {
   const { supabase } = await requirePermission('manageAudits')
 
+  file = await optimizeStorageImage(file)
   const fileExt = file.name.split('.').pop()
   const fileName = `${instanceId}/${questionId || 'general'}/${Date.now()}.${fileExt}`
   const filePath = `audits/${fileName}`

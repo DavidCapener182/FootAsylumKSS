@@ -1,5 +1,7 @@
 'use server'
 
+import { optimizeStorageImage } from '@/lib/storage/optimize-image'
+
 import { logActivity } from '@/lib/activity-log'
 import { revalidatePath } from 'next/cache'
 import { FaEntityType } from '@/types/db'
@@ -12,6 +14,7 @@ export async function uploadAttachment(
 ) {
   const { supabase, userId } = await requirePermission('uploadEvidence')
 
+  file = await optimizeStorageImage(file)
   const fileExt = file.name.split('.').pop()
   const fileName = `${entityId}/${Date.now()}.${fileExt}`
   const filePath = `${entityType}/${fileName}`

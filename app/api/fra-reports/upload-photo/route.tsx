@@ -1,3 +1,4 @@
+import { optimizeStorageImage } from '@/lib/storage/optimize-image'
 import { NextRequest, NextResponse } from 'next/server'
 import { requirePermission } from '@/lib/permissions'
 import { createAdminSupabaseClient } from '@/lib/supabase/admin'
@@ -114,8 +115,9 @@ export async function POST(request: NextRequest) {
 
     const uploadedFiles: any[] = []
 
-    for (const file of files) {
-      const detectedType = resolveUploadMimeType(file)
+    for (const sourceFile of files) {
+      let file = sourceFile
+      let detectedType = resolveUploadMimeType(file)
 
       // Validate file type
       if (!detectedType.startsWith('image/')) {
@@ -128,6 +130,8 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'File size must be less than 25MB' }, { status: 400 })
       }
 
+      file = await optimizeStorageImage(file)
+      detectedType = resolveUploadMimeType(file)
       const fileExt = file.name.split('.').pop()
       const timestamp = Date.now()
       const fileName = `fra-${instanceId}-${placeholderId}-${timestamp}-${Math.random().toString(36).substring(7)}.${fileExt}`

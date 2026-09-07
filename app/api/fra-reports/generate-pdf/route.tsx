@@ -173,6 +173,8 @@ export async function GET(request: NextRequest) {
       await sleep(200)
     }
 
+    const brokenImages = await page.evaluate(() => Array.from(document.images).filter(img => !img.complete || img.naturalWidth === 0).length)
+    if (brokenImages) throw new Error(`${brokenImages} report images did not load. PDF was not saved; retry after correcting the missing images.`)
     await sleep(300)
 
     // Force every ancestor of #print-root to allow pagination (no fixed height/overflow)

@@ -132,6 +132,9 @@ export default function FRAReportViewPage({
       // ignore storage failures
     }
   }, [instanceId])
+  const [publication, setPublication] = useState<any>(null)
+  const [review, setReview] = useState<any>(null)
+  const [reviewConfirmed, setReviewConfirmed] = useState(false)
   const [fraData, setFraData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -155,6 +158,13 @@ export default function FRAReportViewPage({
     try {
       setLoading(true)
       setNeedsSetup(false)
+      const savedResponse = await fetch(`/api/fra-reports/publication?instanceId=${instanceId}`)
+      const savedData = await savedResponse.json()
+      if (!savedResponse.ok) throw new Error(savedData.error || 'Unable to check the saved FRA')
+      if (savedData.publication) {
+        setPublication(savedData.publication)
+        return
+      }
       const response = await fetch(`/api/fra-reports/view?instanceId=${instanceId}`)
       if (!response.ok) {
         const errorData = await readJsonOrThrow(response, `Failed to load FRA report (${response.status})`)
@@ -313,22 +323,36 @@ export default function FRAReportViewPage({
         }
       }
 
-      const res = await fetch('/api/fra-reports/complete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ instanceId }),
+      const res = await fetch('/api/fra-reports/publication', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ instanceId }),
       })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(data.error || 'Failed to save')
-      setSaveSuccess(true)
-      // After marking the FRA as complete, return to the main Audit Lab page
-      // so you can immediately start another assessment.
-      router.push('/audit-lab')
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Unable to prepare the PDF')
+      setReview(data)
+      setReviewConfirmed(false)
     } catch (err: any) {
       setSaveError(err.message || 'Failed to save FRA')
     } finally {
       setSaving(false)
     }
+  }
+
+  const handleConfirmPublication = async () => {
+    if (!review || !reviewConfirmed) return
+    setSaving(true)
+    setSaveError(null)
+    try {
+      const response = await fetch('/api/fra-reports/complete', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ instanceId, publicationId: review.id, confirmed: true }),
+      })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.details || result.error || 'Unable to confirm the PDF')
+      setReview(null)
+      setSaveSuccess(true)
+      await fetchData()
+    } catch (error) { setSaveError(error instanceof Error ? error.message : 'Unable to confirm the PDF') }
+    finally { setSaving(false) }
   }
 
   const handlePrint = () => {
@@ -381,6 +405,28 @@ export default function FRAReportViewPage({
   const handleClosePreview = () => {
     if (!instanceId) return
     router.push(`/audit-lab/view-fra-report?instanceId=${instanceId}`)
+  }
+
+  if (publication || review) {
+    const document = publication || review
+    return <div className="space-y-4 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div><Link href="/fire-risk-assessment">← Fire Risk Assessments</Link>
+          <h1 className="text-xl font-bold">{publication ? 'Confirmed FRA' : 'Review the final PDF'}</h1>
+          <p className="text-sm text-muted-foreground">{publication
+            ? publication.archive_status === 'complete' ? 'Source images archived to SharePoint.' : 'PDF saved. Source images remain safe until Codex verifies their SharePoint archive.'
+            : 'Check the report, dates, findings and photographs before confirming. This exact PDF will be saved.'}</p>
+        </div>
+        <a href={document.url} target="_blank" rel="noopener noreferrer" className="underline">Open PDF in a new tab</a>
+      </div>
+      {saveError && <p role="alert" className="text-red-700">{saveError}</p>}
+      <iframe title="FRA PDF for review" src={document.url} className="h-[70vh] w-full rounded border" />
+      {review && <div className="flex flex-wrap items-center gap-4">
+        <label className="flex items-center gap-2"><input type="checkbox" checked={reviewConfirmed} onChange={e => setReviewConfirmed(e.target.checked)} />I have checked this PDF and confirm it is ready to save.</label>
+        <Button disabled={!reviewConfirmed || saving} onClick={handleConfirmPublication}>{saving ? 'Saving…' : 'Confirm & save final PDF'}</Button>
+        <Button variant="outline" disabled={saving} onClick={() => { setReview(null); setReviewConfirmed(false) }}>Return to editing</Button>
+      </div>}
+    </div>
   }
 
   if (isPrintPreview && instanceId) {
@@ -465,7 +511,7 @@ export default function FRAReportViewPage({
           >
             {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             {!saving && !saveSuccess && <Save className="h-4 w-4 mr-2" />}
-            {saving ? 'Saving...' : saveSuccess ? 'Saved' : 'Save & mark done'}
+            {saving ? 'Preparing PDF…' : saveSuccess ? 'Saved' : 'Finish & review PDF'}
           </Button>
         </div>
       </div>

@@ -1,0 +1,23 @@
+# FRA final PDF and source-image archive
+
+New workflow: Finish & review PDF saves current edits and generates a PDF, verifies its storage readback, and presents that exact file for review. The user confirms the reviewed PDF. Completion, store linkage and archival eligibility commit together. View FRA opens the confirmed immutable PDF instead of rebuilding the report. Unconfirmed reports retain the editable workflow. Historical publications cannot replace a later store assessment.
+
+Every publication has a source fingerprint, PDF SHA-256, source-image paths/hashes and confirmation identity/time in `fa_fra_publications`. A changed source requires a fresh review. Missing rendered images block PDF generation. Confirmation is permission checked; publication writes and the atomic confirmation function are service-only. Source images are not removed by publication or confirmation.
+
+David authorised processing all existing completed app-built FRAs (50 records as inventoried on 7 September), checking generated documents before finalising and archiving. This is a document-preservation operation, not a new assessment or certification of safety findings. Retain exact store, date, report text, photos and historical distinctions; never substitute a legacy uploaded PDF with conflicting identity. Leave failures unchanged and report them.
+
+## Codex archive procedure
+
+Process confirmed `pending` publications only. Download and verify the final PDF against `pdf_sha256`; preserve a private local backup. Read the PDF to verify store/date, page completeness and embedded photos against the current report. Find the exact store FRA folder under `/Shared Documents/Operations Clients Drive/Footasylum Ltd/2026 Audits`, preserving `code - name`; use the explicit `Trafford Centre New` exception. Inspect the actual folder, never guess its child spelling.
+
+Create a report-specific `Source images - YYYY-MM-DD - INSTANCE_ID` subfolder within that store FRA folder. Copy the confirmed PDF to the FRA folder and every entry from `source_images` into the report-specific folder with original basename. Retain subdirectories if basenames collide. Do not overwrite an existing different file. Transfer using the authorised signed-in SharePoint browser; the app has no Microsoft 365 app credentials. Existing exact copies should be reused only after verifying their contents.
+
+Verify all archived PDFs and images by downloading SharePoint copies and comparing SHA-256 and byte count with the publication manifest. A folder listing alone is insufficient for removal. Persist verified SharePoint paths/URLs and hashes in `archive_receipt`, retaining the local receipt and backups under ignored `reports/backups/fra-publication-archive`.
+
+Before removing any source image, re-read the confirmed publication and its retained PDF, verify it remains accessible with the recorded hash, and re-download each source to ensure its hash is unchanged. Inspect database JSON/reference paths and other report usages; never remove shared source material used by an unfinalised report. Remove only the exact verified manifest entries under `fra/INSTANCE_ID/photos/` using the Storage API in small batches. Never delete PDFs, other report sources, unknown files, or a directory wholesale. Record each deletion before proceeding; partial failure is resumable. Set `archive_status=complete` only after destination verification and source absence checks; blocked attempts retain sources and a precise reason. Existing metadata and images with unresolved identity/date conflicts remain intact.
+
+## Upload compression
+
+Server-side optimisation covers FRA photos, evidence attachments, audit media, CMP and EMP source images. Large JPEG photographs use quality 85 and a 2560-pixel maximum edge with orientation preserved. PNGs remain lossless with dimensions/transparency preserved. Only smaller results are uploaded; PDFs and unsupported formats retain their existing behaviour. Already-small JPEGs avoid a second lossy pass. File names, MIME types and stored byte counts reflect the uploaded file. Existing browser compression remains.
+
+Live storage before this work: 977,402,452 bytes across all buckets. PNG preparation found 24,454,341 bytes of lossless savings across 291 images, with pixel comparisons passed and local originals backed up. No prepared replacements had been applied at the time of writing. Supabase's quota display is a billing-period average: https://supabase.com/docs/guides/platform/manage-your-usage/storage-size.

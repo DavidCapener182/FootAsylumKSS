@@ -1,3 +1,5 @@
+import { verifiedPublication } from '@/lib/fra/publication'
+import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 import { extractConductedDateFromPdfText, parseAuditDateString } from '@/lib/fra/pdf-parser'
 import { persistFraRiskRatingForInstance } from '@/lib/fra/persist-risk-rating'
@@ -12,7 +14,7 @@ export const dynamic = 'force-dynamic'
  */
 export async function POST(request: NextRequest) {
   try {
-    const { supabase } = await requirePermission('manageFRA')
+    const { supabase, userId } = await requirePermission('manageFRA')
 
     const body = await request.json()
     const instanceId = body?.instanceId
@@ -20,6 +22,12 @@ export async function POST(request: NextRequest) {
     if (!instanceId) {
       return NextResponse.json({ error: 'instanceId is required' }, { status: 400 })
     }
+
+    if (body?.confirmed !== true || typeof body?.publicationId !== 'string') {
+      return NextResponse.json({ error: 'Review the generated PDF and confirm it before completing this FRA.' }, { status: 400 })
+    }
+    const publication = await verifiedPublication(supabase, instanceId, body.publicationId)
+    if (publication.confirmed_at) return NextResponse.json({ success: true })
 
     // Get the audit instance and ensure it's an FRA
     const { data: instance, error: instanceError } = await supabase
@@ -69,40 +77,9 @@ export async function POST(request: NextRequest) {
       return { date: new Date(), source: 'now_fallback' }
     }
 
-    const storeId = instance.store_id
-    const now = new Date()
     const resolvedAssessment = await resolveAssessmentDate()
     const assessmentIso = resolvedAssessment.date.toISOString()
     const assessmentDay = assessmentIso.slice(0, 10) // YYYY-MM-DD
-
-    // 1. Mark audit instance as completed
-    const { error: updateInstanceError } = await supabase
-      .from('fa_audit_instances')
-      .update({
-        status: 'completed',
-        conducted_at: assessmentIso,
-        updated_at: now.toISOString(),
-      })
-      .eq('id', instanceId)
-
-    if (updateInstanceError) {
-      console.error('Error updating FRA instance:', updateInstanceError)
-      return NextResponse.json(
-        { error: 'Failed to mark FRA as completed', details: updateInstanceError.message },
-        { status: 500 }
-      )
-    }
-
-    // 2. Set store's fire_risk_assessment_date to the H&S audit date so tracker aligns with the real assessment date
-    const { error: updateStoreError } = await supabase
-      .from('fa_stores')
-      .update({ fire_risk_assessment_date: assessmentDay })
-      .eq('id', storeId)
-
-    if (updateStoreError) {
-      console.error('Error updating store FRA date:', updateStoreError)
-      // Instance is already updated; log but don't fail the request
-    }
 
     const { data: ratingResponses, error: ratingResponsesError } = await supabase
       .from('fa_audit_responses')
@@ -123,6 +100,11 @@ export async function POST(request: NextRequest) {
         console.error('Error persisting FRA risk rating during completion:', persistError)
       }
     }
+
+    const { error: publicationError } = await createAdminSupabaseClient().rpc('fa_confirm_fra_publication', {
+      publication_id: publication.id, confirming_user: userId, assessment_time: assessmentIso,
+    })
+    if (publicationError) throw new Error('Unable to confirm publication. Source images remain intact.')
 
     return NextResponse.json({
       success: true,
