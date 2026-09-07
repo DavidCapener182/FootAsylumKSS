@@ -63,6 +63,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ id, url: signed.signedUrl, bytes: bytes.length, sourceImages: after.images.length })
   } catch (error) {
     if (uploadedPath) await admin.storage.from('fa-attachments').remove([uploadedPath])
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'Unable to prepare FRA PDF' }, { status: isPermissionError(error) ? error.status : 400 })
+    return NextResponse.json({ error: error instanceof Error ? error.message : typeof error === 'object' && error && 'message' in error ? String(error.message) : 'Unable to prepare FRA PDF' }, { status: isPermissionError(error) ? error.status : 400 })
   }
 }
