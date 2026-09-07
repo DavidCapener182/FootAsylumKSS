@@ -2356,6 +2356,7 @@ export async function getEmpPreviewData(planId: string) {
       fileName: document.fileName,
       fileType: document.fileType,
       signedUrl: document.signedUrl,
+      extractedText: document.extractedText,
     })),
   })
 

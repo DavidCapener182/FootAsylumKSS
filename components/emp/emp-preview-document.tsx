@@ -1976,10 +1976,13 @@ export function EmpPreviewDocument({
     paginateEmpContent(`annex-${annex.key}`, annex.title, annex.description, annex.blocks)
   )
   const riskAssessment = displayModelRiskAssessment(displayModel, output)
+  const deploymentPages = renderEmpPages ? (displayModel.deploymentAppendices || []).flatMap((section) =>
+    paginateEmpContent(section.key, section.title, section.description, section.blocks)
+  ) : []
   const riskAssessmentPageCount = riskAssessment
     ? 2 + Math.ceil(Math.max(0, riskAssessment.rows.length - riskAssessmentFirstPageRowCount(riskAssessment)) / 22)
     : 0
-  const totalPages = (renderEmpPages ? 1 + sectionPages.length + annexPages.length : 0) + riskAssessmentPageCount
+  const totalPages = (renderEmpPages ? 1 + sectionPages.length + annexPages.length : 0) + riskAssessmentPageCount + deploymentPages.length
   const coverRowPairs = chunkItems(displayModel.coverRows, 2)
   const pdfTitle = output === 'risk-assessment'
     ? `${displayModel.coverRows.find((row) => row.label === 'Event')?.value || displayModel.title} - Operational Risk Assessment`
@@ -2097,6 +2100,11 @@ export function EmpPreviewDocument({
       {riskAssessment ? (
         <RiskAssessmentPages riskAssessment={riskAssessment} mode={mode} />
       ) : null}
+      {deploymentPages.map((page, index) => (
+        <SectionPage key={page.key} page={page} mode={mode}
+          pageNumber={1 + sectionPages.length + annexPages.length + riskAssessmentPageCount + index + 1}
+          totalPages={totalPages} documentLabel={displayModel.documentLabel} />
+      ))}
     </div>
   )
 }

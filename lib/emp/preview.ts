@@ -71,6 +71,7 @@ export interface EmpPreviewSourceDocument {
   fileName: string
   fileType: string
   signedUrl: string | null
+  extractedText?: string | null
 }
 
 export interface EmpPreviewSection {
@@ -123,6 +124,34 @@ export interface EmpPreviewModel {
   sections: EmpPreviewSection[]
   annexes: EmpPreviewAnnex[]
   riskAssessment?: EmpRiskAssessmentModel
+  deploymentAppendices?: EmpPreviewSection[]
+}
+
+function buildDeploymentAppendices(documents: EmpPreviewSourceDocument[]): EmpPreviewSection[] {
+  return documents.flatMap((document) => {
+    if (document.documentKind !== 'deployment_matrix' || !document.extractedText) return []
+    try {
+      const data = JSON.parse(document.extractedText)
+      if (data.format !== 'emp-deployment-appendix-v1' || !Array.isArray(data.days)) return []
+      return data.days.flatMap((day: unknown, index: number) => {
+        const entry = day as { title?: unknown; note?: unknown; rows?: unknown }
+        if (typeof entry.title !== 'string' || !Array.isArray(entry.rows)
+          || !entry.rows.every((row: unknown) => Array.isArray(row) && row.length === 8 && row.every((cell) => typeof cell === 'string'))) return []
+        return [{
+          key: `deployment-${document.fileName}-${index}`,
+          title: `Deployment: ${entry.title}`,
+          description: `Source: ${typeof data.sourceFileName === 'string' ? data.sourceFileName : document.fileName} - DEPLOYMENT sheet.${typeof entry.note === 'string' ? ` ${entry.note}` : ''}`,
+          blocks: Array.from({ length: Math.ceil(entry.rows.length / 14) }, (_, pageIndex) => ({
+            type: 'multi_table', headers: ['Outlet', 'Grade', 'Name', 'Company', 'Start', 'End', 'Hours', 'Cost GBP'],
+            rows: (entry.rows as string[][]).slice(pageIndex * 14, (pageIndex + 1) * 14),
+            compact: true, landscape: true, avoidRowSplit: true, startOnNewPage: pageIndex > 0,
+          })) as EmpPreviewBlock[],
+        }]
+      })
+    } catch {
+      return []
+    }
+  })
 }
 
 const FIXED_OBJECTIVES = [
@@ -2983,6 +3012,7 @@ export function buildEmpPreviewModel(input: {
     sections,
     annexes,
     riskAssessment: buildEmpOperationalRiskAssessment(fieldValues),
+    deploymentAppendices: buildDeploymentAppendices(documents),
   } satisfies EmpPreviewModel
 
   return isDownloadInput ? normalizeDownloadPreviewModel(model) : model
@@ -3061,6 +3091,7 @@ export function renderEmpPreviewHtml(model: EmpPreviewModel) {
     ${sectionsHtml}
     ${annexesHtml}
     ${riskAssessmentHtml}
+    ${(model.deploymentAppendices || []).map((section) => `<section style="page-break-before:always"><h2>${escapeHtml(section.title)}</h2><p>${escapeHtml(section.description || '')}</p>${section.blocks.map(blockToHtml).join('')}</section>`).join('')}
   </body>
 </html>`
 }
