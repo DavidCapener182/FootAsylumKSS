@@ -4,6 +4,7 @@ import { reportPermissionErrorResponse, requireReportAccess } from '@/lib/report
 
 interface PromptRequestBody {
   selectedArea?: string
+  periodLabel?: string
   metrics?: {
     avg?: number | string | null
   }
@@ -12,6 +13,8 @@ interface PromptRequestBody {
   leaderboard?: Array<{
     storeName?: string
     score?: number | null
+    audit1Score?: number | null
+    audit2Score?: number | null
   }>
   scores?: number[]
 }
@@ -54,7 +57,8 @@ function buildLeaderboardText(
       .map((row) => {
         const name = (row.storeName || '').trim() || 'Unknown store'
         const score = typeof row.score === 'number' && Number.isFinite(row.score) ? `${row.score.toFixed(1)}%` : 'N/A'
-        return `${name}: ${score}`
+        const a = toNumber(row.audit1Score), b = toNumber(row.audit2Score)
+        return `${name}: latest ${score}; Audit 1 ${a ?? 'Pending'}; Audit 2 ${b ?? 'Pending'}; change ${a !== null && b !== null ? `${(b-a).toFixed(2)} percentage points` : 'Awaiting comparison'}`
       })
       .filter((line) => line.length > 0)
 
@@ -84,7 +88,7 @@ async function generateCompletion(
         {
           role: 'system',
           content:
-            'You are a KSS NW Health & Safety consultant writing concise monthly briefings for Footasylum area managers. Return plain text only with no markdown.',
+            'You are a KSS NW Health & Safety consultant writing concise half-year briefings comparing Audit 1 and Audit 2, covering improved and declined stores only where both scores exist for Footasylum area managers. Return plain text only with no markdown.',
         },
         {
           role: 'user',
@@ -128,9 +132,11 @@ export async function POST(request: NextRequest) {
     const bottomStore = sanitizeText(body.bottomStore) || 'N/A'
     const leaderboardText = buildLeaderboardText(body.leaderboard, scoreDistribution)
 
-    const generateBriefingPrompt = `Act as a KSS NW Health & Safety consultant. Summarize Area ${selectedArea} performance (Avg: ${avgLabel}%). Tactical tone. 40 words max.`
+    const periodLabel = sanitizeText(body.periodLabel) || 'Half-Year Update'
 
-    const composeNewsletterPrompt = `Write a professional internal newsletter email from KSS NW (Footasylum's Health & Safety Consultants) to Footasylum Area Managers regarding their store audit scores. Use this context: Area: ${selectedArea}, Avg: ${avgLabel}%, Top: ${topStore}, Bottom: ${bottomStore}, Leaderboard: ${leaderboardText}. Include an upbeat greeting, 'Regional Highlights', 'Focus Required', and a professional closing. Use retail terminology such as high standards and visual excellence. Plain text only. No markdown, no asterisks, no hashtags. Keep the full email between 140 and 180 words.`
+    const generateBriefingPrompt = `Act as a KSS NW Health & Safety consultant. Summarize Area ${selectedArea} performance (Avg: ${avgLabel}%). Reporting period: ${periodLabel}. Audit comparisons: ${leaderboardText}. Mention improvement or decline only where both scores are present. Tactical tone. 40 words max.`
+
+    const composeNewsletterPrompt = `Write a professional internal newsletter email from KSS NW (Footasylum's Health & Safety Consultants) to Footasylum Area Managers regarding their store audit scores. Compare Audit 1 to Audit 2 where available, identifying improved and declined stores without treating pending scores as zero. Reporting period: ${periodLabel}. Use this context: Area: ${selectedArea}, Avg: ${avgLabel}%, Top: ${topStore}, Bottom: ${bottomStore}, Leaderboard: ${leaderboardText}. Include an upbeat greeting, 'Regional Highlights', 'Focus Required', and a professional closing. Use retail terminology such as high standards and visual excellence. Plain text only. No markdown, no asterisks, no hashtags. Keep the full email between 140 and 180 words.`
 
     const analyzeRegionalRiskPrompt = `Analyze this score distribution for retail store audits from a KSS NW consultant perspective: [${scoreDistribution.join(', ')}]. The average is ${avgLabel}%. Identify whether it is Top-Heavy, Consistent but low, or Inconsistent, and provide a 2-sentence operational risk warning. Plain text only, max 45 words.`
 

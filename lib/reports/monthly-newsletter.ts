@@ -1,5 +1,6 @@
+import { compareAudits, halfYearLabel } from './audit-comparison'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { endOfMonth, format, isValid, parse, startOfMonth } from 'date-fns'
+import { endOfMonth, format, isValid, parse } from 'date-fns'
 import {
   computeRevisitRiskForecast,
   getFRAStatusFromDate,
@@ -145,19 +146,23 @@ function parseDate(value: string | null | undefined): Date | null {
 }
 
 function resolveMonthPeriod(rawMonth: string | undefined): MonthPeriod {
+  if (rawMonth && !/^\d{4}-(0[1-9]|1[0-2])$/.test(rawMonth)) throw new Error('Select a valid reporting year and half')
   const now = new Date()
   const parsed = rawMonth ? parse(`${rawMonth}-01`, 'yyyy-MM-dd', now) : now
 
-  const monthStart = startOfMonth(isValid(parsed) ? parsed : now)
-  const monthEnd = endOfMonth(monthStart)
+  const selected = isValid(parsed) ? parsed : now
+  const monthStart = new Date(selected.getFullYear(), selected.getMonth() < 6 ? 0 : 6, 1)
+  const monthEnd = endOfMonth(new Date(monthStart.getFullYear(), monthStart.getMonth() + 5, 1))
+
+  const cutoff = monthEnd > now ? now : monthEnd
 
   return {
     month: format(monthStart, 'yyyy-MM'),
-    label: format(monthStart, 'MMMM yyyy'),
+    label: halfYearLabel(format(monthStart, 'yyyy-MM')),
     start: monthStart,
-    end: monthEnd,
+    end: cutoff,
     startIso: format(monthStart, 'yyyy-MM-dd'),
-    endIso: format(monthEnd, 'yyyy-MM-dd'),
+    endIso: format(cutoff, 'yyyy-MM-dd'),
   }
 }
 
@@ -169,43 +174,6 @@ function normalizeListInput(values: string[] | undefined, fallback: string[]): s
   return sanitized.length > 0 ? sanitized : fallback
 }
 
-function getLatestAudit(store: StoreRow): { score: number | null; date: string | null } {
-  const candidates: Array<{ score: number; date: string }> = []
-
-  if (store.compliance_audit_1_date && typeof store.compliance_audit_1_overall_pct === 'number') {
-    candidates.push({
-      score: store.compliance_audit_1_overall_pct,
-      date: store.compliance_audit_1_date,
-    })
-  }
-
-  if (store.compliance_audit_2_date && typeof store.compliance_audit_2_overall_pct === 'number') {
-    candidates.push({
-      score: store.compliance_audit_2_overall_pct,
-      date: store.compliance_audit_2_date,
-    })
-  }
-
-  if (store.compliance_audit_3_date && typeof store.compliance_audit_3_overall_pct === 'number') {
-    candidates.push({
-      score: store.compliance_audit_3_overall_pct,
-      date: store.compliance_audit_3_date,
-    })
-  }
-
-  if (candidates.length === 0) {
-    return { score: null, date: null }
-  }
-
-  candidates.sort((a, b) => {
-    const dateA = parseDate(a.date)?.getTime() || 0
-    const dateB = parseDate(b.date)?.getTime() || 0
-    return dateB - dateA
-  })
-
-  return candidates[0]
-}
-
 function dateWithinMonth(value: string | null, period: MonthPeriod): boolean {
   const parsed = parseDate(value)
   if (!parsed) return false
@@ -215,9 +183,9 @@ function dateWithinMonth(value: string | null, period: MonthPeriod): boolean {
 function countAuditsCompletedInMonth(store: StoreRow, period: MonthPeriod): number {
   let count = 0
 
-  if (dateWithinMonth(store.compliance_audit_1_date, period)) count += 1
-  if (dateWithinMonth(store.compliance_audit_2_date, period)) count += 1
-  if (dateWithinMonth(store.compliance_audit_3_date, period)) count += 1
+  if (typeof store.compliance_audit_1_overall_pct === 'number' && dateWithinMonth(store.compliance_audit_1_date, period)) count += 1
+  if (typeof store.compliance_audit_2_overall_pct === 'number' && dateWithinMonth(store.compliance_audit_2_date, period)) count += 1
+  if (typeof store.compliance_audit_3_overall_pct === 'number' && dateWithinMonth(store.compliance_audit_3_date, period)) count += 1
 
   return count
 }
@@ -549,13 +517,16 @@ function buildNewsletterMarkdown(
       : 'No completed H&S audits in period'
 
   const lines = [
-    `# Monthly Safety Newsletter - ${periodLabel}`,
+    `# Half-Year Safety Update - ${periodLabel}`,
     `Area: ${report.areaLabel}`,
     `Coverage: ${report.storeCount} stores`,
     '',
+    '## Audit 1 to Audit 2 Comparison',
+    ...report.stores.map(store => `- ${store.storeName}: Audit 1 ${store.audit1Score ?? 'Pending'}; Audit 2 ${store.audit2Score ?? 'Pending'}; Change ${store.auditChange == null ? 'Awaiting comparison' : `${store.auditChange > 0 ? '+' : ''}${store.auditChange.toFixed(2)} percentage points`}`),
+    '',
     '## Audit Performance',
     `- Average latest audit score: ${auditAverageLabel}`,
-    `- Audits completed this month: ${report.auditMetrics.auditsCompletedThisMonth}`,
+    `- Audits completed this reporting period: ${report.auditMetrics.auditsCompletedThisMonth}`,
     `- Stores below 85%: ${report.auditMetrics.belowThresholdCount}`,
     ...(report.auditMetrics.topStores.length > 0
       ? [
@@ -600,7 +571,7 @@ function buildNewsletterMarkdown(
     `- Revisit forecast: ${report.revisitRiskMetrics.narrative}`,
     '',
     '## H&S Audit Notes',
-    `- H&S audits completed this month: ${report.hsAuditMetrics.auditsCompletedThisMonth}`,
+    `- H&S audits completed this reporting period: ${report.hsAuditMetrics.auditsCompletedThisMonth}`,
     `- Average H&S score: ${hsAverageLabel}`,
     ...(report.hsAuditMetrics.highlights.length > 0
       ? [
@@ -613,7 +584,7 @@ function buildNewsletterMarkdown(
     `- Active H&S tasks: ${report.storeActionMetrics.activeCount}`,
     `- High/Urgent active tasks: ${report.storeActionMetrics.highPriorityCount}`,
     `- Overdue active tasks: ${report.storeActionMetrics.overdueCount}`,
-    `- Active tasks due this month: ${report.storeActionMetrics.dueThisMonthCount}`,
+    `- Active tasks due this reporting period: ${report.storeActionMetrics.dueThisMonthCount}`,
     ...(report.storeActionMetrics.focusItems.length > 0
       ? [
           '- Focus themes for area managers:',
@@ -918,7 +889,8 @@ export async function buildMonthlyNewsletterData(
   const areaReports: AreaNewsletterReport[] = areaGroups.map((group) => {
     const storeRows: NewsletterAreaStoreRow[] = group.stores
       .map((store) => {
-        const latestAudit = getLatestAudit(store)
+        const comparison = compareAudits(store, period.month.slice(0, 4), [period.endIso, format(new Date(), 'yyyy-MM-dd')].sort()[0])
+        const latestAudit = { score: comparison.audit2Score ?? comparison.audit1Score, date: comparison.audit2Date ?? comparison.audit1Date }
         const fraStatus = getFRAStatusFromDate(store.fire_risk_assessment_date, period.end)
         const requiresAction =
           (typeof latestAudit.score === 'number' && latestAudit.score < 85) ||
@@ -926,6 +898,7 @@ export async function buildMonthlyNewsletterData(
           fraStatus === 'required'
 
         return {
+          ...comparison,
           storeName: store.store_name,
           storeCode: sanitizeStoreCodeForDisplay(store.store_code),
           latestAuditScore: latestAudit.score,

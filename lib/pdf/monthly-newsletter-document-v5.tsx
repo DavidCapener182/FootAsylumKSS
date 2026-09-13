@@ -635,7 +635,7 @@ function extractSubjectAndBody(
     bodyLines.push(line)
   })
 
-  const fallbackSubject = `Monthly Health & Safety Update - ${fallbackAreaLabel}`
+  const fallbackSubject = `Half-Year Health & Safety Update - ${fallbackAreaLabel}`
   return {
     subjectLine: `Subject: ${subject || fallbackSubject}`,
     body: bodyLines.join('\n').trim(),
@@ -953,7 +953,7 @@ export function MonthlyNewsletterPDF({
         <View style={styles.areaCard}>
           <View style={styles.headerRow}>
             <View style={styles.headerLeft}>
-              <Text style={styles.title}>Quarterly Update</Text>
+              <Text style={styles.title}>Half-Year Update</Text>
               <Text style={styles.subtitle}>
                 {report.areaLabel} | {periodLabel}
               </Text>
@@ -1170,8 +1170,29 @@ export function MonthlyNewsletterPDF({
         </View>
 
         <Text style={styles.footer}>
-          KSS NW Monthly Area Newsletter For Footasylum | {report.areaLabel} | {periodLabel}
+          KSS NW Half-Year Area Report For Footasylum | {report.areaLabel} | {periodLabel}
         </Text>
+      </Page>
+
+      <Page size="A4" style={styles.page}>
+        <Text style={styles.title}>{report.areaLabel} — Audit Comparison</Text>
+        <Text style={styles.subtitle}>{periodLabel} | Audit 1 to Audit 2</Text>
+        <Text style={styles.panelMuted}>League table: Audit 2 score where completed, otherwise Audit 1. Changes are percentage points (pp). Pending audits are excluded from movement.</Text>
+        {[...report.stores].sort((a,b) => (b.audit2Score ?? b.audit1Score ?? -1) - (a.audit2Score ?? a.audit1Score ?? -1) || a.storeName.localeCompare(b.storeName)).map((store,index,ranked) => {
+          const value = store.audit2Score ?? store.audit1Score
+          const rank = value == null ? '—' : ranked.findIndex(r => (r.audit2Score ?? r.audit1Score) === value) + 1
+          return <View key={`${store.storeCode}-${index}`} wrap={false} style={{borderBottomWidth:1,borderBottomColor:'#e2e8f0',padding:7}}>
+            <Text style={styles.panelTitle}>{rank}. {store.storeName}</Text>
+            <Text style={styles.panelItem}>Audit 1: {store.audit1Score == null ? 'Pending' : `${store.audit1Score.toFixed(2)}%`} | Audit 2: {store.audit2Score == null ? 'Pending' : `${store.audit2Score.toFixed(2)}%`} | Change: {store.auditChange == null ? 'Awaiting comparison' : `${store.auditChange > 0 ? '+' : ''}${store.auditChange.toFixed(2)} pp`}</Text>
+          </View>
+        })}
+        {['Improved','Declined','Unchanged'].map(label => {
+          const rows = report.stores.filter(s => s.auditChange != null && (label === 'Improved' ? s.auditChange > 0 : label === 'Declined' ? s.auditChange < 0 : s.auditChange === 0)).sort((a,b) => label === 'Declined' ? a.auditChange! - b.auditChange! : b.auditChange! - a.auditChange!)
+          return <View key={label} style={{marginTop:14}}>
+            <Text style={styles.panelTitle}>{label} ({rows.length})</Text>
+            {rows.length ? rows.map(s => <Text key={`${s.storeCode}-${s.storeName}`} style={styles.panelItem}>{s.storeName}: {s.audit1Score?.toFixed(2)}% to {s.audit2Score?.toFixed(2)}% ({s.auditChange! > 0 ? '+' : ''}{s.auditChange?.toFixed(2)} pp)</Text>) : <Text style={styles.panelMuted}>No stores in this category with both audits available.</Text>}
+          </View>
+        })}
       </Page>
 
       <Page size="A4" style={styles.posterPage}>
