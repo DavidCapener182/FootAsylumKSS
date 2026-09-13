@@ -77,7 +77,7 @@ export function MonthlyNewsletterPDF({ report, periodLabel, generatedAt }: Props
     </Page>
     <Page size="A4" style={styles.page}>
       <Header label="LEAGUE TABLE" />
-      <Text style={styles.title}>Audit 1 → Audit 2</Text>
+      <Text style={styles.title}>Audit 1 to Audit 2</Text>
       <Text style={styles.body}>Ranked by Audit 2 where available, otherwise Audit 1. Equal scores share a rank. Changes are percentage points (pp).</Text>
       <View style={[styles.row, styles.tableHead]}><Text style={styles.rank}>Rank</Text><Text style={styles.store}>Store</Text><Text style={styles.score}>Audit 1</Text><Text style={styles.score}>Audit 2</Text><Text style={styles.change}>Change</Text></View>
       {ranked.map((s) => {
@@ -95,17 +95,25 @@ export function MonthlyNewsletterPDF({ report, periodLabel, generatedAt }: Props
     </Page>
     <Page size="A4" style={styles.page}>
       <Header label="ACTION PRIORITIES" />
-      <Text style={styles.title}>Outstanding H&S findings</Text>
-      <Text style={styles.body}>{report.storeActionMetrics.activeCount} open actions · {report.storeActionMetrics.highPriorityCount} recorded high/urgent · {report.storeActionMetrics.overdueCount} overdue. The checks below identify the actual audit findings and affected stores. Corrective details and evidence requirements remain on each action in the system.</Text>
-      <Text style={styles.small}>Themes with recorded high-priority or overdue actions appear first, followed by fire precautions, equipment safety and other control themes. These are source findings, not newly assigned severity ratings. A flagged question may require clarification; check the original action before closing it.</Text>
-      {report.storeActionMetrics.focusItems.map((item) => <View key={item.topic}>
-        <Text style={styles.section} minPresenceAhead={65}>{item.topic}</Text>
-        <Text style={styles.body}>{item.actionCount} actions across {item.storeCount} stores. {item.managerPrompt}</Text>
-        {(item.findings || []).map((finding) => <View key={finding.question} style={styles.finding} wrap={false}>
-          <Text style={[styles.body, { fontWeight: 'bold', fontSize: 9, marginBottom: 4 }]}>Flagged check: {finding.question}</Text>
-          <Text style={styles.small}>{finding.stores.join(', ')} · {finding.actionCount} open actions</Text>
-        </View>)}
-      </View>)}
+      <Text style={styles.title}>H&S audit failures to address</Text>
+      <Text style={styles.body}>{report.storeActionMetrics.activeCount} open actions · {report.storeActionMetrics.highPriorityCount} recorded high/urgent · {report.storeActionMetrics.overdueCount} overdue. Each item below is a failed H&S audit check requiring corrective action at the named stores. Use the original audit comments for the specific defects and record evidence when the action is addressed.</Text>
+      <Text style={styles.small}>Themes with recorded high-priority or overdue actions appear first, followed by fire precautions, equipment safety and other control themes. The suggested corrective wording follows the failed check; it does not change the recorded action priority or due date.</Text>
+      {report.storeActionMetrics.focusItems.map((item) => {
+        const findings = item.findings || []
+        const Finding = ({ finding }: { finding: (typeof findings)[number] }) => <View style={styles.finding} wrap={false}>
+          <Text style={[styles.body, { fontWeight: 'bold', fontSize: 9, marginBottom: 4 }]}>{finding.requiredAction || 'Address the failed audit check below.'}</Text>
+          <Text style={[styles.small, { marginBottom: 4 }]}>Failed audit check: {finding.question}</Text>
+          <Text style={styles.small}>{finding.stores.join(', ')} · {finding.actionCount} open {finding.actionCount === 1 ? 'action' : 'actions'}</Text>
+        </View>
+        return <View key={item.topic}>
+          <View wrap={false}>
+            <Text style={styles.section}>{item.topic}</Text>
+            <Text style={styles.body}>{item.actionCount} {item.actionCount === 1 ? 'action' : 'actions'} across {item.storeCount} {item.storeCount === 1 ? 'store' : 'stores'}. {item.managerPrompt}</Text>
+            {findings[0] && <Finding finding={findings[0]} />}
+          </View>
+          {findings.slice(1).map((finding) => <Finding key={finding.question} finding={finding} />)}
+        </View>
+      })}
       {!report.storeActionMetrics.activeCount && <Text style={styles.body}>No open H&S actions recorded for this area.</Text>}
       <Footer />
     </Page>

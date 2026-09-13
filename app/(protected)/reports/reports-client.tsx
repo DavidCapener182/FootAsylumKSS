@@ -507,7 +507,7 @@ function AreaNewsletterDashboardCard({
               H&S Priorities
             </h5>
           <p className="relative mb-3 text-[11px] leading-relaxed text-amber-800/80">
-            Outstanding audit findings and affected stores. Recorded high-priority and overdue actions come first, followed by fire precautions, equipment safety and other control themes. Confirm and evidence each correction against the original action.
+            Failed H&S audit checks requiring corrective action at the named stores. Recorded high-priority and overdue actions come first, followed by fire precautions, equipment safety and other control themes. Confirm and evidence each correction against the original action.
           </p>
             {report.storeActionMetrics.focusItems.length > 0 ? (
               <ul className="relative space-y-3">
@@ -523,7 +523,8 @@ function AreaNewsletterDashboardCard({
                       <ul className="mt-2 space-y-2">
                         {item.findings?.map((finding) => (
                           <li key={finding.question} className="rounded-lg border border-amber-200 bg-white/80 p-2 text-xs">
-                            <p className="font-semibold text-slate-800">Flagged check: {finding.question}</p>
+                            <p className="font-semibold text-slate-800">{finding.requiredAction || 'Address the failed audit check below.'}</p>
+                            <p className="mt-1 text-slate-600">Failed audit check: {finding.question}</p>
                             <p className="mt-1 text-slate-600">{finding.stores.join(', ')} · {finding.actionCount} open actions</p>
                           </li>
                         ))}

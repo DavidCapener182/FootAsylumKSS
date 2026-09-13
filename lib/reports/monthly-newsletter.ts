@@ -13,7 +13,7 @@ import {
   normalizeReportingAreaCode,
 } from '@/lib/areas'
 import { isExtStoreCode, shouldHideStore } from '@/lib/store-normalization'
-import { reportActionFocus } from './audit-action-focus'
+import { correctiveActionForCheck, reportActionFocus } from './audit-action-focus'
 import type {
   AreaNewsletterReport,
   MonthlyNewsletterRequestBody,
@@ -351,7 +351,7 @@ function buildStoreActionMetrics(
       highPriorityCount: item.highPriorityCount,
       overdueCount: item.overdueCount,
       managerPrompt: item.managerPrompt,
-      findings: Array.from(item.findings.values()).map((finding) => ({ ...finding, stores: Array.from(finding.stores).sort() })),
+      findings: Array.from(item.findings.values()).map((finding) => ({ ...finding, requiredAction: correctiveActionForCheck(finding.question), stores: Array.from(finding.stores).sort() })),
     }))
 
   return {

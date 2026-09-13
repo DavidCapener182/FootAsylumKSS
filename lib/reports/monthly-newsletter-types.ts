@@ -69,7 +69,7 @@ export interface NewsletterStoreActionFocusItem {
   highPriorityCount: number
   overdueCount: number
   managerPrompt: string
-  findings?: Array<{ question: string; stores: string[]; actionCount: number }>
+  findings?: Array<{ question: string; requiredAction?: string; stores: string[]; actionCount: number }>
 }
 
 export interface NewsletterStoreActionMetrics {
