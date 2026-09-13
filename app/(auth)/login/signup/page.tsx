@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 export default function SignUpPage() {
   return (
     <AuthShell logoSize="compact" desktopLogoPosition="corner">
-      <Card className="w-full rounded-[28px] border border-white/65 bg-white/94 shadow-[0_20px_60px_rgba(2,12,27,0.28)] backdrop-blur-xl sm:rounded-lg sm:border-0 sm:bg-white/95 sm:shadow-2xl sm:backdrop-blur-sm">
+      <Card className="w-full rounded-[28px] border border-white/65 bg-white/[0.94] shadow-[0_20px_60px_rgba(2,12,27,0.28)] backdrop-blur-xl sm:rounded-lg sm:border-0 sm:bg-white/95 sm:shadow-2xl sm:backdrop-blur-sm">
         <CardHeader className="px-5 pt-5 text-center sm:px-6 sm:pt-6">
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-[#0e1925]">
             <ShieldCheck className="h-6 w-6" aria-hidden="true" />
