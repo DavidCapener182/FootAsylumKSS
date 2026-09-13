@@ -46,7 +46,7 @@ import { RouteDirectionsModal } from './route-directions-modal'
 import { getInternalAreaDisplayName, MULTI_AREA_REGION } from '@/lib/areas'
 import { cn, getDisplayStoreCode } from '@/lib/utils'
 import { canCreateRoute as isRouteCreationReady, getRouteCreationBlocker } from '@/lib/route-creation-eligibility'
-import { hasCompletedSecondAudit } from '@/lib/route-planning-store-eligibility'
+import { needsAuditVisit, requiresAuditRevisit } from '@/lib/route-planning-store-eligibility'
 
 // Dynamically import the map component to avoid SSR issues
 const MapComponent = dynamic(() => import('./map-component'), { ssr: false })
@@ -64,6 +64,7 @@ interface Store {
   compliance_audit_1_date: string | null
   compliance_audit_1_overall_pct: number | null
   compliance_audit_2_date: string | null
+  compliance_audit_2_overall_pct: number | null
   compliance_audit_2_planned_date: string | null
   compliance_audit_2_assigned_manager_user_id: string | null
   route_sequence: number | null
@@ -222,44 +223,9 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
     return Array.from(areas).sort()
   }, [stores])
 
-  // Filter stores available for planning (not planned, no completed second audit, not completed today)
+  // Existing bookings remain in Planned Routes, including overdue visits.
   const storesAvailableForPlanning = useMemo<Store[]>(() => {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0) // Start of today
-    
-    return stores.filter(s => {
-      // Hide stores that have been planned (for map display only)
-      if (s.compliance_audit_2_planned_date) return false
-
-      // A completed second audit permanently removes the store from future route planning.
-      if (hasCompletedSecondAudit(s)) return false
-      
-      // Hide stores that completed audit 1 TODAY (2026) - they just finished, so hide them
-      // We're starting fresh for 2026, so we only care about 2026 audit dates
-      if (s.compliance_audit_1_date) {
-        const audit1Date = new Date(s.compliance_audit_1_date)
-        audit1Date.setHours(0, 0, 0, 0)
-        
-        // Only check if audit 1 was completed today (2026)
-        // Disregard all 2025 audits - we're starting fresh for 2026
-        if (audit1Date.getTime() === today.getTime()) {
-          // Debug logging for Speke specifically
-          if (s.store_code === 'S0042' || s.store_name?.toLowerCase().includes('speke')) {
-            console.log('Speke store filtering (audit 1 completed today):', {
-              store_name: s.store_name,
-              store_code: s.store_code,
-              compliance_audit_1_date: s.compliance_audit_1_date,
-              audit1Date: audit1Date.toISOString(),
-              today: today.toISOString(),
-              shouldHide: true
-            })
-          }
-          return false // Hide stores that completed audit 1 today
-        }
-      }
-      
-      return true
-    })
+    return stores.filter(s => !s.compliance_audit_2_planned_date && needsAuditVisit(s))
   }, [stores])
 
   // Stores with valid coordinates are used for map display and route optimization.
@@ -1477,10 +1443,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
                       <div className="flex-1 min-w-0">
                         <div className="font-bold text-slate-900 flex items-center gap-2">
                           {store.store_name}
-                          {/* Show (Revisit) flag if store has completed Audit 1 with score < 80% */}
-                          {store.compliance_audit_1_date && 
-                           store.compliance_audit_1_overall_pct !== null && 
-                           store.compliance_audit_1_overall_pct < 80 && (
+                          {requiresAuditRevisit(store) && (
                             <span className="rounded border border-red-100 bg-red-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-red-600">
                               Revisit
                             </span>
