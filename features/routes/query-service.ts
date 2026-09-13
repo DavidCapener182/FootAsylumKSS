@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { applyStoreCoordinateOverride, shouldAlwaysIncludeStore, shouldHideStore } from '@/lib/store-normalization'
-import { hasCompletedSecondAudit } from '@/lib/route-planning-store-eligibility'
+import { needsAuditVisit } from '@/lib/route-planning-store-eligibility'
 
 const managerSchema = z.object({
   id: z.string().uuid(), full_name: z.string().nullable(), home_address: z.string().nullable(),
@@ -12,7 +12,7 @@ const routeStoreSchema = z.object({
   id: z.string().uuid(), is_active: z.boolean(), store_code: z.string().nullable(), store_name: z.string(),
   address_line_1: z.string().nullable(), city: z.string().nullable(), postcode: z.string().nullable(), region: z.string().nullable(),
   latitude: z.number().nullable(), longitude: z.number().nullable(), compliance_audit_1_date: z.string().nullable(),
-  compliance_audit_1_overall_pct: z.number().nullable(), compliance_audit_2_date: z.string().nullable(),
+  compliance_audit_1_overall_pct: z.number().nullable(), compliance_audit_2_date: z.string().nullable(), compliance_audit_2_overall_pct: z.number().nullable(),
   compliance_audit_2_planned_date: z.string().nullable(), compliance_audit_2_assigned_manager_user_id: z.string().nullable(),
   route_sequence: z.number().int().nullable(), assigned_manager: z.union([managerSchema, z.array(managerSchema)]),
 })
@@ -23,23 +23,14 @@ export type RoutePlanningData = {
   profiles: Array<Omit<z.infer<typeof profileSchema>, 'role'>>
 }
 
-export function presentRoutePlanningData(storeRows: unknown[], profileRows: unknown[], now = new Date()): RoutePlanningData {
+export function presentRoutePlanningData(storeRows: unknown[], profileRows: unknown[]): RoutePlanningData {
   const stores = z.array(routeStoreSchema).parse(storeRows)
   const profiles = z.array(profileSchema).parse(profileRows)
-  const oneMonthAgo = new Date(now)
-  oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1)
-  oneMonthAgo.setHours(0, 0, 0, 0)
-
   const visibleStores = stores
     .map((store) => applyStoreCoordinateOverride(store))
     .filter((store) => {
       if (!store.is_active && !shouldAlwaysIncludeStore(store)) return false
-      if (shouldHideStore(store) || hasCompletedSecondAudit(store)) return false
-      if (store.compliance_audit_1_date && typeof store.compliance_audit_1_overall_pct === 'number' && store.compliance_audit_1_overall_pct >= 80) {
-        const completedAt = new Date(store.compliance_audit_1_date)
-        completedAt.setHours(0, 0, 0, 0)
-        if (completedAt >= oneMonthAgo) return false
-      }
+      if (shouldHideStore(store) || !needsAuditVisit(store)) return false
       return true
     })
     .map(({ is_active: _isActive, ...store }) => ({
@@ -54,7 +45,7 @@ export async function getRoutePlanningData(): Promise<RoutePlanningData> {
   const supabase = createClient()
   const [storesResult, profilesResult] = await Promise.all([
     supabase.from('fa_stores').select(`id, is_active, store_code, store_name, address_line_1, city, postcode, region,
-      latitude, longitude, compliance_audit_1_date, compliance_audit_1_overall_pct, compliance_audit_2_date,
+      latitude, longitude, compliance_audit_1_date, compliance_audit_1_overall_pct, compliance_audit_2_date, compliance_audit_2_overall_pct,
       compliance_audit_2_planned_date, compliance_audit_2_assigned_manager_user_id, route_sequence,
       assigned_manager:fa_profiles!fa_stores_compliance_audit_2_assigned_manager_user_id_fkey(id, full_name, home_address, home_latitude, home_longitude)`)
       .order('store_name', { ascending: true }),
