@@ -17,6 +17,11 @@ export interface NewsletterStoreScore {
 }
 
 export interface NewsletterAreaStoreRow {
+  audit1Score?: number | null
+  audit2Score?: number | null
+  audit1Date?: string | null
+  audit2Date?: string | null
+  auditChange?: number | null
   storeName: string
   storeCode: string | null
   latestAuditScore: number | null

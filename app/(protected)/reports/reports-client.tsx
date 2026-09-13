@@ -1,5 +1,8 @@
 'use client'
 
+import { AreaAuditComparison } from '@/components/reports/area-audit-comparison'
+import { halfYearLabel } from '@/lib/reports/audit-comparison'
+
 import React, { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -432,18 +435,7 @@ function AreaNewsletterDashboardCard({
   aiLoadingAreaCode,
   pdfLoadingAreaCode,
 }: AreaNewsletterDashboardCardProps) {
-  const monthDate = new Date(`${newsletterMonth}-01T00:00:00`)
-  const periodLabel = Number.isNaN(monthDate.getTime())
-    ? newsletterMonth
-    : format(monthDate, 'MMMM yyyy')
-
-  const rankedStores = [...report.stores].sort(
-    (a, b) => (b.latestAuditScore ?? -1) - (a.latestAuditScore ?? -1)
-  )
-  const storesWithRank = rankedStores.map((store, index) => ({
-    ...store,
-    rank: index + 1,
-  }))
+  const periodLabel = halfYearLabel(newsletterMonth)
   const revisitRiskRadar = report.revisitRiskMetrics.radar.map((point) => {
     const meta = getRadarAxisMeta(point.axis)
     return {
@@ -488,53 +480,6 @@ function AreaNewsletterDashboardCard({
       : complianceStatus === 'AMBER'
         ? 'bg-amber-50 text-amber-700 ring-amber-600/20'
         : 'bg-rose-50 text-rose-700 ring-rose-600/20'
-  const formatPlannedVisitLabel = (plannedVisitDate: string | null) => {
-    if (!plannedVisitDate) return 'Not yet visited'
-    const parsedDate = new Date(plannedVisitDate)
-    return Number.isNaN(parsedDate.getTime())
-      ? 'Not yet visited'
-      : `Planned visit on ${format(parsedDate, 'dd/MM/yyyy')}`
-  }
-
-  const renderLeaderboardColumn = (
-    stores: Array<typeof storesWithRank[number]>
-  ) => (
-    <div className="divide-y divide-slate-100">
-      {stores.map((store) => (
-        <div
-          key={`${store.storeName}-${store.storeCode || 'na'}-${store.rank}`}
-          className="flex items-center gap-2 px-3 py-2.5 hover:bg-slate-50 transition-colors"
-        >
-          <div className="w-7 text-center">
-            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold bg-slate-900 text-white">
-              {store.rank}
-            </span>
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-xs font-bold text-slate-800">{store.storeName}</p>
-            {store.storeCode ? (
-              <p className="text-[10px] font-medium text-slate-400">{store.storeCode}</p>
-            ) : null}
-          </div>
-          <div className="text-right">
-            {typeof store.latestAuditScore === 'number' ? (
-              <span
-                className={`inline-flex rounded px-2 py-0.5 text-[11px] font-bold ring-1 ring-inset ${getScoreBadgeClass(
-                  store.latestAuditScore
-                )}`}
-              >
-                {`${store.latestAuditScore.toFixed(1)}%`}
-              </span>
-            ) : (
-              <span className="text-[10px] font-medium text-slate-500">
-                {formatPlannedVisitLabel(store.plannedVisitDate)}
-              </span>
-            )}
-          </div>
-        </div>
-      ))}
-    </div>
-  )
 
   return (
     <article
@@ -551,7 +496,7 @@ function AreaNewsletterDashboardCard({
               </span>
             </div>
             <div>
-              <h4 className="text-xl font-black tracking-tight text-slate-900 sm:text-3xl">Quarterly Update</h4>
+              <h4 className="text-xl font-black tracking-tight text-slate-900 sm:text-3xl">{periodLabel} Update</h4>
               <div className="mt-2 flex flex-wrap items-center gap-3 text-xs font-medium text-slate-500">
                 <span className="inline-flex items-center gap-1.5">
                   <MapPin className="h-3.5 w-3.5 text-slate-400" />
@@ -659,8 +604,10 @@ function AreaNewsletterDashboardCard({
         </div>
       </div>
 
+      <AreaAuditComparison stores={report.stores} />
+
       <div className="mb-6 grid gap-4 xl:grid-cols-12">
-        <div className="space-y-4 xl:col-span-6">
+        <div className="grid gap-4 md:grid-cols-2 xl:col-span-12">
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
             <h5 className="mb-4 inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-slate-500">
               <TrendingUp className="h-3.5 w-3.5" />
@@ -810,26 +757,7 @@ function AreaNewsletterDashboardCard({
           </div>
         </div>
 
-        <div className="space-y-4 xl:col-span-6">
-          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50/80 px-4 py-3">
-              <h5 className="inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                <Shield className="h-3.5 w-3.5" />
-                Store Leaderboard
-              </h5>
-              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-400">
-                By audit score
-              </span>
-            </div>
-            <div className="border-b border-slate-100 px-4 py-2.5">
-              <p className="text-[11px] leading-relaxed text-slate-500">
-                Ranks stores by their latest completed audit score only. This is separate from revisit risk and
-                reflects current audit performance.
-              </p>
-            </div>
-            <div>{renderLeaderboardColumn(storesWithRank)}</div>
-          </div>
-        </div>
+
       </div>
 
       <div className="mb-6 space-y-4">
@@ -937,7 +865,7 @@ function AreaNewsletterDashboardCard({
   )
 }
 export default function ReportsClient() {
-  const [newsletterMonth, setNewsletterMonth] = useState<string>(format(new Date(), 'yyyy-MM'))
+  const [newsletterMonth, setNewsletterMonth] = useState<string>(`${new Date().getFullYear()}-${new Date().getMonth() < 6 ? '01' : '07'}`)
   const [newsletterAreaCode, setNewsletterAreaCode] = useState<string>('all')
   const [hsAuditText, setHsAuditText] = useState<string>('')
   const [remindersText, setRemindersText] = useState<string>(DEFAULT_REMINDERS_TEXT)
@@ -949,6 +877,11 @@ export default function ReportsClient() {
   const [newsletterAiByArea, setNewsletterAiByArea] = useState<Record<string, NewsletterAIPromptPack>>({})
   const [newsletterAiBulkLoading, setNewsletterAiBulkLoading] = useState(false)
   const [newsletterAiLoadingArea, setNewsletterAiLoadingArea] = useState<string | null>(null)
+  const changeReportingPeriod = (value: string) => {
+    setNewsletterMonth(value)
+    setNewsletterData(null)
+    setNewsletterAiByArea({})
+  }
   const reportTimestamp = format(new Date(), 'dd MMM yyyy HH:mm')
 
   const buildNewsletterPayload = () => ({
@@ -1026,6 +959,7 @@ export default function ReportsClient() {
       },
       body: JSON.stringify({
         selectedArea: report.areaCode,
+        periodLabel: halfYearLabel(newsletterMonth),
         metrics: {
           avg: report.auditMetrics.averageLatestScore,
         },
@@ -1034,6 +968,8 @@ export default function ReportsClient() {
         leaderboard: report.stores.map((store) => ({
           storeName: store.storeName,
           score: store.latestAuditScore,
+          audit1Score: store.audit1Score,
+          audit2Score: store.audit2Score,
         })),
         scores: scoredStores.map((store) => store.latestAuditScore),
       }),
@@ -1098,7 +1034,7 @@ export default function ReportsClient() {
       }
 
       const html = await buildExactPdfHtmlFromCardElement(cardElement)
-      const preferredName = `monthly-newsletter-${newsletterMonth}-${report.areaCode.toLowerCase()}-exact-v2.pdf`
+      const preferredName = `half-year-report-${newsletterMonth}-${report.areaCode.toLowerCase()}-exact-v2.pdf`
 
       const response = await fetch('/api/reports/monthly-newsletter/pdf-exact', {
         method: 'POST',
@@ -1174,7 +1110,7 @@ export default function ReportsClient() {
           { label: 'Audit Progress', value: 'PDF / CSV', icon: BarChart3, className: 'border-blue-200 bg-blue-50 text-blue-700' },
           { label: 'FRA Status', value: 'Client-ready', icon: Shield, className: 'border-orange-200 bg-orange-50 text-orange-700' },
           { label: 'Action Closure', value: 'Overdue focus', icon: AlertCircle, className: 'border-rose-200 bg-rose-50 text-rose-700' },
-          { label: 'Area Packs', value: 'Monthly', icon: Newspaper, className: 'border-emerald-200 bg-emerald-50 text-emerald-700' },
+          { label: 'Area Packs', value: 'Twice yearly', icon: Newspaper, className: 'border-emerald-200 bg-emerald-50 text-emerald-700' },
         ].map((item) => {
           const Icon = item.icon
           return (
@@ -1194,7 +1130,7 @@ export default function ReportsClient() {
       <Tabs defaultValue="monthly" className="w-full">
         <TabsList className="grid h-auto w-full grid-cols-2 items-center rounded-[20px] bg-slate-100 p-1 text-slate-600 md:inline-flex md:w-auto md:justify-start md:rounded-md">
           <TabsTrigger value="monthly" className="min-h-[46px] rounded-[16px] md:min-h-[40px]">
-            Monthly Dashboard
+            Half-Year Dashboard
           </TabsTrigger>
           <TabsTrigger value="export" className="min-h-[46px] rounded-[16px] md:min-h-[40px]">
             Data Exports
@@ -1209,10 +1145,10 @@ export default function ReportsClient() {
               <div>
                 <CardTitle className="flex items-center gap-2 text-slate-900">
                   <Newspaper className="h-5 w-5 text-amber-600" />
-                  Monthly Area Manager Newsletter Dashboard
+                  Half-Year Area Manager Reports
                 </CardTitle>
                 <CardDescription className="text-slate-600 mt-1">
-                  Generate visual monthly dashboards for area codes with audit scores, FRA/action
+                  Generate half-year reports comparing Audit 1 and Audit 2 for area codes with audit scores, FRA/action
                   priorities, reminders and legislation updates.
                 </CardDescription>
               </div>
@@ -1244,12 +1180,13 @@ export default function ReportsClient() {
 
             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-600">Newsletter Month</label>
-                <Input
-                  type="month"
-                  value={newsletterMonth}
-                  onChange={(event) => setNewsletterMonth(event.target.value)}
-                />
+                <label className="text-xs font-semibold text-slate-600">Reporting Period</label>
+                <div className="flex gap-2">
+                  <Input aria-label="Reporting year" type="number" min="2020" max="2100" value={newsletterMonth.slice(0,4)} onChange={event => changeReportingPeriod(`${event.target.value}-${newsletterMonth.slice(5)}`)} />
+                  <select aria-label="Reporting half" className="rounded-md border p-2 text-sm" value={newsletterMonth.slice(5)} onChange={event => changeReportingPeriod(`${newsletterMonth.slice(0,4)}-${event.target.value}`)}>
+                    <option value="01">First half (Jan–Jun)</option><option value="07">Second half (Jul–Dec)</option>
+                  </select>
+                </div>
               </div>
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-slate-600">Area Scope</label>
@@ -1322,7 +1259,7 @@ export default function ReportsClient() {
                       <Sparkles className="h-3.5 w-3.5" /> KSS NW Consultant Briefing
                     </p>
                     <p className="text-sm text-slate-600 mt-1">
-                      One click generates KSS NW monthly briefing content for all visible areas and
+                      One click generates KSS NW half-year briefing content for all visible areas and
                       fills each area card automatically.
                     </p>
                     <p className="text-xs text-slate-500 mt-1">
@@ -1370,7 +1307,7 @@ export default function ReportsClient() {
             {newsletterData && visibleAreaReports.length === 0 && !newsletterLoading && (
               <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 flex items-start gap-2">
                 <AlertTriangle className="h-4 w-4 mt-0.5" />
-                No area data matched this filter/month. Try selecting &quot;All Areas&quot; or a different month.
+                No area data matched this reporting period. Try selecting &quot;All Areas&quot; or a different month.
               </div>
             )}
           </CardContent>
