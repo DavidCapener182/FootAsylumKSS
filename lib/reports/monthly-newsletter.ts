@@ -13,7 +13,7 @@ import {
   normalizeReportingAreaCode,
 } from '@/lib/areas'
 import { isExtStoreCode, shouldHideStore } from '@/lib/store-normalization'
-import { resolveStoreActionPriorityTheme } from '@/lib/store-action-titles'
+import { reportActionFocus } from './audit-action-focus'
 import type {
   AreaNewsletterReport,
   MonthlyNewsletterRequestBody,
@@ -97,6 +97,8 @@ interface StoreActionThemeAggregate {
   managerPrompt: string
   actionCount: number
   storeIds: Set<string>
+  order: number
+  findings: Map<string, { question: string; stores: Set<string>; actionCount: number }>
   highPriorityCount: number
   overdueCount: number
 }
@@ -280,29 +282,17 @@ function isDueDateOverdue(dueDate: string | null | undefined, referenceDate: Dat
   return due.getTime() < reference.getTime()
 }
 
-function resolveStoreActionTheme(action: StoreActionRow): {
-  key: string
-  topic: string
-  managerPrompt: string
-} {
-  const resolved = resolveStoreActionPriorityTheme(action)
-  return {
-    key: resolved.key,
-    topic: resolved.summary,
-    managerPrompt: resolved.managerPrompt,
-  }
-}
-
 function formatStoreActionFocusLine(item: NewsletterStoreActionFocusItem): string {
   const detailParts = [`${item.actionCount} active actions`, `across ${item.storeCount} stores`]
   if (item.highPriorityCount > 0) detailParts.push(`${item.highPriorityCount} high/urgent`)
   if (item.overdueCount > 0) detailParts.push(`${item.overdueCount} overdue`)
-  return `${item.topic}: ${detailParts.join(', ')}. ${item.managerPrompt}`
+  return `${item.topic}: ${detailParts.join(', ')}. ${item.managerPrompt}${item.findings?.length ? ` Flagged checks: ${item.findings.map((finding) => `${finding.question} — ${finding.stores.join(', ')}`).join('; ')}` : ''}`
 }
 
 function buildStoreActionMetrics(
   actions: StoreActionRow[],
-  period: MonthPeriod
+  period: MonthPeriod,
+  stores: StoreRow[]
 ): NewsletterStoreActionMetrics {
   const activeActions = actions.filter((action) => isStoreActionActive(action.status))
   const themeMap = new Map<string, StoreActionThemeAggregate>()
@@ -316,10 +306,17 @@ function buildStoreActionMetrics(
     if (isDueDateOverdue(action.due_date, period.end)) overdueCount += 1
     if (dateWithinMonth(action.due_date, period)) dueThisMonthCount += 1
 
-    const resolved = resolveStoreActionTheme(action)
+    const resolved = reportActionFocus(action)
+    const store = stores.find((item) => item.id === action.store_id)
+    const storeLabel = store ? `${store.store_name}${store.store_code ? ` (${store.store_code})` : ''}` : 'Store not recorded'
+    const question = resolved.question
     const existing = themeMap.get(resolved.key)
     if (existing) {
       existing.actionCount += 1
+      const finding = existing.findings.get(question) || { question, stores: new Set<string>(), actionCount: 0 }
+      finding.actionCount += 1
+      finding.stores.add(storeLabel)
+      existing.findings.set(question, finding)
       if (action.store_id) existing.storeIds.add(action.store_id)
       if (isStoreActionHighPriority(action.priority)) existing.highPriorityCount += 1
       if (isDueDateOverdue(action.due_date, period.end)) existing.overdueCount += 1
@@ -327,6 +324,8 @@ function buildStoreActionMetrics(
     }
 
     themeMap.set(resolved.key, {
+      order: resolved.order,
+      findings: new Map([[question, { question, stores: new Set([storeLabel]), actionCount: 1 }]]),
       key: resolved.key,
       topic: resolved.topic,
       managerPrompt: resolved.managerPrompt,
@@ -339,12 +338,12 @@ function buildStoreActionMetrics(
 
   const focusItems: NewsletterStoreActionFocusItem[] = Array.from(themeMap.values())
     .sort((a, b) => {
-      if (a.actionCount !== b.actionCount) return b.actionCount - a.actionCount
       if (a.highPriorityCount !== b.highPriorityCount) return b.highPriorityCount - a.highPriorityCount
       if (a.overdueCount !== b.overdueCount) return b.overdueCount - a.overdueCount
+      if (a.order !== b.order) return a.order - b.order
+      if (a.actionCount !== b.actionCount) return b.actionCount - a.actionCount
       return a.topic.localeCompare(b.topic)
     })
-    .slice(0, 5)
     .map((item) => ({
       topic: item.topic,
       actionCount: item.actionCount,
@@ -352,6 +351,7 @@ function buildStoreActionMetrics(
       highPriorityCount: item.highPriorityCount,
       overdueCount: item.overdueCount,
       managerPrompt: item.managerPrompt,
+      findings: Array.from(item.findings.values()).map((finding) => ({ ...finding, stores: Array.from(finding.stores).sort() })),
     }))
 
   return {
@@ -984,7 +984,7 @@ export async function buildMonthlyNewsletterData(
     })
 
     const areaStoreActions = group.stores.flatMap((store) => storeActionsByStore.get(store.id) || [])
-    const storeActionMetrics = buildStoreActionMetrics(areaStoreActions, period)
+    const storeActionMetrics = buildStoreActionMetrics(areaStoreActions, period, group.stores)
 
     const revisitRiskInputs = buildRevisitRiskInputs(
       group.stores,
