@@ -38,6 +38,11 @@ export const REPORTING_AREA_CONTACTS = {
     managerName: 'Shaynul Uddin',
     managerEmail: 'Shaynul.Uddin@footasylum.com',
   },
+  NON_RETAIL: {
+    label: 'Non-retail sites',
+    managerName: null,
+    managerEmail: null,
+  },
 } as const
 
 export type ReportingAreaCode = keyof typeof REPORTING_AREA_CONTACTS
@@ -77,8 +82,8 @@ export function normalizeReportingAreaCode(raw: string | null | undefined): Repo
   const normalized = raw?.trim().toUpperCase().replace(/\s+/g, '')
   if (!normalized) return null
 
-  if (normalized === 'AREA1' || normalized === 'AREA2' || normalized === 'AREA3' || normalized === 'AREA4' || normalized === 'AREA5') {
-    return normalized
+  if (Object.prototype.hasOwnProperty.call(REPORTING_AREA_CONTACTS, normalized)) {
+    return normalized as ReportingAreaCode
   }
 
   return null
