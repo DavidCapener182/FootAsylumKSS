@@ -5,7 +5,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
-import { getInternalAreaDisplayName } from '@/lib/areas'
+import { getAuditAreaCode } from './audit-table-helpers'
+import { getReportingAreaDisplayName } from '@/lib/areas'
 import { cn, getDisplayStoreCode } from '@/lib/utils'
 import {
   AuditComparison,
@@ -66,7 +67,7 @@ export function AuditImprovementTable({
 
   const areaOptions = useMemo(() => {
     const set = new Set<string>()
-    rows.forEach((row) => row.region && set.add(row.region))
+    rows.forEach((row) => getAuditAreaCode(row) && set.add(getAuditAreaCode(row)))
     return Array.from(set).sort()
   }, [rows])
 
@@ -82,7 +83,7 @@ export function AuditImprovementTable({
 
     return comparableRows
       .filter((row) => {
-        const matchesArea = area === 'all' || row.region === area
+        const matchesArea = area === 'all' || getAuditAreaCode(row) === area
         const matchesSearch =
           term.length === 0 ||
           row.store_name.toLowerCase().includes(term) ||
@@ -145,7 +146,7 @@ export function AuditImprovementTable({
               <SelectItem value="all">All areas</SelectItem>
               {areaOptions.map((option) => (
                 <SelectItem key={option} value={option}>
-                  {getInternalAreaDisplayName(option, { fallback: option })}
+                  {getReportingAreaDisplayName(option)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -216,7 +217,7 @@ export function AuditImprovementTable({
                           {getDisplayStoreCode(row.store_code) || '-'}
                         </span>
                         <span className="min-w-0 truncate">
-                          {getInternalAreaDisplayName(row.region, { fallback: 'Unassigned' })}
+                          {getReportingAreaDisplayName(getAuditAreaCode(row), 'Unassigned')}
                         </span>
                       </div>
                     </div>
@@ -335,7 +336,7 @@ export function AuditImprovementTable({
                         </button>
                       </TableCell>
                       <TableCell className="border-b bg-white text-xs leading-snug text-muted-foreground group-hover:bg-slate-50">
-                        {getInternalAreaDisplayName(row.region, { fallback: 'Unassigned' })}
+                        {getReportingAreaDisplayName(getAuditAreaCode(row), 'Unassigned')}
                       </TableCell>
                       <TableCell className="border-b bg-white group-hover:bg-slate-50">
                         <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold', movementTone)}>

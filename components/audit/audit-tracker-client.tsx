@@ -30,7 +30,7 @@ export function AuditTrackerClient({ stores, userRole }: AuditTrackerClientProps
               </div>
               <h1 className="workspace-title text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">Audit Tracker</h1>
               <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
-                Track compliance scores, view audit history, and monitor network performance across all regions.
+                Track compliance scores, view audit history, and monitor network performance across Footasylum reporting areas.
               </p>
             </div>
             <form action="/api/reports/audits" method="GET" className="w-full sm:w-auto">

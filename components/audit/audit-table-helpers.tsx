@@ -1,9 +1,11 @@
+import { normalizeReportingAreaCode } from '@/lib/areas'
 import { Badge } from '@/components/ui/badge'
 import { cn, formatAppDate, formatPercent } from '@/lib/utils'
 
 export interface AuditRow {
   id: string
   region: string | null
+  reporting_area?: string | null
   store_code: string | null
   store_name: string
   is_active: boolean
@@ -203,4 +205,8 @@ export function getCompletedAuditCount(row: AuditRow): number {
   if (hasCompletedAudit(row, 2)) count++
   if (hasCompletedAudit(row, 3)) count++
   return count
+}
+
+export function getAuditAreaCode(row: Pick<AuditRow, 'reporting_area'>): string {
+  return normalizeReportingAreaCode(row.reporting_area) || 'UNASSIGNED'
 }

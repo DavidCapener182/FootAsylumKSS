@@ -5,7 +5,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
-import { getInternalAreaDisplayName } from '@/lib/areas'
+import { getAuditAreaCode } from './audit-table-helpers'
+import { getReportingAreaDisplayName } from '@/lib/areas'
 import { cn, getDisplayStoreCode } from '@/lib/utils'
 import { AuditRow, pctBadge, formatDate, getCompletedAuditCount, getLatestPct } from './audit-table-helpers'
 import { StoreActionsModal } from './store-actions-modal'
@@ -48,7 +49,7 @@ export function AuditLeagueTable({
 
   const areaOptions = useMemo(() => {
     const set = new Set<string>()
-    rows.forEach((r) => r.region && set.add(r.region))
+    rows.forEach((r) => getAuditAreaCode(r) && set.add(getAuditAreaCode(r)))
     return Array.from(set).sort()
   }, [rows])
 
@@ -61,7 +62,7 @@ export function AuditLeagueTable({
   // Rank all stores by their latest compliance percentage
   const rankedStores = useMemo(() => {
     const filtered = rows.filter((row) => {
-      const matchesArea = area === 'all' || row.region === area
+      const matchesArea = area === 'all' || getAuditAreaCode(row) === area
       const term = search.trim().toLowerCase()
       const matchesSearch =
         term.length === 0 ||
@@ -148,7 +149,7 @@ export function AuditLeagueTable({
               <SelectItem value="all">All areas</SelectItem>
               {areaOptions.map((opt) => (
                 <SelectItem key={opt} value={opt}>
-                  {getInternalAreaDisplayName(opt, { fallback: opt })}
+                  {getReportingAreaDisplayName(opt)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -244,7 +245,7 @@ export function AuditLeagueTable({
                           {getDisplayStoreCode(row.store_code) || '—'}
                         </span>
                         <span className="min-w-0 truncate">
-                          {getInternalAreaDisplayName(row.region, { fallback: '—' })}
+                          {getReportingAreaDisplayName(getAuditAreaCode(row), '—')}
                         </span>
                       </div>
                     </div>
@@ -360,7 +361,7 @@ export function AuditLeagueTable({
                         </button>
                       </TableCell>
                       <TableCell className="hidden border-b bg-white text-xs leading-snug text-muted-foreground group-hover:bg-slate-50 md:table-cell">
-                        {getInternalAreaDisplayName(row.region, { fallback: '—' })}
+                        {getReportingAreaDisplayName(getAuditAreaCode(row), '—')}
                       </TableCell>
                       <TableCell className="hidden whitespace-nowrap border-b bg-white text-sm text-muted-foreground group-hover:bg-slate-50 md:table-cell">
                         {formatDate(row.latestDate)}

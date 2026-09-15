@@ -5,7 +5,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
-import { getInternalAreaDisplayName } from '@/lib/areas'
+import { getAuditAreaCode } from './audit-table-helpers'
+import { getReportingAreaDisplayName } from '@/lib/areas'
 import { cn, getDisplayStoreCode, formatPercent } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { UserRole } from '@/lib/auth'
@@ -102,9 +103,6 @@ function getDaysUntil(date: Date): number {
   return Math.floor((date.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
 }
 
-function hasAssignedArea(row: AuditRow): row is AuditRow & { region: string } {
-  return typeof row.region === 'string' && row.region.trim().length > 0
-}
 
 function isWithinMonths(dateValue: string | null, months: number): boolean {
   if (!dateValue) return false
@@ -180,10 +178,7 @@ export function AuditTable({
   const areaOptions = useMemo(() => {
     const set = new Set<string>()
     rows.forEach((r) => {
-      if (hasAssignedArea(r)) {
-        const region = r.region
-        set.add(region.trim())
-      }
+      set.add(getAuditAreaCode(r))
     })
     return Array.from(set).sort()
   }, [rows])
@@ -234,11 +229,7 @@ export function AuditTable({
 
   const filtered = useMemo(() => {
     return localRows.filter((row) => {
-      if (!hasAssignedArea(row)) {
-        return false
-      }
-
-      const matchesArea = area === 'all' || row.region === area
+      const matchesArea = area === 'all' || getAuditAreaCode(row) === area
       const term = search.trim().toLowerCase()
       const matchesSearch =
         term.length === 0 ||
@@ -252,9 +243,9 @@ export function AuditTable({
   const grouped = useMemo(() => {
     const map = new Map<string, AuditRow[]>()
     
-    // 1. Group by Region
+    // 1. Group by Footasylum reporting area
     filtered.forEach((row) => {
-      const key = row.region || 'Unassigned'
+      const key = getAuditAreaCode(row)
       if (!map.has(key)) map.set(key, [])
       map.get(key)!.push(row)
     })
@@ -894,7 +885,7 @@ export function AuditTable({
                   <SelectItem value="all">All areas</SelectItem>
                   {areaOptions.map((opt) => (
                     <SelectItem key={opt} value={opt}>
-                      {getInternalAreaDisplayName(opt, { fallback: opt })}
+                      {getReportingAreaDisplayName(opt)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -954,7 +945,7 @@ export function AuditTable({
                 <SelectItem value="all">All areas</SelectItem>
                   {areaOptions.map((opt) => (
                     <SelectItem key={opt} value={opt}>
-                      {getInternalAreaDisplayName(opt, { fallback: opt })}
+                      {getReportingAreaDisplayName(opt)}
                     </SelectItem>
                   ))}
             </SelectContent>
@@ -1025,7 +1016,7 @@ export function AuditTable({
             const totalScore = validScores.reduce((acc, cur) => acc + cur, 0)
             const calculatedAverage = validScores.length > 0 ? totalScore / validScores.length : null
             const isCollapsed = !expandedMobileAreas.has(groupKey)
-            const areaLabel = getInternalAreaDisplayName(groupKey, { fallback: groupKey })
+            const areaLabel = getReportingAreaDisplayName(groupKey)
             const accordionId = getAreaAccordionId(groupKey, groupIndex)
 
             return (
@@ -1082,7 +1073,7 @@ export function AuditTable({
                               <span className="rounded-md bg-slate-100 px-1.5 py-0.5 font-mono">
                                 {getDisplayStoreCode(row.store_code) || '—'}
                               </span>
-                              <span>{getInternalAreaDisplayName(row.region, { fallback: 'Unassigned' })}</span>
+                              <span>{getReportingAreaDisplayName(getAuditAreaCode(row), 'Unassigned')}</span>
                             </div>
                           </div>
                           <div className="shrink-0">
@@ -1166,7 +1157,7 @@ export function AuditTable({
                 <TableRow className="audit-area-row">
                   <TableHead scope="rowgroup" colSpan={5}>
                     <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-3"><span className="audit-area-marker" aria-hidden="true" />{getInternalAreaDisplayName(groupKey, { fallback: groupKey })}<span className="audit-area-count">{areaRows.length} store{areaRows.length === 1 ? '' : 's'}</span></div>
+                      <div className="flex items-center gap-3"><span className="audit-area-marker" aria-hidden="true" />{getReportingAreaDisplayName(groupKey)}<span className="audit-area-count">{areaRows.length} store{areaRows.length === 1 ? '' : 's'}</span></div>
                       <span className="audit-area-average">Area average <strong>{average === null ? '—' : formatPercent(average)}</strong><span className="sr-only"> from {validScores.length} scored stores</span></span>
                     </div>
                   </TableHead>

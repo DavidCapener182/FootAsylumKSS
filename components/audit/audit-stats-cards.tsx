@@ -2,7 +2,8 @@
 
 import { WorkspaceMetrics } from '@/components/product/workspace-metrics'
 import { useMemo } from 'react'
-import { getInternalAreaDisplayName } from '@/lib/areas'
+import { getAuditAreaCode } from './audit-table-helpers'
+import { getReportingAreaDisplayName } from '@/lib/areas'
 import { formatPercent } from '@/lib/utils'
 import { AuditRow, getCompletedAuditCount, getLatestPct } from './audit-table-helpers'
 
@@ -15,7 +16,7 @@ export function AuditStatsCards({ stores, selectedArea }: AuditStatsCardsProps) 
   // Filter stores by selected area
   const filteredStores = useMemo(() => {
     if (selectedArea === 'all') return stores
-    return stores.filter(store => store.region === selectedArea)
+    return stores.filter(store => getAuditAreaCode(store) === selectedArea)
   }, [stores, selectedArea])
 
   // Calculate stats for filtered stores
@@ -45,7 +46,7 @@ export function AuditStatsCards({ stores, selectedArea }: AuditStatsCardsProps) 
   // Get label based on selected area
   const areaLabel = selectedArea === 'all' 
     ? 'All Stores' 
-    : getInternalAreaDisplayName(selectedArea, { fallback: 'All Stores' })
+    : getReportingAreaDisplayName(selectedArea, 'All Stores')
 
   return <WorkspaceMetrics label="Audit overview" items={[{ label: `${areaLabel} average`, value: formatPercent(stats.avgScore), detail: 'Latest scored audits at active stores' }, { label: 'Active stores', value: stats.activeStores }, { label: 'Audits completed', value: stats.auditsCompleted, detail: 'Includes completed warehouse audits' }]} />
 }
