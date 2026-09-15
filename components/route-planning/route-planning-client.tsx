@@ -43,7 +43,8 @@ import {
 import { format, isBefore, parseISO, startOfDay } from 'date-fns'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { RouteDirectionsModal } from './route-directions-modal'
-import { getInternalAreaDisplayName, MULTI_AREA_REGION } from '@/lib/areas'
+import { getReportingAreaDisplayName, MULTI_AREA_REGION } from '@/lib/areas'
+import { getRouteStoreArea, getRouteAreaLabel } from '@/lib/route-reporting-areas'
 import { cn, getDisplayStoreCode } from '@/lib/utils'
 import { canCreateRoute as isRouteCreationReady, getRouteCreationBlocker } from '@/lib/route-creation-eligibility'
 import { needsAuditVisit, requiresAuditRevisit } from '@/lib/route-planning-store-eligibility'
@@ -59,6 +60,7 @@ interface Store {
   city: string | null
   postcode: string | null
   region: string | null
+  reporting_area: string | null
   latitude: number | null
   longitude: number | null
   compliance_audit_1_date: string | null
@@ -218,7 +220,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
   // Get unique areas for filter
   const uniqueAreas = useMemo<string[]>(() => {
     const areas = new Set<string>(
-      (stores.map(s => s.region || '').filter(Boolean) as string[])
+      (stores.map(getRouteStoreArea) as string[])
     )
     return Array.from(areas).sort()
   }, [stores])
@@ -247,12 +249,12 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
   // Get stores in the selected area (or all areas) for route building table.
   const storesInRouteArea = useMemo(() => {
     const candidateStores = routeArea
-      ? storesAvailableForPlanning.filter((s) => s.region === routeArea)
+      ? storesAvailableForPlanning.filter((s) => getRouteStoreArea(s) === routeArea)
       : storesAvailableForPlanning
 
     return [...candidateStores].sort((a, b) => {
-      const areaA = a.region || 'ZZZ'
-      const areaB = b.region || 'ZZZ'
+      const areaA = getRouteStoreArea(a)
+      const areaB = getRouteStoreArea(b)
       if (areaA !== areaB) return areaA.localeCompare(areaB)
       return a.store_name.localeCompare(b.store_name)
     })
@@ -260,12 +262,12 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
 
   const storesInRouteAreaWithLocations = useMemo(() => {
     const candidateStores = routeArea
-      ? storesWithLocations.filter((s) => s.region === routeArea)
+      ? storesWithLocations.filter((s) => getRouteStoreArea(s) === routeArea)
       : storesWithLocations
 
     return [...candidateStores].sort((a, b) => {
-      const areaA = a.region || 'ZZZ'
-      const areaB = b.region || 'ZZZ'
+      const areaA = getRouteStoreArea(a)
+      const areaB = getRouteStoreArea(b)
       if (areaA !== areaB) return areaA.localeCompare(areaB)
       return a.store_name.localeCompare(b.store_name)
     })
@@ -1119,7 +1121,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
                   <SelectItem value="all">All Areas</SelectItem>
                   {uniqueAreas.map((area) => (
                     <SelectItem key={area} value={area}>
-                      {getInternalAreaDisplayName(area, { fallback: 'All Areas' })}
+                      {getReportingAreaDisplayName(area)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1349,7 +1351,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
               <div className="mb-3 flex flex-col gap-3 border-b border-slate-100 pb-2 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                   <h3 className="text-sm font-bold text-slate-800">
-                    Stores in {getInternalAreaDisplayName(routeArea, { fallback: 'All Areas' })} ({storesInRouteArea.length} stores)
+                    Stores in {getReportingAreaDisplayName(routeArea, 'All Areas')} ({storesInRouteArea.length} stores)
                   </h3>
                   {storesInRouteAreaMissingCoordsCount > 0 && (
                     <p className="mt-1 flex items-center gap-1 text-xs font-medium text-red-500">
@@ -1449,10 +1451,10 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
                             </span>
                           )}
                         </div>
-                        {(getDisplayStoreCode(store.store_code) || store.region) && (
+                        {(getDisplayStoreCode(store.store_code) || store.reporting_area) && (
                           <div className="mt-0.5 text-xs font-medium text-slate-500">
                             {getDisplayStoreCode(store.store_code) || ''}
-                            {store.region ? `${getDisplayStoreCode(store.store_code) ? ' • ' : ''}${getInternalAreaDisplayName(store.region, { fallback: 'All Areas' })}` : ''}
+                            {store.reporting_area ? `${getDisplayStoreCode(store.store_code) ? ' • ' : ''}${getReportingAreaDisplayName(store.reporting_area)}` : ''}
                           </div>
                         )}
                         {!hasCoords && (
@@ -1520,7 +1522,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
             <p className="text-sm font-semibold text-slate-800">Store Locations Map</p>
             <p className="text-xs text-slate-500">
               {routeArea
-                ? storesWithLocations.filter((store) => store.region === routeArea).length
+                ? storesWithLocations.filter((store) => getRouteStoreArea(store) === routeArea).length
                 : storesWithLocations.length}{' '}
               stores with locations
             </p>
@@ -1564,7 +1566,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
             Store Locations Map
             <span className="ml-auto rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">
               ({routeArea
-                ? storesWithLocations.filter((store) => store.region === routeArea).length
+                ? storesWithLocations.filter((store) => getRouteStoreArea(store) === routeArea).length
                 : storesWithLocations.length}{' '}
               stores with locations)
             </span>
@@ -1646,7 +1648,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
                             <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-                              {group.region ? getInternalAreaDisplayName(group.region, { fallback: 'Planned route' }) : 'Planned route'}
+                              {getRouteAreaLabel(group.stores)}
                             </p>
                             <h3 className="mt-1 text-base font-semibold text-slate-900">
                               {group.assignedManager?.full_name || 'Unassigned manager'}
@@ -1947,7 +1949,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
                               })}
                             </div>
                           </TableCell>
-                          <TableCell>{group.region ? getInternalAreaDisplayName(group.region, { fallback: '-' }) : '-'}</TableCell>
+                          <TableCell>{getRouteAreaLabel(group.stores)}</TableCell>
                           <TableCell>
                             {group.assignedManager?.full_name || '-'}
                           </TableCell>
@@ -2071,7 +2073,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
                       Planned for {formatPlannedRouteDate(activeOverdueRoute.plannedDate, 'EEEE, dd MMMM yyyy')}
                     </p>
                     <p className="mt-1 text-xs font-medium text-amber-800">
-                      {getInternalAreaDisplayName(activeOverdueRoute.region, { fallback: 'Unassigned route' })} - {activeOverdueRoute.stores.length} store{activeOverdueRoute.stores.length === 1 ? '' : 's'}
+                      {getRouteAreaLabel(activeOverdueRoute.stores)} - {activeOverdueRoute.stores.length} store{activeOverdueRoute.stores.length === 1 ? '' : 's'}
                     </p>
                   </div>
                 </div>

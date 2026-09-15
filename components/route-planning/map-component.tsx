@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useRef, useMemo } from 'react'
-import { getInternalAreaDisplayName } from '@/lib/areas'
+import { getReportingAreaDisplayName } from '@/lib/areas'
+import { getRouteStoreArea } from '@/lib/route-reporting-areas'
 import { formatAppDate, getDisplayStoreCode } from '@/lib/utils'
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
 import L from 'leaflet'
@@ -21,7 +22,7 @@ interface Store {
   store_name: string
   latitude: number
   longitude: number
-  region: string | null
+  reporting_area: string | null
   compliance_audit_2_planned_date: string | null
 }
 
@@ -41,18 +42,13 @@ interface MapComponentProps {
 
 // Color mapping for different areas
 const areaColors: Record<string, string> = {
-  'A1': 'blue',
-  'A2': 'red',
-  'A3': 'green',
-  'A4': 'orange',
-  'A5': 'gold',  // Changed from purple to gold to differentiate from A2
-  'A6': 'yellow',
-  'A7': 'violet',
-  'A8': 'grey',
-  'WHSE 1': 'black',
-  'WHSE 2': 'darkblue',
-  'Photo': 'pink',
-  'SEVEN': 'darkgreen',
+  AREA1: 'blue',
+  AREA2: 'red',
+  AREA3: 'green',
+  AREA4: 'orange',
+  AREA5: 'violet',
+  NON_RETAIL: 'grey',
+  UNASSIGNED: 'black',
 }
 
 function getAreaIcon(area: string | null, isSelected: boolean) {
@@ -139,7 +135,7 @@ export default function MapComponent({ stores, managerHome, selectedStores, onSt
     
     // First filter by area if filter is set
     if (filteredArea) {
-      filtered = filtered.filter(s => s.region === filteredArea)
+      filtered = filtered.filter(s => getRouteStoreArea(s) === filteredArea)
     }
     
     // If there are selected stores, only show those
@@ -220,7 +216,7 @@ export default function MapComponent({ stores, managerHome, selectedStores, onSt
         const hasPlannedDate = store.compliance_audit_2_planned_date !== null
         const isSelected = selectedStores.has(store.id)
         // Use selected icon if store is selected
-        const icon = getAreaIcon(store.region, isSelected)
+        const icon = getAreaIcon(getRouteStoreArea(store), isSelected)
         
         return (
           <Marker
@@ -236,8 +232,8 @@ export default function MapComponent({ stores, managerHome, selectedStores, onSt
               {getDisplayStoreCode(store.store_code) && (
                 <div className="text-sm text-slate-600">Code: {getDisplayStoreCode(store.store_code)}</div>
               )}
-              {store.region && (
-                <div className="text-sm text-slate-500">Area: {getInternalAreaDisplayName(store.region, { fallback: 'All Areas' })}</div>
+              {store.reporting_area && (
+                <div className="text-sm text-slate-500">Area: {getReportingAreaDisplayName(store.reporting_area)}</div>
               )}
               {isSelected && (
                 <div className="text-sm text-blue-600 font-medium mt-1">

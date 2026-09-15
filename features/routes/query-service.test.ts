@@ -3,7 +3,7 @@ import { presentRoutePlanningData } from './query-service'
 
 const baseStore = {
   id: '11111111-1111-4111-8111-111111111111', is_active: true, store_code: '01', store_name: 'Test', address_line_1: null,
-  city: null, postcode: null, region: 'N', latitude: 53, longitude: -2, compliance_audit_1_date: null,
+  city: null, postcode: null, region: 'A3', reporting_area: 'AREA2', latitude: 53, longitude: -2, compliance_audit_1_date: null,
   compliance_audit_1_overall_pct: null, compliance_audit_2_date: null, compliance_audit_2_overall_pct: null, compliance_audit_2_planned_date: null,
   compliance_audit_2_assigned_manager_user_id: null, route_sequence: null, assigned_manager: null,
 }
@@ -39,5 +39,12 @@ describe('outstanding visits in the route presenter', () => {
   it('keeps closed Hanley excluded even with a failed audit', () => {
     const store = { ...baseStore, store_name: 'Hanley', store_code: 'S0014', is_active: false, compliance_audit_1_date: '2026-02-20', compliance_audit_1_overall_pct: 78.57 }
     expect(presentRoutePlanningData([store], []).stores).toHaveLength(0)
+  })
+})
+
+it('retains the reporting area and existing route identity independently', () => {
+  const store = { ...baseStore, compliance_audit_2_planned_date: '2026-09-17', route_sequence: 2 }
+  expect(presentRoutePlanningData([store], []).stores[0]).toMatchObject({
+    region: 'A3', reporting_area: 'AREA2', compliance_audit_2_planned_date: '2026-09-17', route_sequence: 2,
   })
 })

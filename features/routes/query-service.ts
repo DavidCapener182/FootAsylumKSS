@@ -10,7 +10,7 @@ const managerSchema = z.object({
 
 const routeStoreSchema = z.object({
   id: z.string().uuid(), is_active: z.boolean(), store_code: z.string().nullable(), store_name: z.string(),
-  address_line_1: z.string().nullable(), city: z.string().nullable(), postcode: z.string().nullable(), region: z.string().nullable(),
+  address_line_1: z.string().nullable(), city: z.string().nullable(), postcode: z.string().nullable(), region: z.string().nullable(), reporting_area: z.string().nullable(),
   latitude: z.number().nullable(), longitude: z.number().nullable(), compliance_audit_1_date: z.string().nullable(),
   compliance_audit_1_overall_pct: z.number().nullable(), compliance_audit_2_date: z.string().nullable(), compliance_audit_2_overall_pct: z.number().nullable(),
   compliance_audit_2_planned_date: z.string().nullable(), compliance_audit_2_assigned_manager_user_id: z.string().nullable(),
@@ -44,7 +44,7 @@ export function presentRoutePlanningData(storeRows: unknown[], profileRows: unkn
 export async function getRoutePlanningData(): Promise<RoutePlanningData> {
   const supabase = createClient()
   const [storesResult, profilesResult] = await Promise.all([
-    supabase.from('fa_stores').select(`id, is_active, store_code, store_name, address_line_1, city, postcode, region,
+    supabase.from('fa_stores').select(`id, is_active, store_code, store_name, address_line_1, city, postcode, region, reporting_area,
       latitude, longitude, compliance_audit_1_date, compliance_audit_1_overall_pct, compliance_audit_2_date, compliance_audit_2_overall_pct,
       compliance_audit_2_planned_date, compliance_audit_2_assigned_manager_user_id, route_sequence,
       assigned_manager:fa_profiles!fa_stores_compliance_audit_2_assigned_manager_user_id_fkey(id, full_name, home_address, home_latitude, home_longitude)`)
