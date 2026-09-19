@@ -5,6 +5,29 @@ const viewer = readFileSync(new URL('./saved-fra-pdf-viewer.tsx', import.meta.ur
 const page = readFileSync(new URL('../../app/(protected)/audit-lab/view-fra-report/page.tsx', import.meta.url), 'utf8')
 
 describe('saved FRA display contract', () => {
+  it('offers an explicit upload or skip after download without automatic SharePoint writes', () => {
+    const prompt = readFileSync(new URL('./fra-upload-after-download.tsx', import.meta.url), 'utf8')
+    expect(page).toContain('setUploadAfterDownload(true)')
+    expect(prompt).toContain('Upload to FRA section')
+    expect(prompt).toContain('Not now — keep viewing FRA')
+    expect(prompt).toContain('SharePoint uploads remain manual.')
+    expect(prompt).toContain('await uploadFraPdfFromClient(storeId, file)')
+  })
+  it('opens the persisted file before considering an unfinished report in both trackers', () => {
+    for (const filename of ['fra-table.tsx', 'fra-completed-table.tsx']) {
+      const table = readFileSync(new URL(`./${filename}`, import.meta.url), 'utf8')
+      expect(table).toContain('if (!row.fire_risk_assessment_pdf_path && row.fire_risk_assessment_instance_id)')
+      expect(table).toContain("'Saved PDF' : 'View FRA'")
+      expect(table).toContain('renderPdf={(url) => <SavedFraPdfViewer url={url} />}')
+    }
+  })
+  it('downloads confirmed stored bytes after saving without generating another PDF', () => {
+    const confirm = page.slice(page.indexOf('const handleConfirmPublication'), page.indexOf('const handlePrint'))
+    expect(confirm).toContain('fetch(saved.publication.url)')
+    expect(confirm).toContain('link.download =')
+    expect(confirm).not.toContain('generate-pdf')
+    expect(confirm.indexOf("fetch('/api/fra-reports/complete'")).toBeLessThan(confirm.indexOf('fetch(saved.publication.url)'))
+  })
   it('renders the stored PDF with a bundled worker instead of a native iframe', () => {
     expect(page).toContain('<SavedFraPdfViewer url={document.url} />')
     expect(page).not.toContain('<iframe title="FRA PDF for review"')

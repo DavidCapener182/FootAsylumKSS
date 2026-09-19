@@ -10,6 +10,7 @@ import { getFRAPDFDownloadUrl, deleteFRAPDF } from '@/app/actions/fra-pdfs'
 import { uploadFraPdfFromClient } from '@/lib/fra/upload-pdf-client'
 import { Download, File, Flame, Search, Upload } from 'lucide-react'
 import { PDFViewerModal } from '@/components/shared/pdf-viewer-modal'
+import { SavedFraPdfViewer } from './saved-fra-pdf-viewer'
 import { getInternalAreaDisplayName } from '@/lib/areas'
 import { getDisplayStoreCode } from '@/lib/utils'
 import { 
@@ -108,7 +109,7 @@ export function FRACompletedTable({
   }, [filtered])
 
   const handleViewPDF = (row: FRARow) => {
-    if (row.fire_risk_assessment_instance_id) {
+    if (!row.fire_risk_assessment_pdf_path && row.fire_risk_assessment_instance_id) {
       window.location.href = `/audit-lab/view-fra-report?instanceId=${row.fire_risk_assessment_instance_id}`
       return
     }
@@ -429,16 +430,16 @@ export function FRACompletedTable({
                               </TableCell>
                               
                               <TableCell className="border-b bg-white group-hover:bg-slate-50">
-                                {row.fire_risk_assessment_instance_id ? (
+                                {row.fire_risk_assessment_pdf_path || row.fire_risk_assessment_instance_id ? (
                                   <Button
                                     size="sm"
                                     variant="outline"
                                     onClick={() => handleViewPDF(row)}
                                     className="h-7 px-2 text-xs"
-                                    title="View completed FRA"
+                                    title={row.fire_risk_assessment_pdf_path ? 'Open saved PDF' : 'View FRA'}
                                   >
                                     <Flame className="h-3.5 w-3.5 text-orange-600" />
-                                    <span className="ml-1 hidden xl:inline">View FRA</span>
+                                    <span className="ml-1">{row.fire_risk_assessment_pdf_path ? 'Saved PDF' : 'View FRA'}</span>
                                   </Button>
                                 ) : row.fire_risk_assessment_pdf_path ? (
                                   <div className="flex items-center gap-1">
@@ -499,6 +500,7 @@ export function FRACompletedTable({
 
       {/* PDF Viewer Modal */}
       <PDFViewerModal
+        renderPdf={(url) => <SavedFraPdfViewer url={url} />}
         open={pdfViewerOpen}
         onOpenChange={(open) => {
           setPdfViewerOpen(open)

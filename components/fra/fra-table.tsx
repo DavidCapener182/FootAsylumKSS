@@ -15,6 +15,7 @@ import { uploadFraPdfFromClient } from '@/lib/fra/upload-pdf-client'
 import { can } from '@/lib/role-capabilities'
 import { Upload, File, Flame, SlidersHorizontal, ChevronDown, ChevronUp, Search } from 'lucide-react'
 import { PDFViewerModal } from '@/components/shared/pdf-viewer-modal'
+import { SavedFraPdfViewer } from './saved-fra-pdf-viewer'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { 
   FRARow, 
@@ -225,7 +226,7 @@ export function FRATable({
   }
 
   const handleViewPDF = (row: FRARow) => {
-    if (row.fire_risk_assessment_instance_id) {
+    if (!row.fire_risk_assessment_pdf_path && row.fire_risk_assessment_instance_id) {
       window.location.href = `/audit-lab/view-fra-report?instanceId=${row.fire_risk_assessment_instance_id}`
       return
     }
@@ -611,7 +612,7 @@ export function FRATable({
                               {row.fire_risk_assessment_date ? 'Edit FRA' : 'Add FRA'}
                             </Button>
                           ) : null}
-                          {row.fire_risk_assessment_instance_id ? (
+                          {row.fire_risk_assessment_pdf_path || row.fire_risk_assessment_instance_id ? (
                             <Button
                               size="sm"
                               variant="ghost"
@@ -619,7 +620,7 @@ export function FRATable({
                               className="h-8 border border-slate-200 bg-white px-2.5 text-xs text-slate-700 hover:bg-slate-50"
                             >
                               <Flame className="h-3.5 w-3.5 mr-1 text-orange-600" />
-                              View FRA
+                              {row.fire_risk_assessment_pdf_path ? 'Saved PDF' : 'View FRA'}
                             </Button>
                           ) : row.fire_risk_assessment_pdf_path ? (
                             <>
@@ -788,15 +789,16 @@ export function FRATable({
                             
                             <TableCell className="border-b bg-white group-hover:bg-slate-50">
                               <div className="flex items-center gap-1">
-                                {row.fire_risk_assessment_instance_id ? (
+                                {row.fire_risk_assessment_pdf_path || row.fire_risk_assessment_instance_id ? (
                                   <Button
                                     size="sm"
                                     variant="ghost"
                                     onClick={() => handleViewPDF(row)}
                                     className="h-7 border border-slate-200 bg-white px-2 text-xs hover:bg-slate-50"
-                                    title="View FRA"
+                                    title={row.fire_risk_assessment_pdf_path ? 'Open saved PDF' : 'View FRA'}
                                   >
                                     <Flame className="h-4 w-4 text-orange-600" />
+                                    <span className="ml-1">{row.fire_risk_assessment_pdf_path ? 'Saved PDF' : 'View FRA'}</span>
                                   </Button>
                                 ) : row.fire_risk_assessment_pdf_path ? (
                                   <>
@@ -931,6 +933,7 @@ export function FRATable({
       
       {/* PDF Viewer Modal */}
       <PDFViewerModal
+        renderPdf={(url) => <SavedFraPdfViewer url={url} />}
         open={pdfViewerOpen}
         onOpenChange={setPdfViewerOpen}
         pdfUrl={null}

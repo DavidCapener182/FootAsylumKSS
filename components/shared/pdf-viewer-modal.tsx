@@ -12,6 +12,7 @@ interface PDFViewerModalProps {
   title?: string
   getDownloadUrl: () => Promise<string | null>
   headerActions?: ReactNode
+  renderPdf?: (url: string) => ReactNode
 }
 
 export function PDFViewerModal({ 
@@ -20,7 +21,8 @@ export function PDFViewerModal({
   pdfUrl, 
   title = 'PDF Viewer',
   getDownloadUrl,
-  headerActions
+  headerActions,
+  renderPdf
 }: PDFViewerModalProps) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -102,6 +104,8 @@ export function PDFViewerModal({
                 <p className="text-sm text-red-600">{error}</p>
               </div>
             </div>
+          ) : downloadUrl && renderPdf ? (
+            <div className="h-full overflow-auto p-4">{renderPdf(downloadUrl)}</div>
           ) : downloadUrl ? (
             <iframe
               src={downloadUrl}

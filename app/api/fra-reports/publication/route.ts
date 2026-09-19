@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
   try {
     const { supabase } = await requirePermission('viewEvidence')
     const instanceId = request.nextUrl.searchParams.get('instanceId')
-    const { data, error } = await supabase.from('fa_fra_publications').select('id,pdf_path,confirmed_at,archive_status')
+    const { data, error } = await supabase.from('fa_fra_publications').select('id,store_id,pdf_path,confirmed_at,archive_status')
       .eq('instance_id', instanceId).not('confirmed_at', 'is', null).maybeSingle()
     if (error) throw error
     if (!data) return NextResponse.json({ publication: null })

@@ -1,6 +1,7 @@
 'use client'
 
 import { SavedFraPdfViewer } from '@/components/fra/saved-fra-pdf-viewer'
+import { FraUploadAfterDownload } from '@/components/fra/fra-upload-after-download'
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -135,6 +136,7 @@ export default function FRAReportViewPage({
     }
   }, [instanceId])
   const [publication, setPublication] = useState<any>(null)
+  const [uploadAfterDownload, setUploadAfterDownload] = useState(false)
   const [review, setReview] = useState<any>(null)
   const [reviewConfirmed, setReviewConfirmed] = useState(false)
   const [fraData, setFraData] = useState<any>(null)
@@ -353,6 +355,26 @@ export default function FRAReportViewPage({
       setReview(null)
       setSaveSuccess(true)
       await fetchData()
+      // Download the confirmed stored bytes, never render the report again.
+      try {
+        const savedResponse = await fetch(`/api/fra-reports/publication?instanceId=${instanceId}`)
+        const saved = await savedResponse.json()
+        if (!savedResponse.ok || !saved.publication?.url) throw new Error('Saved PDF unavailable')
+        const pdfResponse = await fetch(saved.publication.url)
+        if (!pdfResponse.ok) throw new Error('Download unavailable')
+        const blob = await pdfResponse.blob()
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = url
+        link.download = `FRA-${instanceId}.pdf`
+        document.body.appendChild(link)
+        link.click()
+        link.remove()
+        setUploadAfterDownload(true)
+        window.setTimeout(() => URL.revokeObjectURL(url), 60000)
+      } catch {
+        setSaveError('The PDF is saved in Fire Risk Assessments, but the automatic download failed. Use Saved PDF to download it.')
+      }
     } catch (error) { setSaveError(error instanceof Error ? error.message : 'Unable to confirm the PDF') }
     finally { setSaving(false) }
   }
@@ -370,7 +392,7 @@ export default function FRAReportViewPage({
     if (!instanceId) return
     setGeneratingPdf(true)
     try {
-      const response = await fetch(`/api/fra-reports/generate-pdf?instanceId=${instanceId}`)
+      const response = await fetch(publication?.url || `/api/fra-reports/generate-pdf?instanceId=${instanceId}`)
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
         throw new Error(errorData.details || errorData.error || 'Failed to generate PDF')
@@ -390,6 +412,7 @@ export default function FRAReportViewPage({
       a.click()
       window.URL.revokeObjectURL(url)
       document.body.removeChild(a)
+      setUploadAfterDownload(true)
     } catch (err: any) {
       console.error('Error downloading PDF:', err)
       alert(`Failed to download PDF: ${err.message || 'Unknown error'}`)
@@ -422,6 +445,8 @@ export default function FRAReportViewPage({
         <a href={document.url} target="_blank" rel="noopener noreferrer" className="underline">Open PDF in a new tab</a>
       </div>
       {saveError && <p role="alert" className="text-red-700">{saveError}</p>}
+      {publication && <Button onClick={handleDownloadPDF} disabled={generatingPdf}>{generatingPdf ? 'Downloading…' : 'Download PDF'}</Button>}
+      <FraUploadAfterDownload open={uploadAfterDownload} onOpenChange={setUploadAfterDownload} storeId={publication?.store_id || fraData?.store?.id} />
       <SavedFraPdfViewer url={document.url} />
       {review?.unusedImages > 0 && <p className="text-sm text-amber-800">{review.unusedImages} stored source images are not used by this report layout. They will still be preserved in the SharePoint source-image archive. Check that the PDF includes every photograph you need before confirming.</p>}
       {review && <div className="flex flex-wrap items-center gap-4">
@@ -445,6 +470,7 @@ export default function FRAReportViewPage({
 
   return (
     <div className="min-h-screen bg-white print:bg-white print:min-h-0">
+      <FraUploadAfterDownload open={uploadAfterDownload} onOpenChange={setUploadAfterDownload} storeId={fraData?.store?.id} />
       {generatingPdf && (
         <div className="fixed inset-0 z-30 flex items-center justify-center bg-slate-950/20 px-4 backdrop-blur-[2px] print:hidden">
           <FRAReportLoadingState
