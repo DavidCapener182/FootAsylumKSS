@@ -1,5 +1,7 @@
 'use client'
 
+import { SavedFraPdfViewer } from '@/components/fra/saved-fra-pdf-viewer'
+
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
@@ -414,13 +416,13 @@ export default function FRAReportViewPage({
         <div><Link href="/fire-risk-assessment">← Fire Risk Assessments</Link>
           <h1 className="text-xl font-bold">{publication ? 'Confirmed FRA' : 'Review the final PDF'}</h1>
           <p className="text-sm text-muted-foreground">{publication
-            ? publication.archive_status === 'complete' ? 'Source images archived to SharePoint.' : 'PDF saved. Source images remain safe until Codex verifies their SharePoint archive.'
+            ? publication.archive_status === 'complete' ? 'Source images archived to SharePoint.' : 'PDF saved. Source photographs are retained. SharePoint archival is pending.'
             : 'Check the report, dates, findings and photographs before confirming. This exact PDF will be saved.'}</p>
         </div>
         <a href={document.url} target="_blank" rel="noopener noreferrer" className="underline">Open PDF in a new tab</a>
       </div>
       {saveError && <p role="alert" className="text-red-700">{saveError}</p>}
-      <iframe title="FRA PDF for review" src={document.url} className="h-[70vh] w-full rounded border" />
+      <SavedFraPdfViewer url={document.url} />
       {review?.unusedImages > 0 && <p className="text-sm text-amber-800">{review.unusedImages} stored source images are not used by this report layout. They will still be preserved in the SharePoint source-image archive. Check that the PDF includes every photograph you need before confirming.</p>}
       {review && <div className="flex flex-wrap items-center gap-4">
         <label className="flex items-center gap-2"><input type="checkbox" checked={reviewConfirmed} onChange={e => setReviewConfirmed(e.target.checked)} />I have checked this PDF and confirm it is ready to save.</label>
