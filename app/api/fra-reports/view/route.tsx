@@ -7,8 +7,6 @@ import { mapHSAuditToFRAData } from '@/app/actions/fra-reports'
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
-const REPORT_PHOTO_MAX_EDGE = 700
-
 async function compactImageForPdf(sourceUrl: string): Promise<string | null> {
   try {
     const response = await fetch(sourceUrl)
@@ -87,34 +85,16 @@ async function loadPlaceholderPhotos(
           if (!f.name) return null
 
           const filePath = `${folderPath}/${f.name}`
-          const { data: transformed, error: transformedError } = await storageClient.storage
+          // Use the original signed object for the live editor. Supabase can
+          // return a transformed signed URL even when the project's image
+          // transformation service cannot serve it, leaving every preview as
+          // a broken image. PDF generation still compacts the fetched original
+          // below, so this does not inflate the published document.
+          const { data: signed, error: signedError } = await storageClient.storage
             .from('fa-attachments')
-            .createSignedUrl(filePath, 120, forPdf ? undefined : {
-              transform: {
-                width: REPORT_PHOTO_MAX_EDGE,
-                height: REPORT_PHOTO_MAX_EDGE,
-                resize: 'contain',
-                quality: 62,
-              },
-            })
+            .createSignedUrl(filePath, forPdf ? 120 : 60 * 60 * 24)
 
-          // Fallback to original if image transforms are unavailable for this file/project.
-          if (transformed?.signedUrl) {
-            const pdfDataUrl = forPdf ? await compactImageForPdf(transformed.signedUrl) : null
-            return {
-              file_path: filePath,
-              public_url: pdfDataUrl || transformed.signedUrl,
-              comment: commentByFilePath.get(filePath) || '',
-            }
-          }
-
-          if (transformedError) {
-            console.warn('Signed URL transform fallback:', transformedError.message)
-          }
-
-          const { data: signed } = await storageClient.storage
-            .from('fa-attachments')
-            .createSignedUrl(filePath, 120)
+          if (signedError) console.warn('FRA photo signed URL failed:', signedError.message)
 
           const signedUrl = signed?.signedUrl ?? ''
           const pdfDataUrl = forPdf && signedUrl ? await compactImageForPdf(signedUrl) : null
