@@ -442,17 +442,15 @@ export default function FRAReportViewPage({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div><Link href="/fire-risk-assessment">← Fire Risk Assessments</Link>
           <h1 className="text-xl font-bold">{publication ? 'Confirmed FRA' : 'Review the final PDF'}</h1>
-          <p className="text-sm text-muted-foreground">{publication
-            ? publication.storage === 'sharepoint' ? 'The verified saved PDF is stored in SharePoint. Opening it does not rebuild the FRA.' : publication.archive_status === 'complete' ? 'Source images archived to SharePoint.' : 'PDF saved. Source photographs are retained. SharePoint archival is pending.'
-            : 'Check the report, dates, findings and photographs before confirming. This exact PDF will be saved.'}</p>
+          {!publication && <p className="text-sm text-muted-foreground">Check the report, dates, findings and photographs before confirming.</p>}
         </div>
         <a href={document.url} target="_blank" rel="noopener noreferrer" className="underline">Open PDF in a new tab</a>
       </div>
       {saveError && <p role="alert" className="text-red-700">{saveError}</p>}
-      {publication && <Button onClick={handleDownloadPDF} disabled={generatingPdf}>{publication.storage === 'sharepoint' ? 'Open saved PDF in SharePoint' : generatingPdf ? 'Downloading…' : 'Download PDF'}</Button>}
+      {publication && <Button onClick={handleDownloadPDF} disabled={generatingPdf}>{generatingPdf ? 'Downloading…' : 'Download PDF'}</Button>}
       <FraUploadAfterDownload open={uploadAfterDownload} onOpenChange={setUploadAfterDownload} storeId={publication?.store_id || fraData?.store?.id} />
       {publication?.storage === 'sharepoint'
-        ? <p>Your existing Microsoft 365 access is required. Use the button above to view or download the PDF.</p>
+        ? <a href={document.url} target="_blank" rel="noopener noreferrer">Open PDF</a>
         : <SavedFraPdfViewer url={document.url} />}
       {review?.unusedImages > 0 && <p className="text-sm text-amber-800">{review.unusedImages} stored source images are not used by this report layout. They will still be preserved in the SharePoint source-image archive. Check that the PDF includes every photograph you need before confirming.</p>}
       {review && <div className="flex flex-wrap items-center gap-4">

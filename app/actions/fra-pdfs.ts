@@ -63,12 +63,16 @@ export async function uploadFRAPDF(
  * @param filePath - The file path in storage
  * @returns The signed URL (valid for 1 hour)
  */
-export async function getFRAPDFDownloadUrl(filePath: string | null, downloadFilename?: string) {
-  if (!filePath) {
-    return null
-  }
-
+export async function getFRAPDFDownloadUrl(filePath: string | null, downloadFilename?: string, storeId?: string) {
   const { supabase } = await requirePermission('viewEvidence')
+  // Resolve the current attachment when opening, not a stale table snapshot.
+  if (storeId) {
+    const { data: store, error } = await supabase.from('fa_stores')
+      .select('fire_risk_assessment_pdf_path').eq('id', storeId).single()
+    if (error) throw new Error('Unable to load the current FRA PDF')
+    filePath = store.fire_risk_assessment_pdf_path
+  }
+  if (!filePath) return null
   if (isSharePointFraPdf(filePath)) return filePath
 
   const { data, error } = await supabase.storage

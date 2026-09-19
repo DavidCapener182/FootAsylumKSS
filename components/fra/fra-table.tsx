@@ -238,7 +238,7 @@ export function FRATable({
   const handleGetPDFUrl = async () => {
     if (!selectedPdfRow?.fire_risk_assessment_pdf_path) return null
     try {
-      return await getFRAPDFDownloadUrl(selectedPdfRow.fire_risk_assessment_pdf_path)
+      return await getFRAPDFDownloadUrl(selectedPdfRow.fire_risk_assessment_pdf_path, undefined, selectedPdfRow.id)
     } catch (error) {
       console.error('Error fetching PDF URL:', error)
       return null
@@ -620,7 +620,7 @@ export function FRATable({
                               className="h-8 border border-slate-200 bg-white px-2.5 text-xs text-slate-700 hover:bg-slate-50"
                             >
                               <Flame className="h-3.5 w-3.5 mr-1 text-orange-600" />
-                              {row.fire_risk_assessment_pdf_path ? 'Saved PDF' : 'View FRA'}
+                              Open
                             </Button>
                           ) : row.fire_risk_assessment_pdf_path ? (
                             <>
@@ -798,7 +798,7 @@ export function FRATable({
                                     title={row.fire_risk_assessment_pdf_path ? 'Open saved PDF' : 'View FRA'}
                                   >
                                     <Flame className="h-4 w-4 text-orange-600" />
-                                    <span className="ml-1">{row.fire_risk_assessment_pdf_path ? 'Saved PDF' : 'View FRA'}</span>
+                                    <span className="ml-1">Open</span>
                                   </Button>
                                 ) : row.fire_risk_assessment_pdf_path ? (
                                   <>

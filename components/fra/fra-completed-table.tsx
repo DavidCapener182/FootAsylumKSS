@@ -121,7 +121,7 @@ export function FRACompletedTable({
   const handleGetPDFUrl = async () => {
     if (!selectedPdfRow?.fire_risk_assessment_pdf_path) return null
     try {
-      return await getFRAPDFDownloadUrl(selectedPdfRow.fire_risk_assessment_pdf_path)
+      return await getFRAPDFDownloadUrl(selectedPdfRow.fire_risk_assessment_pdf_path, undefined, selectedPdfRow.id)
     } catch (error) {
       console.error('Error fetching PDF URL:', error)
       return null
@@ -439,7 +439,7 @@ export function FRACompletedTable({
                                     title={row.fire_risk_assessment_pdf_path ? 'Open saved PDF' : 'View FRA'}
                                   >
                                     <Flame className="h-3.5 w-3.5 text-orange-600" />
-                                    <span className="ml-1">{row.fire_risk_assessment_pdf_path ? 'Saved PDF' : 'View FRA'}</span>
+                                    <span className="ml-1">Open</span>
                                   </Button>
                                 ) : row.fire_risk_assessment_pdf_path ? (
                                   <div className="flex items-center gap-1">

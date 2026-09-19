@@ -107,9 +107,7 @@ export function PDFViewerModal({
             </div>
           ) : isSharePointFraPdf(downloadUrl) ? (
             <div className="p-6 space-y-4">
-              <p>This saved PDF is stored in SharePoint. It opens without rebuilding the FRA.</p>
-              <p className="text-sm text-slate-600">Your existing Microsoft 365 access is required.</p>
-              <a href={downloadUrl} target="_blank" rel="noopener noreferrer" className="underline">Open saved PDF in SharePoint</a>
+              <a href={downloadUrl} target="_blank" rel="noopener noreferrer" className="underline">Open PDF</a>
             </div>
           ) : downloadUrl && renderPdf ? (
             <div className="h-full overflow-auto p-4">{renderPdf(downloadUrl)}</div>

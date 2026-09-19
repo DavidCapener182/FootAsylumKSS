@@ -17,7 +17,8 @@ describe('saved FRA display contract', () => {
     for (const filename of ['fra-table.tsx', 'fra-completed-table.tsx']) {
       const table = readFileSync(new URL(`./${filename}`, import.meta.url), 'utf8')
       expect(table).toContain('if (!row.fire_risk_assessment_pdf_path && row.fire_risk_assessment_instance_id)')
-      expect(table).toContain("'Saved PDF' : 'View FRA'")
+      expect(table).toContain('<span className="ml-1">Open</span>')
+      expect(table).toContain('getFRAPDFDownloadUrl(selectedPdfRow.fire_risk_assessment_pdf_path, undefined, selectedPdfRow.id)')
       expect(table).toContain('renderPdf={(url) => <SavedFraPdfViewer url={url} />}')
     }
   })
@@ -40,6 +41,13 @@ describe('saved FRA display contract', () => {
   })
   it('keeps internal tool names out of the customer-facing status', () => {
     expect(page).not.toContain('Codex verifies')
-    expect(page).toContain('Source photographs are retained. SharePoint archival is pending.')
+    expect(page).not.toContain('Opening it does not rebuild')
+    expect(page).not.toContain('SharePoint archival is pending.')
+  })
+  it('resolves the latest attachment before signing instead of trusting stale table URLs', () => {
+    const action = readFileSync(new URL('../../app/actions/fra-pdfs.ts', import.meta.url), 'utf8')
+    expect(action).toContain(".select('fire_risk_assessment_pdf_path').eq('id', storeId).single()")
+    expect(action).toContain('filePath = store.fire_risk_assessment_pdf_path')
+    expect(action.indexOf('filePath = store.fire_risk_assessment_pdf_path')).toBeLessThan(action.indexOf('.createSignedUrl(filePath'))
   })
 })
