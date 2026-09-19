@@ -82,6 +82,10 @@ body.fra-print-document .fra-print-page:last-child {
   break-after: auto !important;
   page-break-after: auto !important;
 }
+body.fra-print-document .fra-print-page.fra-last-page {
+  break-after: auto !important;
+  page-break-after: auto !important;
+}
 
 /* Kill Tailwind p-12 on print pages so we don't double-pad with @page margin */
 body.fra-print-document .fra-print-page.p-12 {

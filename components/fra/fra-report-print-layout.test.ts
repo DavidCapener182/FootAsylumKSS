@@ -44,6 +44,9 @@ describe('FRA report print layout contract', () => {
     expect(reportSource).not.toContain(
       'className="fra-section fra-a4-page fra-print-page fra-last-page page-break-after-always'
     )
+    expect(printCss).toContain(
+      'body.fra-print-document .fra-print-page.fra-last-page'
+    )
   })
 
   it('keeps assessor calibration in the risk rationale without changing the action-plan format', () => {
