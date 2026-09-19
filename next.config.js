@@ -2,6 +2,9 @@
 const nextConfig = {
   reactStrictMode: true,
   experimental: {
+    outputFileTracingIncludes: {
+      '/api/audit-pdfs/*': ['./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs'],
+    },
     // This renderer reads only focus images. A dynamic public-file resolver
     // otherwise makes Next trace the entire public directory into its function.
     // These exclusions apply only to the newsletter PDF, never other PDFs/CDN assets.
