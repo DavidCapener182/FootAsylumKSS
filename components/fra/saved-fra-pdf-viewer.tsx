@@ -20,7 +20,7 @@ export function SavedFraPdfViewer({ url }: { url: string }) {
     setLoading(true)
     setError(null)
     // Load PDF.js as native ESM; its bundled exports collide with webpack's dev eval wrapper.
-    const moduleUrl = new URL('../../node_modules/pdfjs-dist/build/pdf.mjs', import.meta.url).toString()
+    const moduleUrl = new URL('../../node_modules/pdfjs-dist/build/pdf.min.mjs', import.meta.url).toString()
     void (import(/* webpackIgnore: true */ moduleUrl) as Promise<typeof import('pdfjs-dist')>).then(async (pdfjs) => {
       if (disposed) return
       if (!pdfjs.GlobalWorkerOptions.workerPort) {
