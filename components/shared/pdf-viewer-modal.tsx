@@ -4,6 +4,7 @@ import { ReactNode, useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { FileText, Download, X, Loader2 } from 'lucide-react'
+import { isSharePointFraPdf } from '@/lib/fra/sharepoint-pdf'
 
 interface PDFViewerModalProps {
   open: boolean
@@ -103,6 +104,12 @@ export function PDFViewerModal({
                 <FileText className="h-12 w-12 text-slate-400 mx-auto mb-4" />
                 <p className="text-sm text-red-600">{error}</p>
               </div>
+            </div>
+          ) : isSharePointFraPdf(downloadUrl) ? (
+            <div className="p-6 space-y-4">
+              <p>This saved PDF is stored in SharePoint. It opens without rebuilding the FRA.</p>
+              <p className="text-sm text-slate-600">Your existing Microsoft 365 access is required.</p>
+              <a href={downloadUrl} target="_blank" rel="noopener noreferrer" className="underline">Open saved PDF in SharePoint</a>
             </div>
           ) : downloadUrl && renderPdf ? (
             <div className="h-full overflow-auto p-4">{renderPdf(downloadUrl)}</div>

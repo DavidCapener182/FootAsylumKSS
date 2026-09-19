@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requirePermission, isPermissionError } from '@/lib/permissions'
 import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { fraSourceSnapshot, pdfHash } from '@/lib/fra/publication'
+import { isSharePointFraPdf } from '@/lib/fra/sharepoint-pdf'
 import { GET as generatePdf } from '../generate-pdf/route'
 
 export const dynamic = 'force-dynamic'
@@ -13,10 +14,14 @@ export async function GET(request: NextRequest) {
   try {
     const { supabase } = await requirePermission('viewEvidence')
     const instanceId = request.nextUrl.searchParams.get('instanceId')
-    const { data, error } = await supabase.from('fa_fra_publications').select('id,store_id,pdf_path,confirmed_at,archive_status')
+    const { data, error } = await supabase.from('fa_fra_publications').select('id,store_id,pdf_path,pdf_sha256,pdf_bytes,confirmed_at,archive_status,archive_receipt')
       .eq('instance_id', instanceId).not('confirmed_at', 'is', null).maybeSingle()
     if (error) throw error
     if (!data) return NextResponse.json({ publication: null })
+    const receipt = data.archive_receipt as { pdf_url?: string; pdf_sha256?: string; pdf_bytes?: number; verified_at?: string } | null
+    if (receipt?.verified_at && receipt.pdf_sha256 === data.pdf_sha256 && receipt.pdf_bytes === data.pdf_bytes && isSharePointFraPdf(receipt.pdf_url)) {
+      return NextResponse.json({ publication: { ...data, url: receipt.pdf_url, storage: 'sharepoint' } })
+    }
     const { data: signed, error: signError } = await createAdminSupabaseClient().storage.from('fa-attachments').createSignedUrl(data.pdf_path, 3600)
     if (signError || !signed) throw new Error('Unable to open the saved PDF')
     return NextResponse.json({ publication: { ...data, url: signed.signedUrl } })

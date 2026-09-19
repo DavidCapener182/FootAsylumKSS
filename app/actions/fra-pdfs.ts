@@ -1,6 +1,7 @@
 'use server'
 
 import { requirePermission } from '@/lib/permissions'
+import { isSharePointFraPdf } from '@/lib/fra/sharepoint-pdf'
 
 const MAX_FRA_PDF_SIZE_BYTES = 500 * 1024 * 1024
 
@@ -68,6 +69,7 @@ export async function getFRAPDFDownloadUrl(filePath: string | null, downloadFile
   }
 
   const { supabase } = await requirePermission('viewEvidence')
+  if (isSharePointFraPdf(filePath)) return filePath
 
   const { data, error } = await supabase.storage
     .from('fa-attachments')
@@ -105,6 +107,9 @@ export async function deleteFRAPDF(storeId: string) {
 
   if (!pdfPath) {
     throw new Error('No PDF found to delete')
+  }
+  if (isSharePointFraPdf(pdfPath)) {
+    throw new Error('This PDF is archived in SharePoint. Manage the archive there; the FRA record has not been changed.')
   }
 
   // Delete from storage
