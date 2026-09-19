@@ -2433,8 +2433,8 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
                     </p>
                   )}
                 </td>
-                <td className="border border-slate-300 px-3 py-2 align-top" rowSpan={3}>
-                  <PhotoPlaceholder placeholderId="fire-hazards" label="Hazard photos" maxPhotos={5} stacked />
+                <td className="fra-hazards-photo-cell border border-slate-300 px-3 py-2 align-top" rowSpan={3}>
+                  <PhotoPlaceholder placeholderId="fire-hazards" label="Hazard photos" maxPhotos={5} compact />
                 </td>
               </tr>
               <tr>
@@ -3055,7 +3055,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
               <li><strong>Extreme Harm:</strong> Significant potential for serious injury or death of one or more occupants.</li>
             </ul>
           </div>
-          <div>
+          <div className="fra-risk-summary-section">
             <h3 className="font-semibold mb-2">7.1.3 Summary of Risk Rating</h3>
             <p className="mb-2 whitespace-pre-line">{displayRiskSummary}</p>
             {data.riskRatingRationale && data.riskRatingRationale.length > 0 && (
@@ -3088,12 +3088,6 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
           </span>
           .
         </p>
-        {manualRiskRatingOverride && (
-          <p className="mb-4 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950">
-            <span className="font-semibold">Assessor calibration applied:</span>{' '}
-            {manualRiskRatingOverride.reason}
-          </p>
-        )}
         <p className="text-sm mb-4">
           It is considered that the following recommendations should be implemented to reduce fire risk to the target level:{' '}
           <span className={`inline-block px-3 py-1.5 font-bold text-base rounded border align-middle ${getOverallRiskBadgeClass('Tolerable')}`}>
@@ -3156,7 +3150,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
       </div>
 
       {/* Additional Site Pictures / Appendices – last page: signature at bottom */}
-      <div className="fra-section fra-a4-page fra-print-page fra-last-page page-break-after-always p-12 max-w-4xl mx-auto">
+      <div className="fra-section fra-a4-page fra-print-page fra-last-page p-12 max-w-4xl mx-auto">
         <div className="fra-last-page-body flex flex-col min-h-[calc(100vh-120px)] print:min-h-[267mm]">
           <div>
             <div className="fra-print-page-header hidden print:flex print:items-center print:justify-between print:border-b print:border-slate-300 print:pb-2 print:mb-4 print:text-[11pt] print:font-semibold print:text-slate-900">

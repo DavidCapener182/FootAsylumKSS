@@ -60,7 +60,6 @@ body.fra-print-document .fra-keep {
 body.fra-print-document .fra-diagram,
 body.fra-print-document .fra-figure,
 body.fra-print-document .fra-table,
-body.fra-print-document .fra-print-table,
 body.fra-print-document .fra-photo-block {
   break-inside: avoid !important;
   page-break-inside: avoid !important;
@@ -288,7 +287,17 @@ body.fra-print-document .fra-hazards-table th,
 body.fra-print-document .fra-hazards-table td {
   padding: 3px 5px !important;
 }
-
+body.fra-print-document .fra-hazards-table .fra-hazards-photo-cell {
+  width: 76mm !important;
+  min-width: 76mm !important;
+  max-width: 76mm !important;
+}
+body.fra-print-document .fra-hazards-table .fra-photo-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 2mm !important;
+  align-items: start !important;
+}
 /* Photo placeholders: reserve height so real photos (~2× placeholder) fit without breaking pages */
 body.fra-print-document .fra-photo-block {
   min-height: 90mm !important;
@@ -313,6 +322,38 @@ body.fra-print-document .fra-photo-grid .fra-photo-block {
   max-width: 55mm !important;
   height: 70mm !important;
   min-height: 70mm !important;
+}
+
+/* Hazard evidence needs to remain inside its table cell. Keep this after the
+   generic photo rules so the smaller two-column layout wins in Chromium. */
+body.fra-print-document .fra-hazards-table .fra-photo-grid .fra-photo-block {
+  flex: 0 0 auto !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  height: 38mm !important;
+  min-height: 38mm !important;
+  margin: 0 !important;
+}
+body.fra-print-document .fra-hazards-table .fra-photo-image-frame {
+  width: 100% !important;
+  height: 38mm !important;
+  min-height: 38mm !important;
+  max-height: 38mm !important;
+}
+body.fra-print-document .fra-hazards-table .fra-photo-block img {
+  object-fit: contain !important;
+}
+
+/* Keep longer evidence-led risk rationales on the risk sheet without changing
+   the established action-plan format. */
+body.fra-print-document .fra-risk-summary-section {
+  font-size: 9pt !important;
+  line-height: 1.22 !important;
+}
+body.fra-print-document .fra-risk-summary-section p,
+body.fra-print-document .fra-risk-summary-section li {
+  line-height: 1.22 !important;
 }
 
 /* Hide empty photo placeholders (dashed "Add Photos" box) in PDF/print only */
