@@ -1,0 +1,5 @@
+@media (max-width: 767px) {
+  .workspace-main:has(.audit-studio-editor) { padding: var(--mobile-header-height, 0px) 0 0; }
+  #audit-section-content, #audit-review-details { scroll-margin-top: calc(var(--mobile-header-height, 0px) + 112px); }
+  .audit-studio-editor input, .audit-studio-editor textarea, .audit-studio-editor select { min-width: 0; max-width: 100%; }
+}

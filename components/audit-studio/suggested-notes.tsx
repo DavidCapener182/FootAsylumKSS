@@ -49,7 +49,7 @@ function Option({
             type="date"
             value={currentDate}
             disabled={disabled}
-            className="min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm"
+            className="min-h-11 min-w-0 max-w-full rounded-lg border border-slate-300 bg-white px-3 text-base md:text-sm"
             onInput={(e) => updateDate(e.currentTarget.value)}
             onChange={(e) => updateDate(e.target.value)}
           />
@@ -103,9 +103,7 @@ export function SuggestedNotes({
         Suggested {answer === "yes" ? "Yes" : "No"} notes
       </legend>
       <p className="mb-1 text-xs leading-5 text-slate-500">
-        Tick only what you checked or observed. The wording is added to Notes;
-        add the staff roles, locations, dates and any further detail from your
-        visit.
+        Tick what you checked to add it to Notes.
       </p>
       {notes.split("\n").some((line) => line.startsWith(opposite)) && (
         <p role="status" className="mb-2 text-sm text-amber-800">

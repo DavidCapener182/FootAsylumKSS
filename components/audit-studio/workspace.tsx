@@ -1,4 +1,6 @@
 "use client";
+import "./mobile-workspace.css";
+import { clientId } from "@/lib/audit-studio/client-id";
 import { PreviousActions } from "./previous-actions";
 import { TestingNotes } from "./testing-notes";
 import { AssessmentTerms } from "./assessment-terms";
@@ -69,7 +71,7 @@ const button =
 const primary = `${button} !border-[#1c3426] !bg-[#1c3426] !text-white hover:!bg-[#2d503a]`;
 const input =
   "min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-base md:text-sm text-slate-900 focus:border-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-700/15 disabled:bg-slate-100";
-const panel = "rounded-xl border border-slate-200 bg-white p-4 md:p-6";
+const panel = "rounded-xl border border-slate-200 bg-white p-3 md:p-6";
 const textError = (e: unknown) =>
   e instanceof Error
     ? e.message
@@ -123,14 +125,15 @@ function Field({
   return (
     <div className="block min-w-0 space-y-1.5 text-sm font-medium">
       <div className="flex flex-wrap items-center justify-between gap-x-3">
-        <label htmlFor={fieldId}>{label}</label>
+        <label className="min-w-0 flex-1" htmlFor={fieldId}>{label}</label>
         {hint && (
-          <details className="w-full min-w-0">
+          <details className="group min-w-0 shrink-0 open:w-full">
             <summary
-              className="flex min-h-11 cursor-pointer list-none items-center gap-1.5 rounded px-1 text-xs font-medium text-emerald-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700 [&::-webkit-details-marker]:hidden"
+              aria-label={`What to record: ${label}`}
+              className="flex min-h-11 min-w-11 cursor-pointer list-none items-center gap-1.5 rounded px-1 text-xs font-medium text-emerald-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700 [&::-webkit-details-marker]:hidden"
             >
               <HelpCircle className="h-4 w-4" aria-hidden="true" />
-              What to record
+              <span className="sr-only group-open:not-sr-only md:not-sr-only">What to record</span>
             </summary>
             <p
               id={`${fieldId}-hint`}
@@ -230,7 +233,7 @@ export function AuditStudioWorkspace({ initial, offline = false }: Props) {
                 baseRevision: latest.audit.revision,
                 generation: 0,
                 syncedGeneration: 0,
-                operationId: crypto.randomUUID(),
+                operationId: clientId(),
                 updatedAt: new Date().toISOString(),
               };
               await saveDraft(d);
@@ -299,7 +302,7 @@ export function AuditStudioWorkspace({ initial, offline = false }: Props) {
         baseRevision: b.audit.revision,
         generation: 0,
         syncedGeneration: 0,
-        operationId: crypto.randomUUID(),
+        operationId: clientId(),
         updatedAt: new Date().toISOString(),
       };
       await saveDraft(draft);
@@ -316,7 +319,7 @@ export function AuditStudioWorkspace({ initial, offline = false }: Props) {
     setError("");
     try {
       const b = await api<AuditBundle>("audits", "POST", {
-        id: crypto.randomUUID(),
+        id: clientId(),
         storeId,
         purpose,
         visitDate,
@@ -695,7 +698,7 @@ function AuditEditor({
       ...prev,
       document: change(prev.document),
       generation: prev.generation + 1,
-      operationId: crypto.randomUUID(),
+      operationId: clientId(),
       updatedAt: new Date().toISOString(),
     });
   };
@@ -894,7 +897,7 @@ function AuditEditor({
         )
           throw new Error("Attach a JPEG, PNG, WebP, HEIC photo or PDF.");
         saved.push({
-          id: crypto.randomUUID(),
+          id: clientId(),
           auditId: b.audit.id,
           userId: draft.userId,
           file,
@@ -921,7 +924,7 @@ function AuditEditor({
             ],
           },
           generation: prev.generation + 1,
-          operationId: crypto.randomUUID(),
+          operationId: clientId(),
           updatedAt: new Date().toISOString(),
         };
       await saveWithFiles(next, saved);
@@ -1018,7 +1021,7 @@ function AuditEditor({
       syncedGeneration: keepLocal
         ? previous.syncedGeneration
         : previous.generation + 1,
-      operationId: crypto.randomUUID(),
+      operationId: clientId(),
     };
     await persist(next);
     setConflict(null);
@@ -1033,8 +1036,8 @@ function AuditEditor({
       (filter === "followup" && issues.some((i) => i.questionId === q.id)),
   );
   return (
-    <div className="min-h-full bg-[#f5f6f1] pb-24 text-[#17291f] md:pb-0">
-      <header className="border-b border-slate-200 bg-white px-4 py-4 md:px-7">
+    <div className={`audit-studio-editor min-h-full bg-[#f5f6f1] pb-24 pt-[108px] text-[#17291f] md:pb-0 md:pt-0`}>
+      <header className="border-b border-slate-200 bg-white px-3 py-2 md:px-7 md:py-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <button
@@ -1052,10 +1055,10 @@ function AuditEditor({
               <ArrowLeft size={18} />
             </button>
             <div>
-              <p className="text-xs uppercase tracking-wider text-slate-500">
+              <p className="hidden text-xs uppercase tracking-wider text-slate-500 md:block">
                 Audit Studio / Audit
               </p>
-              <h1 className="text-xl font-bold">{doc.site.storeName}</h1>
+              <h1 className="text-sm font-bold md:text-xl">{doc.site.storeName}</h1>
               <p className="text-xs text-slate-500">
                 {doc.site.storeCode} · {doc.site.visitDate}
               </p>
@@ -1202,7 +1205,7 @@ function AuditEditor({
                     const revised = await api<AuditBundle>(
                       `audits/${b.audit.id}/revise`,
                       "POST",
-                      { id: crypto.randomUUID() },
+                      { id: clientId() },
                     );
                     onRevision(revised.audit.id);
                   } catch (e) {
@@ -1218,12 +1221,12 @@ function AuditEditor({
           </div>
         )}
       </div>
-      <div className="grid gap-3 px-4 pb-8 md:px-7 lg:grid-cols-[240px_minmax(0,1fr)]">
+      <div className="grid gap-2 px-0 pb-2 md:gap-3 md:px-7 md:pb-8 lg:grid-cols-[240px_minmax(0,1fr)]">
         <aside className="lg:sticky lg:top-4 lg:self-start">
           <details className="rounded-lg border border-slate-200 bg-white p-3">
             <summary className="cursor-pointer text-sm font-semibold">Sections, interviews & offline tools</summary>
             <label className="mt-3 block text-sm">Jump to section
-              <select className={input} value={section} onChange={e => {setSection(Number(e.target.value)); setReview(false);}}>
+              <select className={input} value={section} onChange={e => {setSection(Number(e.target.value)); setReview(false); requestAnimationFrame(() => document.getElementById("audit-section-content")?.scrollIntoView({block: "start", behavior: "smooth"}));}}>
                 {template.sections.map(s => <option key={s.page} value={s.page}>{s.page}. {s.page === 3 ? "Store manager Q&A" : s.title}</option>)}
               </select>
             </label>
@@ -1296,7 +1299,13 @@ function AuditEditor({
           )}
           </details>
         </aside>
-        <div role="region" aria-label="Audit questions" className="min-w-0">
+        {review && <header className="fixed inset-x-0 top-[var(--mobile-header-height,0px)] z-20 border-b border-slate-200 bg-white px-4 py-2 shadow-sm md:hidden">
+          <p className="text-xs font-semibold text-slate-500">Final review</p>
+          <h2 className="mt-0.5 text-base font-bold">{score.outcome}</h2>
+          <div className="my-2 flex justify-between text-xs"><span>Overall <strong>{formatScore(score.percentage)}</strong></span><span>{score.answered}/{score.total} answered</span></div>
+          <div className="h-1.5 overflow-hidden rounded-full bg-slate-200"><div className="h-full bg-[#608246]" style={{width: `${score.total ? score.answered / score.total * 100 : 0}%`}} /></div>
+        </header>}
+        <div id="audit-section-content" role="region" aria-label="Audit questions" className="min-w-0">
           {review ? (
             <section className={panel}>
               <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
@@ -1328,7 +1337,7 @@ function AuditEditor({
                     </div>
                   ))}
               </div>
-              <h3 className="mb-3 mt-7 font-bold">
+              <h3 id="audit-review-details" className="mb-3 mt-7 font-bold">
                 {issues.length
                   ? `${issues.length} details still needed`
                   : "Ready to complete"}
@@ -1380,9 +1389,9 @@ function AuditEditor({
             </section>
           ) : (
             <>
-              <header className="mb-4 rounded-xl border border-slate-200 bg-white p-3">
+              <header className="fixed inset-x-0 top-[var(--mobile-header-height,0px)] z-20 border-b border-slate-200 bg-white px-4 py-2 shadow-sm md:static md:mb-3 md:rounded-xl md:border md:p-3 md:shadow-none">
                 <p className="text-xs font-semibold text-slate-500">Section {section} / {template.sections.length}</p>
-                <h2 className="mt-1 text-lg font-bold">{active.page === 3 ? "Store manager Q&A" : active.title}</h2>
+                <h2 className="mt-0.5 truncate text-base font-bold md:text-lg">{active.page === 3 ? "Store manager Q&A" : active.title}</h2>
                 <div className="my-2 flex flex-wrap justify-between gap-2 text-xs">
                   <span>Overall <strong>{formatScore(score.percentage)}</strong></span>
                   <span>Section <strong>{active.checks.length ? formatScore(score.sections.find(s => s.page === section)?.percentage ?? null) : "Not scored"}</strong></span>
@@ -1391,7 +1400,8 @@ function AuditEditor({
                 <div role="progressbar" aria-label="Audit completion" aria-valuemin={0} aria-valuemax={score.total} aria-valuenow={score.answered} className="h-1.5 overflow-hidden rounded-full bg-slate-200">
                   <div className="h-full bg-[#608246]" style={{width: `${score.total ? score.answered / score.total * 100 : 0}%`}} />
                 </div>
-                <details className="mt-3 rounded-lg border border-[#d5dfc7] bg-[#edf3e5] p-3 text-sm">
+                </header>
+                <details className="mb-2 rounded-lg border border-[#d5dfc7] bg-[#edf3e5] px-3 py-2 text-sm">
                   <summary className="cursor-pointer font-semibold">
                     Evidence example
                   </summary>
@@ -1402,7 +1412,6 @@ function AuditEditor({
                     </p>
                   )}
                 </details>
-              </header>
               {section === 1 && (
                 <section className={panel}>
                   <div className="grid gap-4 md:grid-cols-2">
@@ -1469,17 +1478,15 @@ function AuditEditor({
                 </section>
               )}
               {section === 3 && (
-                <section className={`${panel} space-y-6`}>
+                <section className={`${panel} space-y-3 md:space-y-6`}>
                   <div>
-                    <h3 className="text-lg font-semibold">Store manager Q&amp;A</h3>
+                    <h3 className="hidden text-lg font-semibold md:block">Store manager Q&amp;A</h3>
                     <p className="mt-2 text-sm leading-6 text-slate-600">
-                      Ask the manager about this store. These answers will appear
-                      beside the relevant audit checks so you can compare them
-                      with what staff tell you and what you see on site.
+                      Record the manager’s answers, then compare with staff understanding and site checks.
                     </p>
                   </div>
                   {MANAGER_QUESTION_GROUPS.map((group) => (
-                    <fieldset key={group.title} className="space-y-4 border-t border-slate-200 pt-4">
+                    <fieldset key={group.title} className="space-y-2 border-t border-slate-200 pt-2 md:space-y-4 md:pt-4">
                       <legend className="pr-3 text-base font-semibold">{group.title}</legend>
                       {group.questions.map(({ key, question, hint }) => (
                         <Field key={key} label={question} value={doc.site[key] || ""}
@@ -1488,7 +1495,7 @@ function AuditEditor({
                       ))}
                     </fieldset>
                   ))}
-                  <fieldset className="space-y-4 border-t border-slate-200 pt-4">
+                  <fieldset className="space-y-2 border-t border-slate-200 pt-2 md:space-y-4 md:pt-4">
                     <legend className="pr-3 text-base font-semibold">Premises and records</legend>
                     <div className="grid gap-4 md:grid-cols-2">
                       {([
@@ -1587,7 +1594,7 @@ function AuditEditor({
                               </button>
                             ))}
                           </div>}
-                          {staffNotes && <aside className="mb-4 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm"><h4 className="font-semibold">Linked staff interviews</h4>{interviewGap && <p className="mt-2 font-semibold text-red-700">Staff gap recorded. Current question score: {questionEarned(doc, template, q.id, q.weight)}/{q.weight}. Record the follow-up below.</p>}<p className="mt-3 whitespace-pre-wrap break-words">{staffNotes}</p><button className={`${button} mt-3`} onClick={() => setInterviewsOpen(true)}>Open staff interviews</button></aside>}
+                          {staffNotes && <aside className="mb-4 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm"><h4 className="font-semibold">Linked staff interviews</h4>{interviewGap && <p className="mt-2 font-semibold text-red-700">Staff gap recorded. Current question score: {questionEarned(doc, template, q.id, q.weight)}/{q.weight}. Record the follow-up below.</p>}<details className="mt-2"><summary className="cursor-pointer font-semibold">View recorded answers</summary><p className="mt-2 whitespace-pre-wrap break-words">{staffNotes}</p></details><button className={`${button} mt-3`} onClick={() => setInterviewsOpen(true)}>Open staff interviews</button></aside>}
                           {(r.answer === "na" || (derived && doc.responses[q.id]?.answer === "na" && !hasSamples)) && (
                             <Field
                               label={derived ? "Why was this check not sampled?" : "Why does this not apply?"}
@@ -1599,7 +1606,7 @@ function AuditEditor({
                           )}
                           <div className="mt-4">
                             {references.length > 0 && r.answer !== "na" && (
-                              <aside className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50/60 p-4" aria-label="Manager Q&A reference">
+                              <details className="mb-3 rounded-lg border border-emerald-200 bg-emerald-50/60 p-3" aria-label="Manager Q&A reference"><summary className="cursor-pointer text-sm font-semibold">Manager reference</summary>
                                 <div className="flex flex-wrap items-center justify-between gap-2">
                                   <h4 className="text-sm font-semibold">Manager Q&amp;A reference{doc.site.managerName ? ` · ${doc.site.managerName}` : ""}</h4>
                                   <button type="button" onClick={() => setSection(3)} className="min-h-11 text-sm font-semibold text-emerald-800 underline">View manager answers</button>
@@ -1611,7 +1618,7 @@ function AuditEditor({
                                     <dd className="mt-1 whitespace-pre-wrap break-words text-slate-700">{ref.answer || "Not recorded — ask the manager and verify on site."}</dd>
                                   </div>)}
                                 </dl>
-                              </aside>
+                              </details>
                             )}
                             {!derived && practical &&
                               (r.answer !== "na" ||
@@ -1658,7 +1665,7 @@ function AuditEditor({
                             {!derived && <SuggestedNotes
                               version={template.version}
                               questionId={q.id}
-                              answer={r.answer}
+                              answer={conditionAnswer ?? null}
                               notes={r.note}
                               onChange={(note) => answer(q.id, { note })}
                               disabled={readOnly}
@@ -1782,7 +1789,7 @@ function AuditEditor({
                 </>
               )}
               {section === 17 && (
-                <section className={`${panel} space-y-6`}>
+                <section className={`${panel} space-y-3 md:space-y-6`}>
                   <Signature
                     label="Auditor signature"
                     value={doc.signOff.auditorSignature}
@@ -1864,12 +1871,13 @@ function AuditEditor({
           if (review) setReview(false);
           else if (section > 1) setSection(section - 1);
           else onBack();
-          window.scrollTo({top: 0, behavior: "smooth"});
+          requestAnimationFrame(() => document.getElementById("audit-section-content")?.scrollIntoView({block: "start", behavior: "smooth"}));
         }}><ArrowLeft size={16} />Back</button>
-        <button type="button" className={`${primary} flex-1`} disabled={review} onClick={() => {
+        <button type="button" className={`${primary} flex-1`} onClick={() => {
+          if (review) { document.getElementById("audit-review-details")?.scrollIntoView({block: "start", behavior: "smooth"}); return; }
           if (section === 17) setReview(true); else setSection(section + 1);
-          window.scrollTo({top: 0, behavior: "smooth"});
-        }}>{review ? "Review audit" : section === 17 ? "Review" : "Next"}<ArrowRight size={16} /></button>
+          requestAnimationFrame(() => document.getElementById("audit-section-content")?.scrollIntoView({block: "start", behavior: "smooth"}));
+        }}>{review ? issues.length ? "Details needed" : "Finish audit" : section === 17 ? "Review" : "Next"}<ArrowRight size={16} /></button>
       </nav>
     </div>
   );

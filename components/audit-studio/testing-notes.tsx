@@ -1,11 +1,13 @@
 "use client";
+import { GrowingTextarea } from "./growing-textarea";
+import { clientId } from "@/lib/audit-studio/client-id";
 
 import { useEffect, useState } from "react";
 import { Bug, Copy, Download, Plus } from "lucide-react";
 import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { exportTestingNotes, readTestingNotebook, type TestingNote, type TestingNotebook } from "@/lib/audit-studio/testing-notes";
 
-const button = "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50 disabled:opacity-50";
+const button = "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2 text-base md:text-sm font-semibold hover:bg-slate-50 disabled:opacity-50";
 const input = "mt-1 w-full rounded-xl border border-slate-300 bg-white p-3 text-base text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-700";
 
 export function TestingNotes({ userId, context }: { userId: string; context: string }) {
@@ -40,7 +42,7 @@ export function TestingNotes({ userId, context }: { userId: string; context: str
   }
   function start() {
     save({ ...book, draft: {
-      id: crypto.randomUUID(), createdAt: new Date().toISOString(), title: "", details: "", expected: "",
+      id: clientId(), createdAt: new Date().toISOString(), title: "", details: "", expected: "",
       severity: "normal", resolved: false, context,
       path: window.location.pathname + window.location.search,
       device: `${window.innerWidth} × ${window.innerHeight} · ${navigator.userAgent}`,
@@ -95,8 +97,8 @@ export function TestingNotes({ userId, context }: { userId: string; context: str
         }}>
           <p className="break-words text-xs text-slate-600">{book.draft.context}<br />{book.draft.device.split(" · ")[0]} · {error ? "Not saved — export before leaving" : "Draft saved as you type"}</p>
           <label className="block text-sm font-semibold">Short title<input className={input} required maxLength={160} value={book.draft.title} onChange={e => change({ title: e.target.value })} placeholder="e.g. Camera button hidden on mobile" /></label>
-          <label className="block text-sm font-semibold">What happened / how to reproduce<textarea className={input} required rows={4} maxLength={10000} value={book.draft.details} onChange={e => change({ details: e.target.value })} placeholder="What did you tap or do, and what went wrong?" /></label>
-          <label className="block text-sm font-semibold">What should happen? (optional)<textarea className={input} rows={2} maxLength={10000} value={book.draft.expected} onChange={e => change({ expected: e.target.value })} /></label>
+          <label className="block text-sm font-semibold">What happened / how to reproduce<GrowingTextarea className={input} required rows={4} maxLength={10000} value={book.draft.details} onChange={e => change({ details: e.target.value })} placeholder="What did you tap or do, and what went wrong?" /></label>
+          <label className="block text-sm font-semibold">What should happen? (optional)<GrowingTextarea className={input} rows={2} maxLength={10000} value={book.draft.expected} onChange={e => change({ expected: e.target.value })} /></label>
           <label className="block text-sm font-semibold">Priority<select className={input} value={book.draft.severity} onChange={e => change({ severity: e.target.value as TestingNote["severity"] })}><option value="minor">Minor — appearance or wording</option><option value="normal">Normal — something is not working</option><option value="blocking">Blocking — cannot continue the audit</option></select></label>
           <div className="flex flex-wrap gap-2"><button type="submit" className={`${button} !bg-[#1c3426] !text-white`}>Save bug note</button><button type="button" className={button} onClick={() => setConfirmDelete("draft")}>Discard draft</button></div>
         </form>}
