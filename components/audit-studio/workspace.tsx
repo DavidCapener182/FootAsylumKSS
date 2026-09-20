@@ -641,6 +641,15 @@ function AuditEditor({
     [prepared, setPrepared] = useState(fromOfflineShell),
     [review, setReview] = useState(false),
     [otherTab, setOtherTab] = useState(false);
+  const previousPage = useRef(`${section}:${review}`);
+  useEffect(() => {
+    const page = `${section}:${review}`;
+    if (previousPage.current === page) return;
+    previousPage.current = page;
+    if (!window.matchMedia("(max-width: 767px)").matches) return;
+    const frame = requestAnimationFrame(() => document.getElementById("audit-section-content")?.scrollIntoView({block: "start", behavior: "smooth"}));
+    return () => cancelAnimationFrame(frame);
+  }, [section, review]);
   const b = draft.bundle,
     doc = draft.document,
     template = b.template,

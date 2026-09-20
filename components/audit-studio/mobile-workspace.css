@@ -1,5 +1,6 @@
 @media (max-width: 767px) {
-  .workspace-main:has(.audit-studio-editor) { padding: var(--mobile-header-height, 0px) 0 0; }
+  .workspace-main:has(.audit-studio-editor) { padding: var(--mobile-header-height, 0px) 0 0; overflow-x: clip; overflow-y: visible; }
+  .main-content-wrapper:has(.audit-studio-editor), div:has(> .workspace-main .audit-studio-editor) { overflow-x: clip; overflow-y: visible; }
   #audit-section-content, #audit-review-details { scroll-margin-top: calc(var(--mobile-header-height, 0px) + 112px); }
   .audit-studio-editor input, .audit-studio-editor textarea, .audit-studio-editor select { min-width: 0; max-width: 100%; }
 }
