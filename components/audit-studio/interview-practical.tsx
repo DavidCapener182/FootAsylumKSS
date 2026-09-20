@@ -9,7 +9,7 @@ export function InterviewPractical({promptId, answer, disabled, onChange}: {
 }) {
   const definition=practicalDefinition(promptId);
   if (!definition) return null;
-  const value=answer?.practical || newPracticalCheck();
+  const value=answer?.practical || {...newPracticalCheck(), optionalSampling: true};
   const assessment=interviewAssessment({...answer, asked:answer?.asked || "", reply:answer?.reply || "", outcome:answer?.outcome || "", assessment:null, practical:value},promptId);
   const assessed=definition.criteria.filter(c=>value.checks[c.id]?.result).length;
   const change=(id:string, patch:Partial<Practical["checks"][string]>) => onChange({...value, checks:{...value.checks,[id]:{...(value.checks[id] || {result:null,note:""}),...patch}}});
@@ -18,7 +18,7 @@ export function InterviewPractical({promptId, answer, disabled, onChange}: {
     <p className="text-sm leading-6 text-slate-700">{definition.guidance}</p>
     <label className="block text-sm font-semibold">{definition.contextLabel}<input value={value.context} disabled={disabled} className={field} onChange={e=>onChange({...value,context:e.target.value})}/></label>
     <label className="block text-sm font-semibold">{definition.referenceLabel}<GrowingTextarea rows={2} value={value.reference} disabled={disabled} className={field} onChange={e=>onChange({...value,reference:e.target.value})}/></label>
-    <p className="text-xs leading-5 text-slate-600">Tick what they explained or demonstrated correctly. Mark a missed step explicitly. Unticked items remain unassessed; explain every Missed or N/A choice. If you stop for a gap, use Not demonstrated for the remaining steps.</p>
+    <p className="text-xs leading-5 text-slate-600">Only mark the steps you asked. Unticked steps stay Not asked and do not affect scoring. Record any missed step; use Not demonstrated if a gap stopped the task.</p>
     <div className="space-y-3">{definition.criteria.map(c=>{
       const record=value.checks[c.id];
       return <div key={c.id} className="rounded-lg border border-slate-200 bg-white p-3">
@@ -27,14 +27,14 @@ export function InterviewPractical({promptId, answer, disabled, onChange}: {
           <span>{c.label}</span>
         </label>
         <div className="mt-2 flex flex-wrap items-center gap-2">
-          <span className={`mr-auto text-xs font-semibold ${record?.result === "met" ? "text-emerald-800" : record?.result === "gap" ? "text-red-700" : "text-slate-500"}`}>{record?.result === "met" ? "Correct" : record?.result === "gap" ? "Missed" : record?.result === "na" ? "Not applicable" : record?.result === "not-observed" ? "Not demonstrated" : "Not assessed"}</span>
+          <span className={`mr-auto text-xs font-semibold ${record?.result === "met" ? "text-emerald-800" : record?.result === "gap" ? "text-red-700" : "text-slate-500"}`}>{record?.result === "met" ? "Correct" : record?.result === "gap" ? "Missed" : record?.result === "na" ? "Not applicable" : record?.result === "not-observed" ? "Not demonstrated" : "Not asked"}</span>
           {([['gap','Missed'],['na','N/A'],['not-observed','Not demonstrated']] as const).map(([result,label])=><button key={result} type="button" aria-label={`${label}: ${c.label}`} aria-pressed={record?.result === result} disabled={disabled} className={`min-h-11 rounded-lg border px-3 text-xs font-semibold disabled:opacity-50 ${record?.result === result ? result === "gap" ? "border-red-700 bg-red-700 text-white" : "border-slate-600 bg-slate-600 text-white" : "border-slate-300 bg-white text-slate-700"}`} onClick={()=>change(c.id,{result:record?.result === result ? null : result})}>{label}</button>)}
         </div>
         {(record?.result === "gap" || record?.result === "na" || record?.result === "not-observed" || record?.note) && <label className="mt-3 block text-xs font-semibold">{record?.result === "gap" ? "What did they miss or do incorrectly?" : record?.result === "na" ? "Why does this not apply?" : record?.result === "not-observed" ? "Which gap stopped the demonstration?" : "Observation note"}<GrowingTextarea rows={2} aria-label={`Explanation: ${c.label}`} className={field} disabled={disabled} value={record?.note || ""} onChange={e=>change(c.id,{note:e.target.value})}/></label>}
       </div>;
     })}</div>
     <div role="status" className="rounded-lg bg-white p-3 text-sm">
-      <strong className={assessment === "gap" ? "text-red-700" : "text-emerald-900"}>{assessment === "gap" ? "Gap identified — record its severity below" : assessment === "understood" ? "Practical check passed" : assessment === "not-applicable" ? "Not applicable to this colleague" : "Practical check incomplete"}</strong>
+      <strong className={assessment === "gap" ? "text-red-700" : "text-emerald-900"}>{assessment === "gap" ? "Gap identified — record its severity below" : assessment === "understood" ? "Asked steps understood" : assessment === "not-applicable" ? "Not applicable to this colleague" : "No steps assessed"}</strong>
       <p className="mt-1 text-xs text-slate-600">{assessed}/{definition.criteria.length} items assessed. These results feed into the linked audit check.</p>
     </div>
   </fieldset>;

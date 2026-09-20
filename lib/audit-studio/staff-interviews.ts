@@ -60,19 +60,21 @@ export function isInterviewDerived(doc: AuditDocument, id: string) {
   return !!doc.interviewScoringVersion && STAFF_UNDERSTANDING_IDS.some(q => q === id);
 }
 export function withCurrentInterviewScoring(doc: AuditDocument): AuditDocument {
-  return {...doc, interviewScoringVersion: "graded-v2"};
+  return {...doc, interviewScoringVersion: "graded-v2", optionalStaffSampling: true, staffInterviews: doc.staffInterviews?.map(s => ({...s, answers: Object.fromEntries(Object.entries(s.answers).map(([id, a]) => [id, {...a, ...(a.practical ? {practical: {...a.practical, optionalSampling: true}} : {})}]))}))};
 }
 function derivedInterviewResponse(doc: AuditDocument, template: StudioTemplate, id: string, r: Response): Response {
   const entries = interviewEntries(doc, template, id);
   if (entries.some(e => interviewAssessment(e.answer, e.prompt.id) === "gap" && (doc.interviewScoringVersion !== "graded-v2" || e.prompt.questionId === id)))
     return {...r, answer: "no", verified: true};
   const relevant = entries.filter(e => interviewAssessment(e.answer, e.prompt.id) !== "not-applicable");
+  if (doc.optionalStaffSampling && !relevant.length) return {...r, answer: "na", naReason: r.naReason || "Not asked this visit", verified: true};
   // Skipping a topic is explicit and justified; not asking a colleague never earns Yes.
   if (!relevant.length && r.answer === "na" && r.naReason.trim()) return {...r, verified: true};
   const complete = relevant.length > 0 && relevant.every(e => {
     const a = e.answer;
     if (!e.staff.colleague.trim() || !e.staff.role.trim() || !a.asked.trim() || (interviewAssessment(a, e.prompt.id) !== "understood" && !(doc.interviewScoringVersion === "graded-v2" && e.prompt.questionId !== id && interviewAssessment(a, e.prompt.id) === "gap"))) return false;
     if (!a.practical) return !!a.reply.trim();
+    if (doc.optionalStaffSampling && a.practical.optionalSampling) return true;
     return !!a.practical.context.trim() && !!a.practical.reference.trim() &&
       (practicalDefinition(e.prompt.id, a.practical.version)?.criteria || []).every(c => {
         const check = a.practical!.checks[c.id];
@@ -81,7 +83,7 @@ function derivedInterviewResponse(doc: AuditDocument, template: StudioTemplate, 
   });
   // A direct local-risk checklist covers two risks; otherwise use two distinct
   // selected topics. Asking two colleagues the same topic is still one risk.
-  const coverage = id !== "05.02" || relevant.some(e => e.prompt.id === "risks") || new Set(relevant.map(e => e.prompt.id)).size >= 2;
+  const coverage = doc.optionalStaffSampling || id !== "05.02" || relevant.some(e => e.prompt.id === "risks") || new Set(relevant.map(e => e.prompt.id)).size >= 2;
   return {...r, answer: complete && coverage ? "yes" : null, verified: complete && coverage};
 }
 export function effectiveResponse(doc: AuditDocument, template: StudioTemplate, id: string): Response {
@@ -130,16 +132,19 @@ export function interviewIssues(doc: AuditDocument, template: StudioTemplate) {
   for (const [index, staff] of (doc.staffInterviews || []).entries()) {
     const label = staff.colleague || `Colleague ${index + 1}`;
     const add = (message: string) => issues.push({questionId: "staff-interviews", message: `${label}: ${message}`});
-    if (!staff.colleague.trim() || !staff.role.trim()) add("record an identifier and role.");
     const entries = interviewEntries({ ...doc, staffInterviews: [staff] }, template);
+    if (!entries.length && doc.optionalStaffSampling) continue;
+    if (!staff.colleague.trim() || !staff.role.trim()) add("record an identifier and role.");
     if (!entries.length) add("record at least one question or remove the unused colleague.");
     for (const {prompt, answer: a} of entries) {
       if (doc.interviewScoringVersion === "graded-v2" && interviewAssessment(a, prompt.id) === "gap" && (!a.gapSeverity || !a.outcome.trim())) add(`${prompt.title}: choose the gap severity and explain the assessment.`);
       if (a.practical) {
         const definition = practicalDefinition(prompt.id, a.practical.version);
-        if (!a.asked.trim() || !a.practical.context.trim() || !a.practical.reference.trim()) add(`${prompt.title}: record the question, selected task and verified reference.`);
+        if (a.practical.optionalSampling && !interviewAssessment(a, prompt.id)) add(`${prompt.title}: assess at least one asked step or reset the topic to Not asked.`);
+        if (!a.asked.trim() || (!a.practical.optionalSampling && (!a.practical.context.trim() || !a.practical.reference.trim()))) add(`${prompt.title}: record the question, selected task and verified reference.`);
         for (const c of definition?.criteria || []) {
           const check = a.practical.checks[c.id];
+          if (!check?.result && a.practical.optionalSampling) continue;
           if (!check?.result) add(`${prompt.title}: assess “${c.label}”.`);
           else if ((check.result === "gap" || check.result === "na" || check.result === "not-observed") && !check.note.trim()) add(`${prompt.title}: explain the ${check.result === "gap" ? "missed item" : check.result === "not-observed" ? "stopped demonstration" : "N/A"} for “${c.label}”.`);
         }

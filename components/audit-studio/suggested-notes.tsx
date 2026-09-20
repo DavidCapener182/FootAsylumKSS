@@ -98,11 +98,11 @@ export function SuggestedNotes({
   const savedOptions = previouslySelectedNotes(questionId, answer, notes);
   const opposite = answer === "yes" ? "No - " : "Yes - ";
   return (
-    <fieldset className="mb-3 rounded-lg border border-slate-200 bg-slate-50 px-3 pb-2 pt-1">
-      <legend className="px-1 text-sm font-semibold">
+    <details className="mb-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+      <summary className="min-h-6 cursor-pointer text-sm font-semibold">
         Suggested {answer === "yes" ? "Yes" : "No"} notes
-      </legend>
-      <p className="mb-1 text-xs leading-5 text-slate-500">
+      </summary>
+      <p className="mb-1 mt-2 text-xs leading-5 text-slate-500">
         Tick what you checked to add it to Notes.
       </p>
       {notes.split("\n").some((line) => line.startsWith(opposite)) && (
@@ -136,6 +136,6 @@ export function SuggestedNotes({
           ))}
         </div>
       )}
-    </fieldset>
+    </details>
   );
 }

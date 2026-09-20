@@ -69,6 +69,7 @@ export type StaffInterviewAnswer = {
   gapSeverity?: "minor" | "incorrect" | "unsafe";
   practical?: {
     version: "practical-v1";
+    optionalSampling?: boolean;
     context: string;
     reference: string;
     checks: Record<string, {result: "met" | "gap" | "na" | "not-observed" | null; note: string}>;
@@ -101,6 +102,7 @@ export type AuditDocument = {
   purpose?: "store" | "practice";
   previousActionReviews?: PreviousActionReview[];
   interviewScoringVersion?: "derived-v1" | "graded-v2";
+  optionalStaffSampling?: boolean;
   staffInterviews?: StaffInterview[];
   site: SiteDetails;
   responses: Record<string, Response>;

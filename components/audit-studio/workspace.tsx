@@ -3,6 +3,7 @@ import "./mobile-workspace.css";
 import { clientId } from "@/lib/audit-studio/client-id";
 import { PreviousActions } from "./previous-actions";
 import { TestingNotes } from "./testing-notes";
+import { EvidenceViewer } from "./evidence-viewer";
 import { AssessmentTerms } from "./assessment-terms";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import {
@@ -1277,7 +1278,7 @@ function AuditEditor({
               {h.pdf_path ? <a className="ml-2 underline" href={`/api/audit-studio/audits/${b.audit.id}/history/${h.id}`} target="_blank" rel="noreferrer">Open PDF</a> : <span className="block text-slate-500">File held in existing archive</span>}
             </li>)}</ul>
           </details>}
-          <StaffInterviews doc={doc} template={template} readOnly={readOnly} open={interviewsOpen} onOpenChange={setInterviewsOpen} update={update} status={status} onQuestion={id => {setSection(Number(id.split(".")[0])); setReview(false); setFilter("all"); requestAnimationFrame(() => document.getElementById(`audit-question-${id}`)?.scrollIntoView({block: "center"}));}} />
+          <StaffInterviews section={section} doc={doc} template={template} readOnly={readOnly} open={interviewsOpen} onOpenChange={setInterviewsOpen} update={update} status={status} onQuestion={id => {setSection(Number(id.split(".")[0])); setReview(false); setFilter("all"); requestAnimationFrame(() => document.getElementById(`audit-question-${id}`)?.scrollIntoView({block: "center"}));}} />
           <button
             className={`${primary} mt-4 w-full`}
             onClick={() => setReview(true)}
@@ -1576,9 +1577,9 @@ function AuditEditor({
                           </h3>
                           {derived && q.id === "16.03" ? <p className="my-4 rounded-lg bg-emerald-50 p-4 text-sm font-semibold">Answer from action reviews: {r.answer === "yes" ? "Yes" : r.answer === "no" ? "No" : r.answer === "na" ? "Not applicable" : "Finish the selected reviews"}</p> : derived ? <div className="my-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
                             <p className="text-sm font-semibold">Answer from staff interviews: {r.answer === "no" && questionEarned(doc, template, q.id, q.weight) > 0 ? "Partial" : r.answer === "yes" ? "Yes" : r.answer === "no" ? "No" : r.answer === "na" ? "Not sampled (N/A)" : "Awaiting staff answers"}</p>
-                            <p className="mt-2 text-sm leading-6">{q.id === "05.02" ? "Use the local-risks interview or link two different selected topics to this check." : "Record a colleague’s explanation of the emergency arrangements."} Staff gaps use the recorded deduction. Manager answers and note suggestions cannot award a pass.</p>
+                            <p className="mt-2 text-sm leading-6">Only the staff topics you ask are assessed. Unasked topics are excluded from the score.</p>
                             <div className="mt-3 flex flex-wrap gap-2"><button type="button" className={button} onClick={() => setInterviewsOpen(true)}>Open staff interviews</button>
-                            {!readOnly && !hasSamples && <button type="button" className={button} onClick={() => answer(q.id, {answer: doc.responses[q.id]?.answer === "na" ? null : "na", naReason: doc.responses[q.id]?.answer === "na" ? "" : doc.responses[q.id]?.naReason || "", verified: true})}>{doc.responses[q.id]?.answer === "na" ? "Include in sampling" : "Not sampled this visit"}</button>}</div>
+                            {!doc.optionalStaffSampling && !readOnly && !hasSamples && <button type="button" className={button} onClick={() => answer(q.id, {answer: doc.responses[q.id]?.answer === "na" ? null : "na", naReason: doc.responses[q.id]?.answer === "na" ? "" : doc.responses[q.id]?.naReason || "", verified: true})}>{doc.responses[q.id]?.answer === "na" ? "Include in sampling" : "Not sampled this visit"}</button>}</div>
                           </div> : <div className="my-4 grid grid-cols-3 gap-2">
                             {(["yes", "no", "na"] as const).map((a) => (
                               <button
@@ -1603,8 +1604,8 @@ function AuditEditor({
                               </button>
                             ))}
                           </div>}
-                          {staffNotes && <aside className="mb-4 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm"><h4 className="font-semibold">Linked staff interviews</h4>{interviewGap && <p className="mt-2 font-semibold text-red-700">Staff gap recorded. Current question score: {questionEarned(doc, template, q.id, q.weight)}/{q.weight}. Record the follow-up below.</p>}<details className="mt-2"><summary className="cursor-pointer font-semibold">View recorded answers</summary><p className="mt-2 whitespace-pre-wrap break-words">{staffNotes}</p></details><button className={`${button} mt-3`} onClick={() => setInterviewsOpen(true)}>Open staff interviews</button></aside>}
-                          {(r.answer === "na" || (derived && doc.responses[q.id]?.answer === "na" && !hasSamples)) && (
+                          {staffNotes && <aside className="mb-4 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm"><h4 className="font-semibold">Linked staff interviews</h4>{interviewGap && <p className="mt-2 font-semibold text-red-700">Staff gap recorded. Current question score: {questionEarned(doc, template, q.id, q.weight)}/{q.weight}. Record the follow-up below.</p>}<details className="mt-2"><summary className="cursor-pointer font-semibold">View recorded answers</summary><div className="mt-3 space-y-3">{staffNotes.split("\n\n").map((entry, i) => <div key={i} className="rounded-lg border border-slate-200 bg-white p-3"><div className="space-y-2">{entry.split("\n").map((line, j) => <p key={j} className={`break-words leading-6 ${j === 0 ? "font-semibold" : ""}`}>{line}</p>)}</div></div>)}</div></details><button className={`${button} mt-3`} onClick={() => setInterviewsOpen(true)}>Open staff interviews</button></aside>}
+                          {!(derived && doc.optionalStaffSampling) && (r.answer === "na" || (derived && doc.responses[q.id]?.answer === "na" && !hasSamples)) && (
                             <Field
                               label={derived ? "Why was this check not sampled?" : "Why does this not apply?"}
                               value={doc.responses[q.id]?.naReason || ""}
@@ -1942,7 +1943,7 @@ function EvidenceControls({
             </label>
             <label className={uploadButton}>
               <FileText size={18} aria-hidden="true" />
-              Choose files
+              Add photos / files
               <input
                 aria-label="Choose photos or PDF files"
                 className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
@@ -2012,6 +2013,7 @@ function EvidenceCard({
   update: (id: string, c: Partial<EvidenceReference>) => void;
   remove: (id: string) => void;
 }) {
+  const [viewing, setViewing] = useState(false);
   const [url, setUrl] = useState(""),
     [broken, setBroken] = useState(false);
   useEffect(() => {
@@ -2040,41 +2042,14 @@ function EvidenceCard({
   const pdf = file?.type === "application/pdf";
   return (
     <div className="min-w-0 rounded-lg border border-slate-200 p-3">
-      {!url ? (
-        <div className="h-44 rounded bg-slate-100" />
-      ) : pdf ? (
-        <a
-          className="flex h-24 items-center justify-center gap-2 rounded bg-slate-100 text-sm underline"
-          href={url}
-          target="_blank"
-          rel="noreferrer"
-        >
-          <FileText size={24} />
-          Open PDF
-        </a>
-      ) : broken ? (
-        <a
-          className="block rounded bg-slate-100 p-6 text-sm underline"
-          href={url}
-          target="_blank"
-          rel="noreferrer"
-        >
-          Open attachment / original preview unavailable
-        </a>
-      ) : (
-        <a href={url} target="_blank" rel="noreferrer">
-          <img
-            alt={ref.caption || `Evidence ${ref.id.slice(0, 8)}`}
-            src={url}
-            onError={() => setBroken(true)}
-            className="h-44 w-full rounded bg-slate-100 object-contain"
-          />
-        </a>
-      )}
+      <EvidenceViewer open={viewing} onOpenChange={setViewing} url={url} file={file && (/image\/hei[cf]/.test(file.type) ? file.preview || file.file : file.file)} label={ref.caption || file?.name || "Audit attachment"} />
+      {!url ? <div className="h-36 rounded bg-slate-100" /> : <button type="button" className="block w-full rounded bg-slate-100" aria-label={`View ${ref.caption || file?.name || "evidence photo"}`} onClick={() => setViewing(true)}>
+        {pdf || broken ? <span className="flex min-h-24 items-center justify-center gap-2 text-sm"><FileText size={24} />View attachment</span> : <img alt={ref.caption || "Audit evidence"} src={url} onError={() => setBroken(true)} className="h-36 w-full rounded object-contain" />}
+      </button>}
       <p className="mt-2 break-all text-xs text-slate-500">
         {ref.id.slice(0, 8)} · {file?.name || "Stored attachment"}
       </p>
-      <div className="mt-3 space-y-3">
+      <details className="mt-3 space-y-3"><summary className="min-h-8 cursor-pointer text-sm font-semibold">Caption and location{ref.caption || ref.location ? " · recorded" : " (optional)"}</summary>
         <Field
           label="Caption"
           value={ref.caption}
@@ -2087,7 +2062,7 @@ function EvidenceCard({
           onChange={(v) => update(ref.id, { location: v })}
           disabled={readOnly}
         />
-      </div>
+      </details>
       {!readOnly && (
         <button
           className="mt-2 min-h-10 text-xs font-semibold text-red-700 underline"

@@ -14,6 +14,7 @@ function sample(topic: string, gap = false): StaffInterviewAnswer {
 }
 function doc() {
   const d = withCurrentInterviewScoring(emptyDocument());
+  delete d.optionalStaffSampling; // Historical mandatory-sampling reports retain their rules.
   TEMPLATE.sections.flatMap(s=>s.checks).forEach(q=>d.responses[q.id]={...emptyResponse(),answer:"yes"});
   return d;
 }

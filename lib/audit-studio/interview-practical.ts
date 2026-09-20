@@ -352,7 +352,9 @@ export function interviewAssessment(answer: StaffInterviewAnswer | undefined, pr
   if (!answer.practical) return answer.assessment;
   const definition = practicalDefinition(promptId, answer.practical.version);
   if (!definition) return null;
-  const results = definition.criteria.map(c => answer.practical?.checks[c.id]?.result);
+  const allResults = definition.criteria.map(c => answer.practical?.checks[c.id]?.result);
+  const results = answer.practical.optionalSampling ? allResults.filter(Boolean) : allResults;
+  if (!results.length) return answer.assessment === "gap" ? "gap" : null;
   if (results.includes("gap")) return "gap";
   if (results.some(r => !r || r === "not-observed")) return answer.assessment === "gap" ? "gap" : null;
   return results.every(r => r === "na") ? "not-applicable" : "understood";
@@ -366,7 +368,7 @@ export function practicalNotes(a: StaffInterviewAnswer, id: string) {
     `Verified reference: ${a.practical.reference || "Not recorded"}`,
     ...definition.criteria.map(c => {
       const check=a.practical!.checks[c.id];
-      const label=check?.result === "met" ? "Correct" : check?.result === "gap" ? "Missed" : check?.result === "na" ? "N/A" : check?.result === "not-observed" ? "Not demonstrated" : "Not assessed";
+      const label=check?.result === "met" ? "Correct" : check?.result === "gap" ? "Missed" : check?.result === "na" ? "N/A" : check?.result === "not-observed" ? "Not demonstrated" : a.practical?.optionalSampling ? "Not asked" : "Not assessed";
       return `${label}: ${c.label}${check?.note ? ` — ${check.note}` : ""}`;
     }),
   ].join("\n");

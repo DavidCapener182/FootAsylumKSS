@@ -34,9 +34,10 @@ export const documentSchema = z
       outcome: z.enum(["improved", "not-improved", "not-applicable"]).nullable(), note: text,
     }).strict()).max(200).optional(),
     interviewScoringVersion: z.enum(["derived-v1", "graded-v2"]).optional(),
+    optionalStaffSampling: z.boolean().optional(),
     staffInterviews: z.array(z.object({
       id: z.string().uuid(), colleague: text, role: text,
-      answers: z.record(z.object({ asked: text, reply: text, sampledRisk: z.boolean().optional(), gapSeverity: z.enum(["minor", "incorrect", "unsafe"]).optional(), assessment: z.enum(["understood", "gap", "not-applicable"]).nullable(), outcome: text, practical: z.object({version: z.literal("practical-v1"), context: text, reference: text, checks: z.record(z.object({result: z.enum(["met", "gap", "na", "not-observed"]).nullable(), note: text}).strict())}).strict().optional() }).strict()),
+      answers: z.record(z.object({ asked: text, reply: text, sampledRisk: z.boolean().optional(), gapSeverity: z.enum(["minor", "incorrect", "unsafe"]).optional(), assessment: z.enum(["understood", "gap", "not-applicable"]).nullable(), outcome: text, practical: z.object({version: z.literal("practical-v1"), optionalSampling: z.boolean().optional(), context: text, reference: text, checks: z.record(z.object({result: z.enum(["met", "gap", "na", "not-observed"]).nullable(), note: text}).strict())}).strict().optional() }).strict()),
     }).strict()).max(2).optional(),
     site: z
       .object({
