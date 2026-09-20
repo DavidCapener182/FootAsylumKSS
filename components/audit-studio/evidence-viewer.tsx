@@ -29,7 +29,7 @@ export function EvidenceViewer({open, onOpenChange, url, file, label, title = "A
     return () => { controller.abort(); if (objectUrl) URL.revokeObjectURL(objectUrl); };
   }, [open, url, file]);
   return <Sheet open={open} onOpenChange={onOpenChange}>
-    <SheetContent className="flex flex-col bg-white pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] sm:w-[900px] sm:max-w-[95vw]">
+    <SheetContent onInteractOutside={(event) => event.preventDefault()} className="flex flex-col bg-white pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] sm:w-[900px] sm:max-w-[95vw]">
       <header className="shrink-0 border-b p-4 pr-14"><SheetTitle>{title}</SheetTitle><SheetDescription className="mt-2 break-words">{label}</SheetDescription></header>
       <div className="min-h-0 flex-1 overflow-auto overscroll-contain bg-slate-100 p-3">
         {error ? <p role="alert">{error}</p> : !media ? <p role="status">Loading attachment…</p> : media.pdf ? <PdfViewer url={media.url} label={label} /> : <button type="button" className="block min-h-full min-w-full" aria-label={zoom ? "Fit photo to screen" : "Enlarge photo"} onClick={() => setZoom(v => !v)}><img src={media.url} alt={label} onError={() => setError("This image format cannot be previewed on this device. The attachment is still saved.")} className={zoom ? "max-w-none" : "mx-auto max-h-[65dvh] max-w-full object-contain"} /></button>}

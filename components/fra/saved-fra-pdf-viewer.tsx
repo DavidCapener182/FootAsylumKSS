@@ -64,24 +64,24 @@ export function SavedFraPdfViewer({ url, label = "Saved FRA PDF" }: { url: strin
   }, [pdf, page])
 
   return <section aria-label={label} className="overflow-hidden rounded border bg-slate-100">
-    <div className="flex flex-wrap items-center justify-center gap-3 border-b bg-white p-3">
-      <button type="button" className="rounded border px-3 py-1 disabled:opacity-40" disabled={!pdf || page <= 1 || loading} onClick={() => setPage(page - 1)}>Previous page</button>
+    <div className="sticky top-0 z-10 flex flex-wrap items-center justify-center gap-2 border-b bg-white p-3">
+      <button type="button" className="min-h-11 touch-manipulation rounded border px-3 py-1 disabled:opacity-40" disabled={!pdf || page <= 1 || loading} onClick={() => setPage(page - 1)}>Previous page</button>
       <label className="flex items-center gap-2">Page
         <input aria-label="PDF page number" type="number" min={1} max={pdf?.numPages || 1} value={page} disabled={!pdf || loading}
           className="w-16 rounded border px-2 py-1"
           onChange={e => { const n = Number(e.target.value); if (pdf && Number.isInteger(n) && n >= 1 && n <= pdf.numPages) setPage(n) }} />
         <span>of {pdf?.numPages || '…'}</span>
       </label>
-      <button type="button" className="rounded border px-3 py-1 disabled:opacity-40" disabled={!pdf || page >= pdf.numPages || loading} onClick={() => setPage(page + 1)}>Next page</button>
+      <button type="button" className="min-h-11 touch-manipulation rounded border px-3 py-1 disabled:opacity-40" disabled={!pdf || page >= pdf.numPages || loading} onClick={() => setPage(page + 1)}>Next page</button>
     </div>
-    {loading && <p role="status" className="p-4 text-center">Loading saved PDF…</p>}
     {error && <div role="alert" className="p-6 text-center text-red-800">
       <p>{error}</p>
       <button type="button" className="mt-3 rounded border px-4 py-2" onClick={() => setAttempt(attempt + 1)}>Retry PDF</button>
       <a href={url} target="_blank" rel="noopener noreferrer" className="ml-4 underline">Open PDF in a new tab</a>
     </div>}
-    <div className="max-h-[75vh] overflow-auto p-3">
-      <canvas ref={canvas} role="img" aria-label={`${label} page ${page}`} className={`mx-auto h-auto max-w-full bg-white shadow ${loading || error ? 'hidden' : ''}`} />
+    <div className="relative min-h-64 max-h-[75vh] overflow-auto p-3" aria-busy={loading}>
+      {loading && <div role="status" className="absolute inset-0 z-10 flex items-center justify-center bg-white/80 text-sm">Loading saved PDF…</div>}
+      <canvas ref={canvas} role="img" aria-label={`${label} page ${page}`} className={`mx-auto h-auto max-w-full bg-white shadow ${error ? 'invisible' : ''}`} />
     </div>
   </section>
 }
