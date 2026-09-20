@@ -25,7 +25,9 @@ const mockAdminStorageFrom = vi.fn(() => ({
   remove: mockAdminRemove,
   createSignedUrl: mockAdminCreateSignedUrl,
 }))
-const mockAdminFrom = vi.fn()
+const mockHistoryEq = vi.fn()
+const mockHistorySelect = vi.fn(() => ({ eq: mockHistoryEq }))
+const mockAdminFrom = vi.fn(() => ({ select: mockHistorySelect }))
 
 const authenticatedSupabase = {
   from: mockAuthenticatedFrom,
@@ -47,6 +49,7 @@ vi.mock('@/lib/supabase/admin', () => ({
 describe('audit PDF actions', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockHistoryEq.mockResolvedValue({ data: [], error: null })
     mockImportPdfActions.mockResolvedValue({status:'imported',count:2,total:2,warning:null})
     mockRequirePermission.mockResolvedValue({
       supabase: authenticatedSupabase,
@@ -80,7 +83,10 @@ describe('audit PDF actions', () => {
       compliance_audit_2_pdf_path: null,
     })
     expect(mockAuthenticatedUpdateEq).toHaveBeenCalledWith('id', 'store-123')
-    expect(mockAdminFrom).not.toHaveBeenCalled()
+    expect(mockAdminFrom).toHaveBeenCalledWith('fa_store_audit_history')
+    expect(mockAdminFrom).toHaveBeenCalledTimes(1)
+    expect(mockHistorySelect).toHaveBeenCalledWith('pdf_path')
+    expect(mockHistoryEq).toHaveBeenCalledWith('store_id', 'store-123')
   })
 
   it('reads and clears the store path as the authenticated actor while using admin only to delete storage', async () => {

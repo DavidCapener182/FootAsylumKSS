@@ -1,6 +1,6 @@
 # Audit Studio
 
-Audit Studio is an Admin-only workspace under Assurance, controlled by `NEXT_PUBLIC_AUDIT_STUDIO_ENABLED`. The flag is disabled by default. Drafts and practice audits remain separate from live store scores. An active Admin can explicitly publish a completed store audit; downloading the PDF does not publish it.
+Audit Studio is an Admin-only workspace under Assurance, controlled by `NEXT_PUBLIC_AUDIT_STUDIO_ENABLED`. It is enabled by default; set the flag to `false` to disable it. Drafts and practice audits remain separate from live store scores. An active Admin can explicitly publish a completed store audit; downloading the PDF does not publish it.
 
 ## Workflow
 
@@ -24,7 +24,7 @@ The client update Word/PDF files are excluded from the public repository. The au
 
 ## Verification and remaining release limits
 
-Focused tests cover scoring, interviews, evidence limits, access gates, offline file persistence, synchronisation and 120-photo PDF generation. Actual physical iPhone Safari and Android camera/gallery, airplane mode, browser restart and expired-session testing remain release checks before wider use. Feature activation requires the production flag and an authenticated deployment check.
+Focused tests cover scoring, interviews, evidence limits, access gates, offline file persistence, synchronisation and 120-photo PDF generation. Actual physical iPhone Safari and Android camera/gallery, airplane mode, browser restart and expired-session testing remain release checks before wider use. Releases require an authenticated deployment check.
 
 ## Store publication and annual history
 

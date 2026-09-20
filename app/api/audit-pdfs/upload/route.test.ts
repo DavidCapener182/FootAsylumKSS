@@ -13,7 +13,9 @@ const mockUpdateQuery: any = { select: () => ({ single: mockAuthenticatedStoreUp
 const mockAuthenticatedStoreUpdateEq = vi.fn((..._args: unknown[]) => mockUpdateQuery)
 const mockAuthenticatedStoreUpdate = vi.fn(() => ({ eq: mockAuthenticatedStoreUpdateEq }))
 const mockAuthenticatedFrom = vi.fn(() => ({ update: mockAuthenticatedStoreUpdate, select: () => ({ eq: () => ({ single: mockReadSingle }) }) }))
-const mockAdminFrom = vi.fn()
+const mockHistoryEq = vi.fn()
+const mockHistorySelect = vi.fn(() => ({ eq: mockHistoryEq }))
+const mockAdminFrom = vi.fn(() => ({ select: mockHistorySelect }))
 
 const mockAuthenticatedSupabase = {
   from: mockAuthenticatedFrom,
@@ -52,6 +54,7 @@ function createUploadRequest(auditNumber: 1 | 2 = 2) {
 describe('audit PDF upload route', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockHistoryEq.mockResolvedValue({ data: [], error: null })
     mockImportPdfActions.mockResolvedValue({status:'imported',count:2,total:2,warning:null})
     mockRequirePermission.mockResolvedValue({
       supabase: mockAuthenticatedSupabase,
@@ -91,7 +94,10 @@ describe('audit PDF upload route', () => {
       compliance_audit_2_pdf_path: expect.stringMatching(/^store\/store-123\/audit-2-.*\.pdf$/),
     })
     expect(mockAuthenticatedStoreUpdateEq).toHaveBeenCalledWith('id', 'store-123')
-    expect(mockAdminFrom).not.toHaveBeenCalled()
+    expect(mockAdminFrom).toHaveBeenCalledWith('fa_store_audit_history')
+    expect(mockAdminFrom).toHaveBeenCalledTimes(1)
+    expect(mockHistorySelect).toHaveBeenCalledWith('pdf_path')
+    expect(mockHistoryEq).toHaveBeenCalledWith('store_id', 'store-123')
   })
 
   it('cleans up the uploaded PDF if the store update fails', async () => {
