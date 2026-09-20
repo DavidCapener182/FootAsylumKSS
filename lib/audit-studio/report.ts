@@ -30,6 +30,7 @@ const W = 595.28,
 export async function generateReport(
   b: AuditBundle,
   read: (path: string) => Promise<Buffer>,
+  options: { presentation?: boolean } = {},
 ): Promise<Buffer> {
   const pdf = await PDFDocument.create(),
     regular = await pdf.embedFont(StandardFonts.Helvetica),
@@ -417,7 +418,9 @@ export async function generateReport(
       const original = await read(e.source_path);
       if (createHash("sha256").update(original).digest("hex") !== e.sha256)
         throw new Error(`Evidence integrity check failed: ${e.id}`);
-      const label = `${questionId} / ${e.id.slice(0, 8)} · ${e.file_name}`;
+      const label = options.presentation
+        ? `Photo ${e.file_name.match(/photo-(\d+)/)?.[1] || ""} · ${questionId}`
+        : `${questionId} / ${e.id.slice(0, 8)} · ${e.file_name}`;
       if (e.file_type === "application/pdf") {
         flush();
         if (!supportingIds.has(e.id)) {
@@ -441,7 +444,7 @@ export async function generateReport(
     }
     flush();
   };
-  newPage("Health & Safety Audit");
+  newPage(options.presentation ? "Proposed Health & Safety Audit" : "Health & Safety Audit");
   const logo = await pdf.embedJpg(
     await readFile(
       path.join(process.cwd(), "docs/audit-studio/kss-logo-v1.jpg"),
@@ -488,7 +491,7 @@ export async function generateReport(
     (r) => r.answer && r.answer !== "na" && !r.verified,
   ).length;
   line(
-    `${failedCount} failed checks · ${unverifiedCount} not verified`,
+    options.presentation && !unverifiedCount ? `${failedCount} ${failedCount === 1 ? "finding" : "findings"} requiring action` : `${failedCount} failed checks · ${unverifiedCount} not verified`,
     M + 185,
     y - 37,
     9,
@@ -499,14 +502,16 @@ export async function generateReport(
   detailRow("Prepared by", doc.site.auditor);
   detailRow("Visit date", doc.site.visitDate);
   detailRow("Store address", doc.site.address);
-  detailRow("Template version", b.template.version);
+  if (!options.presentation) detailRow("Template version", b.template.version);
   if (b.audit.parent_id) detailRow("Revision of", b.audit.parent_id);
   y -= 12;
   heading("Result");
   paragraph(
     score.reasons.length
       ? score.reasons.join("\n")
-      : "Meets the 80% overall pass mark and 70% core-section targets. No confirmed critical failure or outstanding safety verification.",
+      : options.presentation
+        ? "Meets the overall pass mark and core-section targets. Complete the recorded actions."
+        : "Meets the 80% overall pass mark and 70% core-section targets. No confirmed critical failure or outstanding safety verification.",
     9,
   );
   heading("Section scores");
@@ -610,7 +615,7 @@ export async function generateReport(
         : "",
       110,
     );
-    if (sectionScore.core)
+    if (sectionScore.core && !options.presentation)
       paragraph("Core section · 70% target", 8, regular, muted);
     if (s.page === 3) {
       const hasManager = MANAGER_QUESTION_GROUPS.some(g => g.questions.some(q =>
@@ -618,7 +623,7 @@ export async function generateReport(
       ));
       paragraph(`Floors: ${doc.site.floors || "Not recorded"}    ·    Area: ${doc.site.area ? `${doc.site.area} ${doc.site.areaUnit}` : "Not recorded"}    ·    Exits: ${doc.site.exits || "Not recorded"}`, 9);
       if (hasManager) {
-        paragraph("Manager's answers; verify against records and independent staff checks.", 8, regular, muted);
+        if (!options.presentation) paragraph("Manager's answers; verify against records and independent staff checks.", 8, regular, muted);
         const labels: Record<string, string> = {
           managerName: "Manager / role", staff: "Staff employed", maxStaff: "Maximum on shift",
           youngPersons: "Under 18s / arrangements", inductionArrangements: "Induction and supervision",
@@ -659,10 +664,10 @@ export async function generateReport(
     for (const q of s.checks) {
       const r = doc.responses[q.id];
       questionRow(q);
-      if (isInterviewDerived(doc, q.id)) paragraph(r.answer === "na" ? "Not sampled this visit; excluded from the score." : "Answer calculated from the recorded staff interviews.", 8, regular, muted);
+      if (!options.presentation && isInterviewDerived(doc, q.id)) paragraph(r.answer === "na" ? "Not sampled this visit; excluded from the score." : "Answer calculated from the recorded staff interviews.", 8, regular, muted);
       const notes = responseNotes(r);
       const managerNotes = managerReferenceNotes(doc.site, q.id);
-      if (managerNotes) paragraph("Manager's arrangements: see the Store manager Q&A in section 03.", 8, regular, muted);
+      if (managerNotes && !options.presentation) paragraph("Manager's arrangements: see the Store manager Q&A in section 03.", 8, regular, muted);
       if (notes) paragraph(notes);
       if (q.id === "16.03") for (const review of doc.previousActionReviews || []) {
         ensure(100);
@@ -745,7 +750,7 @@ export async function generateReport(
   }
   const pages = pdf.getPages();
   pages.forEach((p, i) => {
-    p.drawText(doc.purpose === "store" ? "KSS / FOOTASYLUM · HEALTH & SAFETY AUDIT" : "TEST AUDIT — NOT PUBLISHED TO THE LIVE TRACKER", {
+    p.drawText(options.presentation ? "KSS / FOOTASYLUM · PROPOSED AUDIT" : doc.purpose === "store" ? "KSS / FOOTASYLUM · HEALTH & SAFETY AUDIT" : "TEST AUDIT — NOT PUBLISHED TO THE LIVE TRACKER", {
       x: M,
       y: 25,
       size: 7,
@@ -760,7 +765,7 @@ export async function generateReport(
       color: muted,
     });
   });
-  pdf.setTitle(`${doc.site.storeName} — H&S Audit`);
+  pdf.setTitle(`${doc.site.storeName} — ${options.presentation ? "Proposed H&S Audit" : "H&S Audit"}`);
   pdf.setAuthor("KSS / Footasylum");
   pdf.setSubject(b.template.version);
   return Buffer.from(await pdf.save());

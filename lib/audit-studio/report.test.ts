@@ -28,6 +28,18 @@ function fixture(): AuditBundle {
   };
 }
 describe("Frozen report generation", () => {
+  it("exports a proposed presentation without changing the saved answers or default report", async () => {
+    const b = fixture();
+    b.audit.document.purpose = "practice";
+    const before = structuredClone(b);
+    const read = async () => { throw new Error("Unexpected evidence request"); };
+    const proposed = await PDFDocument.load(await generateReport(b, read, { presentation: true }));
+    const operational = await PDFDocument.load(await generateReport(b, read));
+    expect(proposed.getTitle()).toBe("Audit Studio QA Store — Proposed H&S Audit");
+    expect(operational.getTitle()).toBe("Audit Studio QA Store — H&S Audit");
+    expect(b).toEqual(before);
+  });
+
   it("renders a report with practical checks for successful and flagged responses", async () => {
     const b = fixture();
     b.audit.document.site.managerName = "MOCK manager";
