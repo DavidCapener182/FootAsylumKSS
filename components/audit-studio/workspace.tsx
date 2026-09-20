@@ -56,11 +56,12 @@ import type {
   Response as AnswerResponse,
   SiteDetails,
   StudioBootstrap,
+  StaffInterviewTarget,
 } from "@/lib/audit-studio/types";
 import { changesBetween } from "@/lib/audit-studio/conflicts";
 import { makePreview } from "@/lib/audit-studio/preview";
 import { StaffInterviews } from "./staff-interviews";
-import { staffDeduction, questionEarned, effectiveResponse, hasInterviewGap, interviewNotes, isInterviewDerived, interviewEntries, withCurrentInterviewScoring } from "@/lib/audit-studio/staff-interviews";
+import { interviewPrompts, staffDeduction, questionEarned, effectiveResponse, hasInterviewGap, interviewNotes, isInterviewDerived, interviewEntries, withCurrentInterviewScoring } from "@/lib/audit-studio/staff-interviews";
 import { Signature } from "./signature";
 import { questionNotesHint } from "@/lib/audit-studio/question-guidance";
 import { SuggestedNotes } from "./suggested-notes";
@@ -1038,6 +1039,7 @@ function AuditEditor({
     setError("");
   };
   const [interviewsOpen, setInterviewsOpen] = useState(false);
+  const [interviewTarget, setInterviewTarget] = useState<StaffInterviewTarget>();
   const shown = active.checks.filter(
     (q) =>
       filter === "all" ||
@@ -1278,7 +1280,7 @@ function AuditEditor({
               {h.pdf_path ? <a className="ml-2 underline" href={`/api/audit-studio/audits/${b.audit.id}/history/${h.id}`} target="_blank" rel="noreferrer">Open PDF</a> : <span className="block text-slate-500">File held in existing archive</span>}
             </li>)}</ul>
           </details>}
-          <StaffInterviews section={section} doc={doc} template={template} readOnly={readOnly} open={interviewsOpen} onOpenChange={setInterviewsOpen} update={update} status={status} onQuestion={id => {setSection(Number(id.split(".")[0])); setReview(false); setFilter("all"); requestAnimationFrame(() => document.getElementById(`audit-question-${id}`)?.scrollIntoView({block: "center"}));}} />
+          <StaffInterviews section={review ? 0 : section} doc={doc} template={template} readOnly={readOnly} open={interviewsOpen} target={interviewTarget} onOpenChange={open => {if (!open) setInterviewTarget(undefined); setInterviewsOpen(open);}} update={update} status={status} onQuestion={id => {setSection(Number(id.split(".")[0])); setReview(false); setFilter("all"); requestAnimationFrame(() => document.getElementById(`audit-question-${id}`)?.scrollIntoView({block: "center"}));}} />
           <button
             className={`${primary} mt-4 w-full`}
             onClick={() => setReview(true)}
@@ -1315,7 +1317,7 @@ function AuditEditor({
           <div className="my-2 flex justify-between text-xs"><span>Overall <strong>{formatScore(score.percentage)}</strong></span><span>{score.answered}/{score.total} answered</span></div>
           <div className="h-1.5 overflow-hidden rounded-full bg-slate-200"><div className="h-full bg-[#608246]" style={{width: `${score.total ? score.answered / score.total * 100 : 0}%`}} /></div>
         </header>}
-        <div id="audit-section-content" role="region" aria-label="Audit questions" className="min-w-0">
+        <div id="audit-section-content" role="region" aria-label="Audit questions" className="min-w-0 px-3 md:px-0">
           {review ? (
             <section className={panel}>
               <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
@@ -1358,7 +1360,7 @@ function AuditEditor({
                     className="block text-left text-sm text-amber-800 underline"
                     key={i}
                     onClick={() => {
-                      if (issue.questionId === "staff-interviews") {setInterviewsOpen(true); return;}
+                      if (issue.questionId === "staff-interviews") {setInterviewTarget(issue.interviewTarget); setInterviewsOpen(true); return;}
                       setSection(
                         issue.questionId === "site"
                           ? 3
@@ -1556,6 +1558,7 @@ function AuditEditor({
                       const hasSamples = interviewEntries(doc, template, q.id).length > 0;
                       const interviewGap = hasInterviewGap(doc, template, q.id);
                       const staffNotes = interviewNotes(doc, template, q.id);
+                      const savedSamples = interviewEntries(doc, template, q.id, true);
                       const practical = practicalCheckPrompts(
                         template.version,
                         q.id,
@@ -1604,7 +1607,7 @@ function AuditEditor({
                               </button>
                             ))}
                           </div>}
-                          {staffNotes && <aside className="mb-4 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm"><h4 className="font-semibold">Linked staff interviews</h4>{interviewGap && <p className="mt-2 font-semibold text-red-700">Staff gap recorded. Current question score: {questionEarned(doc, template, q.id, q.weight)}/{q.weight}. Record the follow-up below.</p>}<details className="mt-2"><summary className="cursor-pointer font-semibold">View recorded answers</summary><div className="mt-3 space-y-3">{staffNotes.split("\n\n").map((entry, i) => <div key={i} className="rounded-lg border border-slate-200 bg-white p-3"><div className="space-y-2">{entry.split("\n").map((line, j) => <p key={j} className={`break-words leading-6 ${j === 0 ? "font-semibold" : ""}`}>{line}</p>)}</div></div>)}</div></details><button className={`${button} mt-3`} onClick={() => setInterviewsOpen(true)}>Open staff interviews</button></aside>}
+                          {(savedSamples.length > 0 || interviewPrompts(template).some(p => p.questionId === q.id)) && <aside className="mb-4 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm"><h4 className="font-semibold">Staff questions for this check</h4>{!hasSamples && <p className="mt-2 text-sm text-slate-600">Not asked · no staff deduction</p>}<div className="mt-3 space-y-3">{savedSamples.map(({staff, prompt, answer: sample}) => <div key={`${staff.id}-${prompt.id}`} className="border-b border-slate-200 pb-3 last:border-0 last:pb-0"><p className="text-sm font-medium">{staff.colleague || "Colleague"} · {prompt.title}</p><div className="mt-2 grid grid-cols-2 gap-2">{([true, false] as const).map(asked => <button key={String(asked)} type="button" disabled={readOnly} aria-pressed={(sample.askedThisVisit !== false) === asked} className={`${button} px-2 ${(sample.askedThisVisit !== false) === asked ? "!border-emerald-800 !bg-emerald-800 !text-white" : ""}`} onClick={() => update(d => ({...d, staffInterviews: d.staffInterviews?.map(s => s.id === staff.id ? {...s, answers: {...s.answers, [prompt.id]: {...s.answers[prompt.id], askedThisVisit: asked}}} : s)}))}>{asked ? "Asked today" : "Not asked"}</button>)}</div>{sample.askedThisVisit === false && <p className="mt-2 text-xs text-slate-500">Excluded from this visit’s score. Saved answer retained.</p>}</div>)}</div>{interviewGap && <p className="mt-2 font-semibold text-red-700">Staff gap recorded. Current question score: {questionEarned(doc, template, q.id, q.weight)}/{q.weight}. Record the follow-up below.</p>}<details className="mt-2"><summary className="cursor-pointer font-semibold">View answers assessed today</summary><div className="mt-3 space-y-3">{staffNotes.split("\n\n").map((entry, i) => <div key={i} className="rounded-lg border border-slate-200 bg-white p-3"><div className="space-y-2">{entry.split("\n").map((line, j) => <p key={j} className={`break-words leading-6 ${j === 0 ? "font-semibold" : ""}`}>{line}</p>)}</div></div>)}</div></details><button className={`${button} mt-3`} onClick={() => setInterviewsOpen(true)}>Open staff interviews</button></aside>}
                           {!(derived && doc.optionalStaffSampling) && (r.answer === "na" || (derived && doc.responses[q.id]?.answer === "na" && !hasSamples)) && (
                             <Field
                               label={derived ? "Why was this check not sampled?" : "Why does this not apply?"}

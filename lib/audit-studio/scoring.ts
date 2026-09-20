@@ -1,6 +1,6 @@
 import { questionEarned, staffDeduction, effectiveResponse, interviewNotes, interviewIssues, isInterviewDerived } from "./staff-interviews";
 import { CORE_SECTIONS, LIFE_SAFETY_IDS } from "./template";
-import type { AuditDocument, ScoreResult, StudioTemplate } from "./types";
+import type { AuditDocument, ScoreResult, StaffInterviewTarget, StudioTemplate } from "./types";
 
 /** The same point calculation is used in the editor, finalisation and PDF. */
 export function scoreAudit(
@@ -92,7 +92,7 @@ export function formatScore(n: number | null) {
 export function completionIssues(
   template: StudioTemplate,
   doc: AuditDocument,
-): Array<{ questionId: string; message: string }> {
+): Array<{ questionId: string; message: string; interviewTarget?: StaffInterviewTarget }> {
   const issues: Array<{ questionId: string; message: string }> = [];
   const add = (questionId: string, message: string) =>
     issues.push({ questionId, message });

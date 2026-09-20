@@ -348,7 +348,7 @@ export function newPracticalCheck(): NonNullable<StaffInterviewAnswer["practical
   return {version:PRACTICAL_VERSION,context:"",reference:"",checks:{}};
 }
 export function interviewAssessment(answer: StaffInterviewAnswer | undefined, promptId: string): StaffInterviewAnswer["assessment"] {
-  if (!answer) return null;
+  if (!answer || answer.askedThisVisit === false) return null;
   if (!answer.practical) return answer.assessment;
   const definition = practicalDefinition(promptId, answer.practical.version);
   if (!definition) return null;

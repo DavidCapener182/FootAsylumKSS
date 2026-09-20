@@ -64,7 +64,9 @@ export type SignOff = {
   representativeSignature: string;
   unavailableReason: string;
 };
+export type StaffInterviewTarget = {staffId: string; topicId?: string; field?: "severity" | "outcome" | "practical" | "reply"};
 export type StaffInterviewAnswer = {
+  askedThisVisit?: boolean;
   sampledRisk?: boolean;
   gapSeverity?: "minor" | "incorrect" | "unsafe";
   practical?: {

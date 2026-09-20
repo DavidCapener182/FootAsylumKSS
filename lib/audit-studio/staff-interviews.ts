@@ -1,6 +1,6 @@
 import { previousActionResponse } from "./previous-actions";
 import { interviewAssessment, practicalDefinition, practicalNotes } from "./interview-practical";
-import type { AuditDocument, Response, StaffInterviewAnswer, StudioTemplate } from "./types";
+import type { AuditDocument, Response, StaffInterviewAnswer, StaffInterviewTarget, StudioTemplate } from "./types";
 import { emptyResponse } from "./template";
 
 // Version-bound mappings: a finding is deducted once at its existing audit check.
@@ -30,11 +30,11 @@ export function interviewPrompts(template: StudioTemplate) {
   return V1.filter(p => ids.has(p.questionId) && (template.version === "hs-update-2026-09-19-v1" || p.id !== "visitors"));
 }
 export const emptyInterviewAnswer = (): StaffInterviewAnswer => ({ asked: "", reply: "", assessment: null, outcome: "" });
-export function interviewEntries(doc: AuditDocument, template: StudioTemplate, questionId?: string) {
+export function interviewEntries(doc: AuditDocument, template: StudioTemplate, questionId?: string, includeUnasked = false) {
   return (doc.staffInterviews || []).flatMap((staff, index) => interviewPrompts(template)
     .flatMap(prompt => {
       const answer = staff.answers[prompt.id];
-      return answer && (!questionId || prompt.questionId === questionId || (questionId === "05.02" && answer.sampledRisk)) ? [{ staff, index, prompt, answer }] : [];
+      return answer && (includeUnasked || answer.askedThisVisit !== false) && (!questionId || prompt.questionId === questionId || (questionId === "05.02" && answer.sampledRisk)) ? [{ staff, index, prompt, answer }] : [];
     }));
 }
 export function hasInterviewGap(doc: AuditDocument, template: StudioTemplate, id: string) {
@@ -128,16 +128,18 @@ export function interviewReportDocument(doc: AuditDocument, template: StudioTemp
   return { ...doc, responses };
 }
 export function interviewIssues(doc: AuditDocument, template: StudioTemplate) {
-  const issues: Array<{questionId: string; message: string}> = [];
+  const issues: Array<{questionId: string; message: string; interviewTarget: StaffInterviewTarget}> = [];
   for (const [index, staff] of (doc.staffInterviews || []).entries()) {
     const label = staff.colleague || `Colleague ${index + 1}`;
-    const add = (message: string) => issues.push({questionId: "staff-interviews", message: `${label}: ${message}`});
+    let topicId: string | undefined;
+    const add = (message: string, field?: StaffInterviewTarget["field"]) => issues.push({questionId: "staff-interviews", message: `${label}: ${message}`, interviewTarget: {staffId: staff.id, topicId, field}});
     const entries = interviewEntries({ ...doc, staffInterviews: [staff] }, template);
     if (!entries.length && doc.optionalStaffSampling) continue;
     if (!staff.colleague.trim() || !staff.role.trim()) add("record an identifier and role.");
     if (!entries.length) add("record at least one question or remove the unused colleague.");
     for (const {prompt, answer: a} of entries) {
-      if (doc.interviewScoringVersion === "graded-v2" && interviewAssessment(a, prompt.id) === "gap" && (!a.gapSeverity || !a.outcome.trim())) add(`${prompt.title}: choose the gap severity and explain the assessment.`);
+      topicId = prompt.id;
+      if (doc.interviewScoringVersion === "graded-v2" && interviewAssessment(a, prompt.id) === "gap" && (!a.gapSeverity || !a.outcome.trim())) add(`${prompt.title}: choose the gap severity and explain the assessment.`, !a.gapSeverity ? "severity" : "outcome");
       if (a.practical) {
         const definition = practicalDefinition(prompt.id, a.practical.version);
         if (a.practical.optionalSampling && !interviewAssessment(a, prompt.id)) add(`${prompt.title}: assess at least one asked step or reset the topic to Not asked.`);

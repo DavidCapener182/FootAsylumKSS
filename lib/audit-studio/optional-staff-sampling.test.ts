@@ -32,13 +32,22 @@ describe('Optional staff sampling', () => {
     expect(effectiveResponse(d,TEMPLATE,'06.03').answer).toBe('yes');
     expect(interviewIssues(d,TEMPLATE)).toEqual([]);
     practical.checks.location.result='gap'; practical.checks.location.note='Incorrect location';
-    const a=d.staffInterviews[0].answers.assembly; a.gapSeverity='minor'; a.outcome='Brief and recheck';
+    const a=d.staffInterviews[0].answers.assembly;
+    expect(interviewIssues(d,TEMPLATE).find(i => i.message.includes('severity'))?.interviewTarget).toEqual({staffId:d.staffInterviews[0].id,topicId:'assembly',field:'severity'});
+    a.gapSeverity='minor';
+    expect(interviewIssues(d,TEMPLATE).find(i => i.message.includes('severity'))?.interviewTarget.field).toBe('outcome');
+    a.outcome='Brief and recheck';
     expect(staffDeduction(d,TEMPLATE,'06.03',2)).toBe(0.25);
     expect(completionIssues(TEMPLATE,d).some(i=>i.questionId==='06.03' && i.message.includes('action'))).toBe(true);
     expect(validateDocument(fromStoredInterviewDocument(toStoredInterviewDocument(d,TEMPLATE)),TEMPLATE)).toEqual(d);
-    delete d.staffInterviews[0].answers.assembly;
+    a.askedThisVisit=false;
+    expect(interviewIssues(d,TEMPLATE)).toEqual([]);
+    expect(completionIssues(TEMPLATE,d).some(i => i.questionId==='06.03')).toBe(false);
+    expect(d.staffInterviews[0].answers.assembly.practical!.checks.location.result).toBe('gap');
     expect(effectiveResponse(d,TEMPLATE,'06.03').answer).toBe('na');
     expect(staffDeduction(d,TEMPLATE,'06.03',2)).toBe(0);
+    a.askedThisVisit=true;
+    expect(staffDeduction(d,TEMPLATE,'06.03',2)).toBe(0.25);
   });
   it('migrates only editable copies and never rewrites historic checklist assessments', () => {
     const old=emptyDocument(); const practical=newPracticalCheck(); practical.checks.location={result:'met',note:''};
