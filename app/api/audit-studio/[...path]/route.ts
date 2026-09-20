@@ -1,3 +1,5 @@
+import {createAdminSupabaseClient} from "@/lib/supabase/admin";
+import {previousStoreActions, publishToStore} from "@/lib/audit-studio/store-records";
 import references from "@/lib/audit-studio/reference-documents.json";
 import { createHash } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
@@ -80,6 +82,17 @@ async function dispatch(
     } else if (resource === "audits") {
       if (!id && req.method === "POST")
         result = await createAudit(await body(), user);
+      else if(id && operation === "previous-actions" && req.method === "GET") result = await previousStoreActions(id);
+      else if(id && operation === "history" && evidenceId && req.method === "GET") {
+        const b = await bundle(id);
+        const entry = b.history?.find(h=>h.id===evidenceId);
+        if(!entry?.pdf_path) throw new StudioError("No report file is linked to this history entry.",404);
+        if(/^https:\/\//.test(entry.pdf_path)) return NextResponse.redirect(entry.pdf_path);
+        const signed = await createAdminSupabaseClient().storage.from("fa-attachments").createSignedUrl(entry.pdf_path,300);
+        if(signed.error || !signed.data) throw new StudioError("The retained report could not be opened.",503);
+        return NextResponse.redirect(signed.data.signedUrl);
+      }
+      else if(id && operation === "publish" && req.method === "POST") result = await publishToStore(id, await body(), user);
       else if (id && !operation && req.method === "GET")
         result = await bundle(id);
       else if (id && !operation && req.method === "PUT")
@@ -138,7 +151,7 @@ async function dispatch(
           headers: {
             ...headers,
             "Content-Type": "application/pdf",
-            "Content-Disposition": `attachment; filename="Test-audit-${b.audit.document.site.storeCode}-${b.audit.document.site.visitDate}.pdf"`,
+            "Content-Disposition": `attachment; filename="Audit-${b.audit.document.site.storeCode}-${b.audit.document.site.visitDate}.pdf"`,
           },
         });
       } else throw new StudioError("Operation not found.", 404);

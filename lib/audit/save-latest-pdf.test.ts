@@ -11,9 +11,10 @@ function setup(old1: string | null = 'store/s/audit-1-old.pdf', old2: string | n
   const supabase: any = { from: vi.fn(() => ({ select: () => ({ eq: () => ({ single: read }) }), update })) }
   const upload = vi.fn(async (_path: string, _file: File, _options: unknown) => { events.push('upload'); return { error: null } as any })
   const remove = vi.fn(async () => { events.push('remove'); return { error: null } as any })
-  const storageClient: any = { storage: { from: () => ({ upload, remove }) } }
+  const history = vi.fn(async () => ({data:[],error:null} as any));
+  const storageClient: any = { from: () => ({select: () => ({eq: history})}), storage: { from: () => ({ upload, remove }) } }
   const input = { supabase, storageClient, storeId: 's', auditNumber: 2 as 1 | 2, file: new File(['%PDF-1.4'], 'audit.pdf', { type: 'application/pdf' }) }
-  return { input, previous, events, single, query, read, update, upload, remove }
+  return { input, previous, events, single, query, read, update, upload, remove, history }
 }
 
 describe('latest audit PDF retention', () => {
@@ -26,6 +27,14 @@ describe('latest audit PDF retention', () => {
     expect(x.query.eq).toHaveBeenCalledWith('compliance_audit_2_pdf_path', x.previous.compliance_audit_2_pdf_path)
     expect(x.remove).toHaveBeenCalledWith([x.previous.compliance_audit_1_pdf_path, x.previous.compliance_audit_2_pdf_path])
   })
+  it('retains files referenced in audit history', async () => {
+    const x=setup(); x.history.mockResolvedValueOnce({data:[{pdf_path:x.previous.compliance_audit_1_pdf_path},{pdf_path:x.previous.compliance_audit_2_pdf_path}],error:null});
+    const result=await saveLatestAuditPdf(x.input); expect(x.remove).not.toHaveBeenCalled(); expect(result.cleanupWarning).toBeNull();
+  });
+  it('retains previous files if history lookup fails', async () => {
+    const x=setup(); x.history.mockResolvedValueOnce({data:null,error:{message:'offline'}});
+    const result=await saveLatestAuditPdf(x.input); expect(x.remove).not.toHaveBeenCalled(); expect(result.cleanupWarning).toContain('history');
+  });
   it('replaces Audit 1 when there is no Audit 2', async () => {
     const x = setup('store/s/audit-1-old.pdf', null)
     const result = await saveLatestAuditPdf({ ...x.input, auditNumber: 1 })

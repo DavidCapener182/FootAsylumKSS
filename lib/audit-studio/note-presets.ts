@@ -57,13 +57,13 @@ export const NOTE_PRESETS: Record<string, Choices> = {
   ),
   "05.02": choices(
     [
-      "Asked how to move a bulky carton; the colleague checked the load and route, selected a handling aid and explained when to ask for help.",
+      "Asked how to move a bulky box; the colleague checked the load and route, selected a handling aid and explained when to ask for help.",
       "Asked how to deal with a spill; the colleague explained how to keep people away, arrange cleaning and check the area before reopening it.",
       "Asked how to retrieve high stock; the colleague selected suitable access equipment and explained how to avoid overreaching.",
       "The colleagues demonstrated the selected controls using the equipment available; their methods matched the assessments checked.",
     ],
     [
-      "When asked about the bulky carton, the colleague proposed moving it alone without checking the load or considering an aid.",
+      "When asked about the bulky box, the colleague proposed moving it alone without checking the load or considering an aid.",
       "When asked about a spill, the colleague could not explain how to protect people while it was cleaned.",
       "When asked about high stock, the colleague proposed climbing the shelving or using an unsuitable item to reach it.",
       "The method demonstrated differed from the control described in the assessment.",
@@ -267,7 +267,7 @@ export const NOTE_PRESETS: Record<string, Choices> = {
   ),
   "09.01": choices(
     [
-      "Asked how to move the selected carton; the colleague checked its weight, grip and route before choosing a handling method.",
+      "Asked how to move the selected box; the colleague checked its weight, grip and route before choosing a handling method.",
       "The colleague selected an available trolley and explained when a second person would be needed.",
       "Observed the selected handling task; the load was kept under control without twisting or reaching across an obstruction.",
     ],

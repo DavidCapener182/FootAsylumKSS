@@ -1,6 +1,6 @@
 # Audit Studio
 
-Audit Studio is an Admin-only workspace under Assurance, controlled by `NEXT_PUBLIC_AUDIT_STUDIO_ENABLED`. The flag is disabled by default. Audits, findings, evidence and report revisions remain separate from live store scores, Actions and FRA records.
+Audit Studio is an Admin-only workspace under Assurance, controlled by `NEXT_PUBLIC_AUDIT_STUDIO_ENABLED`. The flag is disabled by default. Drafts and practice audits remain separate from live store scores. An active Admin can explicitly publish a completed store audit; downloading the PDF does not publish it.
 
 ## Workflow
 
@@ -26,4 +26,14 @@ The client update Word/PDF files are excluded from the public repository. The au
 
 Focused tests cover scoring, interviews, evidence limits, access gates, offline file persistence, synchronisation and 120-photo PDF generation. Actual physical iPhone Safari and Android camera/gallery, airplane mode, browser restart and expired-session testing remain release checks before wider use. Feature activation requires the production flag and an authenticated deployment check.
 
-Live publication of results and Create FRA draft are later work and are not enabled.
+## Store publication and annual history
+
+Audits persist in `fa_audit_studio_audits`; structured manager, interview and previous-action reviews are stored in its validated document. The previous-action picker loads store-linked H&S actions and actions from its latest confirmed FRA. Only the selected reviews affect 16.03. A failed review yields No; unanswered reviews stay pending. Archived reports without linked actions still need manual review.
+
+A completed store audit can be published to its selected store. The server verifies the frozen PDF hash, copies it into private store storage, then calls the authenticated atomic publication function. That function requires `auth.uid()` to match an active Admin; it never changes actor claims. It locks the store, rejects older visits, and makes retries idempotent. Practice audits cannot be published. Findings become store actions; prior actions are not automatically closed.
+
+`fa_audit_studio_publications` records store assignment and `fa_store_audit_history` retains prior report references, dates and scores. Both have RLS and no direct client table access. Existing SharePoint documents stay in SharePoint; the migration does not import their bytes. History URLs are resolved through the Admin-only endpoint.
+
+Audit numbering uses the visit's calendar year and restarts at 1 when the first new-year audit is published. Until that happens, prior H&S slots remain current. FRA fields are preserved independently. The existing tracker supports three numbered visits per year; linked corrections retain their visit number. Previous PDFs remain available in history. Legacy PDF replacement preserves history-linked files.
+
+Verification includes browser loading of Dundee H&S/FRA actions and persisted follow-up review, plus rolled-back database checks for publication, retry, annual reset, retained FRA, actor mismatch and practice rejection. No presentation audits were published as store visits. Create FRA draft remains future work.

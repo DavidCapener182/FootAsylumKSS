@@ -83,7 +83,22 @@ export type StaffInterview = {
   role: string;
   answers: Record<string, StaffInterviewAnswer>;
 };
+export type PreviousAction = {
+  id: string;
+  kind: "H&S" | "FRA";
+  title: string;
+  detail: string;
+  date: string;
+  status: string;
+  reportPath?: string;
+};
+export type PreviousActionReview = PreviousAction & {
+  outcome: "improved" | "not-improved" | "not-applicable" | null;
+  note: string;
+};
 export type AuditDocument = {
+  purpose?: "store" | "practice";
+  previousActionReviews?: PreviousActionReview[];
   interviewScoringVersion?: "derived-v1";
   staffInterviews?: StaffInterview[];
   site: SiteDetails;
@@ -123,6 +138,9 @@ export type AuditBundle = {
   audit: AuditRecord;
   template: StudioTemplate;
   evidence: Evidence[];
+  previousActions?: PreviousAction[];
+  publication?: { audit_year: number; audit_number: number; published_at: string; pdf_path: string } | null;
+  history?: Array<{ id: string; kind: string; audit_year: number; audit_number: number | null; visit_date: string; pdf_path: string | null; percentage: number | null }>;
 };
 export type SectionScore = {
   page: number;

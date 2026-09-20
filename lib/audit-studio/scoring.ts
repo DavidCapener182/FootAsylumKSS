@@ -165,5 +165,8 @@ export function completionIssues(
       "sign-off",
       "Add the store representative and signature, or a reason acknowledgement was unavailable.",
     );
+  for(const review of doc.previousActionReviews || []) {
+    if(!review.outcome || !review.note.trim()) add("16.03", "Record the outcome and findings for each selected previous action.");
+  }
   return [...issues, ...interviewIssues(doc, template)];
 }

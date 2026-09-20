@@ -1,4 +1,5 @@
 "use client";
+import { PreviousActions } from "./previous-actions";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import {
   ArrowLeft,
@@ -157,6 +158,7 @@ export function AuditStudioWorkspace({ initial, offline = false }: Props) {
   const [active, setActive] = useState<DeviceDraft | null>(null),
     [creating, setCreating] = useState(true),
     [storeId, setStoreId] = useState(""),
+    [purpose, setPurpose] = useState<"store" | "practice">("store"),
     [visitDate, setVisitDate] = useState(() =>
       new Date().toLocaleDateString("en-CA"),
     ),
@@ -295,6 +297,7 @@ export function AuditStudioWorkspace({ initial, offline = false }: Props) {
       const b = await api<AuditBundle>("audits", "POST", {
         id: crypto.randomUUID(),
         storeId,
+        purpose,
         visitDate,
         auditor,
         address,
@@ -361,13 +364,13 @@ export function AuditStudioWorkspace({ initial, offline = false }: Props) {
           onClick={() => setCreating(true)}
         >
           <Plus size={18} />
-          Start test audit
+          Start audit
         </button>
       </header>
       <div className="my-5 flex flex-wrap items-center gap-3">
-        <Badge>Test audits</Badge>
+        <Badge>Audit Studio</Badge>
         <p className="text-sm text-slate-600">
-          Separate from live scores, Actions and FRA records.
+          Save your work as you go. Complete the report, then save it to the store when ready.
         </p>
         {offline && (
           <span className="flex items-center gap-2 text-sm">
@@ -398,7 +401,7 @@ export function AuditStudioWorkspace({ initial, offline = false }: Props) {
       </div>
       {creating && (
         <section className={`${panel} mb-6`}>
-          <h2 className="text-xl font-bold">Start a test audit</h2>
+          <h2 className="text-xl font-bold">Start an audit</h2>
           <p className="mb-4 mt-2 text-sm text-slate-600">
             Select the store, then check the auditor, visit date and address
             before starting.
@@ -423,6 +426,11 @@ export function AuditStudioWorkspace({ initial, offline = false }: Props) {
                     {s.store_name} · {s.store_code}
                   </option>
                 ))}
+              </select>
+            </label>
+            <label className="space-y-1.5 text-sm font-medium">Audit type
+              <select className={input} value={purpose} onChange={e=>setPurpose(e.target.value as "store" | "practice")}>
+                <option value="store">Store audit</option><option value="practice">Practice audit</option>
               </select>
             </label>
             <Field label="Auditor name" value={auditor} onChange={setAuditor} />
@@ -547,7 +555,7 @@ export function AuditStudioWorkspace({ initial, offline = false }: Props) {
             <h2 className="text-lg font-semibold">
               {tab === "draft"
                 ? "Ready for your first test visit"
-                : "No completed test audits yet"}
+                : "No completed audits yet"}
             </h2>
             <p className="mt-2 text-sm text-slate-500">
               {tab === "draft"
@@ -1023,7 +1031,7 @@ function AuditEditor({
             </button>
             <div>
               <p className="text-xs uppercase tracking-wider text-slate-500">
-                Audit Studio / Test audit
+                Audit Studio / Audit
               </p>
               <h1 className="text-xl font-bold">{doc.site.storeName}</h1>
               <p className="text-xs text-slate-500">
@@ -1051,7 +1059,7 @@ function AuditEditor({
               </button>
             )}
             <Badge>
-              {b.audit.status === "completed" ? "Completed" : "Test audit"}
+              {b.audit.status === "completed" ? "Completed" : doc.purpose === "store" ? "Store audit" : "Practice audit"}
             </Badge>
           </div>
         </div>
@@ -1136,7 +1144,7 @@ function AuditEditor({
             className={`${panel} mb-4 flex flex-wrap items-center justify-between gap-4`}
           >
             <div>
-              <h2 className="font-bold">Test audit completed</h2>
+              <h2 className="font-bold">{doc.purpose === "store" ? "Audit completed" : "Practice audit completed"}</h2>
               <p className="mt-1 text-sm text-slate-600">
                 Answers, signatures and evidence are retained. This report is
                 read-only.
@@ -1150,6 +1158,15 @@ function AuditEditor({
                 <Download size={16} />
                 Download PDF
               </a>
+              {doc.purpose === "store" && !b.publication && <button className={primary} disabled={!online || busy} onClick={async()=>{
+                setBusy(true); setError("");
+                try {
+                  const result = await api<AuditBundle>(`audits/${b.audit.id}/publish`,"POST",{storeId:b.audit.store_id});
+                  await persist({...current.current,bundle:result,document:result.audit.document,baseRevision:result.audit.revision});
+                  setStatus("Saved to store");
+                } catch(e) {setError(textError(e));} finally {setBusy(false);}
+              }}>Save as current audit for {doc.site.storeName}</button>}
+              {b.publication && <p className="self-center text-sm font-semibold text-emerald-800">Saved to store · {b.publication.audit_year} / Audit {b.publication.audit_number}</p>}
               <button
                 className={button}
                 disabled={!online || busy}
@@ -1246,6 +1263,14 @@ function AuditEditor({
               );
             })}
           </nav>
+          {!!b.history?.length && <details className="my-4 rounded-xl border border-slate-200 bg-white p-4">
+            <summary className="cursor-pointer text-sm font-semibold">Previous store reports</summary>
+            <ul className="mt-3 space-y-3 text-xs">{b.history.map(h=><li key={h.id}>
+              {h.kind} · {h.audit_year}{h.audit_number ? ` / Audit ${h.audit_number}` : ""}<br/>
+              {h.visit_date}{h.percentage !== null ? ` · ${Number(h.percentage).toFixed(2)}%` : ""}
+              {h.pdf_path ? <a className="ml-2 underline" href={`/api/audit-studio/audits/${b.audit.id}/history/${h.id}`} target="_blank" rel="noreferrer">Open PDF</a> : <span className="block text-slate-500">File held in existing archive</span>}
+            </li>)}</ul>
+          </details>}
           <StaffInterviews doc={doc} template={template} readOnly={readOnly} open={interviewsOpen} onOpenChange={setInterviewsOpen} update={update} status={status} onQuestion={id => {setSection(Number(id.split(".")[0])); setReview(false); setFilter("all"); requestAnimationFrame(() => document.getElementById(`audit-question-${id}`)?.scrollIntoView({block: "center"}));}} />
           <button
             className={`${primary} mt-4 w-full`}
@@ -1336,7 +1361,7 @@ function AuditEditor({
               </div>
               <p className="my-5 text-sm text-slate-500">
                 Completion saves a read-only report with all attached evidence.
-                Test results stay outside the live tracker.
+                {doc.purpose === "store" ? "Download the completed report, then save it to the selected store." : "Practice results stay outside the live tracker."}
               </p>
               <button
                 className={primary}
@@ -1355,7 +1380,7 @@ function AuditEditor({
                 ) : (
                   <Check size={16} />
                 )}
-                Complete test audit & create PDF
+                Complete audit & create PDF
               </button>
             </section>
           ) : (
@@ -1518,7 +1543,7 @@ function AuditEditor({
                   <div className="space-y-4">
                     {shown.map((q) => {
                       const r = effectiveResponse(doc, template, q.id);
-                      const derived = isInterviewDerived(doc, q.id);
+                      const derived = isInterviewDerived(doc, q.id) || (q.id === "16.03" && !!doc.previousActionReviews?.length);
                       const hasSamples = interviewEntries(doc, template, q.id).length > 0;
                       const interviewGap = hasInterviewGap(doc, template, q.id);
                       const staffNotes = interviewNotes(doc, template, q.id);
@@ -1529,6 +1554,7 @@ function AuditEditor({
                       const references = managerReferences(doc.site, q.id);
                       return (
                         <section key={q.id} id={`audit-question-${q.id}`} className={panel}>
+                          {q.id === "16.03" && <PreviousActions auditId={b.audit.id} document={doc} disabled={readOnly} onChange={reviews=>update(d=>({...d,previousActionReviews:reviews}))}/>}
                           <div className="flex gap-4">
                             <p className="text-xs font-semibold text-slate-400">
                               {q.id}
@@ -1540,7 +1566,7 @@ function AuditEditor({
                           <h3 className="mt-2 text-base font-semibold leading-6">
                             {q.question}
                           </h3>
-                          {derived ? <div className="my-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+                          {derived && q.id === "16.03" ? <p className="my-4 rounded-lg bg-emerald-50 p-4 text-sm font-semibold">Answer from action reviews: {r.answer === "yes" ? "Yes" : r.answer === "no" ? "No" : r.answer === "na" ? "Not applicable" : "Finish the selected reviews"}</p> : derived ? <div className="my-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
                             <p className="text-sm font-semibold">Answer from staff interviews: {r.answer === "yes" ? "Yes" : r.answer === "no" ? "No" : r.answer === "na" ? "Not sampled (N/A)" : "Awaiting staff answers"}</p>
                             <p className="mt-2 text-sm leading-6">{q.id === "05.02" ? "Use the local-risks interview or link two different selected topics to this check." : "Record a colleague’s explanation of the emergency arrangements."} A recorded gap gives No. Manager answers and note suggestions cannot award a pass.</p>
                             <div className="mt-3 flex flex-wrap gap-2"><button type="button" className={button} onClick={() => setInterviewsOpen(true)}>Open staff interviews</button>

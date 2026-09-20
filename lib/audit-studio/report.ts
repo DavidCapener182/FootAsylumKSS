@@ -258,21 +258,23 @@ export async function generateReport(
         const lines = wrap(text, size, font, CW - 28);
         let offset = 0;
         while (offset < lines.length) {
-          interviewSpace(65);
-          const count = Math.max(1, Math.min(lines.length - offset, Math.floor((y - 55 - 39) / 14)));
-          const height = count * 14 + 33;
+          const labelLines = wrap(`${label}${offset ? " (CONTINUED)" : ""}`, 7.5, bold, CW - 28);
+          const extraLabel = (labelLines.length - 1) * 10;
+          interviewSpace(65 + extraLabel);
+          const count = Math.max(1, Math.min(lines.length - offset, Math.floor((y - 55 - 39 - extraLabel) / 14)));
+          const height = count * 14 + 33 + extraLabel;
           page.drawRectangle({x: M, y: y - height, width: CW, height,
             color: answerBox ? rgb(0.94, 0.96, 0.99) : paper});
           page.drawRectangle({x: M, y: y - height, width: 3, height,
             color: answerBox ? rgb(0.25, 0.40, 0.59) : green});
-          line(`${label}${offset ? " (CONTINUED)" : ""}`, M + 14, y - 14, 7.5, bold, muted);
-          lines.slice(offset, offset + count).forEach((value, i) => line(value, M + 14, y - 31 - i * 14, size, font));
+          labelLines.forEach((v, i) => line(v, M + 14, y - 14 - i * 10, 7.5, bold, muted));
+          lines.slice(offset, offset + count).forEach((value, i) => line(value, M + 14, y - 31 - extraLabel - i * 14, size, font));
           y -= height + 7;
           offset += count;
         }
       };
       interviewBox("QUESTION ASKED", answer.asked || "Question not recorded");
-      interviewBox("COLLEAGUE'S ANSWER", reply, true);
+      interviewBox(`${who} — ${staff.role || "Staff"} — answer`, reply, true);
       if (answer.practical) {
         y -= 9;
         interviewSpace(105);
@@ -662,6 +664,13 @@ export async function generateReport(
       const managerNotes = managerReferenceNotes(doc.site, q.id);
       if (managerNotes) paragraph("Manager's arrangements: see the Store manager Q&A in section 03.", 8, regular, muted);
       if (notes) paragraph(notes);
+      if (q.id === "16.03") for (const review of doc.previousActionReviews || []) {
+        ensure(100);
+        sectionHeading(`${review.kind} · ${review.date || "Previous visit"}`, review.outcome === "improved" ? "Improved" : review.outcome === "not-improved" ? "Not improved" : review.outcome === "not-applicable" ? "Not applicable" : "Not checked", 0);
+        paragraph(review.title, 9, bold);
+        if (review.detail && review.detail !== review.title) paragraph(review.detail, 9);
+        if (review.note) detailRow("Review at this visit", review.note);
+      }
       interviews(q.id);
       if (r.answer === "na") paragraph(`Reason: ${r.naReason}`);
       if (r.answer === "no")
@@ -736,7 +745,7 @@ export async function generateReport(
   }
   const pages = pdf.getPages();
   pages.forEach((p, i) => {
-    p.drawText("TEST AUDIT — NOT PUBLISHED TO THE LIVE TRACKER", {
+    p.drawText(doc.purpose === "store" ? "KSS / FOOTASYLUM · HEALTH & SAFETY AUDIT" : "TEST AUDIT — NOT PUBLISHED TO THE LIVE TRACKER", {
       x: M,
       y: 25,
       size: 7,
@@ -751,7 +760,7 @@ export async function generateReport(
       color: muted,
     });
   });
-  pdf.setTitle(`${doc.site.storeName} — Test H&S Audit`);
+  pdf.setTitle(`${doc.site.storeName} — H&S Audit`);
   pdf.setAuthor("KSS / Footasylum");
   pdf.setSubject(b.template.version);
   return Buffer.from(await pdf.save());

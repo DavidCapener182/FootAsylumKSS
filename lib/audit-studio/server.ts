@@ -87,7 +87,15 @@ export async function bundle(id: string): Promise<AuditBundle> {
   ]);
   checked(t.data, t.error);
   checked(e.data, e.error);
+  const [publication, history] = await Promise.all([
+    client.from("fa_audit_studio_publications").select("audit_year,audit_number,published_at,pdf_path").eq("audit_id",id).maybeSingle(),
+    client.from("fa_store_audit_history").select("id,kind,audit_year,audit_number,visit_date,pdf_path,percentage").eq("store_id",data.store_id).order("visit_date",{ascending:false}).limit(100),
+  ]);
+  // During rolling deployment the optional history migration can follow the app.
+  if(publication.error && publication.error.code !== "PGRST205" && publication.error.code !== "42P01") checked(null,publication.error);
+  if(history.error && history.error.code !== "PGRST205" && history.error.code !== "42P01") checked(null,history.error);
   return {
+    publication: publication.data || null, history: history.data || [],
     audit: { ...data, document: data.status === "draft" ? withCurrentInterviewScoring(fromStoredInterviewDocument(data.document)) : fromStoredInterviewDocument(data.document) } as AuditRecord,
     template: t.data!.definition as StudioTemplate,
     evidence: (e.data || []).map((row) => ({
@@ -142,6 +150,7 @@ export async function createAudit(
     .object({
       id: uuid,
       storeId: uuid,
+      purpose: z.enum(["store", "practice"]).default("practice"),
       visitDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
       auditor: z.string().trim().min(1).max(200),
       address: z.string().trim().min(1).max(2000),
@@ -179,6 +188,7 @@ export async function createAudit(
     })),
     TEMPLATE,
   );
+  document.purpose = input.purpose;
   const result = await client.from("fa_audit_studio_audits").insert({
     id: input.id,
     store_id: input.storeId,
@@ -201,6 +211,19 @@ export async function saveAudit(id: string, value: unknown) {
     .parse(value);
   const b = await bundle(id);
   const document = withCurrentInterviewScoring(validateDocument(input.document, b.template));
+  document.purpose = b.audit.document.purpose || "practice";
+  if(document.previousActionReviews?.length) {
+    const {previousStoreActions} = await import("./store-records");
+    const available = await previousStoreActions(id);
+    const seen = new Set<string>();
+    document.previousActionReviews = document.previousActionReviews.map(review => {
+      if(seen.has(review.id)) throw new StudioError("A previous action is listed twice.");
+      seen.add(review.id);
+      const linked = available.find(a=>a.id===review.id) || b.audit.document.previousActionReviews?.find(a=>a.id===review.id);
+      if(!linked) throw new StudioError("This previous action is not linked to the selected store.");
+      return {...linked,outcome:review.outcome,note:review.note};
+    });
+  }
   for (const ref of document.evidence) {
     const row = b.evidence.find((e) => e.id === ref.id);
     if (!row || row.questionId !== ref.questionId || row.status !== "ready")

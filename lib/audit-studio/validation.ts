@@ -27,6 +27,12 @@ const signature = z
   );
 export const documentSchema = z
   .object({
+    purpose: z.enum(["store", "practice"]).optional(),
+    previousActionReviews: z.array(z.object({
+      id: z.string().min(1).max(180), kind: z.enum(["H&S", "FRA"]), title: text, detail: text,
+      date: z.string().max(40), status: z.string().max(80), reportPath: text.optional(),
+      outcome: z.enum(["improved", "not-improved", "not-applicable"]).nullable(), note: text,
+    }).strict()).max(200).optional(),
     interviewScoringVersion: z.literal("derived-v1").optional(),
     staffInterviews: z.array(z.object({
       id: z.string().uuid(), colleague: text, role: text,

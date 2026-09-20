@@ -55,8 +55,11 @@ export async function saveLatestAuditPdf({ supabase, storageClient, storeId, aud
     .filter((path): path is string => !!path && path !== filePath)
   // Legacy FRA folders may also back a report-builder attachment. Never delete
   // those source files automatically; all new audit uploads use store/.../audit-.
-  const removable = oldPaths.filter(path => path.startsWith(`store/${storeId}/audit-`) && path.endsWith('.pdf'))
-  let cleanupWarning: string | null = oldPaths.length > removable.length
+  const retained = await storageClient.from('fa_store_audit_history').select('pdf_path').eq('store_id',storeId);
+  // A failed history lookup must never trigger deletion of a retained report.
+  const retainedPaths = new Set((retained.data || []).map((r: {pdf_path: string | null})=>r.pdf_path));
+  const removable = retained.error ? [] : oldPaths.filter(path=>!retainedPaths.has(path)).filter(path => path.startsWith(`store/${storeId}/audit-`) && path.endsWith('.pdf'))
+  let cleanupWarning: string | null = retained.error ? "The previous PDF was retained because its history could not be checked." : oldPaths.some(path=>!retainedPaths.has(path) && !removable.includes(path))
     ? 'The latest PDF is saved. A legacy source PDF needs a reference check before removal.' : null
   if (removable.length) {
     try {

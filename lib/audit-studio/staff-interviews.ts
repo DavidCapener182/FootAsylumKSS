@@ -1,3 +1,4 @@
+import { previousActionResponse } from "./previous-actions";
 import { interviewAssessment, practicalDefinition, practicalNotes } from "./interview-practical";
 import type { AuditDocument, Response, StaffInterviewAnswer, StudioTemplate } from "./types";
 import { emptyResponse } from "./template";
@@ -83,13 +84,13 @@ function derivedInterviewResponse(doc: AuditDocument, template: StudioTemplate, 
   return {...r, answer: complete && coverage ? "yes" : null, verified: complete && coverage};
 }
 export function effectiveResponse(doc: AuditDocument, template: StudioTemplate, id: string): Response {
-  const r = doc.responses[id] || emptyResponse();
+  const r = previousActionResponse(doc, id, doc.responses[id] || emptyResponse());
   if (isInterviewDerived(doc, id)) return derivedInterviewResponse(doc, template, id, r);
   return hasInterviewGap(doc, template, id) ? { ...r, answer: "no", verified: true } : r;
 }
 export function interviewReportDocument(doc: AuditDocument, template: StudioTemplate): AuditDocument {
   const responses = { ...doc.responses };
-  for (const id of new Set([...interviewEntries(doc, template).flatMap(e => [e.prompt.questionId, ...(e.answer.sampledRisk ? ["05.02"] : [])]), ...(doc.interviewScoringVersion ? STAFF_UNDERSTANDING_IDS : [])])) {
+  for (const id of new Set([...interviewEntries(doc, template).flatMap(e => [e.prompt.questionId, ...(e.answer.sampledRisk ? ["05.02"] : [])]), ...(doc.interviewScoringVersion ? STAFF_UNDERSTANDING_IDS : []), ...(doc.previousActionReviews?.length ? ["16.03"] : [])])) {
     const r = effectiveResponse(doc, template, id);
     responses[id] = { ...r, note: [r.note, interviewNotes(doc, template, id)].filter(Boolean).join("\n\n") };
   }
@@ -128,7 +129,7 @@ export function interviewIssues(doc: AuditDocument, template: StudioTemplate) {
 // or erase their original answers. Only the server writes this internal field.
 type StoredDocument = AuditDocument & { staffInterviewSourceResponses?: AuditDocument["responses"] };
 export function toStoredInterviewDocument(doc: AuditDocument, template: StudioTemplate): StoredDocument {
-  if (!doc.staffInterviews?.length && !doc.interviewScoringVersion) return doc;
+  if (!doc.staffInterviews?.length && !doc.interviewScoringVersion && !doc.previousActionReviews?.length) return doc;
   return { ...interviewReportDocument(doc, template), staffInterviewSourceResponses: doc.responses };
 }
 export function fromStoredInterviewDocument(doc: StoredDocument): AuditDocument {
