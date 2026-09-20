@@ -126,7 +126,7 @@ export async function generateReport(
     y -= 5;
     paragraph(text, 10.5, bold);
   };
-  const sectionHeading = (title: string, detail = "", minimumSpace = 100) => {
+  const sectionHeading = (title: string, detail = "", minimumSpace = 100, detailColor = green) => {
     ensure(minimumSpace);
     y -= 6;
     page.drawRectangle({
@@ -144,7 +144,7 @@ export async function generateReport(
         y - 10,
         9,
         bold,
-        green,
+        detailColor,
       );
     y -= 34;
   };
@@ -226,7 +226,7 @@ export async function generateReport(
         regular,
         rgb(1, 1, 1),
       );
-    y -= height + 3;
+    y -= height + 9;
   };
   const interviews = (questionId: string, summary = false) => {
     for (const { staff, index, prompt, answer } of interviewEntries(doc, b.template, questionId)) {
@@ -237,28 +237,77 @@ export async function generateReport(
         paragraph(`${who} · ${prompt.title}: ${outcome}. Full interview at ${prompt.questionId}.`, 9, regular, assessment === "gap" ? red : muted);
         continue;
       }
-      ensure(110);
-      sectionHeading(`${who} · ${prompt.title}`, outcome, 110);
-      if (staff.role) paragraph(staff.role, 8, regular, muted);
-      paragraph(answer.asked || "Question not recorded", 9, bold);
-      if (answer.reply) paragraph(answer.reply, 9);
+      const previousFlow = flowTitle;
+      flowTitle = `Staff interview / check ${questionId}`;
+      const interviewSpace = (height: number) => {
+        if (y - height < 55) {
+          newPage(`${flowTitle} — continued`);
+          paragraph(`${who} · ${prompt.title}`, 9, bold);
+        }
+      };
+      const questionLines = wrap(answer.asked || "Question not recorded", 9.5, bold, CW - 28);
+      const reply = answer.reply || "No separate spoken answer recorded. See the observed demonstration below.";
+      const replyLines = wrap(reply, 10, regular, CW - 28);
+      // Keep the speaker, question and answer together for normal-length interviews.
+      ensure(Math.min(570, 105 + questionLines.length * 14 + replyLines.length * 14));
+      sectionHeading(`STAFF INTERVIEW · ${questionId}`, outcome, 0, assessment === "gap" ? red : assessment === "understood" ? green : muted);
+      paragraph(who, 10, bold);
+      if (staff.role) paragraph(`${staff.role} · ${prompt.title}`, 8.5, regular, muted);
+      const interviewBox = (label: string, text: string, answerBox = false) => {
+        const size = answerBox ? 10 : 9.5, font = answerBox ? regular : bold;
+        const lines = wrap(text, size, font, CW - 28);
+        let offset = 0;
+        while (offset < lines.length) {
+          interviewSpace(65);
+          const count = Math.max(1, Math.min(lines.length - offset, Math.floor((y - 55 - 39) / 14)));
+          const height = count * 14 + 33;
+          page.drawRectangle({x: M, y: y - height, width: CW, height,
+            color: answerBox ? rgb(0.94, 0.96, 0.99) : paper});
+          page.drawRectangle({x: M, y: y - height, width: 3, height,
+            color: answerBox ? rgb(0.25, 0.40, 0.59) : green});
+          line(`${label}${offset ? " (CONTINUED)" : ""}`, M + 14, y - 14, 7.5, bold, muted);
+          lines.slice(offset, offset + count).forEach((value, i) => line(value, M + 14, y - 31 - i * 14, size, font));
+          y -= height + 7;
+          offset += count;
+        }
+      };
+      interviewBox("QUESTION ASKED", answer.asked || "Question not recorded");
+      interviewBox("COLLEAGUE'S ANSWER", reply, true);
       if (answer.practical) {
-        paragraph(`Task: ${answer.practical.context}`, 8, regular, muted);
-        paragraph(`Reference checked: ${answer.practical.reference}`, 8, regular, muted);
+        y -= 9;
+        interviewSpace(105);
+        paragraph("AUDITOR'S OBSERVATIONS", 8, bold, muted);
+        detailRow("Task demonstrated", answer.practical.context);
+        detailRow("Reference checked", answer.practical.reference);
+        y -= 7;
         const definition = practicalDefinition(prompt.id, answer.practical.version);
         for (const criterion of definition?.criteria || []) {
           const check = answer.practical.checks[criterion.id];
           const label = check?.result === "met" ? "Correct" : check?.result === "gap" ? "Missed" : check?.result === "na" ? "N/A" : "Not observed";
           const lines = wrap(criterion.label, 8.5, regular, CW - 86);
-          ensure(lines.length * 12 + 24);
-          line(label, M + 8, y - 9, 8, bold, check?.result === "gap" ? red : green);
-          lines.forEach((value, i) => line(value, M + 78, y - 9 - i * 12, 8.5));
-          y -= lines.length * 12 + 7;
-          if (check?.note) paragraph(check.note, 8, regular, muted, CW - 78, M + 78);
+          const notes = check?.note ? wrap(check.note, 8, regular, CW - 86) : [];
+          interviewSpace(Math.min(550, lines.length * 12 + notes.length * 12 + 22));
+          line(label, M + 8, y - 9, 8, bold, check?.result === "gap" ? red : check?.result === "met" ? green : muted);
+          for (const value of lines) {
+            interviewSpace(15);
+            line(value, M + 78, y - 9, 8.5);
+            y -= 12;
+          }
+          for (const value of notes) {
+            interviewSpace(15);
+            line(value, M + 78, y - 9, 8, regular, muted);
+            y -= 12;
+          }
+          y -= 7;
           divider();
         }
       }
-      if (answer.outcome) paragraph(`Outcome: ${answer.outcome}`, 9);
+      if (answer.outcome) {
+        interviewSpace(70);
+        interviewBox("AUDITOR'S ASSESSMENT / FOLLOW-UP", answer.outcome, true);
+      }
+      y -= 8;
+      flowTitle = previousFlow;
     }
   };
   const attachments = new Map(b.evidence.map((e) => [e.id, e]));
