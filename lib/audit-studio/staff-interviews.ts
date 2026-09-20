@@ -47,6 +47,7 @@ export function interviewNotes(doc: AuditDocument, template: StudioTemplate, id:
     `Asked: ${answer.asked || "Not recorded"}`,
     answer.practical && !answer.reply ? "" : `Staff response: ${answer.reply || "Not recorded"}`,
     practicalNotes(answer, prompt.id),
+    interviewAssessment(answer, prompt.id) === "gap" && answer.gapSeverity ? `Assessment: ${answer.gapSeverity === "minor" ? "Minor omission" : answer.gapSeverity === "unsafe" ? "Unsafe demonstration" : "Incorrect answer"}` : "",
     `Auditor assessment: ${interviewAssessment(answer, prompt.id) === "understood" ? "Understood" : interviewAssessment(answer, prompt.id) === "gap" ? "Gap identified" : interviewAssessment(answer, prompt.id) === "not-applicable" ? "Not applicable to this colleague" : "Not assessed"}`,
     answer.outcome ? `Outcome / explanation: ${answer.outcome}` : "",
   ].filter(Boolean).join("\n")).join("\n\n");
@@ -56,26 +57,26 @@ export function interviewNotes(doc: AuditDocument, template: StudioTemplate, id:
  */
 export const STAFF_UNDERSTANDING_IDS = ["05.02", "06.03"] as const;
 export function isInterviewDerived(doc: AuditDocument, id: string) {
-  return doc.interviewScoringVersion === "derived-v1" && STAFF_UNDERSTANDING_IDS.some(q => q === id);
+  return !!doc.interviewScoringVersion && STAFF_UNDERSTANDING_IDS.some(q => q === id);
 }
 export function withCurrentInterviewScoring(doc: AuditDocument): AuditDocument {
-  return {...doc, interviewScoringVersion: "derived-v1"};
+  return {...doc, interviewScoringVersion: "graded-v2"};
 }
 function derivedInterviewResponse(doc: AuditDocument, template: StudioTemplate, id: string, r: Response): Response {
   const entries = interviewEntries(doc, template, id);
-  if (entries.some(e => interviewAssessment(e.answer, e.prompt.id) === "gap"))
+  if (entries.some(e => interviewAssessment(e.answer, e.prompt.id) === "gap" && (doc.interviewScoringVersion !== "graded-v2" || e.prompt.questionId === id)))
     return {...r, answer: "no", verified: true};
   const relevant = entries.filter(e => interviewAssessment(e.answer, e.prompt.id) !== "not-applicable");
   // Skipping a topic is explicit and justified; not asking a colleague never earns Yes.
   if (!relevant.length && r.answer === "na" && r.naReason.trim()) return {...r, verified: true};
   const complete = relevant.length > 0 && relevant.every(e => {
     const a = e.answer;
-    if (!e.staff.colleague.trim() || !e.staff.role.trim() || !a.asked.trim() || interviewAssessment(a, e.prompt.id) !== "understood") return false;
+    if (!e.staff.colleague.trim() || !e.staff.role.trim() || !a.asked.trim() || (interviewAssessment(a, e.prompt.id) !== "understood" && !(doc.interviewScoringVersion === "graded-v2" && e.prompt.questionId !== id && interviewAssessment(a, e.prompt.id) === "gap"))) return false;
     if (!a.practical) return !!a.reply.trim();
     return !!a.practical.context.trim() && !!a.practical.reference.trim() &&
       (practicalDefinition(e.prompt.id, a.practical.version)?.criteria || []).every(c => {
         const check = a.practical!.checks[c.id];
-        return check?.result === "met" || (check?.result === "na" && !!check.note.trim());
+        return check?.result === "met" || (check?.result === "na" && !!check.note.trim()) || (doc.interviewScoringVersion === "graded-v2" && e.prompt.questionId !== id && (check?.result === "gap" || check?.result === "not-observed") && !!check.note.trim());
       });
   });
   // A direct local-risk checklist covers two risks; otherwise use two distinct
@@ -86,8 +87,36 @@ function derivedInterviewResponse(doc: AuditDocument, template: StudioTemplate, 
 export function effectiveResponse(doc: AuditDocument, template: StudioTemplate, id: string): Response {
   const r = previousActionResponse(doc, id, doc.responses[id] || emptyResponse());
   if (isInterviewDerived(doc, id)) return derivedInterviewResponse(doc, template, id, r);
+  if (doc.interviewScoringVersion === "graded-v2") {
+    const gap = interviewEntries(doc, template, id).some(e => e.prompt.questionId === id && interviewAssessment(e.answer, e.prompt.id) === "gap");
+    return gap ? {...r, answer: "no", verified: true} : r;
+  }
   return hasInterviewGap(doc, template, id) ? { ...r, answer: "no", verified: true } : r;
 }
+
+/** A deduction applies once per colleague and audit question (not per checklist tick).
+ * Linked evidence may satisfy 05.02 coverage but is charged only to its own check.
+ */
+export function staffDeduction(doc: AuditDocument, template: StudioTemplate, id: string, weight: number): number {
+  if (doc.interviewScoringVersion !== "graded-v2") return 0;
+  const byStaff = new Map<string, number>();
+  for (const e of interviewEntries(doc, template, id)) {
+    if (e.prompt.questionId !== id || interviewAssessment(e.answer, e.prompt.id) !== "gap") continue;
+    const deduction = e.answer.gapSeverity === "unsafe" ? weight : e.answer.gapSeverity === "minor" ? 0.25 : 0.5;
+    byStaff.set(e.staff.id, Math.max(byStaff.get(e.staff.id) || 0, deduction));
+  }
+  return Math.min(weight, [...byStaff.values()].reduce((n, v) => n + v, 0));
+}
+export function questionEarned(doc: AuditDocument, template: StudioTemplate, id: string, weight: number): number {
+  const r = effectiveResponse(doc, template, id);
+  if (doc.interviewScoringVersion !== "graded-v2") return r.answer === "yes" && r.verified ? weight : 0;
+  const deduction = staffDeduction(doc, template, id, weight);
+  if (isInterviewDerived(doc, id)) return r.verified && (r.answer === "yes" || r.answer === "no") ? Math.max(0, weight - deduction) : 0;
+  // An actual failed or unverified store arrangement can never earn partial credit.
+  const base = previousActionResponse(doc, id, doc.responses[id] || emptyResponse());
+  return base.answer === "yes" && base.verified && !base.danger ? Math.max(0, weight - deduction) : 0;
+}
+
 export function interviewReportDocument(doc: AuditDocument, template: StudioTemplate): AuditDocument {
   const responses = { ...doc.responses };
   for (const id of new Set([...interviewEntries(doc, template).flatMap(e => [e.prompt.questionId, ...(e.answer.sampledRisk ? ["05.02"] : [])]), ...(doc.interviewScoringVersion ? STAFF_UNDERSTANDING_IDS : []), ...(doc.previousActionReviews?.length ? ["16.03"] : [])])) {
@@ -105,6 +134,7 @@ export function interviewIssues(doc: AuditDocument, template: StudioTemplate) {
     const entries = interviewEntries({ ...doc, staffInterviews: [staff] }, template);
     if (!entries.length) add("record at least one question or remove the unused colleague.");
     for (const {prompt, answer: a} of entries) {
+      if (doc.interviewScoringVersion === "graded-v2" && interviewAssessment(a, prompt.id) === "gap" && (!a.gapSeverity || !a.outcome.trim())) add(`${prompt.title}: choose the gap severity and explain the assessment.`);
       if (a.practical) {
         const definition = practicalDefinition(prompt.id, a.practical.version);
         if (!a.asked.trim() || !a.practical.context.trim() || !a.practical.reference.trim()) add(`${prompt.title}: record the question, selected task and verified reference.`);

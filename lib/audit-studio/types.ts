@@ -66,6 +66,7 @@ export type SignOff = {
 };
 export type StaffInterviewAnswer = {
   sampledRisk?: boolean;
+  gapSeverity?: "minor" | "incorrect" | "unsafe";
   practical?: {
     version: "practical-v1";
     context: string;
@@ -99,7 +100,7 @@ export type PreviousActionReview = PreviousAction & {
 export type AuditDocument = {
   purpose?: "store" | "practice";
   previousActionReviews?: PreviousActionReview[];
-  interviewScoringVersion?: "derived-v1";
+  interviewScoringVersion?: "derived-v1" | "graded-v2";
   staffInterviews?: StaffInterview[];
   site: SiteDetails;
   responses: Record<string, Response>;

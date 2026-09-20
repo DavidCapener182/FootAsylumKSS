@@ -1,4 +1,4 @@
-import { effectiveResponse, interviewEntries, isInterviewDerived } from "./staff-interviews";
+import { questionEarned, staffDeduction, effectiveResponse, interviewEntries, isInterviewDerived } from "./staff-interviews";
 import { interviewAssessment, practicalDefinition } from "./interview-practical";
 import {
   PDFDocument,
@@ -176,7 +176,9 @@ export async function generateReport(
   };
   const questionRow = (q: StudioQuestion) => {
     const r = doc.responses[q.id];
-    const label =
+    const awarded = questionEarned(b.audit.document, b.template, q.id, q.weight);
+    const partial = awarded > 0 && awarded < q.weight;
+    const label = partial ? "Partial" :
       !r.answer ? "Unanswered" : r.answer === "no"
         ? "No"
         : r.answer === "na"
@@ -209,7 +211,7 @@ export async function generateReport(
     line(
       label,
       W - M - 52.5 - bold.widthOfTextAtSize(label, 10) / 2,
-      r.answer === "no" ? y - (height - 5) / 2 - 3 : y - 16,
+      r.answer === "no" && !partial ? y - (height - 5) / 2 - 3 : y - 16,
       10,
       bold,
       rgb(1, 1, 1),
@@ -217,8 +219,8 @@ export async function generateReport(
     const points =
       r.answer === "na"
         ? "Excluded"
-        : `${r.answer === "yes" && r.verified ? q.weight : 0} / ${q.weight} points`;
-    if (r.answer !== "no")
+        : `${awarded} / ${q.weight} points`;
+    if (r.answer !== "no" || partial)
       line(
         points,
         W - M - 52.5 - regular.widthOfTextAtSize(points, 8) / 2,
@@ -232,7 +234,7 @@ export async function generateReport(
   const interviews = (questionId: string, summary = false) => {
     for (const { staff, index, prompt, answer } of interviewEntries(doc, b.template, questionId)) {
       const assessment = interviewAssessment(answer, prompt.id);
-      const outcome = assessment === "gap" ? "Gap identified" : assessment === "understood" ? "Understood" : assessment === "not-applicable" ? "Not applicable" : "Not assessed";
+      const outcome = assessment === "gap" ? (answer.gapSeverity === "minor" ? "Minor omission" : answer.gapSeverity === "incorrect" ? "Incorrect answer" : answer.gapSeverity === "unsafe" ? "Unsafe demonstration" : "Gap identified") : assessment === "understood" ? "Understood" : assessment === "not-applicable" ? "Not applicable" : "Not assessed";
       const who = staff.colleague || `Colleague ${index + 1}`;
       if (summary || prompt.questionId !== questionId) {
         paragraph(`${who} · ${prompt.title}: ${outcome}. Full interview at ${prompt.questionId}.`, 9, regular, assessment === "gap" ? red : muted);
@@ -553,7 +555,7 @@ export async function generateReport(
     .filter((q) => {
       const r = doc.responses[q.id];
       return (
-        r?.answer === "no" || (r?.answer && r.answer !== "na" && !r.verified)
+        r?.answer === "no" || staffDeduction(b.audit.document, b.template, q.id, q.weight) > 0 || (r?.answer && r.answer !== "na" && !r.verified)
       );
     });
   paragraph(
@@ -678,7 +680,7 @@ export async function generateReport(
       }
       interviews(q.id);
       if (r.answer === "na") paragraph(`Reason: ${r.naReason}`);
-      if (r.answer === "no")
+      if (r.answer === "no" || staffDeduction(b.audit.document, b.template, q.id, q.weight) > 0)
         paragraph(
           `Action: ${r.action.text}\nOwner: ${r.action.owner} · Due: ${r.action.dueDate}`,
           9,

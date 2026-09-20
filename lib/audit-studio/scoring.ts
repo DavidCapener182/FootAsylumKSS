@@ -1,8 +1,8 @@
-import { effectiveResponse, interviewNotes, interviewIssues, isInterviewDerived } from "./staff-interviews";
+import { questionEarned, staffDeduction, effectiveResponse, interviewNotes, interviewIssues, isInterviewDerived } from "./staff-interviews";
 import { CORE_SECTIONS, LIFE_SAFETY_IDS } from "./template";
 import type { AuditDocument, ScoreResult, StudioTemplate } from "./types";
 
-/** The same integer point calculation is used in the editor, finalisation and PDF. */
+/** The same point calculation is used in the editor, finalisation and PDF. */
 export function scoreAudit(
   template: StudioTemplate,
   document: AuditDocument,
@@ -26,7 +26,8 @@ export function scoreAudit(
       answered++;
       if (r.answer === "na") continue;
       applicable += q.weight;
-      if (r.answer === "yes" && r.verified) earned += q.weight;
+      earned += questionEarned(document, template, q.id, q.weight);
+      if (staffDeduction(document, template, q.id, q.weight) > 0) recommendations.push(`${q.id}: follow up the recorded staff understanding gap.`);
       if (!r.verified && LIFE_SAFETY_IDS.has(q.id)) unverified += q.weight;
       if (!r.verified && LIFE_SAFETY_IDS.has(q.id))
         pending.push(`${q.id}: safety evidence not verified`);
@@ -122,6 +123,7 @@ export function completionIssues(
   for (const section of template.sections)
     for (const q of section.checks) {
       const r = effectiveResponse(doc, template, q.id);
+      if (doc.interviewScoringVersion === "graded-v2" && !isInterviewDerived(doc, q.id) && staffDeduction(doc, template, q.id, q.weight) > 0 && !["yes", "no"].includes(doc.responses[q.id]?.answer || "")) add(q.id, "Assess the store arrangements as Yes or No separately from the staff gap.");
       if (!r?.answer) {
         add(q.id, isInterviewDerived(doc, q.id) ? (q.id === "05.02" ? "Record staff understanding of two selected risks, or explain why this check was not sampled." : "Record the staff interview outcome, or explain why this check was not sampled.") : "Choose Yes, No or N/A.");
         continue;
@@ -133,7 +135,7 @@ export function completionIssues(
         );
       if (r.answer === "na" && !r.naReason.trim())
         add(q.id, "Explain why this check does not apply.");
-      if (r.answer === "no") {
+      if (r.answer === "no" || staffDeduction(doc, template, q.id, q.weight) > 0) {
         if (!r.note.trim() && !interviewNotes(doc, template, q.id).trim()) add(q.id, "Add a note explaining the finding.");
         if (
           !r.action.text.trim() ||

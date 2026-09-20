@@ -49,12 +49,12 @@ describe("Interview-derived staff understanding", () => {
     Object.values(d.staffInterviews[0].answers.risks.practical!.checks).forEach(c=>{c.result='na';c.note='Not applicable to this colleague';});
     expect(effectiveResponse(d,TEMPLATE,'05.02').answer).toBeNull();
   });
-  it("one gap beats a successful second sample and deducts a linked question once", () => {
+  it("deducts half a point per colleague with an incorrect answer", () => {
     const d=doc();d.staffInterviews=[colleague({assembly:sample('assembly',true),risks:sample('risks')}),colleague({assembly:sample('assembly')})];
     expect(effectiveResponse(d,TEMPLATE,'06.03').answer).toBe('no');
-    expect(scoreAudit(TEMPLATE,d).earned).toBe(110);
+    expect(scoreAudit(TEMPLATE,d).earned).toBe(111.5);
     d.staffInterviews[1].answers.assembly=sample('assembly',true);
-    expect(scoreAudit(TEMPLATE,d).earned).toBe(110);
+    expect(scoreAudit(TEMPLATE,d).earned).toBe(111);
     expect(completionIssues(TEMPLATE,d).some(i=>i.questionId==='06.03'&&i.message.includes('action'))).toBe(true);
   });
   it("requires a reason to skip an unasked check and does not let N/A hide an interview gap", () => {

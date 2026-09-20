@@ -28,6 +28,17 @@ function fixture(): AuditBundle {
   };
 }
 describe("Frozen report generation", () => {
+  it("renders fractional staff credit and a follow-up in the PDF", async () => {
+    const b = fixture();
+    b.audit.document.interviewScoringVersion = "graded-v2";
+    b.audit.document.staffInterviews = [{id: randomUUID(),colleague:"Jane Doe",role:"Sales assistant",answers:{height:{asked:"Show me how you retrieve this box",reply:"I do not know which equipment to choose",assessment:"gap",gapSeverity:"incorrect",outcome:"Brief and recheck"}}}];
+    b.audit.document.responses["12.01"].action = {text:"Brief and recheck equipment selection",owner:"Store manager",dueDate:"2026-09-24"};
+    const bytes = await generateReport(b, async () => { throw new Error("Unexpected evidence request"); });
+    expect((await PDFDocument.load(bytes)).getPageCount()).toBeGreaterThan(3);
+    mkdirSync("/tmp/audit-studio-qa", {recursive:true});
+    writeFileSync("/tmp/audit-studio-qa/fractional-staff-report.pdf",bytes);
+  });
+
   it("exports a proposed presentation without changing the saved answers or default report", async () => {
     const b = fixture();
     b.audit.document.purpose = "practice";

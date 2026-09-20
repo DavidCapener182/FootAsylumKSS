@@ -37,3 +37,8 @@ A completed store audit can be published to its selected store. The server verif
 Audit numbering uses the visit's calendar year and restarts at 1 when the first new-year audit is published. Until that happens, prior H&S slots remain current. FRA fields are preserved independently. The existing tracker supports three numbered visits per year; linked corrections retain their visit number. Previous PDFs remain available in history. Legacy PDF replacement preserves history-linked files.
 
 Verification includes browser loading of Dundee H&S/FRA actions and persisted follow-up review, plus rolled-back database checks for publication, retry, annual reset, retained FRA, actor mismatch and practice rejection. No presentation audits were published as store visits. Create FRA draft remains future work.
+
+
+### Graded staff interviews
+
+Drafts use `graded-v2`: each colleague can deduct 0.25 points for a minor omission, 0.5 for an incorrect answer, or the full question weight for an unsafe demonstration. Use the highest severity across that colleague’s prompts for the same question; add colleagues and cap at the question weight. Existing failed or unverified store arrangements earn zero. Severity and explanation are required before completion, with a follow-up action, owner and date. Linked sampled-risk evidence does not deduct again under 05.02. Unasked staff-understanding checks remain pending unless explicitly excluded with a reason. Frozen reports retain their stored scoring version. The same fractional calculation drives the UI, save result and PDF; partial results remain indexed as findings.
