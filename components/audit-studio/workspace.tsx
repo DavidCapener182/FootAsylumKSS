@@ -1,5 +1,6 @@
 "use client";
 import { PreviousActions } from "./previous-actions";
+import { TestingNotes } from "./testing-notes";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import {
   ArrowLeft,
@@ -358,6 +359,7 @@ export function AuditStudioWorkspace({ initial, offline = false }: Props) {
             each answer.
           </p>
         </div>
+        {userId.current && <TestingNotes userId={userId.current} context="Audit Studio / audit list" />}
         <button
           className={primary}
           disabled={loading || busy || offline || !data}
@@ -1040,6 +1042,7 @@ function AuditEditor({
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-3">
+            <TestingNotes userId={draft.userId} context={`${doc.site.storeName} (${doc.site.storeCode}) · ${review ? "Review audit" : `${String(section).padStart(2, "0")} / ${active.title}`}`} />
             <div
               aria-live="polite"
               className={`text-xs ${status === "Needs attention" ? "text-red-700" : "text-slate-600"}`}
