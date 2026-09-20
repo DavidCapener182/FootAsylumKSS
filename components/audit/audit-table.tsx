@@ -14,6 +14,7 @@ import { getAuditPDFDownloadUrl, deleteAuditPDF } from '@/app/actions/audit-pdfs
 import { saveComplianceAudit, updateComplianceAuditScore } from '@/app/actions/stores'
 import { can } from '@/lib/role-capabilities'
 import { getAuditLifecycle } from '@/lib/compliance-ui'
+import { isNewStoreFirstAudit } from '@/lib/audit/new-store-applicability'
 import { getAuditSharePointFolder } from '@/lib/audit-sharepoint'
 import { Upload, Eye, EyeOff, File, SlidersHorizontal, ChevronDown, ChevronUp, BellRing, Search, ExternalLink } from 'lucide-react'
 import { PDFViewerModal } from '@/components/shared/pdf-viewer-modal'
@@ -329,6 +330,8 @@ export function AuditTable({
     const audit1Complete = hasCompletedAudit(row, 1)
     const audit2Complete = hasCompletedAudit(row, 2)
     
+    if (isNewStoreFirstAudit(row)) return audit2Complete ? null : 2
+
     // If audit 1 hasn't been done yet, add audit 1
     if (!audit1Complete) {
       return 1
@@ -783,6 +786,12 @@ export function AuditTable({
   }
 
   const renderAuditSummary = (row: AuditRow, auditNumber: 1 | 2) => {
+    if (auditNumber === 1 && isNewStoreFirstAudit(row)) {
+      return <div className="audit-record">
+        <span className="text-sm font-medium text-slate-700">New store</span>
+        <span className="audit-record-date">Audit 1 not required</span>
+      </div>
+    }
     const date = auditNumber === 1 ? row.compliance_audit_1_date : row.compliance_audit_2_date
     const score = auditNumber === 1 ? row.compliance_audit_1_overall_pct : row.compliance_audit_2_overall_pct
     const pdf = auditNumber === 1 ? row.compliance_audit_1_pdf_path : row.compliance_audit_2_pdf_path
