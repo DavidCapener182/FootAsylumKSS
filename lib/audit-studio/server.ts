@@ -109,7 +109,7 @@ export async function bundle(id: string): Promise<AuditBundle> {
 }
 export async function bootstrap(user: { id: string; name: string }) {
   const client = db();
-  const [stores, audits, template] = await Promise.all([
+  const [stores, audits, template, archived] = await Promise.all([
     client
       .from("fa_stores")
       .select("id,store_name,store_code,address_line_1,city,postcode")
@@ -125,12 +125,15 @@ export async function bootstrap(user: { id: string; name: string }) {
       .select("definition")
       .eq("version", TEMPLATE.version)
       .single(),
+    client.from("fa_audit_studio_archive").select("audit_id"),
   ]);
+  checked(archived.data, archived.error);
   checked(stores.data, stores.error);
   checked(audits.data, audits.error);
   checked(template.data, template.error);
   return {
     user,
+    archivedAuditIds: (archived.data || []).map(a => a.audit_id),
     stores: (stores.data || []).filter((s) => !shouldHideStore(s)).map((s) => ({
       id: s.id,
       store_name: s.store_name,

@@ -174,6 +174,7 @@ export type StoreOption = {
   address?: string | null;
 };
 export type StudioBootstrap = {
+  archivedAuditIds?: string[];
   user: { id: string; name: string };
   stores: StoreOption[];
   audits: AuditRecord[];

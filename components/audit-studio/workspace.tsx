@@ -189,6 +189,7 @@ export function AuditStudioWorkspace({ initial, offline = false }: Props) {
       new Date().toLocaleDateString("en-CA"),
     ),
     [search, setSearch] = useState(""),
+    [showArchived, setShowArchived] = useState(false),
     [tab, setTab] = useState<"draft" | "completed">("draft"),
     [busy, setBusy] = useState(false);
   const [auditor, setAuditor] = useState(initial?.user.name || ""),
@@ -362,6 +363,7 @@ export function AuditStudioWorkspace({ initial, offline = false }: Props) {
     });
   const audits = [...combined.values()].filter(
     (a) =>
+      (showArchived || !data?.archivedAuditIds?.includes(a.id)) &&
       (tab === "completed"
         ? a.status === "completed"
         : a.status !== "completed") &&
@@ -519,6 +521,7 @@ export function AuditStudioWorkspace({ initial, offline = false }: Props) {
             placeholder="Search store or visit date…"
           />
         </div>
+        {!!data?.archivedAuditIds?.length && <label className="mb-4 flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={showArchived} onChange={e => setShowArchived(e.target.checked)} />Show archived audits ({data.archivedAuditIds.length})</label>}
         {loading ? (
           <p className="p-10 text-sm">Loading your workspace…</p>
         ) : audits.length ? (
@@ -545,7 +548,7 @@ export function AuditStudioWorkspace({ initial, offline = false }: Props) {
                   disabled={busy}
                 >
                   <div>
-                    <h3 className="font-bold">{a.document.site.storeName}</h3>
+                    <h3 className="font-bold">{a.document.site.storeName}</h3>{data?.archivedAuditIds?.includes(a.id) && <p className="text-xs font-semibold text-slate-500">Archived · retained for reference</p>}
                     <p className="mt-1 text-sm text-slate-500">
                       {a.document.site.storeCode} · {a.document.site.visitDate}{" "}
                       · {a.document.site.auditor}
