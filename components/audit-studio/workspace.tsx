@@ -68,7 +68,7 @@ const button =
   "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50";
 const primary = `${button} !border-[#1c3426] !bg-[#1c3426] !text-white hover:!bg-[#2d503a]`;
 const input =
-  "min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-700/15 disabled:bg-slate-100";
+  "min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-base md:text-sm text-slate-900 focus:border-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-700/15 disabled:bg-slate-100";
 const panel = "rounded-xl border border-slate-200 bg-white p-4 md:p-6";
 const textError = (e: unknown) =>
   e instanceof Error
@@ -125,9 +125,8 @@ function Field({
       <div className="flex flex-wrap items-center justify-between gap-x-3">
         <label htmlFor={fieldId}>{label}</label>
         {hint && (
-          <details className="relative">
+          <details className="w-full min-w-0">
             <summary
-              title={hint}
               className="flex min-h-11 cursor-pointer list-none items-center gap-1.5 rounded px-1 text-xs font-medium text-emerald-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700 [&::-webkit-details-marker]:hidden"
             >
               <HelpCircle className="h-4 w-4" aria-hidden="true" />
@@ -135,7 +134,7 @@ function Field({
             </summary>
             <p
               id={`${fieldId}-hint`}
-              className="absolute right-0 z-20 w-72 max-w-[75vw] rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm font-normal leading-6 text-slate-800 shadow-lg"
+              className="mb-2 w-full break-words rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm font-normal leading-6 text-slate-800"
             >
               {hint} Photos are optional.
             </p>
