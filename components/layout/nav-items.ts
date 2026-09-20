@@ -17,6 +17,7 @@ import {
   Radio,
 } from 'lucide-react'
 import type React from 'react'
+import { studioEnabled } from '@/lib/audit-studio/config'
 
 export type NavItem = {
   href: string
@@ -32,6 +33,7 @@ export type NavItem = {
 export const navItems: NavItem[] = [
   { href: '/dashboard', label: 'Today', icon: LayoutDashboard, section: 'Today' },
   { href: '/audit-tracker', label: 'Audits', icon: ClipboardList, section: 'Assurance' },
+  ...(studioEnabled() ? [{ href: '/audit-studio', label: 'Audit Studio', icon: ClipboardList, section: 'Assurance' as const, adminOnly: true }] : []),
   { href: '/fire-risk-assessment', label: 'Fire Risk Assessments', icon: Flame, section: 'Assurance' },
   { href: '/audit-lab/templates', label: 'SafeHub', icon: ShieldCheck, section: 'Assurance', allowedRoles: ['admin', 'ops'] },
   { href: '/actions', label: 'Actions', icon: CheckSquare, section: 'Assurance', clientHidden: true },

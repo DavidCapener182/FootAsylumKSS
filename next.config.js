@@ -24,6 +24,7 @@ const nextConfig = {
   },
   experimental: {
     outputFileTracingIncludes: {
+      "/api/audit-studio/*": ["./docs/audit-studio/*.jpg", "./docs/audit-studio/safetyculture-introduction-v1.pdf"],
       '/api/audit-pdfs/*': ['./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs'],
     },
     // This renderer reads only focus images. A dynamic public-file resolver

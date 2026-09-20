@@ -1,0 +1,10 @@
+{
+  "pdf": {
+    "path": "references/6898e5f1590b4de3130c0dd5b64f6e4c4f18b65e29533af1e475f1e65e250992/SafetyCulture-Audit-Update.pdf",
+    "sha256": "6898e5f1590b4de3130c0dd5b64f6e4c4f18b65e29533af1e475f1e65e250992"
+  },
+  "docx": {
+    "path": "references/76a5740362fa908f5788a013177ff8c5efe26326aced68dbd39ada95c59be91a/SafetyCulture-Audit-Update.docx",
+    "sha256": "76a5740362fa908f5788a013177ff8c5efe26326aced68dbd39ada95c59be91a"
+  }
+}

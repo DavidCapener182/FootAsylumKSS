@@ -1,0 +1,416 @@
+[
+  {
+    "page": 1,
+    "title": "Title Page",
+    "checks": [],
+    "total": 0,
+    "practice": "Start each visit with blank answers and fresh photos and signatures.",
+    "evidence": "Record the store name and code, visit date, auditor, template version and previous report reference. Use a fresh storefront photo to identify the premises."
+  },
+  {
+    "page": 2,
+    "title": "Disclaimer",
+    "checks": [],
+    "total": 0,
+    "practice": "Record any areas or documents that could not be checked.",
+    "evidence": "If a plant room is locked, record the area, why access was unavailable and which checks remain outstanding. List any missing documents by name."
+  },
+  {
+    "page": 3,
+    "title": "General Site Information",
+    "checks": [],
+    "total": 0,
+    "practice": "Confirm which checks apply before using N/A. Missing paperwork is not a reason to select N/A.",
+    "evidence": "For a centre-managed fire alarm, record the system, responsible organisation and where its service record is held. Photograph the panel identification to match it to the record."
+  },
+  {
+    "page": 4,
+    "title": "Health and Safety Policy",
+    "checks": [
+      {
+        "id": "04.01",
+        "question": "Is the current H&S policy available, with its statement displayed?",
+        "weight": 1
+      },
+      {
+        "id": "04.02",
+        "question": "Is the policy signed and within the company review period, with local responsibilities clear?",
+        "weight": 1
+      }
+    ],
+    "total": 2,
+    "practice": "Check the actual document and company review date.",
+    "evidence": "Save the policy version and signed review page. Photograph the statement where it is displayed and record the named local responsibilities."
+  },
+  {
+    "page": 5,
+    "title": "Risk Assessments",
+    "checks": [
+      {
+        "id": "05.01",
+        "question": "Does the risk-assessment register cover all relevant tasks and staff groups?",
+        "weight": 2
+      },
+      {
+        "id": "05.02",
+        "question": "Can sampled staff explain and demonstrate controls for two selected risks?",
+        "weight": 2
+      },
+      {
+        "id": "05.03",
+        "question": "Have assessments been updated after relevant changes, incidents or repeat findings?",
+        "weight": 1
+      }
+    ],
+    "total": 5,
+    "practice": "Ask a manager and a colleague to explain two risks selected by the auditor. Include local risks and relevant lone working or delivery arrangements.",
+    "evidence": "Record the title and revision date of the manual-handling assessment, two controls checked and what sampled staff explained. Photograph the selected work area to show whether those controls are in place."
+  },
+  {
+    "page": 6,
+    "title": "Training",
+    "checks": [
+      {
+        "id": "06.01",
+        "question": "Have staff completed induction before unsupervised work, or is suitable supervision in place?",
+        "weight": 3
+      },
+      {
+        "id": "06.02",
+        "question": "Are required refresher modules complete for all eligible staff?",
+        "weight": 2
+      },
+      {
+        "id": "06.03",
+        "question": "Can sampled staff explain safe working and emergency arrangements?",
+        "weight": 2
+      }
+    ],
+    "total": 7,
+    "practice": "Check the staff list against training records. Partial completion must not be marked N/A. Ask a recent starter and another colleague to explain a relevant task.",
+    "evidence": "Save a dated training report showing the store, eligible staff count, completed modules and gaps. Record the roles sampled and a short note of their answers about safe working or emergencies."
+  },
+  {
+    "page": 7,
+    "title": "Testing and Maintenance",
+    "checks": [
+      {
+        "id": "07.01",
+        "question": "Are portable appliances maintained and unsafe items removed from use?",
+        "weight": 1
+      },
+      {
+        "id": "07.02",
+        "question": "Does the fixed-wiring report cover the site, remain current and show dangerous defects resolved?",
+        "weight": 3
+      },
+      {
+        "id": "07.03",
+        "question": "Are relevant air-conditioning records current and suitable for the equipment?",
+        "weight": 1
+      },
+      {
+        "id": "07.04",
+        "question": "Are lift examination and maintenance records current, with safety defects resolved?",
+        "weight": 1
+      },
+      {
+        "id": "07.05",
+        "question": "Are other lifting-equipment records current, with restrictions followed?",
+        "weight": 1
+      },
+      {
+        "id": "07.06",
+        "question": "Does the fire-alarm service record cover the site and show safety defects resolved?",
+        "weight": 2
+      },
+      {
+        "id": "07.07",
+        "question": "Do emergency-lighting records show testing and repair of failed fittings?",
+        "weight": 2
+      },
+      {
+        "id": "07.08",
+        "question": "Are sprinkler service records current, with defects resolved?",
+        "weight": 1
+      },
+      {
+        "id": "07.09",
+        "question": "Are escalator inspection and maintenance records current, with safety defects resolved?",
+        "weight": 1
+      },
+      {
+        "id": "07.10",
+        "question": "Are required extinguishers serviced, with defects resolved?",
+        "weight": 2
+      }
+    ],
+    "total": 15,
+    "practice": "Check the right certificate for the site, its date, test results and repairs. For shared systems, obtain the centre or landlord record. A missing record does not prove equipment has failed.",
+    "evidence": "Save the site-specific emergency-lighting test report showing its date, result and any failed fitting IDs. Match a failed fitting to its repair job and completion evidence; a portal status alone is not enough."
+  },
+  {
+    "page": 8,
+    "title": "Contractor and Visitor Safety",
+    "checks": [
+      {
+        "id": "08.01",
+        "question": "Are contractor jobs authorised and safely controlled?",
+        "weight": 1
+      },
+      {
+        "id": "08.02",
+        "question": "Do signing-in and out records accurately show who is on site?",
+        "weight": 1
+      }
+    ],
+    "total": 2,
+    "practice": "Check the auditor’s own arrival and a recent contractor visit. A signing-in book must actually be used.",
+    "evidence": "Record whether the auditor was asked to sign in and out. For a recent contractor job, note the visit date, work authorisation and controls used; photograph any work area still in use."
+  },
+  {
+    "page": 9,
+    "title": "Manual Handling and Stock Storage",
+    "checks": [
+      {
+        "id": "09.01",
+        "question": "Can staff move and retrieve stock safely, using suitable aids or help?",
+        "weight": 4
+      },
+      {
+        "id": "09.02",
+        "question": "Is stock stable, within storage limits and safely accessible?",
+        "weight": 5
+      },
+      {
+        "id": "09.03",
+        "question": "Are deliveries planned and put away without creating unsafe handling conditions?",
+        "weight": 3
+      }
+    ],
+    "total": 12,
+    "practice": "Choose congested and high shelves to inspect. Check whether staff can retrieve stock safely. Record blocked escape routes under Fire Safety, without deducting twice for the same obstruction.",
+    "evidence": "Take a wide photo of a selected stock aisle and a close-up of any unstable or inaccessible stack. Record the aisle or shelf location, handling aid available and whether the stock arrived in a recent delivery."
+  },
+  {
+    "page": 10,
+    "title": "COSHH",
+    "checks": [
+      {
+        "id": "10.01",
+        "question": "Are chemicals authorised and used safely?",
+        "weight": 1
+      },
+      {
+        "id": "10.02",
+        "question": "Are chemicals labelled and stored safely?",
+        "weight": 1
+      },
+      {
+        "id": "10.03",
+        "question": "Are chemical assessments and safety data sheets available, and understood by users?",
+        "weight": 1
+      }
+    ],
+    "total": 3,
+    "practice": "Choose a product in use. Ask the user about safe use, protective equipment and spill response.",
+    "evidence": "Photograph a cleaning product label and its storage location. Record the matching COSHH assessment and safety data sheet, plus the user’s explanation of protective equipment and spill response."
+  },
+  {
+    "page": 11,
+    "title": "Premises and Equipment",
+    "checks": [
+      {
+        "id": "11.01",
+        "question": "Are equipment, fixtures and displays safe and secure?",
+        "weight": 2
+      },
+      {
+        "id": "11.02",
+        "question": "Are leaks and building defects controlled and tracked to repair?",
+        "weight": 2
+      },
+      {
+        "id": "11.03",
+        "question": "Are floors and non-escape walkways safe, with effective cleaning and spill control?",
+        "weight": 2
+      },
+      {
+        "id": "11.04",
+        "question": "Is normal lighting suitable and working?",
+        "weight": 1
+      },
+      {
+        "id": "11.05",
+        "question": "Are rest, eating, toilet and washing facilities clean, usable and supplied?",
+        "weight": 2
+      },
+      {
+        "id": "11.06",
+        "question": "Is asbestos information available where relevant, with disturbance prevented?",
+        "weight": 1
+      }
+    ],
+    "total": 10,
+    "practice": "Walk every area, including the staff room and goods-in. Check leaks, floors, lighting, welfare and asbestos information where relevant.",
+    "evidence": "If a leak or damaged floor is found, take a wide location photo and a close-up of the defect. Record temporary controls and the repair job reference, then retain a separate completion photo."
+  },
+  {
+    "page": 12,
+    "title": "Working at Height",
+    "checks": [
+      {
+        "id": "12.01",
+        "question": "Can work at height be done safely using suitable access equipment?",
+        "weight": 3
+      },
+      {
+        "id": "12.02",
+        "question": "Can each ladder or access item be matched to a current inspection record?",
+        "weight": 2
+      },
+      {
+        "id": "12.03",
+        "question": "Are defective items removed from use, with safe alternatives or restrictions?",
+        "weight": 1
+      }
+    ],
+    "total": 6,
+    "practice": "Ask staff how they would retrieve stock from a shelf chosen by the auditor. Never ask for an unsafe demonstration.",
+    "evidence": "Photograph the selected shelf, available ladder and its ID or condition. Match the ladder to its inspection record and note whether it allows safe access. Do not ask anyone to climb unsafely for a photo."
+  },
+  {
+    "page": 13,
+    "title": "First Aid",
+    "checks": [
+      {
+        "id": "13.01",
+        "question": "Are first-aid kits accessible, checked and suitably stocked?",
+        "weight": 1
+      },
+      {
+        "id": "13.02",
+        "question": "Is appropriate first-aid help available, and do staff know how to get it?",
+        "weight": 2
+      }
+    ],
+    "total": 3,
+    "practice": "Check kit contents and cover across operating hours. Ask staff how they would get help.",
+    "evidence": "Photograph the kit location and contents, noting missing or expired supplies and the last check date. Record how first-aid cover is provided during opening hours and how staff would call for help."
+  },
+  {
+    "page": 14,
+    "title": "Accident Reporting and Investigation",
+    "checks": [
+      {
+        "id": "14.01",
+        "question": "Can staff report accidents and near misses, with records matching the dashboard?",
+        "weight": 1
+      },
+      {
+        "id": "14.02",
+        "question": "Have relevant incidents been investigated and corrective actions checked?",
+        "weight": 2
+      }
+    ],
+    "total": 3,
+    "practice": "Check a recent incident where available. If there were none, test the reporting process instead.",
+    "evidence": "Use an anonymised recent incident or near-miss reference. Record the investigation, action taken and evidence that it worked. If there are no cases, record a colleague’s explanation of how to report one."
+  },
+  {
+    "page": 15,
+    "title": "Fire Safety",
+    "checks": [
+      {
+        "id": "15.01",
+        "question": "Are all required escape routes and final exits clear and usable?",
+        "weight": 5
+      },
+      {
+        "id": "15.02",
+        "question": "Do required fire doors close properly, without wedges or unauthorised hold-open devices?",
+        "weight": 4
+      },
+      {
+        "id": "15.03",
+        "question": "Are fire doors, required seals and visible fire separation in suitable condition?",
+        "weight": 3
+      },
+      {
+        "id": "15.04",
+        "question": "Is the fire risk assessment current, with significant actions managed?",
+        "weight": 2
+      },
+      {
+        "id": "15.05",
+        "question": "Are combustible storage, electrical use and other ignition sources controlled?",
+        "weight": 2
+      },
+      {
+        "id": "15.06",
+        "question": "Are extinguishers and alarm call points accessible?",
+        "weight": 2
+      },
+      {
+        "id": "15.07",
+        "question": "Are routine alarm and emergency-lighting tests completed, with defects resolved?",
+        "weight": 2
+      },
+      {
+        "id": "15.08",
+        "question": "Have evacuation arrangements been tested, including staff and assistance needs?",
+        "weight": 2
+      },
+      {
+        "id": "15.09",
+        "question": "Does stock clearance meet the sprinkler system’s documented requirement?",
+        "weight": 2
+      },
+      {
+        "id": "15.10",
+        "question": "Is the alarm panel operating normally, or is any impairment safely controlled?",
+        "weight": 1
+      }
+    ],
+    "total": 25,
+    "practice": "Walk every required escape route and check doors in use. Propping alone loses 4 points and does not automatically fail the audit. Approved automatic hold-open devices are acceptable. Use the sprinkler system’s documented clearance requirement.",
+    "evidence": "Photograph a selected escape route through to its final exit, plus any wedged or damaged fire door, with its location. Record the door-closing check and any immediate fix separately. For routine tests, record the dated log entry and follow-up for any defect."
+  },
+  {
+    "page": 16,
+    "title": "Weekly Checks and Follow Up",
+    "checks": [
+      {
+        "id": "16.01",
+        "question": "Do sampled weekly checks match the store’s condition, with failures followed up?",
+        "weight": 2
+      },
+      {
+        "id": "16.02",
+        "question": "Are water-system checks carried out as required by the site assessment?",
+        "weight": 2
+      },
+      {
+        "id": "16.03",
+        "question": "Have previous audit and fire-risk-assessment actions remained effective?",
+        "weight": 2
+      },
+      {
+        "id": "16.04",
+        "question": "Has the auditor checked all areas and recorded any other significant risks?",
+        "weight": 1
+      }
+    ],
+    "total": 7,
+    "practice": "Choose three weekly checks from the last eight weeks and compare them with the store. Retest a previous problem. Move wet-floor controls to page 11.",
+    "evidence": "Record the dates of three weekly checks sampled and compare their entries with current store conditions. Photograph a previous problem area again and link it to the original action to show whether the fix has lasted."
+  },
+  {
+    "page": 17,
+    "title": "Actions and Sign Off",
+    "checks": [],
+    "total": 0,
+    "practice": "Record what was found and any fix made during the visit separately. Confirm completion with evidence and follow up serious or repeated problems.",
+    "evidence": "For an action such as clearing a stock-blocked gangway, keep the original finding and photo, named owner and due date. Add a dated completion photo and who verified it. Record the store representative’s acknowledgement at sign-off."
+  }
+]

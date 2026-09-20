@@ -50,3 +50,9 @@ supabase/.temp/
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Private client audit documents; served from authenticated storage
+/docs/audit-studio/SafetyCulture-Audit-Update.*
+/docs/audit-studio/introduction-v1-source.json
+/output/audit-studio*/
+/output/audit-improvement*/

@@ -1,0 +1,963 @@
+{
+  "04.01": {
+    "yes": [
+      {
+        "text": "Yes - The H&S policy statement is displayed on the Health and Safety noticeboard."
+      },
+      {
+        "text": "Yes - The current full H&S policy is available for staff to refer to."
+      }
+    ],
+    "no": [
+      {
+        "text": "No - The H&S policy statement is not displayed on the Health and Safety noticeboard."
+      },
+      {
+        "text": "No - The current full H&S policy could not be made available during the visit."
+      }
+    ]
+  },
+  "04.02": {
+    "yes": [
+      {
+        "text": "Yes - The H&S policy is signed by the Chief Financial Officer on {date}.",
+        "dateLabel": "Policy signature date"
+      },
+      {
+        "text": "Yes - The H&S policy statement is the current version, dated 19 March 2026."
+      },
+      {
+        "text": "Yes - Local H&S responsibilities are clearly recorded and understood."
+      }
+    ],
+    "no": [
+      {
+        "text": "No - The policy has not been signed."
+      },
+      {
+        "text": "No - The H&S policy statement is dated before 19 March 2026 and is out of date. Replace it with the current version."
+      },
+      {
+        "text": "No - Local H&S responsibilities are not clear."
+      }
+    ]
+  },
+  "05.01": {
+    "yes": [
+      {
+        "text": "Yes - The risk-assessment register covers the relevant tasks carried out at this store."
+      },
+      {
+        "text": "Yes - Relevant staff groups are covered by the assessments reviewed."
+      }
+    ],
+    "no": [
+      {
+        "text": "No - Relevant tasks are missing from the risk-assessment register."
+      },
+      {
+        "text": "No - The assessments do not cover all relevant staff groups."
+      }
+    ]
+  },
+  "05.02": {
+    "yes": [
+      {
+        "text": "Yes - The staff sampled explained the controls for the two selected risks."
+      },
+      {
+        "text": "Yes - The controls demonstrated matched the assessments reviewed."
+      }
+    ],
+    "no": [
+      {
+        "text": "No - The staff sampled could not explain the selected controls."
+      },
+      {
+        "text": "No - The working practices observed did not match the assessment controls."
+      }
+    ]
+  },
+  "05.03": {
+    "yes": [
+      {
+        "text": "Yes - The assessments reviewed have been updated to reflect relevant changes."
+      },
+      {
+        "text": "Yes - Learning from the incidents or repeat findings reviewed is reflected in the assessments."
+      }
+    ],
+    "no": [
+      {
+        "text": "No - Relevant changes have not been reflected in the assessments."
+      },
+      {
+        "text": "No - The incidents or repeat findings reviewed have not led to an assessment update."
+      }
+    ]
+  },
+  "06.01": {
+    "yes": [
+      {
+        "text": "Yes - The staff records sampled show induction completed before unsupervised work."
+      },
+      {
+        "text": "Yes - Staff awaiting induction are working under suitable supervision."
+      }
+    ],
+    "no": [
+      {
+        "text": "No - Staff are working unsupervised before completing induction."
+      },
+      {
+        "text": "No - The induction records requested could not be verified."
+      }
+    ]
+  },
+  "06.02": {
+    "yes": [
+      {
+        "text": "Yes - The training report checked shows required refresher modules completed for all eligible staff."
+      },
+      {
+        "text": "Yes - The eligible staff list has been checked against the training report."
+      }
+    ],
+    "no": [
+      {
+        "text": "No - Required refresher modules remain incomplete for eligible staff."
+      },
+      {
+        "text": "No - The available training report does not establish completion for all eligible staff."
+      }
+    ]
+  },
+  "06.03": {
+    "yes": [
+      {
+        "text": "Yes - The staff sampled explained the safe-working arrangements relevant to their tasks."
+      },
+      {
+        "text": "Yes - The staff sampled explained the emergency arrangements and how to raise the alarm."
+      }
+    ],
+    "no": [
+      {
+        "text": "No - The staff sampled could not explain the relevant safe-working arrangements."
+      },
+      {
+        "text": "No - The staff sampled could not explain the emergency arrangements."
+      }
+    ]
+  },
+  "07.01": {
+    "yes": [
+      {
+        "text": "Yes - The appliances sampled were in suitable condition with maintenance evidence available."
+      },
+      {
+        "text": "Yes - Unsafe appliances identified have been removed from use."
+      }
+    ],
+    "no": [
+      {
+        "text": "No - A damaged or unsafe appliance remains available for use."
+      },
+      {
+        "text": "No - Maintenance evidence for the appliances sampled could not be verified."
+      }
+    ]
+  },
+  "07.02": {
+    "yes": [
+      {
+        "text": "Yes - The fixed-wiring report covers this site and is within its stated inspection period."
+      },
+      {
+        "text": "Yes - Evidence reviewed shows the dangerous defects identified have been resolved."
+      }
+    ],
+    "no": [
+      {
+        "text": "No - A current site-specific fixed-wiring report could not be verified."
+      },
+      {
+        "text": "No - Evidence that identified dangerous defects have been resolved was not available."
+      }
+    ]
+  },
+  "07.03": {
+    "yes": [
+      {
+        "text": "Yes - The air-conditioning records reviewed cover the relevant equipment and are current."
+      },
+      {
+        "text": "Yes - Recorded defects have been followed up with repair evidence."
+      }
+    ],
+    "no": [
+      {
+        "text": "No - Current air-conditioning records for the relevant equipment could not be verified."
+      },
+      {
+        "text": "No - Outstanding defects or missing repair evidence were identified."
+      }
+    ]
+  },
+  "07.04": {
+    "yes": [
+      {
+        "text": "Yes - Current lift examination and maintenance records were available for the equipment checked."
+      },
+      {
+        "text": "Yes - The records reviewed show identified safety defects have been resolved."
+      }
+    ],
+    "no": [
+      {
+        "text": "No - Current lift examination or maintenance records could not be verified."
+      },
+      {
+        "text": "No - Lift safety defects remain outstanding or their resolution could not be verified."
+      }
+    ]
+  },
+  "07.05": {
+    "yes": [
+      {
+        "text": "Yes - Current records were available for the lifting equipment checked."
+      },
+      {
+        "text": "Yes - Restrictions recorded for the equipment are being followed."
+      }
+    ],
+    "no": [
+      {
+        "text": "No - Current records for the lifting equipment could not be verified."
+      },
+      {
+        "text": "No - The equipment is being used outside its recorded restrictions."
+      }
+    ]
+  },
+  "07.06": {
+    "yes": [
+      {
+        "text": "Yes - The fire-alarm service record covers this site and is current."
+      },
+      {
+        "text": "Yes - The service findings reviewed show no outstanding safety defects."
+      }
+    ],
+    "no": [
+      {
+        "text": "No - A current site-specific fire-alarm service record could not be verified."
+      },
+      {
+        "text": "No - Safety defects remain outstanding or repair evidence was not available."
+      }
+    ]
+  },
+  "07.07": {
+    "yes": [
+      {
+        "text": "Yes - Emergency-lighting test records were available for this site."
+      },
+      {
+        "text": "Yes - Failed fittings identified in the records have been repaired, with completion evidence checked."
+      }
+    ],
+    "no": [
+      {
+        "text": "No - Current emergency-lighting test records could not be verified."
+      },
+      {
+        "text": "No - Failed fittings remain outstanding or repair evidence was not available."
+      }
+    ]
+  },
+  "07.08": {
+    "yes": [
+      {
+        "text": "Yes - The sprinkler service records reviewed are current and cover this site."
+      },
+      {
+        "text": "Yes - Evidence reviewed shows identified sprinkler defects have been resolved."
+      }
+    ],
+    "no": [
+      {
+        "text": "No - Current site-specific sprinkler service records could not be verified."
+      },
+      {
+        "text": "No - Sprinkler defects remain outstanding or repair evidence was not available."
+      }
+    ]
+  },
+  "07.09": {
+    "yes": [
+      {
+        "text": "Yes - Current escalator inspection and maintenance records were available."
+      },
+      {
+        "text": "Yes - Identified safety defects have been resolved, with evidence checked."
+      }
+    ],
+    "no": [
+      {
+        "text": "No - Current escalator inspection or maintenance records could not be verified."
+      },
+      {
+        "text": "No - Safety defects remain outstanding or their resolution could not be verified."
+      }
+    ]
+  },
+  "07.10": {
+    "yes": [
+      {
+        "text": "Yes - The extinguishers sampled have current service labels and corresponding records."
+      },
+      {
+        "text": "Yes - Service defects identified have been resolved or the affected extinguishers replaced."
+      }
+    ],
+    "no": [
+      {
+        "text": "No - Extinguishers sampled have overdue or unverifiable servicing."
+      },
+      {
+        "text": "No - Service defects remain outstanding or replacement evidence was not available."
+      }
+    ]
+  },
+  "08.01": {
+    "yes": [
+      {
+        "text": "Yes - The contractor job sampled was authorised before work started."
+      },
+      {
+        "text": "Yes - Suitable controls were in place for the contractor work reviewed."
+      }
+    ],
+    "no": [
+      {
+        "text": "No - Authorisation for the contractor job sampled could not be verified."
+      },
+      {
+        "text": "No - Suitable controls were missing from the contractor work reviewed."
+      }
+    ]
+  },
+  "08.02": {
+    "yes": [
+      {
+        "text": "Yes - The auditor was asked to sign in on arrival."
+      },
+      {
+        "text": "Yes - The records checked accurately identify visitors and contractors still on site."
+      }
+    ],
+    "no": [
+      {
+        "text": "No - The auditor was not asked to sign in on arrival."
+      },
+      {
+        "text": "No - Signing-in or signing-out entries were missing or did not match who was on site."
+      }
+    ]
+  },
+  "09.01": {
+    "yes": [
+      {
+        "text": "Yes - Staff could retrieve the selected stock using suitable handling aids or assistance."
+      },
+      {
+        "text": "Yes - The handling practices observed avoided unsafe lifting and reaching."
+      }
+    ],
+    "no": [
+      {
+        "text": "No - The selected stock could not be retrieved safely with the equipment available."
+      },
+      {
+        "text": "No - Unsafe lifting, reaching or handling was observed."
+      }
+    ]
+  },
+  "09.02": {
+    "yes": [
+      {
+        "text": "Yes - Stock in the areas checked was stable and within the storage limits reviewed."
+      },
+      {
+        "text": "Yes - The shelves and stock checked were safely accessible."
+      }
+    ],
+    "no": [
+      {
+        "text": "No - Unstable stacks or stock liable to fall were identified."
+      },
+      {
+        "text": "No - Stock exceeded storage limits or could not be accessed safely."
+      }
+    ]
+  },
+  "09.03": {
+    "yes": [
+      {
+        "text": "Yes - Deliveries are planned with suitable space and handling arrangements."
+      },
+      {
+        "text": "Yes - Delivery stock was being put away without creating unsafe handling conditions."
+      }
+    ],
+    "no": [
+      {
+        "text": "No - Delivery stock was creating congestion or unsafe handling conditions."
+      },
+      {
+        "text": "No - Suitable space, equipment or staffing arrangements for putting deliveries away were not in place."
+      }
+    ]
+  },
+  "10.01": {
+    "yes": [
+      {
+        "text": "Yes - The chemical products sampled were authorised for use."
+      },
+      {
+        "text": "Yes - The users sampled described suitable handling and protective measures."
+      }
+    ],
+    "no": [
+      {
+        "text": "No - An unauthorised chemical product was found in use."
+      },
+      {
+        "text": "No - Suitable controls for chemical use were missing or not followed."
+      }
+    ]
+  },
+  "10.02": {
+    "yes": [
+      {
+        "text": "Yes - The chemical containers checked were clearly labelled."
+      },
+      {
+        "text": "Yes - The chemical storage area checked was secure and suitable for the products."
+      }
+    ],
+    "no": [
+      {
+        "text": "No - Unlabelled or incorrectly labelled chemical containers were found."
+      },
+      {
+        "text": "No - Chemical storage conditions were unsuitable or leaking containers were identified."
+      }
+    ]
+  },
+  "10.03": {
+    "yes": [
+      {
+        "text": "Yes - Matching COSHH assessments and safety data sheets were available for the products sampled."
+      },
+      {
+        "text": "Yes - The users sampled understood the safe-use and spill-response controls."
+      }
+    ],
+    "no": [
+      {
+        "text": "No - Matching COSHH assessments or safety data sheets were not available."
+      },
+      {
+        "text": "No - The users sampled could not explain the required chemical controls."
+      }
+    ]
+  },
+  "11.01": {
+    "yes": [
+      {
+        "text": "Yes - The equipment, fixtures and displays checked were safe and secure."
+      },
+      {
+        "text": "Yes - Identified defective items were isolated from use with repair arrangements recorded."
+      }
+    ],
+    "no": [
+      {
+        "text": "No - Damaged or insecure equipment, fixtures or displays were found."
+      },
+      {
+        "text": "No - Defective equipment remains accessible for use without effective controls."
+      }
+    ]
+  },
+  "11.02": {
+    "yes": [
+      {
+        "text": "Yes - No uncontrolled leaks or building defects were found in the areas checked."
+      },
+      {
+        "text": "Yes - Known defects have effective temporary controls and a recorded repair job."
+      }
+    ],
+    "no": [
+      {
+        "text": "No - A leak or building defect was found without effective temporary controls."
+      },
+      {
+        "text": "No - A known defect has no traceable repair job or follow-up."
+      }
+    ]
+  },
+  "11.03": {
+    "yes": [
+      {
+        "text": "Yes - The floors and non-escape walkways checked were clear and safe."
+      },
+      {
+        "text": "Yes - Effective cleaning and spill-response arrangements were demonstrated."
+      }
+    ],
+    "no": [
+      {
+        "text": "No - A slip or trip hazard was found on a floor or non-escape walkway."
+      },
+      {
+        "text": "No - Cleaning or spill-response controls were missing or ineffective."
+      }
+    ]
+  },
+  "11.04": {
+    "yes": [
+      {
+        "text": "Yes - Normal lighting was working in the areas checked."
+      },
+      {
+        "text": "Yes - Lighting was suitable for the tasks and access routes observed."
+      }
+    ],
+    "no": [
+      {
+        "text": "No - Failed normal lighting was identified."
+      },
+      {
+        "text": "No - Lighting was inadequate for the task or area checked."
+      }
+    ]
+  },
+  "11.05": {
+    "yes": [
+      {
+        "text": "Yes - The welfare facilities checked were clean, usable and supplied."
+      },
+      {
+        "text": "Yes - Staff had access to suitable rest, eating, toilet and washing facilities."
+      }
+    ],
+    "no": [
+      {
+        "text": "No - Welfare facilities were dirty, unusable or missing essential supplies."
+      },
+      {
+        "text": "No - Staff access to suitable welfare facilities was restricted."
+      }
+    ]
+  },
+  "11.06": {
+    "yes": [
+      {
+        "text": "Yes - Relevant asbestos information was available for the premises."
+      },
+      {
+        "text": "Yes - Arrangements were in place to check asbestos information before potentially disturbing work."
+      }
+    ],
+    "no": [
+      {
+        "text": "No - Relevant asbestos information could not be made available."
+      },
+      {
+        "text": "No - Controls to prevent disturbance of suspected asbestos-containing materials were not established."
+      }
+    ]
+  },
+  "12.01": {
+    "yes": [
+      {
+        "text": "Yes - Suitable access equipment was available for the selected work at height."
+      },
+      {
+        "text": "Yes - The task discussed could be completed without overreaching or unsafe climbing."
+      }
+    ],
+    "no": [
+      {
+        "text": "No - Suitable access equipment was not available for the selected task."
+      },
+      {
+        "text": "No - The task required unsafe reaching or climbing with the equipment available."
+      }
+    ]
+  },
+  "12.02": {
+    "yes": [
+      {
+        "text": "Yes - The access equipment sampled had identifiable IDs matching current inspection records."
+      },
+      {
+        "text": "Yes - The inspection records reviewed included condition checks and follow-up of defects."
+      }
+    ],
+    "no": [
+      {
+        "text": "No - Access equipment could not be matched to an inspection record."
+      },
+      {
+        "text": "No - Inspection records were overdue or did not demonstrate follow-up of defects."
+      }
+    ]
+  },
+  "12.03": {
+    "yes": [
+      {
+        "text": "Yes - Defective access equipment was clearly identified and kept out of use."
+      },
+      {
+        "text": "Yes - A safe alternative or restriction was in place pending replacement or repair."
+      }
+    ],
+    "no": [
+      {
+        "text": "No - Defective access equipment remained available for use."
+      },
+      {
+        "text": "No - No safe alternative or effective restriction was in place."
+      }
+    ]
+  },
+  "13.01": {
+    "yes": [
+      {
+        "text": "Yes - The first-aid kit was accessible and suitably stocked."
+      },
+      {
+        "text": "Yes - The kit check record was available and supplies sampled were in date."
+      }
+    ],
+    "no": [
+      {
+        "text": "No - The first-aid kit was inaccessible or missing required supplies."
+      },
+      {
+        "text": "No - Expired supplies or missing kit checks were identified."
+      }
+    ]
+  },
+  "13.02": {
+    "yes": [
+      {
+        "text": "Yes - First-aid cover arrangements were confirmed across operating hours."
+      },
+      {
+        "text": "Yes - The staff sampled knew how to obtain first-aid help."
+      }
+    ],
+    "no": [
+      {
+        "text": "No - Suitable first-aid cover could not be established for all operating hours."
+      },
+      {
+        "text": "No - The staff sampled did not know how to obtain first-aid help."
+      }
+    ]
+  },
+  "14.01": {
+    "yes": [
+      {
+        "text": "Yes - The staff sampled explained how to report accidents and near misses."
+      },
+      {
+        "text": "Yes - The anonymised incident records sampled matched the dashboard."
+      }
+    ],
+    "no": [
+      {
+        "text": "No - The staff sampled could not explain the reporting process."
+      },
+      {
+        "text": "No - Incident or near-miss records did not match the dashboard."
+      }
+    ]
+  },
+  "14.02": {
+    "yes": [
+      {
+        "text": "Yes - The incident sampled had a recorded investigation and corrective actions."
+      },
+      {
+        "text": "Yes - Evidence checked showed the corrective actions had been effective."
+      }
+    ],
+    "no": [
+      {
+        "text": "No - The incident sampled had not been adequately investigated."
+      },
+      {
+        "text": "No - Corrective actions were outstanding or their effectiveness had not been checked."
+      }
+    ]
+  },
+  "15.01": {
+    "yes": [
+      {
+        "text": "Yes - The required escape routes checked were clear and usable."
+      },
+      {
+        "text": "Yes - The final exits checked could be used without obstruction."
+      }
+    ],
+    "no": [
+      {
+        "text": "No - A required escape route was obstructed at the time of the visit."
+      },
+      {
+        "text": "No - A required final exit was blocked or could not be used."
+      }
+    ]
+  },
+  "15.02": {
+    "yes": [
+      {
+        "text": "Yes - The required fire doors checked closed properly without wedges."
+      },
+      {
+        "text": "Yes - The hold-open arrangement checked was an approved automatic device."
+      }
+    ],
+    "no": [
+      {
+        "text": "No - A required fire door was held open with a wedge or unauthorised device."
+      },
+      {
+        "text": "No - A required fire door did not close properly when checked."
+      }
+    ]
+  },
+  "15.03": {
+    "yes": [
+      {
+        "text": "Yes - The fire doors and required seals checked were in suitable visible condition."
+      },
+      {
+        "text": "Yes - The visible fire separation checked showed no defects requiring action."
+      }
+    ],
+    "no": [
+      {
+        "text": "No - Damage or missing seals were identified on a required fire door."
+      },
+      {
+        "text": "No - A visible defect in fire separation was identified."
+      }
+    ]
+  },
+  "15.04": {
+    "yes": [
+      {
+        "text": "Yes - The current FRA was available for the site."
+      },
+      {
+        "text": "Yes - The significant actions reviewed were being managed with completion evidence available."
+      }
+    ],
+    "no": [
+      {
+        "text": "No - A current site-specific FRA could not be made available."
+      },
+      {
+        "text": "No - Significant FRA actions were outstanding without effective follow-up."
+      }
+    ]
+  },
+  "15.05": {
+    "yes": [
+      {
+        "text": "Yes - Combustible storage was controlled in the areas checked."
+      },
+      {
+        "text": "Yes - Electrical use and other ignition sources checked had suitable controls."
+      }
+    ],
+    "no": [
+      {
+        "text": "No - Combustible materials were stored in an unsafe location or condition."
+      },
+      {
+        "text": "No - Unsafe electrical use or an uncontrolled ignition source was identified."
+      }
+    ]
+  },
+  "15.06": {
+    "yes": [
+      {
+        "text": "Yes - The extinguishers checked were readily accessible."
+      },
+      {
+        "text": "Yes - The alarm call points checked were readily accessible."
+      }
+    ],
+    "no": [
+      {
+        "text": "No - Access to an extinguisher was obstructed."
+      },
+      {
+        "text": "No - Access to an alarm call point was obstructed."
+      }
+    ]
+  },
+  "15.07": {
+    "yes": [
+      {
+        "text": "Yes - The routine alarm and emergency-lighting test entries sampled were complete."
+      },
+      {
+        "text": "Yes - Defects from the routine tests sampled had documented follow-up and repair."
+      }
+    ],
+    "no": [
+      {
+        "text": "No - Routine alarm or emergency-lighting test entries were missing."
+      },
+      {
+        "text": "No - Defects identified during routine tests remained unresolved or unverified."
+      }
+    ]
+  },
+  "15.08": {
+    "yes": [
+      {
+        "text": "Yes - The evacuation arrangements have been exercised, with a record available."
+      },
+      {
+        "text": "Yes - Staff coverage and assistance needs were addressed in the arrangements reviewed."
+      }
+    ],
+    "no": [
+      {
+        "text": "No - A suitable evacuation exercise record could not be verified."
+      },
+      {
+        "text": "No - Staff coverage or assistance needs were not adequately addressed."
+      }
+    ]
+  },
+  "15.09": {
+    "yes": [
+      {
+        "text": "Yes - The sprinkler system's documented stock-clearance requirement was available."
+      },
+      {
+        "text": "Yes - Stock clearance in the areas checked met the documented requirement."
+      }
+    ],
+    "no": [
+      {
+        "text": "No - Stock did not meet the sprinkler system's documented clearance requirement."
+      },
+      {
+        "text": "No - The applicable clearance requirement could not be verified."
+      }
+    ]
+  },
+  "15.10": {
+    "yes": [
+      {
+        "text": "Yes - The alarm panel showed normal operation when checked."
+      },
+      {
+        "text": "Yes - The recorded impairment had suitable temporary controls and a responsible person."
+      }
+    ],
+    "no": [
+      {
+        "text": "No - The alarm panel showed a fault or isolation without suitable controls."
+      },
+      {
+        "text": "No - The extent or management of an alarm impairment could not be verified."
+      }
+    ]
+  },
+  "16.01": {
+    "yes": [
+      {
+        "text": "Yes - The three weekly checks sampled matched the store conditions checked."
+      },
+      {
+        "text": "Yes - Failures recorded in the weekly checks had been followed up."
+      }
+    ],
+    "no": [
+      {
+        "text": "No - Weekly-check entries did not match the conditions observed."
+      },
+      {
+        "text": "No - Failures recorded in weekly checks had not been followed up."
+      }
+    ]
+  },
+  "16.02": {
+    "yes": [
+      {
+        "text": "Yes - The water-system checks required by the site assessment were recorded."
+      },
+      {
+        "text": "Yes - Abnormal results reviewed had documented follow-up."
+      }
+    ],
+    "no": [
+      {
+        "text": "No - Required water-system checks were missing or could not be verified."
+      },
+      {
+        "text": "No - Abnormal results had not been followed up."
+      }
+    ]
+  },
+  "16.03": {
+    "yes": [
+      {
+        "text": "Yes - The previous audit actions sampled remained effective at this visit."
+      },
+      {
+        "text": "Yes - The previous FRA actions sampled remained effective at this visit."
+      }
+    ],
+    "no": [
+      {
+        "text": "No - A previously reported audit problem had recurred."
+      },
+      {
+        "text": "No - A previous FRA action was no longer effective or remained outstanding."
+      }
+    ]
+  },
+  "16.04": {
+    "yes": [
+      {
+        "text": "Yes - All accessible areas of the store were inspected."
+      },
+      {
+        "text": "Yes - Other significant risks and visit limitations have been recorded."
+      }
+    ],
+    "no": [
+      {
+        "text": "No - Part of the store could not be inspected and requires follow-up."
+      },
+      {
+        "text": "No - An additional significant risk was identified and requires action."
+      }
+    ]
+  }
+}
