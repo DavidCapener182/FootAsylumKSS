@@ -1,6 +1,7 @@
 "use client";
 import { PreviousActions } from "./previous-actions";
 import { TestingNotes } from "./testing-notes";
+import { AssessmentTerms } from "./assessment-terms";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import {
   ArrowLeft,
@@ -101,6 +102,24 @@ function Field({
   placeholder?: string;
 }) {
   const fieldId = useId();
+  const textarea = useRef<HTMLTextAreaElement>(null);
+  const resize = useCallback(() => {
+    const element = textarea.current;
+    if (!element) return;
+    element.style.height = "auto";
+    element.style.height = `${element.scrollHeight + element.offsetHeight - element.clientHeight}px`;
+  }, []);
+  useEffect(() => { resize(); }, [value, resize]);
+  useEffect(() => {
+    const element = textarea.current;
+    if (!element) return;
+    let width = element.clientWidth;
+    const observer = new ResizeObserver(() => {
+      if (element.clientWidth !== width) { width = element.clientWidth; resize(); }
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [multiline, resize]);
   return (
     <div className="block min-w-0 space-y-1.5 text-sm font-medium">
       <div className="flex flex-wrap items-center justify-between gap-x-3">
@@ -125,11 +144,13 @@ function Field({
       </div>
       {multiline ? (
         <textarea
+          ref={textarea}
           id={fieldId}
           aria-describedby={hint ? `${fieldId}-hint` : undefined}
           placeholder={placeholder || hint}
-          className={input}
+          className={`${input} resize-none overflow-hidden`}
           rows={3}
+          onInput={resize}
           value={value}
           disabled={disabled}
           onChange={(e) => onChange(e.target.value)}
@@ -1450,14 +1471,7 @@ function AuditEditor({
               )}
               {section === 2 && (
                 <section className={`${panel} space-y-4`}>
-                  <a
-                    className={`${button} text-emerald-800`}
-                    href="/api/audit-studio/reference/introduction"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    View assessment terms and improvement cycle (PDF)
-                  </a>
+                  <AssessmentTerms />
                   <p className="text-sm leading-6 text-slate-600">
                     Record what was accessible and what you could verify during
                     the visit. A sample inspection cannot confirm conditions

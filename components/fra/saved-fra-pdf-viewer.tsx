@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { PDFDocumentProxy } from 'pdfjs-dist'
 
 /** Display the saved bytes without relying on an embedded browser PDF plug-in. */
-export function SavedFraPdfViewer({ url }: { url: string }) {
+export function SavedFraPdfViewer({ url, label = "Saved FRA PDF" }: { url: string; label?: string }) {
   const canvas = useRef<HTMLCanvasElement>(null)
   const [pdf, setPdf] = useState<PDFDocumentProxy | null>(null)
   const [page, setPage] = useState(1)
@@ -63,7 +63,7 @@ export function SavedFraPdfViewer({ url }: { url: string }) {
     return () => { disposed = true; render?.cancel() }
   }, [pdf, page])
 
-  return <section aria-label="Saved FRA PDF" className="overflow-hidden rounded border bg-slate-100">
+  return <section aria-label={label} className="overflow-hidden rounded border bg-slate-100">
     <div className="flex flex-wrap items-center justify-center gap-3 border-b bg-white p-3">
       <button type="button" className="rounded border px-3 py-1 disabled:opacity-40" disabled={!pdf || page <= 1 || loading} onClick={() => setPage(page - 1)}>Previous page</button>
       <label className="flex items-center gap-2">Page
@@ -81,7 +81,7 @@ export function SavedFraPdfViewer({ url }: { url: string }) {
       <a href={url} target="_blank" rel="noopener noreferrer" className="ml-4 underline">Open PDF in a new tab</a>
     </div>}
     <div className="max-h-[75vh] overflow-auto p-3">
-      <canvas ref={canvas} role="img" aria-label={`Saved FRA PDF page ${page}`} className={`mx-auto h-auto max-w-full bg-white shadow ${loading || error ? 'hidden' : ''}`} />
+      <canvas ref={canvas} role="img" aria-label={`${label} page ${page}`} className={`mx-auto h-auto max-w-full bg-white shadow ${loading || error ? 'hidden' : ''}`} />
     </div>
   </section>
 }
