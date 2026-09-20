@@ -102,7 +102,7 @@ function Field({
 }) {
   const fieldId = useId();
   return (
-    <div className="block space-y-1.5 text-sm font-medium">
+    <div className="block min-w-0 space-y-1.5 text-sm font-medium">
       <div className="flex flex-wrap items-center justify-between gap-x-3">
         <label htmlFor={fieldId}>{label}</label>
         {hint && (
@@ -137,7 +137,7 @@ function Field({
       ) : (
         <input
           id={fieldId}
-          className={input}
+          className={`${input} min-w-0 max-w-full box-border ${type === "date" ? "appearance-none [&::-webkit-date-and-time-value]:min-w-0 [&::-webkit-date-and-time-value]:text-left" : ""}`}
           type={type}
           value={value}
           disabled={disabled}

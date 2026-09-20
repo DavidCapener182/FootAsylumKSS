@@ -1,5 +1,6 @@
 import { toStoredInterviewDocument, fromStoredInterviewDocument, withCurrentInterviewScoring } from "./staff-interviews";
 import "server-only";
+import { shouldHideStore } from "@/lib/store-normalization";
 import { createHash, randomUUID } from "node:crypto";
 import sharp from "sharp";
 import { PDFDocument } from "pdf-lib";
@@ -130,7 +131,7 @@ export async function bootstrap(user: { id: string; name: string }) {
   checked(template.data, template.error);
   return {
     user,
-    stores: (stores.data || []).map((s) => ({
+    stores: (stores.data || []).filter((s) => !shouldHideStore(s)).map((s) => ({
       id: s.id,
       store_name: s.store_name,
       store_code: s.store_code,
@@ -177,7 +178,8 @@ export async function createAudit(
     .eq("id", input.storeId)
     .single();
   checked(store, error);
-  if (!store?.is_active) throw new StudioError("Choose an active store.");
+  if (!store?.is_active || shouldHideStore(store))
+    throw new StudioError("Choose an active Footasylum store.");
   const document = validateDocument(
     withCurrentInterviewScoring(emptyDocument({
       storeName: store.store_name,
