@@ -1,4 +1,4 @@
-import { effectiveResponse, interviewNotes, interviewIssues } from "./staff-interviews";
+import { effectiveResponse, interviewNotes, interviewIssues, isInterviewDerived } from "./staff-interviews";
 import { CORE_SECTIONS, LIFE_SAFETY_IDS } from "./template";
 import type { AuditDocument, ScoreResult, StudioTemplate } from "./types";
 
@@ -123,7 +123,7 @@ export function completionIssues(
     for (const q of section.checks) {
       const r = effectiveResponse(doc, template, q.id);
       if (!r?.answer) {
-        add(q.id, "Choose Yes, No or N/A.");
+        add(q.id, isInterviewDerived(doc, q.id) ? (q.id === "05.02" ? "Record staff understanding of two selected risks, or explain why this check was not sampled." : "Record the staff interview outcome, or explain why this check was not sampled.") : "Choose Yes, No or N/A.");
         continue;
       }
       if (!r.verified && r.answer !== "no")

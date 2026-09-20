@@ -45,7 +45,7 @@ export function StaffInterviews({ doc, template, readOnly, open, onOpenChange, u
         </header>
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-5">
           <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm leading-6">
-            Ask without prompting. A <strong>gap</strong> makes the linked check No, even if the store’s paperwork is correct. Either colleague can identify a gap; each audit question loses its points once. Topics not asked do not affect the score.
+            Ask without prompting. A <strong>gap</strong> makes the linked check No, even if the store’s paperwork is correct. Either colleague can identify a gap; each audit question loses its points once. For staff-understanding checks, completed interviews supply Yes or No. Unasked checks stay unanswered unless you explicitly exclude them with a reason. Other topics remain optional.
           </div>
           <div className="mb-4 flex flex-wrap gap-2" aria-label="Choose colleague">
             {staff.map((s, i) => <button key={s.id} type="button" className={`${button} ${index === i ? "!border-emerald-800 !bg-emerald-800 !text-white" : ""}`} aria-pressed={index === i} onClick={() => {setSelected(i); setRemove(false);}}>Colleague {i + 1}</button>)}
@@ -77,7 +77,7 @@ export function StaffInterviews({ doc, template, readOnly, open, onOpenChange, u
                     <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm leading-6">
                       <p className="font-semibold">Score link · {check.id} · {check.weight} {check.weight === 1 ? "point" : "points"}</p>
                       <p>{check.question}</p>
-                      <p className="mt-2">{assessment === "gap" ? `Gap recorded: this question is No and earns 0/${check.weight} points.` : `A gap makes this question No (0/${check.weight} points). Correct answers support Yes; the auditor must also check the site and records.`}</p>
+                      <p className="mt-2">{assessment === "gap" ? `Gap recorded: this question is No and earns 0/${check.weight} points.` : `A gap makes this question No (0/${check.weight} points). Complete answers determine staff-understanding checks. For checks that also cover conditions or records, the auditor must verify those requirements too.`}</p>
                       {p.questionId !== "05.02" && <label className="mt-3 flex cursor-pointer items-start gap-2"><input type="checkbox" className="mt-1 h-5 w-5 shrink-0 accent-emerald-700" checked={a?.sampledRisk || false} disabled={readOnly} onChange={e => answer(p.id,p.ask,{sampledRisk:e.target.checked})} /><span>Also use this topic for sampled-risk understanding (05.02, 2 points). A gap makes that check No too. Record the selected risks in that check.</span></label>}
                       {p.questionId !== "05.02" && a?.sampledRisk && <p className="mt-2 font-semibold">This sample affects two checks: {check.id} ({check.weight} points) and 05.02 (2 points). Each check is deducted only once across all colleagues and topics.</p>}
                     </div>

@@ -34,7 +34,7 @@ export function InterviewPractical({promptId, answer, disabled, onChange}: {
     })}</div>
     <div role="status" className="rounded-lg bg-white p-3 text-sm">
       <strong className={assessment === "gap" ? "text-red-700" : "text-emerald-900"}>{assessment === "gap" ? "Gap identified — linked audit check is No" : assessment === "understood" ? "Practical check passed" : assessment === "not-applicable" ? "Not applicable to this colleague" : "Practical check incomplete"}</strong>
-      <p className="mt-1 text-xs text-slate-600">{assessed}/{definition.criteria.length} items assessed. A passed practical check supports the audit answer; the auditor still checks the other requirements.</p>
+      <p className="mt-1 text-xs text-slate-600">{assessed}/{definition.criteria.length} items assessed. These results feed into the linked audit check.</p>
     </div>
   </fieldset>;
 }

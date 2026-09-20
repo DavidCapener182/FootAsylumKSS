@@ -50,13 +50,46 @@ export function interviewNotes(doc: AuditDocument, template: StudioTemplate, id:
     answer.outcome ? `Outcome / explanation: ${answer.outcome}` : "",
   ].filter(Boolean).join("\n")).join("\n\n");
 }
+/** Pure knowledge checks are answered by staff evidence, not a separate audit tick.
+ * The document marker preserves the interpretation of previously frozen reports.
+ */
+export const STAFF_UNDERSTANDING_IDS = ["05.02", "06.03"] as const;
+export function isInterviewDerived(doc: AuditDocument, id: string) {
+  return doc.interviewScoringVersion === "derived-v1" && STAFF_UNDERSTANDING_IDS.some(q => q === id);
+}
+export function withCurrentInterviewScoring(doc: AuditDocument): AuditDocument {
+  return {...doc, interviewScoringVersion: "derived-v1"};
+}
+function derivedInterviewResponse(doc: AuditDocument, template: StudioTemplate, id: string, r: Response): Response {
+  const entries = interviewEntries(doc, template, id);
+  if (entries.some(e => interviewAssessment(e.answer, e.prompt.id) === "gap"))
+    return {...r, answer: "no", verified: true};
+  const relevant = entries.filter(e => interviewAssessment(e.answer, e.prompt.id) !== "not-applicable");
+  // Skipping a topic is explicit and justified; not asking a colleague never earns Yes.
+  if (!relevant.length && r.answer === "na" && r.naReason.trim()) return {...r, verified: true};
+  const complete = relevant.length > 0 && relevant.every(e => {
+    const a = e.answer;
+    if (!e.staff.colleague.trim() || !e.staff.role.trim() || !a.asked.trim() || interviewAssessment(a, e.prompt.id) !== "understood") return false;
+    if (!a.practical) return !!a.reply.trim();
+    return !!a.practical.context.trim() && !!a.practical.reference.trim() &&
+      (practicalDefinition(e.prompt.id, a.practical.version)?.criteria || []).every(c => {
+        const check = a.practical!.checks[c.id];
+        return check?.result === "met" || (check?.result === "na" && !!check.note.trim());
+      });
+  });
+  // A direct local-risk checklist covers two risks; otherwise use two distinct
+  // selected topics. Asking two colleagues the same topic is still one risk.
+  const coverage = id !== "05.02" || relevant.some(e => e.prompt.id === "risks") || new Set(relevant.map(e => e.prompt.id)).size >= 2;
+  return {...r, answer: complete && coverage ? "yes" : null, verified: complete && coverage};
+}
 export function effectiveResponse(doc: AuditDocument, template: StudioTemplate, id: string): Response {
   const r = doc.responses[id] || emptyResponse();
+  if (isInterviewDerived(doc, id)) return derivedInterviewResponse(doc, template, id, r);
   return hasInterviewGap(doc, template, id) ? { ...r, answer: "no", verified: true } : r;
 }
 export function interviewReportDocument(doc: AuditDocument, template: StudioTemplate): AuditDocument {
   const responses = { ...doc.responses };
-  for (const id of new Set(interviewEntries(doc, template).flatMap(e => [e.prompt.questionId, ...(e.answer.sampledRisk ? ["05.02"] : [])]))) {
+  for (const id of new Set([...interviewEntries(doc, template).flatMap(e => [e.prompt.questionId, ...(e.answer.sampledRisk ? ["05.02"] : [])]), ...(doc.interviewScoringVersion ? STAFF_UNDERSTANDING_IDS : [])])) {
     const r = effectiveResponse(doc, template, id);
     responses[id] = { ...r, note: [r.note, interviewNotes(doc, template, id)].filter(Boolean).join("\n\n") };
   }
@@ -95,7 +128,7 @@ export function interviewIssues(doc: AuditDocument, template: StudioTemplate) {
 // or erase their original answers. Only the server writes this internal field.
 type StoredDocument = AuditDocument & { staffInterviewSourceResponses?: AuditDocument["responses"] };
 export function toStoredInterviewDocument(doc: AuditDocument, template: StudioTemplate): StoredDocument {
-  if (!doc.staffInterviews?.length) return doc;
+  if (!doc.staffInterviews?.length && !doc.interviewScoringVersion) return doc;
   return { ...interviewReportDocument(doc, template), staffInterviewSourceResponses: doc.responses };
 }
 export function fromStoredInterviewDocument(doc: StoredDocument): AuditDocument {

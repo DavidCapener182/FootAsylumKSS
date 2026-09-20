@@ -1,4 +1,4 @@
-import { effectiveResponse, interviewEntries } from "./staff-interviews";
+import { effectiveResponse, interviewEntries, isInterviewDerived } from "./staff-interviews";
 import { interviewAssessment, practicalDefinition } from "./interview-practical";
 import {
   PDFDocument,
@@ -176,7 +176,7 @@ export async function generateReport(
   const questionRow = (q: StudioQuestion) => {
     const r = doc.responses[q.id];
     const label =
-      r.answer === "no"
+      !r.answer ? "Unanswered" : r.answer === "no"
         ? "No"
         : r.answer === "na"
           ? "N/A"
@@ -608,6 +608,7 @@ export async function generateReport(
     for (const q of s.checks) {
       const r = doc.responses[q.id];
       questionRow(q);
+      if (isInterviewDerived(doc, q.id)) paragraph(r.answer === "na" ? "Not sampled this visit; excluded from the score." : "Answer calculated from the recorded staff interviews.", 8, regular, muted);
       const notes = responseNotes(r);
       const managerNotes = managerReferenceNotes(doc.site, q.id);
       if (managerNotes) paragraph("Manager's arrangements: see the Store manager Q&A in section 03.", 8, regular, muted);

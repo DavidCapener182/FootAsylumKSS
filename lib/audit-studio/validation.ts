@@ -27,6 +27,7 @@ const signature = z
   );
 export const documentSchema = z
   .object({
+    interviewScoringVersion: z.literal("derived-v1").optional(),
     staffInterviews: z.array(z.object({
       id: z.string().uuid(), colleague: text, role: text,
       answers: z.record(z.object({ asked: text, reply: text, sampledRisk: z.boolean().optional(), assessment: z.enum(["understood", "gap", "not-applicable"]).nullable(), outcome: text, practical: z.object({version: z.literal("practical-v1"), context: text, reference: text, checks: z.record(z.object({result: z.enum(["met", "gap", "na", "not-observed"]).nullable(), note: text}).strict())}).strict().optional() }).strict()),

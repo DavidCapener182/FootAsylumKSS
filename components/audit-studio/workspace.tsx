@@ -54,7 +54,7 @@ import type {
 import { changesBetween } from "@/lib/audit-studio/conflicts";
 import { makePreview } from "@/lib/audit-studio/preview";
 import { StaffInterviews } from "./staff-interviews";
-import { effectiveResponse, hasInterviewGap, interviewNotes } from "@/lib/audit-studio/staff-interviews";
+import { effectiveResponse, hasInterviewGap, interviewNotes, isInterviewDerived, interviewEntries, withCurrentInterviewScoring } from "@/lib/audit-studio/staff-interviews";
 import { Signature } from "./signature";
 import { questionNotesHint } from "@/lib/audit-studio/question-guidance";
 import { SuggestedNotes } from "./suggested-notes";
@@ -587,8 +587,8 @@ function AuditEditor({
   onBack: () => void;
   onRevision: (id: string) => void;
 }) {
-  const [draft, setDraft] = useState(initial),
-    current = useRef(initial),
+  const [draft, setDraft] = useState(() => initial.bundle.audit.status === "draft" ? {...initial, document: withCurrentInterviewScoring(initial.document)} : initial),
+    current = useRef(draft),
     queue = useRef(Promise.resolve()),
     syncing = useRef(false),
     editorMounted = useRef(true);
@@ -1518,6 +1518,8 @@ function AuditEditor({
                   <div className="space-y-4">
                     {shown.map((q) => {
                       const r = effectiveResponse(doc, template, q.id);
+                      const derived = isInterviewDerived(doc, q.id);
+                      const hasSamples = interviewEntries(doc, template, q.id).length > 0;
                       const interviewGap = hasInterviewGap(doc, template, q.id);
                       const staffNotes = interviewNotes(doc, template, q.id);
                       const practical = practicalCheckPrompts(
@@ -1538,7 +1540,12 @@ function AuditEditor({
                           <h3 className="mt-2 text-base font-semibold leading-6">
                             {q.question}
                           </h3>
-                          <div className="my-4 grid grid-cols-3 gap-2">
+                          {derived ? <div className="my-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+                            <p className="text-sm font-semibold">Answer from staff interviews: {r.answer === "yes" ? "Yes" : r.answer === "no" ? "No" : r.answer === "na" ? "Not sampled (N/A)" : "Awaiting staff answers"}</p>
+                            <p className="mt-2 text-sm leading-6">{q.id === "05.02" ? "Use the local-risks interview or link two different selected topics to this check." : "Record a colleague’s explanation of the emergency arrangements."} A recorded gap gives No. Manager answers and note suggestions cannot award a pass.</p>
+                            <div className="mt-3 flex flex-wrap gap-2"><button type="button" className={button} onClick={() => setInterviewsOpen(true)}>Open staff interviews</button>
+                            {!readOnly && !hasSamples && <button type="button" className={button} onClick={() => answer(q.id, {answer: doc.responses[q.id]?.answer === "na" ? null : "na", naReason: doc.responses[q.id]?.answer === "na" ? "" : doc.responses[q.id]?.naReason || "", verified: true})}>{doc.responses[q.id]?.answer === "na" ? "Include in sampling" : "Not sampled this visit"}</button>}</div>
+                          </div> : <div className="my-4 grid grid-cols-3 gap-2">
                             {(["yes", "no", "na"] as const).map((a) => (
                               <button
                                 key={a}
@@ -1561,12 +1568,12 @@ function AuditEditor({
                                     : "No"}
                               </button>
                             ))}
-                          </div>
+                          </div>}
                           {staffNotes && <aside className="mb-4 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm"><h4 className="font-semibold">Linked staff interviews</h4>{interviewGap && <p className="mt-2 font-semibold text-red-700">A colleague’s assessment has a gap, so this check is No. Review the interview to correct its assessment; record follow-up below.</p>}<p className="mt-3 whitespace-pre-wrap break-words">{staffNotes}</p><button className={`${button} mt-3`} onClick={() => setInterviewsOpen(true)}>Open staff interviews</button></aside>}
-                          {r.answer === "na" && (
+                          {(r.answer === "na" || (derived && doc.responses[q.id]?.answer === "na" && !hasSamples)) && (
                             <Field
-                              label="Why does this not apply?"
-                              value={r.naReason}
+                              label={derived ? "Why was this check not sampled?" : "Why does this not apply?"}
+                              value={doc.responses[q.id]?.naReason || ""}
                               onChange={(v) => answer(q.id, { naReason: v })}
                               multiline
                               disabled={readOnly}
@@ -1588,7 +1595,7 @@ function AuditEditor({
                                 </dl>
                               </aside>
                             )}
-                            {practical &&
+                            {!derived && practical &&
                               (r.answer !== "na" ||
                                 r.practicalCheck?.checked ||
                                 r.practicalCheck?.outcome) && (
@@ -1630,14 +1637,14 @@ function AuditEditor({
                                   />
                                 </fieldset>
                               )}
-                            <SuggestedNotes
+                            {!derived && <SuggestedNotes
                               version={template.version}
                               questionId={q.id}
                               answer={r.answer}
                               notes={r.note}
                               onChange={(note) => answer(q.id, { note })}
                               disabled={readOnly}
-                            />
+                            />}
                             <Field
                               label={
                                 r.answer === "no"

@@ -1,4 +1,4 @@
-import { toStoredInterviewDocument, fromStoredInterviewDocument } from "./staff-interviews";
+import { toStoredInterviewDocument, fromStoredInterviewDocument, withCurrentInterviewScoring } from "./staff-interviews";
 import "server-only";
 import { createHash, randomUUID } from "node:crypto";
 import sharp from "sharp";
@@ -88,7 +88,7 @@ export async function bundle(id: string): Promise<AuditBundle> {
   checked(t.data, t.error);
   checked(e.data, e.error);
   return {
-    audit: { ...data, document: fromStoredInterviewDocument(data.document) } as AuditRecord,
+    audit: { ...data, document: data.status === "draft" ? withCurrentInterviewScoring(fromStoredInterviewDocument(data.document)) : fromStoredInterviewDocument(data.document) } as AuditRecord,
     template: t.data!.definition as StudioTemplate,
     evidence: (e.data || []).map((row) => ({
       ...row,
@@ -130,7 +130,7 @@ export async function bootstrap(user: { id: string; name: string }) {
         .filter(Boolean)
         .join(", "),
     })),
-    audits: (audits.data || []).map(a => ({ ...a, document: fromStoredInterviewDocument(a.document) })),
+    audits: (audits.data || []).map(a => ({ ...a, document: a.status === "draft" ? withCurrentInterviewScoring(fromStoredInterviewDocument(a.document)) : fromStoredInterviewDocument(a.document) })),
     template: template.data!.definition,
   };
 }
@@ -170,13 +170,13 @@ export async function createAudit(
   checked(store, error);
   if (!store?.is_active) throw new StudioError("Choose an active store.");
   const document = validateDocument(
-    emptyDocument({
+    withCurrentInterviewScoring(emptyDocument({
       storeName: store.store_name,
       storeCode: store.store_code,
       address: input.address,
       auditor: input.auditor,
       visitDate: input.visitDate,
-    }),
+    })),
     TEMPLATE,
   );
   const result = await client.from("fa_audit_studio_audits").insert({
@@ -200,7 +200,7 @@ export async function saveAudit(id: string, value: unknown) {
     .strict()
     .parse(value);
   const b = await bundle(id);
-  const document = validateDocument(input.document, b.template);
+  const document = withCurrentInterviewScoring(validateDocument(input.document, b.template));
   for (const ref of document.evidence) {
     const row = b.evidence.find((e) => e.id === ref.id);
     if (!row || row.questionId !== ref.questionId || row.status !== "ready")
@@ -391,6 +391,14 @@ export async function completeAudit(id: string, value: unknown) {
         "Some evidence has not finished synchronising.",
         422,
       );
+  // Persist the same derived answers in the response/finding indexes before
+  // freezing, including older drafts upgraded to interview-derived scoring.
+  if (b.audit.status === "draft") {
+    b = await saveAudit(id, { revision: input.revision, operationId: randomUUID(), document });
+    if (b.audit.revision !== input.revision + 1 || b.audit.status !== "draft")
+      throw new StudioError("This audit changed. Synchronise and review it before completing.", 409);
+    input.revision = b.audit.revision;
+  }
   // An expired rendering lease can be retried; its old worker cannot commit another report.
   const client = db(),
     token = randomUUID();
@@ -406,6 +414,7 @@ export async function completeAudit(id: string, value: unknown) {
     .from("fa_audit_studio_audits")
     .update({
       status: "finalizing",
+      document: toStoredInterviewDocument(document, b.template),
       finalize_token: token,
       updated_at: new Date().toISOString(),
       report_error: null,

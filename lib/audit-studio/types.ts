@@ -84,6 +84,7 @@ export type StaffInterview = {
   answers: Record<string, StaffInterviewAnswer>;
 };
 export type AuditDocument = {
+  interviewScoringVersion?: "derived-v1";
   staffInterviews?: StaffInterview[];
   site: SiteDetails;
   responses: Record<string, Response>;
