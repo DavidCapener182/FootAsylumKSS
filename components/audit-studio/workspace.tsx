@@ -641,8 +641,17 @@ function AuditEditor({
     [files, setFiles] = useState<LocalEvidence[]>([]),
     [uploadProgress, setUploadProgress] = useState(""),
     [prepared, setPrepared] = useState(fromOfflineShell),
-    [review, setReview] = useState(false),
+    [review, setReview] = useState(initial.bundle.audit.status === "completed"),
+    [buildingReport, setBuildingReport] = useState(false),
+    [reportOpen, setReportOpen] = useState(initial.bundle.audit.status === "completed"),
     [otherTab, setOtherTab] = useState(false);
+  const priorAuditStatus = useRef(draft.bundle.audit.status);
+  useEffect(() => {
+    if (priorAuditStatus.current !== "completed" && draft.bundle.audit.status === "completed") {
+      setReview(true); setReportOpen(true);
+    }
+    priorAuditStatus.current = draft.bundle.audit.status;
+  }, [draft.bundle.audit.status]);
   const previousPage = useRef(`${section}:${review}`);
   useEffect(() => {
     const page = `${section}:${review}`;
@@ -975,6 +984,8 @@ function AuditEditor({
     />
   );
   const complete = async () => {
+    if (busy) return;
+    setBuildingReport(true);
     setBusy(true);
     setError("");
     try {
@@ -997,14 +1008,24 @@ function AuditEditor({
         document: result.audit.document,
         baseRevision: result.audit.revision,
       });
-      setReview(false);
-      setStatus("Saved online");
+      setReview(true);
+      setReportOpen(true);
+      setStatus("Audit completed — PDF ready");
     } catch (e) {
       setError(textError(e));
       setStatus("Needs attention");
     } finally {
+      setBuildingReport(false);
       setBusy(false);
     }
+  };
+  const publishToStore = async () => {
+    setBusy(true); setError("");
+    try {
+      const result = await api<AuditBundle>(`audits/${b.audit.id}/publish`, "POST", {storeId: b.audit.store_id});
+      await persist({...current.current, bundle: result, document: result.audit.document, baseRevision: result.audit.revision});
+      setStatus("Saved to store");
+    } catch (e) { setError(textError(e)); } finally { setBusy(false); }
   };
   const prepare = async () => {
     setBusy(true);
@@ -1049,6 +1070,8 @@ function AuditEditor({
   );
   return (
     <div className={`audit-studio-editor min-h-full bg-[#f5f6f1] pb-24 pt-[108px] text-[#17291f] md:pb-0 md:pt-0`}>
+      {buildingReport && <div role="dialog" aria-modal="true" aria-labelledby="building-audit-title" className="fixed inset-0 z-[100] flex items-center justify-center bg-white/95 p-6"><div className="max-w-sm text-center"><Loader2 aria-hidden="true" className="mx-auto mb-6 h-12 w-12 text-emerald-800 motion-safe:animate-spin"/><h2 id="building-audit-title" className="text-2xl font-bold">Building your audit</h2><p role="status" className="mt-3 text-slate-600">Saving your answers and preparing the PDF with your signatures and evidence. It will open here when ready.</p><p className="mt-4 text-sm text-slate-500">Reports with lots of photos can take a few minutes.</p></div></div>}
+      {b.audit.status === "completed" && <EvidenceViewer open={reportOpen} onOpenChange={setReportOpen} url={`/api/audit-studio/audits/${b.audit.id}/report`} label={`${doc.site.storeName} · ${doc.site.visitDate}`} title="Audit completed — PDF ready" actions={<>{error && <p role="alert" className="text-sm text-red-700">{error}</p>}{doc.purpose === "store" ? b.publication ? <p className="text-sm text-emerald-800">Attached to {doc.site.storeName}</p> : <button className={`${button} w-full`} disabled={busy || !online} onClick={publishToStore}>{busy ? "Attaching…" : `Attach to ${doc.site.storeName}`}</button> : <p className="text-center text-xs text-slate-500">Practice report · kept outside the live store tracker</p>}</>} downloadName={`Audit-${doc.site.storeCode}-${doc.site.visitDate}.pdf`} />}
       <header className="border-b border-slate-200 bg-white px-3 py-2 md:px-7 md:py-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
@@ -1192,21 +1215,8 @@ function AuditEditor({
               </p>
             </div>
             <div className="flex flex-wrap gap-3">
-              <a
-                className={primary}
-                href={`/api/audit-studio/audits/${b.audit.id}/report`}
-              >
-                <Download size={16} />
-                Download PDF
-              </a>
-              {doc.purpose === "store" && !b.publication && <button className={primary} disabled={!online || busy} onClick={async()=>{
-                setBusy(true); setError("");
-                try {
-                  const result = await api<AuditBundle>(`audits/${b.audit.id}/publish`,"POST",{storeId:b.audit.store_id});
-                  await persist({...current.current,bundle:result,document:result.audit.document,baseRevision:result.audit.revision});
-                  setStatus("Saved to store");
-                } catch(e) {setError(textError(e));} finally {setBusy(false);}
-              }}>Save as current audit for {doc.site.storeName}</button>}
+              <button type="button" className={primary} onClick={() => setReportOpen(true)}><Download size={16} />View / download PDF</button>
+              {doc.purpose === "store" && !b.publication && <button className={primary} disabled={!online || busy} onClick={publishToStore}>Save as current audit for {doc.site.storeName}</button>}
               {b.publication && <p className="self-center text-sm font-semibold text-emerald-800">Saved to store · {b.publication.audit_year} / Audit {b.publication.audit_number}</p>}
               <button
                 className={button}
@@ -1350,12 +1360,12 @@ function AuditEditor({
                   ))}
               </div>
               <h3 id="audit-review-details" className="mb-3 mt-7 font-bold">
-                {issues.length
+                {b.audit.status === "completed" ? "Audit completed" : issues.length
                   ? `${issues.length} details still needed`
                   : "Ready to complete"}
               </h3>
               <div className="space-y-2">
-                {issues.map((issue, i) => (
+                {(b.audit.status === "completed" ? [] : issues).map((issue, i) => (
                   <button
                     className="block text-left text-sm text-amber-800 underline"
                     key={i}
@@ -1376,10 +1386,10 @@ function AuditEditor({
                 ))}
               </div>
               <p className="my-5 text-sm text-slate-500">
-                Completion saves a read-only report with all attached evidence.
-                {doc.purpose === "store" ? "Download the completed report, then save it to the selected store." : "Practice results stay outside the live tracker."}
+                {b.audit.status === "completed" ? "Your report is saved with all attached evidence. " : "Completion saves a read-only report with all attached evidence. "}
+                {doc.purpose === "store" ? "View the PDF, download it or attach it to the selected store." : "Practice results stay outside the live tracker."}
               </p>
-              <button
+              {b.audit.status === "completed" ? <button className={primary} onClick={() => setReportOpen(true)}><Download size={16}/>View / download PDF</button> : <button
                 className={primary}
                 disabled={
                   readOnly ||
@@ -1396,8 +1406,8 @@ function AuditEditor({
                 ) : (
                   <Check size={16} />
                 )}
-                Complete audit & create PDF
-              </button>
+                Complete audit & view PDF
+              </button>}
             </section>
           ) : (
             <>
@@ -1887,10 +1897,14 @@ function AuditEditor({
           requestAnimationFrame(() => document.getElementById("audit-section-content")?.scrollIntoView({block: "start", behavior: "smooth"}));
         }}><ArrowLeft size={16} />Back</button>
         <button type="button" className={`${primary} flex-1`} onClick={() => {
-          if (review) { document.getElementById("audit-review-details")?.scrollIntoView({block: "start", behavior: "smooth"}); return; }
+          if (review) {
+            if (b.audit.status === "completed") { setReportOpen(true); return; }
+            if (!issues.length && !readOnly && !busy && online && !conflict && draft.generation === draft.syncedGeneration) { void complete(); return; }
+            document.getElementById("audit-review-details")?.scrollIntoView({block: "start", behavior: "smooth"}); return;
+          }
           if (section === 17) setReview(true); else setSection(section + 1);
           requestAnimationFrame(() => document.getElementById("audit-section-content")?.scrollIntoView({block: "start", behavior: "smooth"}));
-        }}>{review ? issues.length ? "Details needed" : "Finish audit" : section === 17 ? "Review" : "Next"}<ArrowRight size={16} /></button>
+        }}>{review ? b.audit.status === "completed" ? "View PDF" : issues.length ? "Details needed" : "Finish audit" : section === 17 ? "Review" : "Next"}<ArrowRight size={16} /></button>
       </nav>
     </div>
   );
