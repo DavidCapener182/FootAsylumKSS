@@ -76,7 +76,7 @@ export function MobileTabBar({ userRole }: { userRole?: UserRole | null }) {
     }
   }, [moreOpen])
 
-  if (isCmpSection || isEmpSection) {
+  if (isCmpSection || isEmpSection || normalizedPathname === '/audit-studio') {
     return null
   }
 

@@ -1034,7 +1034,7 @@ function AuditEditor({
       (filter === "followup" && issues.some((i) => i.questionId === q.id)),
   );
   return (
-    <div className="min-h-full bg-[#f5f6f1] text-[#17291f]">
+    <div className="min-h-full bg-[#f5f6f1] pb-24 text-[#17291f] md:pb-0">
       <header className="border-b border-slate-200 bg-white px-4 py-4 md:px-7">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
@@ -1062,7 +1062,9 @@ function AuditEditor({
               </p>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
+          <details className="group">
+            <summary className="cursor-pointer text-sm font-semibold">Audit tools & save status</summary>
+            <div className="mt-2 flex flex-wrap items-center gap-3">
             <TestingNotes userId={draft.userId} context={`${doc.site.storeName} (${doc.site.storeCode}) · ${review ? "Review audit" : `${String(section).padStart(2, "0")} / ${active.title}`}`} />
             <div
               aria-live="polite"
@@ -1085,7 +1087,8 @@ function AuditEditor({
             <Badge>
               {b.audit.status === "completed" ? "Completed" : doc.purpose === "store" ? "Store audit" : "Practice audit"}
             </Badge>
-          </div>
+            </div>
+          </details>
         </div>
       </header>
       <div className="px-4 pt-4 md:px-7">
@@ -1216,47 +1219,15 @@ function AuditEditor({
           </div>
         )}
       </div>
-      <div className="grid gap-6 px-4 pb-8 md:px-7 lg:grid-cols-[240px_minmax(0,1fr)]">
+      <div className="grid gap-3 px-4 pb-8 md:px-7 lg:grid-cols-[240px_minmax(0,1fr)]">
         <aside className="lg:sticky lg:top-4 lg:self-start">
-          <div className="flex items-center justify-between border-b border-slate-200 py-4">
-            <div>
-              <p className="text-3xl font-bold">
-                {formatScore(score.percentage)}
-              </p>
-              <p className="mt-1 text-xs text-slate-500">
-                {score.earned} / {score.applicable} points
-              </p>
-            </div>
-            <Badge>{score.outcome}</Badge>
-          </div>
-          <p className="my-3 text-xs text-slate-500">
-            {score.answered} / {score.total} scored checks answered
-          </p>
-          <div className="h-1.5 overflow-hidden rounded bg-slate-200">
-            <div
-              className="h-full bg-[#608246]"
-              style={{ width: `${(score.answered / score.total) * 100}%` }}
-            />
-          </div>
-          <label className="mt-4 block lg:hidden">
-            <span className="mb-1 block text-sm font-medium">
-              Audit section
-            </span>
-            <select
-              className={input}
-              value={section}
-              onChange={(e) => {
-                setSection(Number(e.target.value));
-                setReview(false);
-              }}
-            >
-              {template.sections.map((s) => (
-                <option key={s.page} value={s.page}>
-                  {s.page}. {s.page === 3 ? "Store manager Q&A" : s.title}
-                </option>
-              ))}
-            </select>
-          </label>
+          <details className="rounded-lg border border-slate-200 bg-white p-3">
+            <summary className="cursor-pointer text-sm font-semibold">Sections, interviews & offline tools</summary>
+            <label className="mt-3 block text-sm">Jump to section
+              <select className={input} value={section} onChange={e => {setSection(Number(e.target.value)); setReview(false);}}>
+                {template.sections.map(s => <option key={s.page} value={s.page}>{s.page}. {s.page === 3 ? "Store manager Q&A" : s.title}</option>)}
+              </select>
+            </label>
           <nav
             aria-label="Audit sections"
             className="mt-4 hidden space-y-1 lg:block"
@@ -1324,6 +1295,7 @@ function AuditEditor({
               browser’s site data; connect again to complete.
             </p>
           )}
+          </details>
         </aside>
         <div role="region" aria-label="Audit questions" className="min-w-0">
           {review ? (
@@ -1409,14 +1381,17 @@ function AuditEditor({
             </section>
           ) : (
             <>
-              <header className="mb-5 pt-3">
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                  Section {section} / 17
-                  {active.total ? ` · ${active.total} points` : ""}
-                </p>
-                <h2 className="mt-2 text-2xl font-bold md:text-3xl">
-                  {active.page === 3 ? "Store manager Q&A" : active.title}
-                </h2>
+              <header className="mb-4 rounded-xl border border-slate-200 bg-white p-3">
+                <p className="text-xs font-semibold text-slate-500">Section {section} / {template.sections.length}</p>
+                <h2 className="mt-1 text-lg font-bold">{active.page === 3 ? "Store manager Q&A" : active.title}</h2>
+                <div className="my-2 flex flex-wrap justify-between gap-2 text-xs">
+                  <span>Overall <strong>{formatScore(score.percentage)}</strong></span>
+                  <span>Section <strong>{active.checks.length ? formatScore(score.sections.find(s => s.page === section)?.percentage ?? null) : "Not scored"}</strong></span>
+                  <span>{score.answered}/{score.total} answered</span>
+                </div>
+                <div role="progressbar" aria-label="Audit completion" aria-valuemin={0} aria-valuemax={score.total} aria-valuenow={score.answered} className="h-1.5 overflow-hidden rounded-full bg-slate-200">
+                  <div className="h-full bg-[#608246]" style={{width: `${score.total ? score.answered / score.total * 100 : 0}%`}} />
+                </div>
                 <details className="mt-3 rounded-lg border border-[#d5dfc7] bg-[#edf3e5] p-3 text-sm">
                   <summary className="cursor-pointer font-semibold">
                     Evidence example
@@ -1857,7 +1832,7 @@ function AuditEditor({
                   {evidence("sign-off")}
                 </section>
               )}
-              <div className="mt-6 flex justify-between gap-4">
+              <div className="mt-6 hidden justify-between gap-4 md:flex">
                 <button
                   className={button}
                   disabled={section === 1}
@@ -1885,6 +1860,18 @@ function AuditEditor({
           )}
         </div>
       </div>
+      <nav aria-label="Audit page navigation" className="fixed inset-x-0 bottom-0 z-40 flex gap-3 border-t border-slate-200 bg-white px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:hidden">
+        <button type="button" className={`${button} flex-1`} onClick={() => {
+          if (review) setReview(false);
+          else if (section > 1) setSection(section - 1);
+          else onBack();
+          window.scrollTo({top: 0, behavior: "smooth"});
+        }}><ArrowLeft size={16} />Back</button>
+        <button type="button" className={`${primary} flex-1`} disabled={review} onClick={() => {
+          if (section === 17) setReview(true); else setSection(section + 1);
+          window.scrollTo({top: 0, behavior: "smooth"});
+        }}>{review ? "Review audit" : section === 17 ? "Review" : "Next"}<ArrowRight size={16} /></button>
+      </nav>
     </div>
   );
 }
