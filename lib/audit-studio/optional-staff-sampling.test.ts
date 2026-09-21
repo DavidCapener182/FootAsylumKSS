@@ -12,6 +12,17 @@ const makeDoc = () => {
   return d;
 };
 describe('Optional staff sampling', () => {
+  it('keeps optional colleague details from blocking an assessed answer and still requires gap follow-up', () => {
+    const d=makeDoc();
+    const practical={...newPracticalCheck(),optionalSampling:true}; practical.checks.location={result:'met' as const,note:''};
+    d.staffInterviews=[{id:randomUUID(),colleague:'',role:'',answers:{assembly:{asked:'Where is the assembly point?',reply:'',assessment:null,outcome:'',practical}}}];
+    expect(effectiveResponse(d,TEMPLATE,'06.03').answer).toBe('yes');
+    expect(scoreAudit(TEMPLATE,d).outcome).toBe('Pass');
+    expect(completionIssues(TEMPLATE,d).filter(i=>i.questionId==='staff-interviews')).toEqual([]);
+    practical.checks.location.result='gap';
+    expect(completionIssues(TEMPLATE,d).some(i=>i.interviewTarget?.field==='severity')).toBe(true);
+    expect(completionIssues(TEMPLATE,d).some(i=>i.questionId==='06.03' && i.message.includes('action'))).toBe(true);
+  });
   it('excludes unasked knowledge checks without awarding points or blocking completion', () => {
     const d = makeDoc();
     for (const id of ['05.02','06.03']) expect(effectiveResponse(d,TEMPLATE,id)).toMatchObject({answer:'na',verified:true,naReason:'Not asked this visit'});

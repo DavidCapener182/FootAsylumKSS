@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import JSZip from "jszip";
 import { TEMPLATE, emptyDocument, emptyResponse } from "./template";
-import { scoreAudit, completionIssues } from "./scoring";
+import { scoreAudit, completionIssues, completionRecommendations } from "./scoring";
 import { validateDocument } from "./validation";
 export function answered() {
   const doc = emptyDocument();
@@ -12,6 +12,17 @@ export function answered() {
   return doc;
 }
 describe("Audit Studio versioned scoring", () => {
+  it("allows optional site details and representative acknowledgement without changing scores", () => {
+    const doc = answered();
+    Object.assign(doc.site, {storeName: "Bolton", storeCode: "S0017", address: "Store address", visitDate: "2026-09-21", auditor: "Auditor"});
+    doc.signOff.auditorSignature = "signature";
+    doc.optionalStaffSampling = true;
+    expect(completionIssues(TEMPLATE, doc)).toEqual([]);
+    expect(completionRecommendations(TEMPLATE, doc).length).toBeGreaterThan(0);
+    expect(scoreAudit(TEMPLATE, doc).outcome).toBe("Pass");
+    doc.responses["09.02"].answer = "no";
+    expect(completionIssues(TEMPLATE, doc).map(i => i.message)).toEqual(["Add a note explaining the finding.", "Add the action, owner and due date."]);
+  });
   it("allows ten attachments per question and rejects the eleventh", () => {
     const doc = answered();
     doc.evidence = Array.from({ length: 10 }, (_, i) => ({
@@ -200,7 +211,7 @@ describe("Audit Studio versioned scoring", () => {
     doc.responses.B = { ...emptyResponse(), answer: "no" };
     expect(scoreAudit(template, doc).outcome).toBe("Fail");
   });
-  it("requires answers, follow-up, N/A reasons and signatures", () => {
+  it("requires follow-up and auditor signature while recommending N/A explanations", () => {
     const doc = answered();
     doc.responses["09.02"].answer = "no";
     doc.responses["15.02"].answer = "na";
@@ -210,7 +221,8 @@ describe("Audit Studio versioned scoring", () => {
         (i) => i.questionId === "09.02" && i.message.includes("owner"),
       ),
     ).toBe(true);
-    expect(issues.some((i) => i.questionId === "15.02")).toBe(true);
+    expect(issues.some((i) => i.questionId === "15.02")).toBe(false);
+    expect(completionRecommendations(TEMPLATE, doc).some(i => i.questionId === "15.02")).toBe(true);
     expect(issues.some((i) => i.questionId === "sign-off")).toBe(true);
   });
   it("rejects unknown template questions and invalid dates without throwing RangeError", () => {

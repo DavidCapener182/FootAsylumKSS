@@ -66,12 +66,16 @@ function derivedInterviewResponse(doc: AuditDocument, template: StudioTemplate, 
   const entries = interviewEntries(doc, template, id);
   if (entries.some(e => interviewAssessment(e.answer, e.prompt.id) === "gap" && (doc.interviewScoringVersion !== "graded-v2" || e.prompt.questionId === id)))
     return {...r, answer: "no", verified: true};
-  const relevant = entries.filter(e => interviewAssessment(e.answer, e.prompt.id) !== "not-applicable");
+  const relevant = entries.filter(e => {
+    const assessment = interviewAssessment(e.answer, e.prompt.id);
+    return assessment !== "not-applicable" && (!doc.optionalStaffSampling || !!assessment);
+  });
   if (doc.optionalStaffSampling && !relevant.length) return {...r, answer: "na", naReason: r.naReason || "Not asked this visit", verified: true};
   // Skipping a topic is explicit and justified; not asking a colleague never earns Yes.
   if (!relevant.length && r.answer === "na" && r.naReason.trim()) return {...r, verified: true};
   const complete = relevant.length > 0 && relevant.every(e => {
     const a = e.answer;
+    if (doc.optionalStaffSampling) return interviewAssessment(a, e.prompt.id) === "understood" || (doc.interviewScoringVersion === "graded-v2" && e.prompt.questionId !== id && interviewAssessment(a, e.prompt.id) === "gap");
     if (!e.staff.colleague.trim() || !e.staff.role.trim() || !a.asked.trim() || (interviewAssessment(a, e.prompt.id) !== "understood" && !(doc.interviewScoringVersion === "graded-v2" && e.prompt.questionId !== id && interviewAssessment(a, e.prompt.id) === "gap"))) return false;
     if (!a.practical) return !!a.reply.trim();
     if (doc.optionalStaffSampling && a.practical.optionalSampling) return true;

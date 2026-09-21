@@ -43,6 +43,7 @@ import {
 } from "@/lib/audit-studio/template";
 import {
   completionIssues,
+  completionRecommendations,
   formatScore,
   scoreAudit,
 } from "@/lib/audit-studio/scoring";
@@ -659,8 +660,7 @@ function AuditEditor({
     const page = `${section}:${review}`;
     if (previousPage.current === page) return;
     previousPage.current = page;
-    if (!window.matchMedia("(max-width: 767px)").matches) return;
-    const frame = requestAnimationFrame(() => document.getElementById("audit-section-content")?.scrollIntoView({block: "start", behavior: "smooth"}));
+    const frame = requestAnimationFrame(() => document.getElementById("audit-section-content")?.scrollIntoView({block: "start", behavior: "instant"}));
     return () => cancelAnimationFrame(frame);
   }, [section, review]);
   const b = draft.bundle,
@@ -672,6 +672,7 @@ function AuditEditor({
         ? b.audit.result
         : scoreAudit(template, doc),
     issues = completionIssues(template, doc),
+    recommendations = completionRecommendations(template, doc),
     active = template.sections.find((s) => s.page === section)!;
   const persist = useCallback((next: DeviceDraft) => {
     current.current = next;
@@ -1249,7 +1250,7 @@ function AuditEditor({
           <details className="rounded-lg border border-slate-200 bg-white p-3">
             <summary className="cursor-pointer text-sm font-semibold">Sections, interviews & offline tools</summary>
             <label className="mt-3 block text-sm">Jump to section
-              <select className={input} value={section} onChange={e => {setSection(Number(e.target.value)); setReview(false); requestAnimationFrame(() => document.getElementById("audit-section-content")?.scrollIntoView({block: "start", behavior: "smooth"}));}}>
+              <select className={input} value={section} onChange={e => {setSection(Number(e.target.value)); setReview(false); requestAnimationFrame(() => document.getElementById("audit-section-content")?.scrollIntoView({block: "start", behavior: "instant"}));}}>
                 {template.sections.map(s => <option key={s.page} value={s.page}>{s.page}. {s.page === 3 ? "Store manager Q&A" : s.title}</option>)}
               </select>
             </label>
@@ -1328,7 +1329,7 @@ function AuditEditor({
           <div className="my-2 flex justify-between text-xs"><span>Overall <strong>{formatScore(score.percentage)}</strong></span><span>{score.answered}/{score.total} answered</span></div>
           <div className="h-1.5 overflow-hidden rounded-full bg-slate-200"><div className="h-full bg-[#608246]" style={{width: `${score.total ? score.answered / score.total * 100 : 0}%`}} /></div>
         </header>}
-        <div id="audit-section-content" role="region" aria-label="Audit questions" className="min-w-0 px-3 md:px-0">
+        <div id="audit-section-content" role="region" aria-label="Audit questions" className="scroll-mt-24 min-w-0 px-3 md:px-0">
           {review ? (
             <section className={panel}>
               <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
@@ -1386,6 +1387,7 @@ function AuditEditor({
                   </button>
                 ))}
               </div>
+              {b.audit.status !== "completed" && recommendations.length > 0 && <details className="mt-6 text-sm text-slate-600"><summary className="cursor-pointer font-semibold">{recommendations.length} recommended details (optional)</summary><p className="mt-2">These improve the report but do not prevent completion.</p><ul className="mt-2 list-disc space-y-2 pl-5">{recommendations.map((item, index) => <li key={index}>{item.questionId}: {item.message}</li>)}</ul></details>}
               <p className="my-5 text-sm text-slate-500">
                 {b.audit.status === "completed" ? "Your report is saved with all attached evidence. " : "Completion saves a read-only report with all attached evidence. "}
                 {doc.purpose === "store" ? "View the PDF, download it or attach it to the selected store." : "Practice results stay outside the live tracker."}
@@ -1479,24 +1481,8 @@ function AuditEditor({
                 <section className={`${panel} space-y-4`}>
                   <AssessmentTerms />
                   <p className="text-sm leading-6 text-slate-600">
-                    Record what was accessible and what you could verify during
-                    the visit. A sample inspection cannot confirm conditions
-                    outside the areas and time checked.
+                    The standard disclaimer is included in the PDF automatically. There is nothing to complete on this page.
                   </p>
-                  <Field
-                    label="Scope, access limitations and anything not verified"
-                    value={doc.site.limitations}
-                    onChange={(v) => site("limitations", v)}
-                    multiline
-                    disabled={readOnly}
-                  />
-                  <Field
-                    label="Previous report reviewed / outstanding issues"
-                    value={doc.site.previousReport}
-                    onChange={(v) => site("previousReport", v)}
-                    multiline
-                    disabled={readOnly}
-                  />
                   {evidence("disclaimer")}
                 </section>
               )}
@@ -1868,7 +1854,6 @@ function AuditEditor({
                   disabled={section === 1}
                   onClick={() => {
                     setSection((s) => s - 1);
-                    window.scrollTo({ top: 0, behavior: "smooth" });
                   }}
                 >
                   <ArrowLeft size={16} />
@@ -1879,7 +1864,6 @@ function AuditEditor({
                   onClick={() => {
                     if (section === 17) setReview(true);
                     else setSection((s) => s + 1);
-                    window.scrollTo({ top: 0, behavior: "smooth" });
                   }}
                 >
                   {section === 17 ? "Review" : "Next section"}
@@ -1895,16 +1879,16 @@ function AuditEditor({
           if (review) setReview(false);
           else if (section > 1) setSection(section - 1);
           else onBack();
-          requestAnimationFrame(() => document.getElementById("audit-section-content")?.scrollIntoView({block: "start", behavior: "smooth"}));
+          requestAnimationFrame(() => document.getElementById("audit-section-content")?.scrollIntoView({block: "start", behavior: "instant"}));
         }}><ArrowLeft size={16} />Back</button>
         <button type="button" className={`${primary} flex-1`} onClick={() => {
           if (review) {
             if (b.audit.status === "completed") { setReportOpen(true); return; }
             if (!issues.length && !readOnly && !busy && online && !conflict && draft.generation === draft.syncedGeneration) { void complete(); return; }
-            document.getElementById("audit-review-details")?.scrollIntoView({block: "start", behavior: "smooth"}); return;
+            document.getElementById("audit-review-details")?.scrollIntoView({block: "start", behavior: "instant"}); return;
           }
           if (section === 17) setReview(true); else setSection(section + 1);
-          requestAnimationFrame(() => document.getElementById("audit-section-content")?.scrollIntoView({block: "start", behavior: "smooth"}));
+          requestAnimationFrame(() => document.getElementById("audit-section-content")?.scrollIntoView({block: "start", behavior: "instant"}));
         }}>{review ? b.audit.status === "completed" ? "View PDF" : issues.length ? "Details needed" : "Finish audit" : section === 17 ? "Review" : "Next"}<ArrowRight size={16} /></button>
       </nav>
     </div>

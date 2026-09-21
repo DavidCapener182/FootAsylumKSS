@@ -62,7 +62,7 @@ export function scoreAudit(
     total = template.sections.reduce((n, s) => n + s.checks.length, 0);
   if (answered < total)
     pending.unshift(`${total - answered} scored questions are unanswered.`);
-  if (interviewIssues(document, template).length)
+  if (interviewIssues(document, template).some(issue => !document.optionalStaffSampling || (["severity", "outcome"].includes(issue.interviewTarget?.field || "") || issue.message.includes("a stopped demonstration must link"))))
     pending.push("Complete the recorded staff interviews and practical check details.");
   if (!applicable)
     pending.push("No scored checks apply; no percentage can be issued.");
@@ -89,13 +89,13 @@ export function formatScore(n: number | null) {
   return n === null ? "N/A" : `${n.toFixed(2)}%`;
 }
 
-export function completionIssues(
+function reviewDetails(
   template: StudioTemplate,
   doc: AuditDocument,
-): Array<{ questionId: string; message: string; interviewTarget?: StaffInterviewTarget }> {
-  const issues: Array<{ questionId: string; message: string }> = [];
-  const add = (questionId: string, message: string) =>
-    issues.push({ questionId, message });
+): Array<{ questionId: string; message: string; interviewTarget?: StaffInterviewTarget; recommended?: boolean }> {
+  const issues: Array<{ questionId: string; message: string; recommended?: boolean }> = [];
+  const add = (questionId: string, message: string, recommended = false) =>
+    issues.push({ questionId, message, recommended });
   for (const field of [
     "storeName",
     "storeCode",
@@ -114,18 +114,20 @@ export function completionIssues(
       add(
         "site",
         `Complete ${field.replace(/([A-Z])/g, " $1").toLowerCase()}.`,
+        !["storeName", "storeCode", "address", "visitDate", "auditor"].includes(field),
       );
   if (!doc.site.area.trim() && !doc.site.limitations.trim())
     add(
       "site",
-      "Record the site area or explain why it could not be verified in limitations.",
+      "Record the site area if available.",
+      true,
     );
   for (const section of template.sections)
     for (const q of section.checks) {
       const r = effectiveResponse(doc, template, q.id);
       if (doc.interviewScoringVersion === "graded-v2" && !isInterviewDerived(doc, q.id) && staffDeduction(doc, template, q.id, q.weight) > 0 && !["yes", "no"].includes(doc.responses[q.id]?.answer || "")) add(q.id, "Assess the store arrangements as Yes or No separately from the staff gap.");
       if (!r?.answer) {
-        add(q.id, isInterviewDerived(doc, q.id) ? (q.id === "05.02" ? "Record staff understanding of two selected risks, or explain why this check was not sampled." : "Record the staff interview outcome, or explain why this check was not sampled.") : "Choose Yes, No or N/A.");
+        add(q.id, isInterviewDerived(doc, q.id) ? (q.id === "05.02" ? "Record staff understanding of two selected risks, or explain why this check was not sampled." : "Record the staff interview outcome, or explain why this check was not sampled.") : "Choose Yes, No or N/A.", isInterviewDerived(doc, q.id) && !!doc.optionalStaffSampling);
         continue;
       }
       if (!r.verified && r.answer !== "no")
@@ -134,7 +136,7 @@ export function completionIssues(
           "Unverified evidence must be recorded as No, not Yes or N/A.",
         );
       if (r.answer === "na" && !r.naReason.trim())
-        add(q.id, "Explain why this check does not apply.");
+        add(q.id, "Explain why this check does not apply.", true);
       if (r.answer === "no" || staffDeduction(doc, template, q.id, q.weight) > 0) {
         if (!r.note.trim() && !interviewNotes(doc, template, q.id).trim()) add(q.id, "Add a note explaining the finding.");
         if (
@@ -166,9 +168,18 @@ export function completionIssues(
     add(
       "sign-off",
       "Add the store representative and signature, or a reason acknowledgement was unavailable.",
+      true,
     );
   for(const review of doc.previousActionReviews || []) {
-    if(!review.outcome || !review.note.trim()) add("16.03", "Record the outcome and findings for each selected previous action.");
+    if(!review.outcome || !review.note.trim()) add("16.03", "Record the outcome and findings for each selected previous action.", review.outcome !== "not-improved");
   }
-  return [...issues, ...interviewIssues(doc, template)];
+  return [...issues, ...interviewIssues(doc, template).map(issue => ({...issue, recommended: !(["severity", "outcome"].includes(issue.interviewTarget?.field || "") || issue.message.includes("a stopped demonstration must link"))}))];
+}
+
+export function completionIssues(template: StudioTemplate, doc: AuditDocument) {
+  return reviewDetails(template, doc).filter(issue => !issue.recommended);
+}
+
+export function completionRecommendations(template: StudioTemplate, doc: AuditDocument) {
+  return reviewDetails(template, doc).filter(issue => issue.recommended);
 }
