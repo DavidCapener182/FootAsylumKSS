@@ -2,7 +2,6 @@
 import "./mobile-workspace.css";
 import { clientId } from "@/lib/audit-studio/client-id";
 import { PreviousActions } from "./previous-actions";
-import { TestingNotes } from "./testing-notes";
 import { EvidenceViewer } from "./evidence-viewer";
 import { AssessmentTerms } from "./assessment-terms";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
@@ -189,7 +188,6 @@ export function AuditStudioWorkspace({ initial, offline = false }: Props) {
       new Date().toLocaleDateString("en-CA"),
     ),
     [search, setSearch] = useState(""),
-    [showArchived, setShowArchived] = useState(false),
     [tab, setTab] = useState<"draft" | "completed">("draft"),
     [busy, setBusy] = useState(false);
   const [auditor, setAuditor] = useState(initial?.user.name || ""),
@@ -356,14 +354,17 @@ export function AuditStudioWorkspace({ initial, offline = false }: Props) {
       />
     );
   const combined = new Map((data?.audits || []).map((a) => [a.id, a]));
-  for (const d of deviceDrafts)
+  for (const d of deviceDrafts) {
+    // Audits are created online. A complete server list excludes deleted device copies.
+    if (data && data.audits.length < 500 && !combined.has(d.bundle.audit.id)) continue;
     combined.set(d.bundle.audit.id, {
       ...d.bundle.audit,
       document: d.document,
     });
+  }
   const audits = [...combined.values()].filter(
     (a) =>
-      (showArchived || !data?.archivedAuditIds?.includes(a.id)) &&
+      !data?.archivedAuditIds?.includes(a.id) &&
       (tab === "completed"
         ? a.status === "completed"
         : a.status !== "completed") &&
@@ -386,7 +387,6 @@ export function AuditStudioWorkspace({ initial, offline = false }: Props) {
             each answer.
           </p>
         </div>
-        {userId.current && <TestingNotes userId={userId.current} context="Audit Studio / audit list" />}
         <button
           className={primary}
           disabled={loading || busy || offline || !data}
@@ -521,7 +521,6 @@ export function AuditStudioWorkspace({ initial, offline = false }: Props) {
             placeholder="Search store or visit date…"
           />
         </div>
-        {!!data?.archivedAuditIds?.length && <label className="mb-4 flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={showArchived} onChange={e => setShowArchived(e.target.checked)} />Show archived audits ({data.archivedAuditIds.length})</label>}
         {loading ? (
           <p className="p-10 text-sm">Loading your workspace…</p>
         ) : audits.length ? (
@@ -548,7 +547,7 @@ export function AuditStudioWorkspace({ initial, offline = false }: Props) {
                   disabled={busy}
                 >
                   <div>
-                    <h3 className="font-bold">{a.document.site.storeName}</h3>{data?.archivedAuditIds?.includes(a.id) && <p className="text-xs font-semibold text-slate-500">Archived · retained for reference</p>}
+                    <h3 className="font-bold">{a.document.site.storeName}</h3>
                     <p className="mt-1 text-sm text-slate-500">
                       {a.document.site.storeCode} · {a.document.site.visitDate}{" "}
                       · {a.document.site.auditor}
@@ -584,7 +583,7 @@ export function AuditStudioWorkspace({ initial, offline = false }: Props) {
             <FileText className="mx-auto mb-4 text-slate-400" size={28} />
             <h2 className="text-lg font-semibold">
               {tab === "draft"
-                ? "Ready for your first test visit"
+                ? "Ready for your first audit"
                 : "No completed audits yet"}
             </h2>
             <p className="mt-2 text-sm text-slate-500">
@@ -1105,7 +1104,6 @@ function AuditEditor({
           <details className="group">
             <summary className="cursor-pointer text-sm font-semibold">Audit tools & save status</summary>
             <div className="mt-2 flex flex-wrap items-center gap-3">
-            <TestingNotes userId={draft.userId} context={`${doc.site.storeName} (${doc.site.storeCode}) · ${review ? "Review audit" : `${String(section).padStart(2, "0")} / ${active.title}`}`} />
             <div
               aria-live="polite"
               className={`text-xs ${status === "Needs attention" ? "text-red-700" : "text-slate-600"}`}
