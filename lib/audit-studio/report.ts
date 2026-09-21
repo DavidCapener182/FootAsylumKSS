@@ -447,12 +447,14 @@ export async function generateReport(
     flush();
   };
   newPage(options.presentation ? "Proposed Health & Safety Audit" : "Health & Safety Audit");
-  const logo = await pdf.embedJpg(
+  const logo = await pdf.embedPng(
     await readFile(
-      path.join(process.cwd(), "docs/audit-studio/kss-logo-v1.jpg"),
+      path.join(process.cwd(), "docs/audit-studio/kss-logo-v2.png"),
     ),
   );
-  page.drawImage(logo, { x: W - M - 52, y: y - 42, width: 52, height: 52 });
+  const logoWidth = 70;
+  const logoHeight = logoWidth * logo.height / logo.width;
+  page.drawImage(logo, { x: W - M - logoWidth, y: y + 10 - logoHeight, width: logoWidth, height: logoHeight });
   paragraph(doc.site.storeName, 22, bold, ink, CW - 75);
   paragraph(
     `${doc.site.storeCode} · ${doc.site.visitDate}`,
