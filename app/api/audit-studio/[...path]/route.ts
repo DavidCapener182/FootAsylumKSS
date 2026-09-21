@@ -1,3 +1,4 @@
+import { auditReportFilename } from "@/lib/audit-studio/report-filename";
 import {createAdminSupabaseClient} from "@/lib/supabase/admin";
 import {previousStoreActions, publishToStore} from "@/lib/audit-studio/store-records";
 import references from "@/lib/audit-studio/reference-documents.json";
@@ -151,7 +152,7 @@ async function dispatch(
           headers: {
             ...headers,
             "Content-Type": "application/pdf",
-            "Content-Disposition": `attachment; filename="Audit-${b.audit.document.site.storeCode}-${b.audit.document.site.visitDate}.pdf"`,
+            "Content-Disposition": `attachment; filename="${auditReportFilename(b.audit.document.site).replace(/[^\x20-\x7e]/g, "-")}"; filename*=UTF-8''${encodeURIComponent(auditReportFilename(b.audit.document.site))}`,
           },
         });
       } else throw new StudioError("Operation not found.", 404);
