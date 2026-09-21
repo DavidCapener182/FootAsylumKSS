@@ -5,8 +5,10 @@ import { clampPercentage, percent, safeNumber } from './dashboard-utils'
 
 export function KpiGrid({ data }: { data: DashboardData }) {
   const total = safeNumber(data.auditStats?.totalStores)
+  const required = safeNumber(data.auditStats?.firstAuditsRequired, total)
+  const exempt = safeNumber(data.auditStats?.firstAuditsNotRequired)
   const complete = safeNumber(data.auditStats?.firstAuditsComplete)
-  const progress = clampPercentage(safeNumber(data.auditStats?.firstAuditPercentage, percent(complete, total)))
+  const progress = clampPercentage(safeNumber(data.auditStats?.firstAuditPercentage, percent(complete, required)))
   const metrics = [
     { value: `${safeNumber(data.fraStats?.inDateCoveragePercentage)}%`, label: 'FRA in-date coverage', detail: 'Target 90% · stores requiring FRA' },
     { value: safeNumber(data.complianceTracking?.awaitingSecondAuditCount), label: 'Second audits required', detail: `${percent(safeNumber(data.complianceTracking?.awaitingSecondAuditCount), total)}% of active stores` },
@@ -18,10 +20,11 @@ export function KpiGrid({ data }: { data: DashboardData }) {
       <div className="overview-board-main">
         <div>
           <h2 id="overview-board-title">Your stores.<br />At a glance.</h2>
-          <p>{complete} of {total} stores have completed their first audit.</p>
+          <p>{complete} of {required} required first audits complete.</p>
+          {exempt > 0 && <p>{exempt} new stores · Audit 1 not required.</p>}
           <Link href="/audit-tracker" className="overview-board-link">Explore audit progress <ArrowUpRight size={16} aria-hidden="true" /></Link>
         </div>
-        <div className="overview-orbit" role="img" aria-label={`${progress}% of stores have completed their first audit`}>
+        <div className="overview-orbit" role="img" aria-label={`${progress}% of required first audits complete`}>
           <svg viewBox="0 0 180 180" aria-hidden="true"><circle cx="90" cy="90" r="79" fill="none" stroke="currentColor" strokeWidth="5" opacity="0.14" /><circle cx="90" cy="90" r="79" fill="none" stroke="currentColor" strokeWidth="5" pathLength="100" strokeDasharray={`${progress} 100`} transform="rotate(-90 90 90)" /></svg>
           <div><strong>{progress}<small>%</small></strong><span>FIRST AUDIT COMPLETE</span></div>
         </div>

@@ -9,9 +9,19 @@ const routeRows = [
   compliance_audit_2_planned_date: row.date,
   compliance_audit_2_assigned_manager_user_id: row.managerId,
 }))
-const stores = routeRows.map((row) => ({
+type StoreFixture = Omit<(typeof routeRows)[number], 'compliance_audit_2_planned_date'> & {
+  is_active: boolean
+  compliance_audit_1_date: string | null
+  compliance_audit_1_pdf_path: string | null
+  compliance_audit_1_overall_pct: number | null
+  compliance_audit_2_date: string | null
+  compliance_audit_2_overall_pct: number | null
+  fire_risk_assessment_date: string | null
+  compliance_audit_2_planned_date: string | null
+}
+const stores: StoreFixture[] = routeRows.map((row) => ({
   ...row, is_active: true, compliance_audit_1_date: '2026-01-01',
-  compliance_audit_1_overall_pct: 90, compliance_audit_2_date: null,
+  compliance_audit_1_pdf_path: null, compliance_audit_1_overall_pct: 90, compliance_audit_2_date: null,
   compliance_audit_2_overall_pct: null, fire_risk_assessment_date: '2026-01-01',
 }))
 
@@ -41,5 +51,25 @@ describe('personal dashboard routes', () => {
 
   it('does not substitute another manager or an unassigned visit when the user has no route', async () => {
     expect((await getDashboardData('no-assigned-visits')).personalPlannedRoutes).toEqual([])
+  })
+})
+
+
+describe('first-audit completion requirements', () => {
+  it('excludes new stores, counts completed unscored warehouses and retains genuine gaps', async () => {
+    const original = stores.length
+    const base = stores[0]
+    stores.push(
+      ...['76c6774f-4dab-452e-81a9-a1fcea8f29d8', '56d176db-bc7c-4f60-b04c-a40cefa89c62'].map(id => ({...base, id,
+        compliance_audit_1_date: null, compliance_audit_1_overall_pct: null,
+        compliance_audit_2_date: '2026-08-13', compliance_audit_2_overall_pct: 80})),
+      ...['Heywood', 'Middleton'].map(store_name => ({...base, id: store_name, store_name, compliance_audit_1_overall_pct: null})),
+    )
+    try {
+      const stats = (await getDashboardData('david')).auditStats
+      expect(stats).toMatchObject({totalStores: 7, firstAuditsRequired: 5, firstAuditsNotRequired: 2, firstAuditsComplete: 5, firstAuditPercentage: 100})
+      stores.push({...base, id: 'genuinely-missing', compliance_audit_1_date: null, compliance_audit_1_overall_pct: null})
+      expect((await getDashboardData('david')).auditStats).toMatchObject({firstAuditsRequired: 6, firstAuditsComplete: 5, firstAuditPercentage: 83.33})
+    } finally { stores.splice(original) }
   })
 })

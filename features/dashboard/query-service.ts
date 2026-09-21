@@ -1,4 +1,6 @@
 import { z } from 'zod'
+import { isNewStoreFirstAudit } from '@/lib/audit/new-store-applicability'
+import { isWarehouseAuditRow } from '@/components/audit/audit-table-helpers'
 
 import type { DashboardData, RegionalCompliance } from '@/components/dashboard/dashboard-types'
 import { computeComplianceForecast, getFRAStatusFromDate } from '@/lib/compliance-forecast'
@@ -15,6 +17,7 @@ const storeSchema = z.object({
   is_active: z.boolean(),
   compliance_audit_1_date: z.string().nullable(),
   compliance_audit_1_overall_pct: z.number().nullable(),
+  compliance_audit_1_pdf_path: z.string().nullable(),
   compliance_audit_2_date: z.string().nullable(),
   compliance_audit_2_overall_pct: z.number().nullable(),
   compliance_audit_2_planned_date: z.string().nullable(),
@@ -66,7 +69,7 @@ export async function getDashboardData(currentUserId: string): Promise<Dashboard
 
     const [storesResult, incidentsResult, incidentActionsResult, storeActionsResult, activityResult, routesResult] = await Promise.all([
       supabase.from('fa_stores').select(`id, store_name, store_code, region, is_active,
-        compliance_audit_1_date, compliance_audit_1_overall_pct,
+        compliance_audit_1_date, compliance_audit_1_overall_pct, compliance_audit_1_pdf_path,
         compliance_audit_2_date, compliance_audit_2_overall_pct,
         compliance_audit_2_planned_date, fire_risk_assessment_date`).eq('is_active', true),
       supabase.from('fa_incidents').select('store_id, status, severity, occurred_at'),
@@ -92,7 +95,11 @@ export async function getDashboardData(currentUserId: string): Promise<Dashboard
     const allActions = [...incidentActions, ...storeActions]
     const activeActions = allActions.filter((action) => !incompleteStatuses.has(action.status.toLowerCase()))
     const overdueActions = activeActions.filter((action) => action.due_date < today).length
-    const firstAuditsComplete = stores.filter((store) => store.compliance_audit_1_date && store.compliance_audit_1_overall_pct !== null).length
+    const firstAuditStores = stores.filter((store) => !isNewStoreFirstAudit(store))
+    const firstAuditsRequired = firstAuditStores.length
+    const firstAuditsNotRequired = stores.length - firstAuditsRequired
+    const firstAuditsComplete = firstAuditStores.filter((store) => store.compliance_audit_1_date &&
+      (store.compliance_audit_1_overall_pct !== null || isWarehouseAuditRow(store))).length
     const secondAuditsComplete = stores.filter((store) => store.compliance_audit_2_date && store.compliance_audit_2_overall_pct !== null).length
     const awaitingSecondAudit = stores.filter((store) => store.compliance_audit_1_date && !store.compliance_audit_2_date).length
     const secondAuditPlanned = stores.filter((store) => store.compliance_audit_1_date && !store.compliance_audit_2_date && store.compliance_audit_2_planned_date).length
@@ -157,9 +164,11 @@ export async function getDashboardData(currentUserId: string): Promise<Dashboard
       auditStats: {
         totalStores,
         firstAuditsComplete,
+        firstAuditsRequired,
+        firstAuditsNotRequired,
         secondAuditsComplete,
         totalAuditsComplete: stores.filter((store) => [store.compliance_audit_1_overall_pct, store.compliance_audit_2_overall_pct].some((score) => typeof score === 'number' && score >= 80) && ['up_to_date', 'due'].includes(getFRAStatusFromDate(store.fire_risk_assessment_date, now))).length,
-        firstAuditPercentage: totalStores ? truncateToDecimals((firstAuditsComplete / totalStores) * 100) : 0,
+        firstAuditPercentage: firstAuditsRequired ? truncateToDecimals((firstAuditsComplete / firstAuditsRequired) * 100) : 0,
         secondAuditPercentage: totalStores ? truncateToDecimals((secondAuditsComplete / totalStores) * 100) : 0,
       },
       storeActionStats: {
