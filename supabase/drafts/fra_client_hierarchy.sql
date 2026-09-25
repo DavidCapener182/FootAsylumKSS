@@ -1,3 +1,4 @@
+-- SUPERSEDED: DO NOT APPLY. The broad hierarchy rollout was rejected; see fra_store_access_service_only.sql.
 -- UNAPPLIED DRAFT. Depends on fra_client_roles.sql and
 -- fra_action_persistence.sql. Review legacy client policies and run a full
 -- cross-role RLS test before applying. No assignments or access are seeded.

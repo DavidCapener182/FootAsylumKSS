@@ -7,6 +7,7 @@ import { extractConductedDateFromPdfText, parseAuditDateString } from '@/lib/fra
 import { revalidatePath } from 'next/cache'
 import { persistFraRiskRatingForInstance } from '@/lib/fra/persist-risk-rating'
 import { requirePermission } from '@/lib/permissions'
+import { requireKssSourceRead } from '@/lib/kss-source-access'
 import {
   BREMONT_WATCHES_FRA_TEMPLATE,
   FRA_TEMPLATE_VARIANTS,
@@ -23,17 +24,12 @@ function todayDateInputValue() {
 }
 
 export async function getTemplates() {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Unauthorized')
-  }
+  const { supabase, userId } = await requireKssSourceRead()
 
   const { data: profile } = await supabase
     .from('fa_profiles')
     .select('role')
-    .eq('id', user.id)
+    .eq('id', userId)
     .single()
 
   const isAdmin = profile?.role === 'admin'
@@ -60,12 +56,7 @@ export async function getTemplates() {
 }
 
 export async function getTemplate(id: string) {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Unauthorized')
-  }
+  const { supabase, userId } = await requireKssSourceRead()
 
   // Get template with sections and questions
   const { data: template, error: templateError } = await supabase
@@ -81,7 +72,7 @@ export async function getTemplate(id: string) {
   const { data: profile } = await supabase
     .from('fa_profiles')
     .select('role')
-    .eq('id', user.id)
+    .eq('id', userId)
     .single()
 
   const isAdmin = profile?.role === 'admin'
@@ -872,12 +863,7 @@ export async function getAuditHistory(filters?: {
   dateFrom?: string
   dateTo?: string
 }) {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Unauthorized')
-  }
+  const { supabase } = await requireKssSourceRead()
 
   let query = supabase
     .from('fa_audit_instances')
@@ -941,12 +927,7 @@ export async function getAuditHistory(filters?: {
 }
 
 export async function getAuditDashboardData() {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Unauthorized')
-  }
+  const { supabase } = await requireKssSourceRead()
 
   const { data, error } = await supabase
     .from('fa_audit_instances')
@@ -999,12 +980,7 @@ export async function getAuditDashboardData() {
 }
 
 export async function getAuditInstance(id: string) {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Unauthorized')
-  }
+  const { supabase } = await requireKssSourceRead()
 
   const { data: instance, error } = await supabase
     .from('fa_audit_instances')

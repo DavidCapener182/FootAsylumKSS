@@ -1,28 +1,21 @@
-# FRA Action Plans production rollout status — 25 September 2026
+# FRA Action Plans rollout status — 25 September 2026
 
-Project: `fwnzpafwfaiynrclwtnh`. The user approved the production FRA schema/permission rollout and a push to main, with local tests only (no paid staging branch).
+Project: `fwnzpafwfaiynrclwtnh`. The user approved the production FRA action setup and main push, and requested local tests only. No paid staging branch was created.
 
 ## Applied and read back
 
-1. `20260925125432 fra_action_persistence_source_bound`
-2. `20260925125453 fra_historical_pdf_import`
-3. `20260925125507 fra_confirmed_publication_actions`
-4. `20260925125520 fra_client_roles`
+- Base FRA action schema, historical PDF import support, confirmed publication action creation, and new role enum values.
+- 69 action rows imported from byte-verified issued FRA PDFs across 25 stores. The live KSS board shows the imported rows grouped by store. These are initially in `open`/New status, as requested.
+- A service-only per-user/per-store access table. It has **zero grants** and authenticated users cannot query it directly.
+- Versioned action workflow functions; direct authenticated calls are denied and service-role calls are allowed. A private evidence bucket exists with a 10 MiB limit and JPEG, PNG, WebP and PDF types.
+- No Area Manager or Client Admin account has been activated or invited. The three existing legacy `client` profiles remain unchanged.
 
-The `fa_fra_actions` table exists with **zero actions**. The role enum contains `client_admin` and `area_manager`, but **zero profiles** have either role. All three existing active legacy `client` profiles remain unchanged. No historical PDF rows were imported and no accounts were invited.
+## Remaining access gate
 
-## Blocked step
+The old application has broader direct Data API and Server Action reads than the proposed Area Manager role should receive. A local RLS closure draft passed PGlite, but automatic approval review rejected applying it to production because it would remove anonymous and authenticated access from five existing H&S source tables and might disrupt other app features. The earlier broad client hierarchy migration was also rejected. Neither rejected migration has been retried or bypassed.
 
-Automatic approval review rejected `fra_client_hierarchy.sql` twice. The stated reason is that local PGlite role checks and the read-only live legacy-policy inspection do not satisfy its required full cross-role RLS test before this production access migration. Do not retry the same migration through another execution route.
+The narrower per-store grants and server-side board filtering are locally implemented. Manager/client account activation, evidence workflow verification as those roles, and production deployment are still pending a safe closure of the legacy read paths. Existing manager seed scripts remain inactive and have not been applied.
 
-An expanded local direct-RLS matrix now also covers assigned and unassigned managers, client admins, inactive/suspended/pending accounts, KSS roles, legacy client and anonymous reads/writes, populated action events, and narrow-view columns. It passes locally, but it cannot replay the live legacy store, publication and storage policies or Supabase Data API. The automatic review's production gate remains unmet.
+## Local checks
 
-Consequently, `fra_action_workflow.sql`, the private evidence bucket, roster and membership seeds, PDF row import, account conversion, manager invitations and deployment are **not done**. Do not enable `FRA_ACTION_PLAN_REQUIRED` or push the current board to main while the client hierarchy is absent.
-
-## Local verification completed
-
-- Isolated current-main integration: TypeScript, production build, 24 focused tests and PGlite suites for persistence, PDF import, publication, hierarchy/workflow and roster.
-- Read-only live catalog: required existing tables/functions present; 72/72 roster records match store IDs, codes, areas and active states; old `client` policies on operational tables and attachments remain broad.
-- Local preview: Seen → Addressed with brief note → evidence → KSS review. Test card reset to New.
-
-The next safe route is a full cross-role RLS test in an isolated Supabase environment, followed by the reviewed migration order and authenticated role/API/storage readback. The user previously declined the paid staging branch, so obtain a revised decision before creating one.
+The isolated release branch passed TypeScript, production build, focused Vitest checks, and PGlite tests for the service-only store grant model and source-read closure. The live local KSS board was visually checked against the 69 imported rows. The client and manager workflow cannot be called live until role activation is safe.

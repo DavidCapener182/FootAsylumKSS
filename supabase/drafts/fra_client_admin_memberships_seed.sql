@@ -1,3 +1,4 @@
+-- SUPERSEDED: DO NOT APPLY. The broad hierarchy rollout was rejected; see fra_store_access_service_only.sql.
 -- UNAPPLIED DRAFT. Depends on hierarchy + reviewed Footasylum roster seed.
 -- Creates INACTIVE memberships only; no role changes or invitations.
 -- Run after the scoped code and database gates pass. Recheck the verified

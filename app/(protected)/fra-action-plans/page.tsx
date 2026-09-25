@@ -49,10 +49,14 @@ export default async function FraActionPlansPage({ searchParams }: { searchParam
 
   // The live board reads only approved rows in the dedicated action register.
   if (scope.kind === 'denied' || (scope.kind === 'client_stores' && scope.storeIds.length === 0)) return <div className="p-8"><h1 className="text-2xl font-bold">FRA Action Plans</h1><p className="mt-3">Your store access has not been assigned yet.</p></div>
-  const actionQuery = supabase.from(scope.kind === 'kss_all' ? 'fa_fra_actions' : 'fa_client_fra_action_board').select('id, store_id, recommendation, priority, status, source_origin, version, pdf_page').order('created_at', { ascending: false })
+  // Scoped roles never query the raw tables directly. The service client is
+  // used only after the server resolves explicit store assignments, and both
+  // queries below are restricted to that allowlist.
+  const boardClient = scope.kind === 'kss_all' ? supabase : createAdminSupabaseClient()
+  const actionQuery = boardClient.from('fa_fra_actions').select('id, store_id, recommendation, priority, status, source_origin, version, pdf_page').order('created_at', { ascending: false })
   const storeQuery = scope.kind === 'kss_all'
-    ? supabase.from('fa_stores').select('id, store_code, store_name, reporting_area, reporting_area_manager_name, fire_risk_assessment_pdf_path').order('store_name')
-    : supabase.from('fa_client_store_directory').select('id, store_code, store_name, reporting_area, reporting_area_manager_name').order('store_name')
+    ? boardClient.from('fa_stores').select('id, store_code, store_name, reporting_area, reporting_area_manager_name, fire_risk_assessment_pdf_path').order('store_name')
+    : boardClient.from('fa_stores').select('id, store_code, store_name, reporting_area, reporting_area_manager_name').order('store_name')
   const [{ data: actionData, error: actionError }, { data: storeData, error: storeError }] = await Promise.all([
     scope.kind === 'client_stores' ? actionQuery.in('store_id', scope.storeIds) : actionQuery,
     scope.kind === 'client_stores' ? storeQuery.in('id', scope.storeIds) : storeQuery,

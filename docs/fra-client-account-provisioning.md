@@ -1,3 +1,5 @@
+> Superseded draft: this document describes the rejected multi-table client hierarchy. Do not apply its migrations or provisioning steps. See `docs/fra-actions/production-rollout-2026-09-25.md` for current status.
+
 # FRA Action Plans account provisioning plan
 
 This plan creates no accounts or memberships. Read-only `auth.users` lookup on 25 September 2026 found **no existing login** for any of the five Area Manager contact emails. The user authorised those addresses as intended login emails. Confirm mailbox ownership before invitations.

@@ -340,12 +340,7 @@ function extractSquareFootageAfterLabel(text: string): string | null {
  * Also checks for uploaded H&S audit PDFs
  */
 export async function getLatestHSAuditForStore(storeId: string, fraInstanceId?: string) {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Unauthorized')
-  }
+  const { supabase } = await requirePermission('manageFRA')
 
   // FRA uses ONLY uploaded PDF text - not database H&S audits
   // Get the parsed PDF text from the uploaded H&S audit PDF

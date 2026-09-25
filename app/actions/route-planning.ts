@@ -1,6 +1,5 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { requirePermission } from '@/lib/permissions'
 
@@ -194,7 +193,7 @@ export async function getRouteOperationalItems(
   plannedDate: string,
   region: string | null
 ): Promise<{ data: OperationalItem[] | null; error: string | null }> {
-  const supabase = createClient()
+  const { supabase } = await requirePermission('manageRoutePlanning')
 
   const { data, error } = await supabase
     .from('fa_route_operational_items')
@@ -308,7 +307,7 @@ export async function getRouteVisitTimes(
   plannedDate: string,
   region: string | null
 ): Promise<{ data: VisitTime[] | null; error: string | null }> {
-  const supabase = createClient()
+  const { supabase } = await requirePermission('manageRoutePlanning')
 
   const { data, error } = await supabase
     .from('fa_route_visit_times')
@@ -445,7 +444,7 @@ export async function getCompletedRouteVisits(
   region: string | null,
   storeIds: string[]
 ): Promise<{ data: string[] | null; error: string | null }> {
-  const supabase = createClient()
+  const { supabase } = await requirePermission('manageRoutePlanning')
 
   let query = supabase
     .from('fa_activity_log')
@@ -599,6 +598,7 @@ export async function getRoutePreVisitBriefing(
   storeIds: string[],
   incidentLookbackDays = 30
 ): Promise<{ data: PreVisitBriefingStoreSummary[] | null; error: string | null }> {
+  const { supabase } = await requirePermission('manageRoutePlanning')
   const uniqueStoreIds = Array.from(
     new Set(
       (storeIds || [])
@@ -611,7 +611,6 @@ export async function getRoutePreVisitBriefing(
     return { data: [], error: null }
   }
 
-  const supabase = createClient()
   const lookbackDate = new Date()
   lookbackDate.setDate(lookbackDate.getDate() - Math.max(1, incidentLookbackDays))
 

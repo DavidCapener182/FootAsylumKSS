@@ -1,22 +1,10 @@
--- SUPERSEDED: DO NOT APPLY. The broad hierarchy rollout was rejected; see fra_store_access_service_only.sql.
--- UNAPPLIED, DETERMINISTIC ROSTER SEED. Snapshot read-only query: 2026-09-25.
--- Depends on fra_client_hierarchy.sql. No users or verifier permissions are
--- created. The management region is NULL until Footasylum confirms it.
--- Includes inactive retail stores so their historical FRA actions remain
--- assigned to a client/area. Non-retail, EXT and unassigned rows are excluded.
+-- UNAPPLIED, read-only validated seed. Apply only after the one-table draft,
+-- account identities, direct Data API RLS, and server-action checks pass.
+-- Manager rows require five verified auth users; this transaction fails closed
+-- if any account, store ID, area, or active state differs from review.
 BEGIN;
-
-INSERT INTO public.fa_clients(id,name)
-VALUES ('10000000-0000-4000-8000-000000000001'::uuid,'Footasylum');
-INSERT INTO public.fa_client_areas(id,client_id,management_region_id,name) VALUES
-  ('10000000-0000-4000-8000-000000001001'::uuid,'10000000-0000-4000-8000-000000000001'::uuid,NULL,'AREA1'),
-  ('10000000-0000-4000-8000-000000001002'::uuid,'10000000-0000-4000-8000-000000000001'::uuid,NULL,'AREA2'),
-  ('10000000-0000-4000-8000-000000001003'::uuid,'10000000-0000-4000-8000-000000000001'::uuid,NULL,'AREA3'),
-  ('10000000-0000-4000-8000-000000001004'::uuid,'10000000-0000-4000-8000-000000000001'::uuid,NULL,'AREA4'),
-  ('10000000-0000-4000-8000-000000001005'::uuid,'10000000-0000-4000-8000-000000000001'::uuid,NULL,'AREA5');
-
-CREATE TEMP TABLE fra_seed_roster(store_id uuid PRIMARY KEY,store_code text NOT NULL UNIQUE,area_name text NOT NULL,manager_visible boolean NOT NULL) ON COMMIT DROP;
-INSERT INTO fra_seed_roster(store_id,store_code,area_name,manager_visible) VALUES
+CREATE TEMP TABLE fra_reviewed_store(store_id uuid PRIMARY KEY,store_code text,area text,manager_visible boolean) ON COMMIT DROP;
+INSERT INTO fra_reviewed_store VALUES
   ('bffb982c-7304-4ce6-972b-99fc8cf2b76d'::uuid,'S0005','AREA1',true),
   ('d165194c-99a2-4c85-ae4e-19ca2d6f44ee'::uuid,'S0006','AREA1',true),
   ('4334a472-66fe-45db-965a-5ef8dcaffbbc'::uuid,'S0007','AREA2',false),
@@ -89,27 +77,31 @@ INSERT INTO fra_seed_roster(store_id,store_code,area_name,manager_visible) VALUE
   ('5c7464e3-13fb-4ba9-b02b-bb0615dcf055'::uuid,'S0904','AREA2',true),
   ('1fe9618d-03f9-4b53-8096-c22b7e560f74'::uuid,'S0913','AREA1',true),
   ('55b31e73-f8d2-4966-a05b-b296c999226a'::uuid,'S0914','AREA1',true);
-
 DO $$ BEGIN
-  IF (SELECT count(*) FROM fra_seed_roster) <> 72 THEN
-    RAISE EXCEPTION 'Footasylum roster seed must contain 72 reviewed retail stores';
-  END IF;
-  IF EXISTS (
-    SELECT 1 FROM fra_seed_roster r LEFT JOIN public.fa_stores s ON s.id=r.store_id
+  IF (SELECT count(*) FROM fra_reviewed_store) <> 72 OR EXISTS (
+    SELECT 1 FROM fra_reviewed_store r LEFT JOIN public.fa_stores s ON s.id=r.store_id
     WHERE s.id IS NULL OR s.store_code IS DISTINCT FROM r.store_code
-      OR s.reporting_area IS DISTINCT FROM r.area_name
+      OR s.reporting_area IS DISTINCT FROM r.area
       OR s.is_active IS DISTINCT FROM r.manager_visible
-  ) THEN RAISE EXCEPTION 'Footasylum roster changed since seed review'; END IF;
-  IF (SELECT count(*) FROM public.fa_stores
-      WHERE store_code ~ '^S[0-9]{4}$' AND reporting_area IN ('AREA1','AREA2','AREA3','AREA4','AREA5')) <> 72 THEN
-    RAISE EXCEPTION 'Footasylum AREA1-AREA5 roster count changed since seed review';
+  ) THEN RAISE EXCEPTION 'Reviewed Footasylum store roster changed'; END IF;
+  IF (SELECT count(*) FROM public.fa_stores WHERE store_code ~ '^S[0-9]{4}$'
+      AND reporting_area IN ('AREA1','AREA2','AREA3','AREA4','AREA5')) <> 72 THEN
+    RAISE EXCEPTION 'Footasylum estate count changed';
+  END IF;
+  IF (SELECT count(*) FROM auth.users u JOIN public.fa_profiles p ON p.id=u.id
+      WHERE (u.id='1eb36932-44ee-41ac-861d-39b2414d925b'::uuid
+        AND lower(u.email)='hannah.lord@footasylum.com' AND p.full_name='Hannah Lord')
+         OR (u.id='25903bcd-f26d-4bd4-a160-d663aba45d3b'::uuid
+        AND lower(u.email)='toni.shaw@footasylum.com' AND p.full_name='Toni Shaw')) <> 2 THEN
+    RAISE EXCEPTION 'Client Admin identities changed';
   END IF;
 END $$;
-
-INSERT INTO public.fa_client_store_memberships(store_id,client_id,area_id,manager_visible)
-SELECT r.store_id,'10000000-0000-4000-8000-000000000001'::uuid,a.id,r.manager_visible
-FROM fra_seed_roster r
-JOIN public.fa_client_areas a ON a.client_id='10000000-0000-4000-8000-000000000001'::uuid
-  AND a.name=r.area_name;
-
+-- Start inactive; activate only after security gates and account review.
+INSERT INTO public.fa_fra_store_access(user_id,store_id,access_level,is_active)
+SELECT admin_id,r.store_id,'client_admin',false
+FROM fra_reviewed_store r CROSS JOIN (VALUES
+  ('1eb36932-44ee-41ac-861d-39b2414d925b'::uuid),
+  ('25903bcd-f26d-4bd4-a160-d663aba45d3b'::uuid)
+) AS admins(admin_id);
+-- Area Manager grants are provisioned separately from verified invite user IDs.
 COMMIT;

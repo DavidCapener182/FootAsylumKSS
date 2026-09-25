@@ -1,3 +1,5 @@
+> Superseded draft: this document describes the rejected multi-table client hierarchy. Do not apply its migrations or provisioning steps. See `docs/fra-actions/production-rollout-2026-09-25.md` for current status.
+
 # FRA Action Plans: controlled client access rollout
 
 This is an implementation sequence, not authorisation to change production. The SQL files under `supabase/drafts/` are **unapplied**. The board is populated from exact issued FRA PDF action rows with unknown historical completion shown as New, with source provenance retained.

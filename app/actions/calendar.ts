@@ -1,7 +1,7 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
 import { startOfMonth, endOfMonth, format } from 'date-fns'
+import { requireKssSourceRead } from '@/lib/kss-source-access'
 
 export interface PlannedRoute {
   key: string
@@ -39,7 +39,7 @@ export interface CalendarData {
 }
 
 export async function getCalendarData(month: number, year: number): Promise<CalendarData> {
-  const supabase = createClient()
+  const { supabase } = await requireKssSourceRead()
   
   // Create date range for the month
   const monthStart = startOfMonth(new Date(year, month - 1, 1))

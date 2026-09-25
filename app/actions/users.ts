@@ -321,26 +321,15 @@ export async function updateUserRole(
 
   if (newRole === 'client_admin' || newRole === 'area_manager') {
     const adminClient = createAdminSupabaseClient()
-    const { data: membership, error: membershipError } = await adminClient
-      .from('fa_client_memberships')
-      .select('client_id')
+    const { data: assignments, error: assignmentError } = await adminClient
+      .from('fa_fra_store_access')
+      .select('store_id')
       .eq('user_id', userId)
       .eq('access_level', newRole)
       .eq('is_active', true)
-      .maybeSingle()
-    if (membershipError || !membership?.client_id) {
-      throw new Error('An active, reviewed client membership is required before assigning this role')
-    }
-    if (newRole === 'area_manager') {
-      const { data: assignedAreas, error: areasError } = await adminClient
-        .from('fa_client_area_assignments')
-        .select('area_id')
-        .eq('user_id', userId)
-        .eq('client_id', membership.client_id)
-        .limit(1)
-      if (areasError || !assignedAreas?.length) {
-        throw new Error('At least one reviewed area assignment is required before assigning Area Manager')
-      }
+      .limit(1)
+    if (assignmentError || !assignments?.length) {
+      throw new Error('An active, reviewed store assignment is required before assigning this role')
     }
   }
 

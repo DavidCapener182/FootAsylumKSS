@@ -9,9 +9,9 @@ const mockInviteUserByEmail = vi.fn()
 const mockUpdateUserById = vi.fn()
 const mockProfileInsert = vi.fn()
 const mockLogActivity = vi.fn()
-const mockMembershipMaybeSingle = vi.fn()
 const mockMembershipEq = vi.fn()
-const mockMembershipQuery = { eq: mockMembershipEq, maybeSingle: mockMembershipMaybeSingle }
+const mockMembershipLimit = vi.fn()
+const mockMembershipQuery = { eq: mockMembershipEq, limit: mockMembershipLimit }
 const mockAdminFrom = vi.fn(() => ({ insert: mockProfileInsert, select: () => mockMembershipQuery }))
 
 const mockAuthenticatedSupabase = { rpc: mockRpc }
@@ -54,7 +54,7 @@ describe('administrator account lifecycle', () => {
     })
     mockProfileInsert.mockResolvedValue({ error: null })
     mockMembershipEq.mockReturnValue(mockMembershipQuery)
-    mockMembershipMaybeSingle.mockResolvedValue({ data: null, error: null })
+    mockMembershipLimit.mockResolvedValue({ data: [], error: null })
     mockLogActivity.mockResolvedValue(undefined)
     mockRpc.mockResolvedValue({
       data: [{
@@ -109,11 +109,23 @@ describe('administrator account lifecycle', () => {
     expect(mockInviteUserByEmail).not.toHaveBeenCalled()
   })
 
-  it('rejects scoped role assignment without a matching active membership', async () => {
+  it('rejects scoped role assignment without a matching active store assignment', async () => {
     const { updateUserRole } = await import('./users')
-    await expect(updateUserRole('manager-1', 'area_manager', 'Assigned to AREA1')).rejects.toThrow(/active, reviewed client membership/i)
-    expect(mockAdminFrom).toHaveBeenCalledWith('fa_client_memberships')
+    await expect(updateUserRole('manager-1', 'area_manager', 'Assigned to AREA1')).rejects.toThrow(/active, reviewed store assignment/i)
+    expect(mockAdminFrom).toHaveBeenCalledWith('fa_fra_store_access')
     expect(mockRpc).not.toHaveBeenCalled()
+  })
+
+  it('allows scoped role assignment only after the reviewed store grant is present', async () => {
+    mockMembershipLimit.mockResolvedValueOnce({ data: [{ store_id: 'store-1' }], error: null })
+    const { updateUserRole } = await import('./users')
+    await updateUserRole('manager-1', 'area_manager', 'Reviewed AREA1 stores')
+    expect(mockRpc).toHaveBeenCalledWith('fa_admin_change_user_access', {
+      p_target_user_id: 'manager-1',
+      p_new_role: 'area_manager',
+      p_new_account_status: null,
+      p_reason: 'Reviewed AREA1 stores',
+    })
   })
 
   it('requires a reason and delegates role/final-admin enforcement to the atomic RPC', async () => {

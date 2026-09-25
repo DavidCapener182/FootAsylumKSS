@@ -1,5 +1,5 @@
 -- UNAPPLIED DRAFT. Depends on fra_action_persistence.sql,
--- fra_client_roles.sql, fra_client_hierarchy.sql and the publication/PDF
+-- fra_client_roles.sql, fra_store_access_service_only.sql and the publication/PDF
 -- origin extensions. Apply only after cross-role RLS and command tests.
 -- RPCs are callable by service_role ONLY. The server must derive p_actor from
 -- a fresh authenticated session, never from request JSON.
@@ -48,13 +48,11 @@ RETURNS void LANGUAGE plpgsql SECURITY INVOKER SET search_path = '' AS $$
 BEGIN
   PERFORM 1
   FROM public.fa_profiles p
-  JOIN public.fa_client_memberships m ON m.user_id=p.id
-  JOIN public.fa_client_store_memberships s ON s.client_id=m.client_id AND s.store_id=p_store
-  JOIN public.fa_client_area_assignments aa ON aa.user_id=p.id
-    AND aa.client_id=m.client_id AND aa.area_id=s.area_id
+  JOIN public.fa_fra_store_access s ON s.user_id=p.id AND s.store_id=p_store
+  JOIN public.fa_stores store ON store.id=s.store_id
   WHERE p.id=p_actor AND p.role::text='area_manager' AND p.account_status::text='active'
-    AND m.access_level='area_manager' AND m.is_active AND s.manager_visible
-  FOR SHARE OF p,m,s,aa;
+    AND s.access_level='area_manager' AND s.is_active AND store.is_active
+  FOR SHARE OF p,s,store;
   IF NOT FOUND THEN RAISE EXCEPTION 'Area Manager is not assigned to this store' USING ERRCODE='42501'; END IF;
 END $$;
 
