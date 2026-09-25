@@ -15,6 +15,8 @@ The `fa_fra_actions` table exists with **zero actions**. The role enum contains 
 
 Automatic approval review rejected `fra_client_hierarchy.sql` twice. The stated reason is that local PGlite role checks and the read-only live legacy-policy inspection do not satisfy its required full cross-role RLS test before this production access migration. Do not retry the same migration through another execution route.
 
+An expanded local direct-RLS matrix now also covers assigned and unassigned managers, client admins, inactive/suspended/pending accounts, KSS roles, legacy client and anonymous reads/writes, populated action events, and narrow-view columns. It passes locally, but it cannot replay the live legacy store, publication and storage policies or Supabase Data API. The automatic review's production gate remains unmet.
+
 Consequently, `fra_action_workflow.sql`, the private evidence bucket, roster and membership seeds, PDF row import, account conversion, manager invitations and deployment are **not done**. Do not enable `FRA_ACTION_PLAN_REQUIRED` or push the current board to main while the client hierarchy is absent.
 
 ## Local verification completed
