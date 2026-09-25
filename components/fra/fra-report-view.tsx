@@ -221,7 +221,8 @@ interface FRAData {
   fireFindings?: FRARiskFindings
   /** Assessor-calibrated likelihood/consequence. Overall risk is derived from the standard matrix. */
   manualRiskRatingOverride?: unknown
-  actionPlanItems?: Array<{ recommendation: string; priority: 'Low' | 'Medium' | 'High'; dueNote?: string }>
+  actionPlanItems?: Array<{ sourceActionId?: string; recommendation: string; priority: 'Low' | 'Medium' | 'High'; dueNote?: string }>
+  _fraActionFingerprint?: string
   /** Intumescent strips on fire doors present (custom toggle). When false, an action plan item is added. */
   intumescentStripsPresent?: boolean
   sitePremisesPhotos?: any[]
@@ -3115,7 +3116,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
                 </thead>
                 <tbody>
                   {data.actionPlanItems.map((item: any, idx: number) => (
-                    <tr key={idx}>
+                    <tr key={item.sourceActionId || idx} data-fra-action-id={item.sourceActionId || undefined}>
                       <td className="border border-slate-300 px-3 py-2">{item.priority}</td>
                       <td className="border border-slate-300 px-3 py-2">{item.recommendation}{item.dueNote ? ` — ${item.dueNote}` : ''}</td>
                     </tr>
@@ -3129,7 +3130,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
             <p className="text-sm text-slate-700 mb-4">
               No significant deficiencies requiring formal action were identified at the time of assessment. Existing fire safety arrangements are considered suitable and sufficient, subject to ongoing management and routine review.
             </p>
-            <div className="fra-keep overflow-x-auto">
+            {!data._fraActionFingerprint ? <div className="fra-keep overflow-x-auto">
               <table className="fra-print-table w-full border border-slate-300 text-sm fra-action-plan-table">
                 <thead>
                   <tr className="bg-slate-100">
@@ -3144,7 +3145,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
                   </tr>
                 </tbody>
               </table>
-            </div>
+            </div> : null}
           </>
         )}
       </div>

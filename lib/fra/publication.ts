@@ -1,8 +1,22 @@
 import 'server-only'
 import { createHash } from 'node:crypto'
 import { createAdminSupabaseClient } from '@/lib/supabase/admin'
+import { verifyApprovedActionSnapshot } from './approved-action-plan'
+import type { FraActionPublicationSnapshot } from './fra-action-draft'
 
 export const pdfHash = (bytes: Buffer) => createHash('sha256').update(bytes).digest('hex')
+
+export async function approvedActionPlanForInstance(instanceId: string): Promise<FraActionPublicationSnapshot | null> {
+  if (process.env.FRA_ACTION_PLAN_REQUIRED !== 'true') return null
+  const { data, error } = await createAdminSupabaseClient().from('fa_fra_approved_action_plans')
+    .select('snapshot,fingerprint,store_id').eq('instance_id', instanceId).maybeSingle()
+  if (error) throw new Error('Unable to load the approved FRA action plan')
+  if (!data) return null
+  const snapshot = await verifyApprovedActionSnapshot(data.snapshot)
+  if (snapshot.instanceId !== instanceId || snapshot.storeId !== data.store_id
+    || snapshot.fingerprint !== data.fingerprint) throw new Error('FRA action plan identity mismatch')
+  return snapshot
+}
 
 export async function fraSourceSnapshot(supabase: any, instanceId: string) {
   const { data: instance, error } = await supabase.from('fa_audit_instances').select('*, fa_audit_templates(category)').eq('id', instanceId).single()
@@ -13,6 +27,7 @@ export async function fraSourceSnapshot(supabase: any, instanceId: string) {
   if (storeError || !store) throw new Error('Store not found')
   const { data: comments, error: commentError } = await supabase.from('fa_fra_photo_comments').select('file_path,comment').eq('audit_instance_id', instanceId).order('file_path')
   if (commentError) throw new Error('Unable to verify photo comments')
+  const actionSnapshot = await approvedActionPlanForInstance(instanceId)
   const bucket = createAdminSupabaseClient().storage.from('fa-attachments')
   const images: Array<{ path: string; bytes: number; updated_at: string; sha256: string }> = []
   async function walk(prefix: string) {
@@ -33,8 +48,9 @@ export async function fraSourceSnapshot(supabase: any, instanceId: string) {
   }
   await walk(`fra/${instanceId}/photos`)
   images.sort((a,b) => a.path.localeCompare(b.path))
-  const fingerprint = pdfHash(Buffer.from(JSON.stringify({ instance, responses, store, comments, images })))
-  return { fingerprint, images, instance, store }
+  const fingerprint = pdfHash(Buffer.from(JSON.stringify({ instance, responses, store, comments, images,
+    ...(actionSnapshot ? { actionFingerprint: actionSnapshot.fingerprint } : {}) })))
+  return { fingerprint, images, instance, store, actionSnapshot }
 }
 
 export async function verifiedPublication(supabase: any, instanceId: string, publicationId: string) {

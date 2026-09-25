@@ -41,12 +41,36 @@ export async function POST(request: NextRequest) {
     if (existingError) throw existingError
     if (existing) throw new Error('This FRA already has a confirmed PDF.')
     const before = await fraSourceSnapshot(supabase, instanceId)
+    if (process.env.FRA_ACTION_PLAN_REQUIRED === 'true' && !before.actionSnapshot) {
+      throw new Error('Approve the FRA action plan, including an empty plan, before preparing the issued PDF.')
+    }
+    // Returning to the same review must not generate new wording or store another PDF.
+    const { data: pending, error: pendingError } = await supabase.from('fa_fra_publications')
+      .select('id,pdf_path,pdf_sha256,pdf_bytes,source_images')
+      .eq('instance_id', instanceId).eq('source_fingerprint', before.fingerprint)
+      .is('confirmed_at', null).order('created_at', { ascending: false }).limit(1).maybeSingle()
+    if (pendingError) throw pendingError
+    if (pending) {
+      const bucket = admin.storage.from('fa-attachments')
+      const { data: saved, error: readError } = await bucket.download(pending.pdf_path)
+      if (readError || !saved || pdfHash(Buffer.from(await saved.arrayBuffer())) !== pending.pdf_sha256) {
+        throw new Error('The existing review PDF could not be verified. Its source images have been retained.')
+      }
+      const { data: signed, error: signError } = await bucket.createSignedUrl(pending.pdf_path, 3600)
+      if (signError || !signed) throw new Error('Unable to open the existing PDF for review')
+      const images = pending.source_images as { included_in_pdf?: boolean }[]
+      return NextResponse.json({ id: pending.id, url: signed.signedUrl, bytes: pending.pdf_bytes,
+        sourceImages: images.length, unusedImages: images.filter(image => image.included_in_pdf === false).length })
+    }
     const url = new URL('/api/fra-reports/generate-pdf', request.url)
     url.searchParams.set('instanceId', instanceId)
     const renderHeaders = new Headers(request.headers)
     renderHeaders.set('x-fra-expected-images', JSON.stringify(before.images.map(image => image.path)))
     const generated = await generatePdf(new NextRequest(url, { headers: renderHeaders }))
     if (!generated.ok) throw new Error((await generated.json()).details || 'PDF generation failed')
+    if (before.actionSnapshot && generated.headers.get('x-fra-action-fingerprint') !== before.actionSnapshot.fingerprint) {
+      throw new Error('The printed FRA action rows do not match the approved action plan.')
+    }
     const unusedImages: string[] = JSON.parse(generated.headers.get('x-fra-unused-images') || '[]')
     const bytes = Buffer.from(await generated.arrayBuffer())
     if (bytes.subarray(0,5).toString() !== '%PDF-' || bytes.length < 1000) throw new Error('Generated PDF is invalid')
@@ -63,7 +87,9 @@ export async function POST(request: NextRequest) {
     const { data: signed, error: signedError } = await bucket.createSignedUrl(path, 3600)
     if (signedError || !signed) throw new Error('Unable to open PDF for review')
     const { error: saveError } = await admin.from('fa_fra_publications').insert({ id, instance_id: instanceId, store_id: before.instance.store_id,
-      pdf_path: path, pdf_sha256: pdfHash(bytes), pdf_bytes: bytes.length, source_fingerprint: after.fingerprint, source_images: after.images.map(image => ({ ...image, included_in_pdf: !unusedImages.includes(image.path) })), created_by: userId })
+      pdf_path: path, pdf_sha256: pdfHash(bytes), pdf_bytes: bytes.length, source_fingerprint: after.fingerprint,
+      ...(after.actionSnapshot ? { action_snapshot: after.actionSnapshot, pdf_action_fingerprint: after.actionSnapshot.fingerprint } : {}),
+      source_images: after.images.map(image => ({ ...image, included_in_pdf: !unusedImages.includes(image.path) })), created_by: userId })
     if (saveError) throw saveError
     uploadedPath = null
     return NextResponse.json({ id, url: signed.signedUrl, bytes: bytes.length, sourceImages: after.images.length, unusedImages: unusedImages.length })

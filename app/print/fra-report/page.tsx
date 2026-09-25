@@ -308,7 +308,7 @@ export default function FRAPrintReportPage({
   }
 
   return (
-    <div className="fra-print-page-root min-h-screen flex flex-col bg-white">
+    <div className="fra-print-page-root min-h-screen flex flex-col bg-white" data-fra-action-fingerprint={fraData?._fraActionFingerprint || undefined}>
       {generatingPdf && (
         <div className="fixed inset-0 z-30 flex items-center justify-center bg-slate-950/20 px-4 backdrop-blur-[2px] print:hidden">
           <FRAReportLoadingState

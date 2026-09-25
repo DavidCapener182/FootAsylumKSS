@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 import { getFraReportFilename } from '@/lib/utils'
 import { launchPuppeteerBrowser } from '@/lib/pdf/puppeteer-browser'
 import type { Browser } from 'puppeteer'
+import { approvedActionPlanForInstance } from '@/lib/fra/publication'
+import { assertPrintedFraActionRows } from '@/lib/fra/approved-action-plan'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -205,15 +207,23 @@ export async function GET(request: NextRequest) {
     // Read premises/date from the page for filename only. Do not use displayHeaderFooter:
     // each .fra-print-page already has its own .fra-print-page-header in the HTML, so
     // Puppeteer's header would duplicate it.
-    const { premises, date, storeCode, storeName } = await page.evaluate(() => {
+    const { premises, date, storeCode, storeName, actionFingerprint } = await page.evaluate(() => {
       const root = document.getElementById('print-root')
       return {
         premises: root?.getAttribute('data-pdf-premises') ?? 'Report',
         date: root?.getAttribute('data-pdf-date') ?? '—',
         storeCode: root?.getAttribute('data-pdf-store-code') ?? '',
         storeName: root?.getAttribute('data-pdf-store-name') ?? '',
+        actionFingerprint: document.querySelector('.fra-print-page-root')?.getAttribute('data-fra-action-fingerprint') ?? '',
       }
     })
+    const approvedActions = await approvedActionPlanForInstance(instanceId)
+    if (approvedActions) {
+      const printedRows = await page.evaluate(() => Array.from(document.querySelectorAll<HTMLTableRowElement>('.fra-action-plan-table tbody tr[data-fra-action-id]'))
+        .map(row => ({ sourceActionId: row.dataset.fraActionId || '', priority: row.cells[0]?.textContent?.trim() || '',
+          action: row.cells[1]?.textContent?.trim() || '' })))
+      assertPrintedFraActionRows(approvedActions, actionFingerprint, printedRows)
+    }
 
     // Use per-page headers in HTML only; do not enable Puppeteer headerTemplate or we get two headers on page 1.
     const pdfBuffer = await page.pdf({
@@ -232,6 +242,7 @@ export async function GET(request: NextRequest) {
       headers: {
         'Content-Type': 'application/pdf',
         'X-FRA-Unused-Images': JSON.stringify(unusedSourceImages),
+        ...(actionFingerprint ? { 'X-FRA-Action-Fingerprint': actionFingerprint } : {}),
         'Content-Disposition': `attachment; filename="${filename.replace(/"/g, '\\"')}"`,
         'Cache-Control': 'no-store, max-age=0',
       },

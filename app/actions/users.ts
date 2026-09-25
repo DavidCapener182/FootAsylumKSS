@@ -17,7 +17,10 @@ const ASSIGNABLE_USER_ROLES: readonly AssignableUserRole[] = [
   'ops',
   'readonly',
   'client',
+  'client_admin',
+  'area_manager',
 ]
+const INVITABLE_USER_ROLES: readonly UserRole[] = ['admin', 'ops', 'readonly', 'client']
 
 export interface UserWithProfile {
   id: string
@@ -133,7 +136,9 @@ export async function inviteUserByEmail(
   }
 
   // Validate role
-  if (!ASSIGNABLE_USER_ROLES.includes(role as AssignableUserRole)) {
+  // Scoped roles need reviewed memberships before activation, so the generic
+  // email invitation flow must not create them.
+  if (!INVITABLE_USER_ROLES.includes(role)) {
     return {
       success: false,
       message: `Invalid role: ${role}`,
@@ -312,6 +317,31 @@ export async function updateUserRole(
 
   if (!ASSIGNABLE_USER_ROLES.includes(newRole as AssignableUserRole)) {
     throw new Error(`Invalid role: ${newRole}`)
+  }
+
+  if (newRole === 'client_admin' || newRole === 'area_manager') {
+    const adminClient = createAdminSupabaseClient()
+    const { data: membership, error: membershipError } = await adminClient
+      .from('fa_client_memberships')
+      .select('client_id')
+      .eq('user_id', userId)
+      .eq('access_level', newRole)
+      .eq('is_active', true)
+      .maybeSingle()
+    if (membershipError || !membership?.client_id) {
+      throw new Error('An active, reviewed client membership is required before assigning this role')
+    }
+    if (newRole === 'area_manager') {
+      const { data: assignedAreas, error: areasError } = await adminClient
+        .from('fa_client_area_assignments')
+        .select('area_id')
+        .eq('user_id', userId)
+        .eq('client_id', membership.client_id)
+        .limit(1)
+      if (areasError || !assignedAreas?.length) {
+        throw new Error('At least one reviewed area assignment is required before assigning Area Manager')
+      }
+    }
   }
 
   const { error } = await supabase.rpc('fa_admin_change_user_access', {

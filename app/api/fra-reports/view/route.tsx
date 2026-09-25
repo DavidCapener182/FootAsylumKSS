@@ -3,6 +3,8 @@ import sharp from 'sharp'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { mapHSAuditToFRAData } from '@/app/actions/fra-reports'
+import { approvedActionPlanForInstance } from '@/lib/fra/publication'
+import { approvedActionRowsForPdf } from '@/lib/fra/approved-action-plan'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -144,10 +146,13 @@ export async function GET(request: NextRequest) {
     // Viewing an already-generated FRA should not fail because a nested write
     // permission lookup could not re-read the user's profile.
     const fraData = await mapHSAuditToFRAData(instanceId, { supabase, userId: user.id })
+    const actionSnapshot = await approvedActionPlanForInstance(instanceId)
 
     // Load uploaded placeholder photos from storage so they appear after refresh and in PDF
     const placeholderPhotos = await loadPlaceholderPhotos(supabase, instanceId, { forPdf })
-    const dataWithPhotos = { ...fraData, placeholderPhotos }
+    const dataWithPhotos = { ...fraData, placeholderPhotos,
+      ...(actionSnapshot ? { actionPlanItems: approvedActionRowsForPdf(actionSnapshot),
+        _fraActionFingerprint: actionSnapshot.fingerprint } : {}) }
 
     return NextResponse.json(dataWithPhotos)
   } catch (error: any) {

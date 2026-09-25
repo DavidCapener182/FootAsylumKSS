@@ -8,7 +8,7 @@ import { User, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { UserRole, UserProfile } from '@/lib/auth'
 import { useSidebar } from './sidebar-provider'
-import { navItems, type NavItem } from './nav-items'
+import { canSeeNavItem, navItems, type NavItem } from './nav-items'
 import { WorkspaceBrand } from './workspace-brand'
 import { FeedbackModal } from '@/components/FeedbackModal'
 import {
@@ -31,8 +31,6 @@ const sectionOrder: NonNullable<NavItem['section']>[] = [
   'Administration',
 ]
 
-const allNavItems = navItems
-
 interface SidebarClientProps {
   userRole?: UserRole | null
   userProfile?: UserProfile | null
@@ -48,22 +46,7 @@ export function SidebarClient({ userRole, userProfile }: SidebarClientProps) {
   const planNavItems = isEmpSection ? getEmpNavItems(pathname) : getCmpNavItems(pathname)
   const planBrand = isEmpSection ? 'KSS Event Management' : 'KSS Crowd Management'
 
-  const filteredItems = (() => {
-    if (userRole === 'admin') {
-      // Admin sees everything (respect role-restricted items)
-      return allNavItems.filter(item => !item.allowedRoles || item.allowedRoles.includes('admin'))
-    } else if (userRole === 'client') {
-      // Client role: hide adminOnly, clientHidden, and role-restricted items
-      return allNavItems.filter(item => !item.adminOnly && !item.clientHidden && (!item.allowedRoles || item.allowedRoles.includes('client')))
-    } else if (userRole === 'ops') {
-      return allNavItems.filter(item => !item.adminOnly && (!item.allowedRoles || item.allowedRoles.includes('ops')))
-    } else if (userRole === 'readonly') {
-      return allNavItems.filter(item => !item.adminOnly && (!item.allowedRoles || item.allowedRoles.includes('readonly')))
-    } else if (userRole === 'pending') {
-      return allNavItems.filter(item => !item.adminOnly && !item.clientHidden && (!item.allowedRoles || item.allowedRoles.includes('pending')))
-    }
-    return allNavItems.filter(item => !item.adminOnly && !item.clientHidden)
-  })()
+  const filteredItems = navItems.filter(item => canSeeNavItem(item, userRole))
 
   // Close mobile menu when route changes
   useEffect(() => {
@@ -175,7 +158,7 @@ export function SidebarClient({ userRole, userProfile }: SidebarClientProps) {
             {userRole === 'readonly' ? (
               <p className="mt-0.5 text-xs font-semibold text-amber-700 md:text-amber-200">View only</p>
             ) : userRole ? (
-              <p className="mt-0.5 text-xs capitalize text-slate-500 md:text-white/50">{userRole}</p>
+              <p className="mt-0.5 text-xs capitalize text-slate-500 md:text-white/50">{userRole.replace(/_/g, ' ')}</p>
             ) : null}
           </div>
         </div>

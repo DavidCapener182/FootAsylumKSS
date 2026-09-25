@@ -9,7 +9,10 @@ const mockInviteUserByEmail = vi.fn()
 const mockUpdateUserById = vi.fn()
 const mockProfileInsert = vi.fn()
 const mockLogActivity = vi.fn()
-const mockAdminFrom = vi.fn(() => ({ insert: mockProfileInsert }))
+const mockMembershipMaybeSingle = vi.fn()
+const mockMembershipEq = vi.fn()
+const mockMembershipQuery = { eq: mockMembershipEq, maybeSingle: mockMembershipMaybeSingle }
+const mockAdminFrom = vi.fn(() => ({ insert: mockProfileInsert, select: () => mockMembershipQuery }))
 
 const mockAuthenticatedSupabase = { rpc: mockRpc }
 const mockAdminClient = {
@@ -50,6 +53,8 @@ describe('administrator account lifecycle', () => {
       error: null,
     })
     mockProfileInsert.mockResolvedValue({ error: null })
+    mockMembershipEq.mockReturnValue(mockMembershipQuery)
+    mockMembershipMaybeSingle.mockResolvedValue({ data: null, error: null })
     mockLogActivity.mockResolvedValue(undefined)
     mockRpc.mockResolvedValue({
       data: [{
@@ -96,6 +101,19 @@ describe('administrator account lifecycle', () => {
     expect(result.success).toBe(false)
     expect(result.message).toContain('profile could not be provisioned')
     consoleError.mockRestore()
+  })
+
+  it('rejects direct invitations into scoped client roles', async () => {
+    const { inviteUserByEmail } = await import('./users')
+    expect((await inviteUserByEmail('manager@example.com', 'area_manager')).success).toBe(false)
+    expect(mockInviteUserByEmail).not.toHaveBeenCalled()
+  })
+
+  it('rejects scoped role assignment without a matching active membership', async () => {
+    const { updateUserRole } = await import('./users')
+    await expect(updateUserRole('manager-1', 'area_manager', 'Assigned to AREA1')).rejects.toThrow(/active, reviewed client membership/i)
+    expect(mockAdminFrom).toHaveBeenCalledWith('fa_client_memberships')
+    expect(mockRpc).not.toHaveBeenCalled()
   })
 
   it('requires a reason and delegates role/final-admin enforcement to the atomic RPC', async () => {

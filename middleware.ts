@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { getSupabasePublicConfig } from '@/lib/env'
 import { accountHasApplicationAccess, type AccountStatus } from '@/lib/account-lifecycle'
 import { getSafeAuthRedirect } from '@/lib/auth-redirect'
+import { isAllowedScopedClientApi, isAllowedScopedClientPath, isScopedClientRole } from '@/lib/client-route-access'
 
 function getSafeRedirectPath(pathname: string, search: string) {
   return getSafeAuthRedirect(`${pathname}${search}`)
@@ -100,7 +101,7 @@ export async function middleware(request: NextRequest) {
   // Authentication alone does not authorize platform access. Authenticated
   // users must have a trusted administrator-provisioned profile before any
   // protected page or API request can proceed.
-  if (user && !isEventDayKioskRoute && !isPasswordRecoveryRoute && !isOfflineRoute) {
+  if (user && !isPasswordRecoveryRoute) {
     const { data: profile, error: profileError } = await supabase
       .from('fa_profiles')
       .select('id, role, account_status')
@@ -128,6 +129,23 @@ export async function middleware(request: NextRequest) {
 
     if (isAccountSetupRoute) {
       return NextResponse.redirect(new URL('/', request.url))
+    }
+
+    // New client-facing roles have an explicit page allowlist. Navigation
+    // visibility alone cannot protect direct URLs, print pages or APIs.
+    // An API may be added here only after its store scope is enforced in the
+    // handler and in database RLS.
+    if (isScopedClientRole(profile.role)) {
+      if (isApiRoute && !isAllowedScopedClientApi(profile.role, request.nextUrl.pathname, request.method)) {
+        return NextResponse.json({ error: 'This endpoint is not available to this account' }, { status: 403 })
+      }
+      if (isApiRoute) return response
+      if (request.nextUrl.pathname === '/') {
+        return NextResponse.redirect(new URL('/fra-action-plans', request.url))
+      }
+      if (!isAllowedScopedClientPath(request.nextUrl.pathname)) {
+        return NextResponse.redirect(new URL('/fra-action-plans', request.url))
+      }
     }
   }
 

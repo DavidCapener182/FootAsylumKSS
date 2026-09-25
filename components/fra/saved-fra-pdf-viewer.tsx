@@ -4,10 +4,10 @@ import { useEffect, useRef, useState } from 'react'
 import type { PDFDocumentProxy } from 'pdfjs-dist'
 
 /** Display the saved bytes without relying on an embedded browser PDF plug-in. */
-export function SavedFraPdfViewer({ url, label = "Saved FRA PDF" }: { url: string; label?: string }) {
+export function SavedFraPdfViewer({ url, label = "Saved FRA PDF", initialPage = 1 }: { url: string; label?: string; initialPage?: number }) {
   const canvas = useRef<HTMLCanvasElement>(null)
   const [pdf, setPdf] = useState<PDFDocumentProxy | null>(null)
-  const [page, setPage] = useState(1)
+  const [page, setPage] = useState(initialPage)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [attempt, setAttempt] = useState(0)
@@ -16,15 +16,16 @@ export function SavedFraPdfViewer({ url, label = "Saved FRA PDF" }: { url: strin
     let disposed = false
     let task: ReturnType<typeof import('pdfjs-dist')['getDocument']> | undefined
     setPdf(null)
-    setPage(1)
+    setPage(initialPage)
     setLoading(true)
     setError(null)
-    // Load PDF.js as native ESM; its bundled exports collide with webpack's dev eval wrapper.
-    const moduleUrl = new URL('../../node_modules/pdfjs-dist/build/pdf.min.mjs', import.meta.url).toString()
+    // Load the pinned PDF.js browser build as native ESM. Webpack's minifier
+    // cannot parse PDF.js 5's import.meta when it bundles this module.
+    const moduleUrl = '/pdfjs/pdf.min.mjs'
     void (import(/* webpackIgnore: true */ moduleUrl) as Promise<typeof import('pdfjs-dist')>).then(async (pdfjs) => {
       if (disposed) return
       if (!pdfjs.GlobalWorkerOptions.workerPort) {
-        const workerUrl = new URL('../../node_modules/pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url)
+        const workerUrl = new URL('/pdfjs/pdf.worker.min.mjs', window.location.origin)
         pdfjs.GlobalWorkerOptions.workerPort = new Worker(workerUrl, { type: 'module' })
       }
       task = pdfjs.getDocument({ url, isEvalSupported: false })
@@ -37,7 +38,7 @@ export function SavedFraPdfViewer({ url, label = "Saved FRA PDF" }: { url: strin
       }
     })
     return () => { disposed = true; void task?.destroy() }
-  }, [url, attempt])
+  }, [url, attempt, initialPage])
 
   useEffect(() => {
     if (!pdf) return

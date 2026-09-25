@@ -1,7 +1,7 @@
 import { CheckSquare, ClipboardList, Flame, LayoutDashboard, Route, Store } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { UserRole } from '@/lib/auth'
-import { navItems } from './nav-items'
+import { canSeeNavItem, navItems } from './nav-items'
 
 export type MobileTabItem = {
   href: string
@@ -23,6 +23,10 @@ const opsMobileTabItems: MobileTabItem[] = [
   { href: '/actions', label: 'Actions', icon: CheckSquare },
 ]
 
+const scopedClientMobileTabItems: MobileTabItem[] = [
+  { href: '/fra-action-plans', label: 'FRA Plans', icon: CheckSquare },
+]
+
 const mobilePageTitles: Array<{ href: string; title: string }> = [
   { href: '/dashboard', title: 'Today' },
   { href: '/incidents', title: 'Operational Records' },
@@ -32,6 +36,7 @@ const mobilePageTitles: Array<{ href: string; title: string }> = [
   { href: '/audit-studio', title: 'Audit Studio' },
   { href: '/audit-lab', title: 'SafeHub' },
   { href: '/fire-risk-assessment', title: 'Fire Risk Assessments' },
+  { href: '/fra-action-plans', title: 'FRA Action Plans' },
   { href: '/route-planning', title: 'Route Planning' },
   { href: '/calendar', title: 'Calendar' },
   { href: '/reports', title: 'Reports & Exports' },
@@ -52,6 +57,7 @@ export function matchesMobilePath(pathname: string, href: string): boolean {
 }
 
 export function getMobileTabItems(userRole?: UserRole | null): MobileTabItem[] {
+  if (userRole === 'area_manager' || userRole === 'client_admin') return scopedClientMobileTabItems
   return userRole === 'admin' || userRole === 'ops' ? opsMobileTabItems : defaultMobileTabItems
 }
 
@@ -63,13 +69,7 @@ export function getMobileMoreItems(userRole?: UserRole | null): MobileTabItem[] 
       if (item.action) return false
       if (primaryHrefs.has(item.href)) return false
       if (item.section === 'Administration') return false
-      if (item.adminOnly && userRole !== 'admin') return false
-      if (userRole === 'admin') return !item.allowedRoles || item.allowedRoles.includes('admin')
-      if (userRole === 'client') return !item.adminOnly && !item.clientHidden && (!item.allowedRoles || item.allowedRoles.includes('client'))
-      if (userRole === 'ops') return !item.adminOnly && (!item.allowedRoles || item.allowedRoles.includes('ops'))
-      if (userRole === 'readonly') return !item.adminOnly && (!item.allowedRoles || item.allowedRoles.includes('readonly'))
-      if (userRole === 'pending') return !item.adminOnly && !item.clientHidden && (!item.allowedRoles || item.allowedRoles.includes('pending'))
-      return !item.adminOnly && !item.clientHidden
+      return canSeeNavItem(item, userRole)
     })
     .map((item) => ({
       href: item.href,

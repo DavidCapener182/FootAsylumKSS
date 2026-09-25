@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { extractConductedDateFromPdfText, parseAuditDateString } from '@/lib/fra/pdf-parser'
 import { persistFraRiskRatingForInstance } from '@/lib/fra/persist-risk-rating'
 import { requirePermission } from '@/lib/permissions'
+import { verifyApprovedActionSnapshot } from '@/lib/fra/approved-action-plan'
 
 export const dynamic = 'force-dynamic'
 
@@ -27,7 +28,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Review the generated PDF and confirm it before completing this FRA.' }, { status: 400 })
     }
     const publication = await verifiedPublication(supabase, instanceId, body.publicationId)
-    if (publication.confirmed_at) return NextResponse.json({ success: true })
+    if (publication.confirmed_at && !publication.action_snapshot) return NextResponse.json({ success: true })
+    if (process.env.FRA_ACTION_PLAN_REQUIRED === 'true' && !publication.action_snapshot) {
+      throw new Error('An approved action plan must be bound to the reviewed PDF before issue.')
+    }
+    if (publication.action_snapshot) {
+      const snapshot = await verifyApprovedActionSnapshot(publication.action_snapshot)
+      if (snapshot.fingerprint !== publication.pdf_action_fingerprint
+        || snapshot.instanceId !== instanceId || snapshot.storeId !== publication.store_id) {
+        throw new Error('The approved action plan does not match the reviewed PDF.')
+      }
+    }
 
     // Get the audit instance and ensure it's an FRA
     const { data: instance, error: instanceError } = await supabase
@@ -101,9 +112,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const { error: publicationError } = await createAdminSupabaseClient().rpc('fa_confirm_fra_publication', {
-      publication_id: publication.id, confirming_user: userId, assessment_time: assessmentIso,
-    })
+    const { error: publicationError } = publication.action_snapshot
+      ? await createAdminSupabaseClient().rpc('fa_confirm_fra_publication_with_actions', {
+        p_publication_id: publication.id, p_confirming_user: userId, p_assessment_time: assessmentIso,
+      })
+      : await createAdminSupabaseClient().rpc('fa_confirm_fra_publication', {
+        publication_id: publication.id, confirming_user: userId, assessment_time: assessmentIso,
+      })
     if (publicationError) throw new Error('Unable to confirm publication. Source images remain intact.')
 
     return NextResponse.json({

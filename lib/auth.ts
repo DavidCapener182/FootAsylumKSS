@@ -5,7 +5,9 @@ import {
   type AccountStatus,
 } from '@/lib/account-lifecycle'
 
-export type UserRole = 'admin' | 'ops' | 'readonly' | 'client' | 'pending'
+// Client roles below are deliberately distinct from the legacy, unrestricted
+// `client` role. Store access comes from explicit memberships, not this label.
+export type UserRole = 'admin' | 'ops' | 'readonly' | 'client' | 'client_admin' | 'area_manager' | 'pending'
 
 export interface UserProfile {
   id: string

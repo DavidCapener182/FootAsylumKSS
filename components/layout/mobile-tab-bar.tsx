@@ -132,7 +132,7 @@ export function MobileTabBar({ userRole }: { userRole?: UserRole | null }) {
           </div>
         </div>
 
-        <div className="pointer-events-auto grid grid-cols-5 gap-1 rounded-[22px] border border-slate-200/85 bg-[rgba(248,250,252,0.94)] p-1.5 shadow-[0_16px_34px_rgba(15,23,42,0.14)] backdrop-blur-2xl supports-[backdrop-filter]:bg-[rgba(248,250,252,0.88)]">
+        <div className={cn('pointer-events-auto grid gap-1 rounded-[22px] border border-slate-200/85 bg-[rgba(248,250,252,0.94)] p-1.5 shadow-[0_16px_34px_rgba(15,23,42,0.14)] backdrop-blur-2xl supports-[backdrop-filter]:bg-[rgba(248,250,252,0.88)]', userRole === 'area_manager' || userRole === 'client_admin' ? 'grid-cols-1' : 'grid-cols-5')}>
           {tabItems.map((item) => {
             const Icon = item.icon
             const isActive = matchesMobilePath(normalizedPathname, item.href)

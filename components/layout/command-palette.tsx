@@ -4,17 +4,10 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { Clock3, Command, Search } from 'lucide-react'
 import type { UserRole } from '@/lib/auth'
-import { navItems } from './nav-items'
+import { canSeeNavItem, navItems } from './nav-items'
 
 type RecentRecord = { href: string; label: string; visitedAt: string }
 const RECENT_KEY = 'fa-recent-records-v1'
-
-function canSeeItem(item: (typeof navItems)[number], role: UserRole) {
-  if (item.action) return false
-  if (item.adminOnly && role !== 'admin') return false
-  if (item.clientHidden && role === 'client') return false
-  return !item.allowedRoles || item.allowedRoles.includes(role)
-}
 
 function pathLabel(pathname: string) {
   const parts = pathname.split('/').filter(Boolean)
@@ -60,10 +53,10 @@ export function CommandPalette({ role }: { role: UserRole }) {
     else setQuery('')
   }, [open])
 
-  const destinations = useMemo(() => navItems.filter((item) => canSeeItem(item, role)), [role])
+  const destinations = useMemo(() => navItems.filter((item) => !item.action && canSeeNavItem(item, role)), [role])
   const normalizedQuery = query.trim().toLowerCase()
   const results = destinations.filter((item) => !normalizedQuery || `${item.label} ${item.section}`.toLowerCase().includes(normalizedQuery))
-  const recentResults = recent.filter((item) => !normalizedQuery || item.label.toLowerCase().includes(normalizedQuery))
+  const recentResults = role === 'area_manager' || role === 'client_admin' ? [] : recent.filter((item) => !normalizedQuery || item.label.toLowerCase().includes(normalizedQuery))
 
   function navigate(href: string) {
     setOpen(false)
