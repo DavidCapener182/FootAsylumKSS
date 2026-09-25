@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import sharp from 'sharp'
 import { createClient } from '@/lib/supabase/server'
+import { fraAuthorDenialResponse } from '@/lib/fra/api-author-guard'
 import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { mapHSAuditToFRAData } from '@/app/actions/fra-reports'
 import { approvedActionPlanForInstance } from '@/lib/fra/publication'
@@ -127,6 +128,8 @@ async function loadPlaceholderPhotos(
 
 export async function GET(request: NextRequest) {
   try {
+    const denial = await fraAuthorDenialResponse()
+    if (denial) return denial
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
 

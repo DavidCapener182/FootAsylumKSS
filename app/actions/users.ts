@@ -16,11 +16,10 @@ const ASSIGNABLE_USER_ROLES: readonly AssignableUserRole[] = [
   'admin',
   'ops',
   'readonly',
-  'client',
   'client_admin',
   'area_manager',
 ]
-const INVITABLE_USER_ROLES: readonly UserRole[] = ['admin', 'ops', 'readonly', 'client']
+const INVITABLE_USER_ROLES: readonly UserRole[] = ['admin', 'ops', 'readonly']
 
 export interface UserWithProfile {
   id: string

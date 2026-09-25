@@ -59,6 +59,8 @@ vi.mock('@/lib/supabase/server', () => ({
   })),
 }))
 
+vi.mock('@/lib/fra/api-author-guard', () => ({ fraAuthorDenialResponse: vi.fn().mockResolvedValue(null) }))
+
 vi.mock('@/app/actions/fra-reports', () => ({
   mapHSAuditToFRAData: vi.fn().mockResolvedValue(mockFraData),
 }))

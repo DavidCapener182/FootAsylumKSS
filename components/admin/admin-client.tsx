@@ -245,6 +245,8 @@ export function AdminClient() {
       case 'readonly':
         return 'bg-gray-100 text-gray-800 border-gray-200'
       case 'client':
+      case 'client_admin':
+      case 'area_manager':
         return 'bg-orange-100 text-orange-800 border-orange-200'
       case 'pending':
         return 'bg-yellow-100 text-yellow-800 border-yellow-200'
@@ -262,7 +264,11 @@ export function AdminClient() {
       case 'readonly':
         return 'View-only access to approved operational records and reports'
       case 'client':
-        return 'KSS x Footasylum - Limited read-only access'
+        return 'Legacy client role; do not assign to new users'
+      case 'client_admin':
+        return 'FRA Action Plans for all assigned Footasylum stores'
+      case 'area_manager':
+        return 'FRA actions for assigned stores only; KSS closes actions'
       case 'pending':
         return 'Awaiting admin approval - no access'
       default:
@@ -437,7 +443,6 @@ export function AdminClient() {
                   <SelectContent>
                     <SelectItem value="ops">Ops</SelectItem>
                     <SelectItem value="readonly">Readonly</SelectItem>
-                    <SelectItem value="client">Client (KSS x Footasylum)</SelectItem>
                     <SelectItem value="admin">Admin</SelectItem>
                   </SelectContent>
                 </Select>
@@ -512,7 +517,9 @@ export function AdminClient() {
                           <SelectItem value="admin">Admin</SelectItem>
                           <SelectItem value="ops">Ops</SelectItem>
                           <SelectItem value="readonly">Readonly</SelectItem>
-                          <SelectItem value="client">Client</SelectItem>
+                          <SelectItem value="client" disabled>Legacy client (existing)</SelectItem>
+                          <SelectItem value="client_admin">Footasylum Client Admin</SelectItem>
+                          <SelectItem value="area_manager">Area Manager</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -585,7 +592,9 @@ export function AdminClient() {
                               <SelectItem value="admin">Admin</SelectItem>
                               <SelectItem value="ops">Ops</SelectItem>
                               <SelectItem value="readonly">Readonly</SelectItem>
-                              <SelectItem value="client">Client</SelectItem>
+                              <SelectItem value="client" disabled>Legacy client (existing)</SelectItem>
+                          <SelectItem value="client_admin">Footasylum Client Admin</SelectItem>
+                          <SelectItem value="area_manager">Area Manager</SelectItem>
                             </SelectContent>
                           </Select>
                         </TableCell>
@@ -690,7 +699,9 @@ export function AdminClient() {
                           <SelectItem value="admin">Admin</SelectItem>
                           <SelectItem value="ops">Ops</SelectItem>
                           <SelectItem value="readonly">Readonly</SelectItem>
-                          <SelectItem value="client">Client</SelectItem>
+                          <SelectItem value="client" disabled>Legacy client (existing)</SelectItem>
+                          <SelectItem value="client_admin">Footasylum Client Admin</SelectItem>
+                          <SelectItem value="area_manager">Area Manager</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -788,7 +799,9 @@ export function AdminClient() {
                               <SelectItem value="admin">Admin</SelectItem>
                               <SelectItem value="ops">Ops</SelectItem>
                               <SelectItem value="readonly">Readonly</SelectItem>
-                              <SelectItem value="client">Client</SelectItem>
+                              <SelectItem value="client" disabled>Legacy client (existing)</SelectItem>
+                          <SelectItem value="client_admin">Footasylum Client Admin</SelectItem>
+                          <SelectItem value="area_manager">Area Manager</SelectItem>
                             </SelectContent>
                           </Select>
                         </TableCell>
@@ -861,10 +874,10 @@ export function AdminClient() {
             </div>
             <div>
               <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-200 mr-2">
-                Client
+                Client Admin / Area Manager
               </Badge>
               <span className="text-muted-foreground">
-                KSS x Footasylum - Limited read-only access. Client navigation shows audits, fire risk assessments, stores, and calendar; staff operational links are hidden.
+                Client Admins see their assigned Footasylum stores. Area Managers see only their assigned stores and can record action progress and evidence. KSS Admin/Ops verify and close actions.
               </span>
             </div>
             <div>

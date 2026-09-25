@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 
 const mockUser = { id: 'user-1', email: 'test@example.com' }
 const mockParsed = {
@@ -38,6 +38,8 @@ const mockSupabase = {
 vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(() => mockSupabase),
 }))
+
+vi.mock('@/lib/fra/api-author-guard', () => ({ fraAuthorDenialResponse: vi.fn().mockResolvedValue(null) }))
 
 vi.mock('@/app/actions/fra-reports', () => ({
   getLatestHSAuditForStore: vi.fn().mockResolvedValue({
@@ -91,5 +93,15 @@ describe('FRA extract-data route', () => {
     expect(data.assessmentStartTime).toBe('14:49 GMT')
     expect(data.firePanelLocation).toBe('Ground floor fire exit')
     expect(data.numberOfFireExits).toBe('4')
+  })
+
+  it('stops a scoped manager before reading an FRA instance', async () => {
+    const { fraAuthorDenialResponse } = await import('@/lib/fra/api-author-guard')
+    vi.mocked(fraAuthorDenialResponse).mockResolvedValueOnce(NextResponse.json({ error: 'Unauthorized' }, { status: 403 }))
+    const { GET } = await import('./route')
+    const response = await GET(new NextRequest('http://localhost/api/fra-reports/extract-data?instanceId=fra-123'))
+    expect(response.status).toBe(403)
+    expect(mockSupabase.auth.getUser).not.toHaveBeenCalled()
+    expect(mockSupabase.from).not.toHaveBeenCalled()
   })
 })

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
-import { createClient } from '@/lib/supabase/server'
+import { requireKssSourceRead } from '@/lib/kss-source-access'
+import { isPermissionError } from '@/lib/permissions'
 import { getTemplate, getAuditInstance } from '@/app/actions/safehub'
 import { renderToBuffer } from '@react-pdf/renderer'
 import React from 'react'
@@ -9,12 +10,7 @@ import { InspectionReportPDF } from '@/lib/pdf/inspection-report-document'
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { supabase } = await requireKssSourceRead()
 
     const searchParams = request.nextUrl.searchParams
     const instanceId = searchParams.get('instanceId')
@@ -73,6 +69,9 @@ export async function GET(request: NextRequest) {
       },
     })
   } catch (error: any) {
+    if (isPermissionError(error)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: error.status })
+    }
     console.error('Error generating PDF:', error)
     return NextResponse.json(
       { error: 'Failed to generate PDF', details: error.message },

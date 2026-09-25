@@ -1,15 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { isPermissionError, requirePermission } from '@/lib/permissions'
 export const runtime = 'nodejs'
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { supabase } = await requirePermission('manageAudits')
 
     const formData = await request.formData()
     const file = formData.get('file') as File | null
@@ -838,6 +833,9 @@ ${text.slice(0, 12000)}
       pagesParsed,
     })
   } catch (error) {
+    if (isPermissionError(error)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: error.status })
+    }
     console.error('Error importing audit:', error)
     const message = error instanceof Error ? error.message : 'Failed to import audit'
     return NextResponse.json({ error: message }, { status: 500 })

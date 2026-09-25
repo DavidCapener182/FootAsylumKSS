@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { isPermissionError, requirePermission } from '@/lib/permissions'
 import { normalizeStoreActionQuestion } from '@/lib/store-action-titles'
 
 type ActionPriority = 'low' | 'medium' | 'high' | 'urgent'
@@ -284,14 +284,7 @@ function questionActions(items: ParsedFlaggedItem[], reviewDate: string): Genera
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    await requirePermission('manageActions')
 
     const body = await request.json()
     const flaggedItemsText = String(body?.flaggedItemsText || '').trim()
@@ -336,6 +329,9 @@ export async function POST(request: NextRequest) {
       actions,
     })
   } catch (error) {
+    if (isPermissionError(error)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: error.status })
+    }
     console.error('Error generating store actions:', error)
     return NextResponse.json({ error: 'Failed to generate actions' }, { status: 500 })
   }

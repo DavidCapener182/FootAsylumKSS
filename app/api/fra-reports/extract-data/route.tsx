@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { fraAuthorDenialResponse } from '@/lib/fra/api-author-guard'
 import { getLatestHSAuditForStore } from '@/app/actions/fra-reports'
 import { getAuditInstance } from '@/app/actions/safehub'
 import { getStoreDataFromGoogleSearch } from '@/lib/fra/google-store-data-search'
@@ -126,6 +127,8 @@ async function enrichStoreFallbacks(
 
 export async function GET(request: NextRequest) {
   try {
+    const denial = await fraAuthorDenialResponse()
+    if (denial) return denial
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
 

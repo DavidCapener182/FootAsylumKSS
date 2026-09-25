@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { buildStoreMergeContext, getStoreIdsIncludingAliases, shouldHideStore } from '@/lib/store-normalization'
+import { requireKssSourceRead } from '@/lib/kss-source-access'
+import { isPermissionError } from '@/lib/permissions'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,11 +27,11 @@ type StoreSearchResult = {
 }
 
 export async function GET(request: Request) {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  let supabase: ReturnType<typeof createClient>
+  try {
+    ({ supabase } = await requireKssSourceRead())
+  } catch (error) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: isPermissionError(error) ? error.status : 500 })
   }
 
   const { searchParams } = new URL(request.url)

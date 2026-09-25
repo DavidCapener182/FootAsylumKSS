@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { fraAuthorDenialResponse } from '@/lib/fra/api-author-guard'
 import { mapHSAuditToFRAData } from '@/app/actions/fra-reports'
 import { FRA_SECTIONS } from '@/lib/fra/report-sections'
 import {
@@ -741,6 +742,8 @@ const TOC_ENTRY_COUNT = 13
 
 export async function GET(request: NextRequest) {
   try {
+    const denial = await fraAuthorDenialResponse()
+    if (denial) return denial
     const debug = request.nextUrl.searchParams.get('debug') === '1'
 
     console.log('[DOCX] USING SECTION MODEL: sections=%d', FRA_SECTIONS.length)

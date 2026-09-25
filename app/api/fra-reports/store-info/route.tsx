@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { fraAuthorDenialResponse } from '@/lib/fra/api-author-guard'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
   try {
+    const denial = await fraAuthorDenialResponse()
+    if (denial) return denial
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
 

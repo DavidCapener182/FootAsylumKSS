@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { isPermissionError, requirePermission } from '@/lib/permissions'
 
 type IncidentRecord = {
   id: string
@@ -88,7 +88,7 @@ function incrementCounter(counter: Record<string, number>, key: string, amount =
 export async function POST(request: NextRequest) {
   try {
     const { dashboardData } = await request.json()
-    const supabase = createClient()
+    const { supabase } = await requirePermission('manageAudits')
     const apiKey = process.env.OPENAI_API_KEY
 
     if (!apiKey) {
@@ -96,14 +96,6 @@ export async function POST(request: NextRequest) {
         { error: 'OpenAI API key not configured' },
         { status: 500 }
       )
-    }
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     // Get current date context
@@ -693,6 +685,9 @@ export async function POST(request: NextRequest) {
       generatedAt: new Date().toISOString(),
     })
   } catch (error) {
+    if (isPermissionError(error)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: error.status })
+    }
     console.error('Error generating compliance report:', error)
     return NextResponse.json(
       { error: 'Failed to generate report' },

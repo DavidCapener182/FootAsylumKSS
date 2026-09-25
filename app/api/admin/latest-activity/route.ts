@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { isPermissionError, requirePermission } from '@/lib/permissions'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,24 +12,7 @@ function isUuid(value: unknown): value is string {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const { data: profile } = await supabase
-      .from('fa_profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    if (!profile || profile.role !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
+    const { supabase } = await requirePermission('adminUsers')
 
     const body = await request.json().catch(() => ({}))
     const userIds = Array.isArray(body?.userIds)
@@ -68,6 +51,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ latestByUser })
   } catch (error) {
+    if (isPermissionError(error)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: error.status })
+    }
     console.error('Unexpected latest-activity API error:', error)
     return NextResponse.json({ error: 'Failed to load latest activity' }, { status: 500 })
   }

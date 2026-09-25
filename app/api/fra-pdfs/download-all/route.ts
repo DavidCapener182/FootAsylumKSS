@@ -1,12 +1,13 @@
 import JSZip from 'jszip'
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
 import {
   appendNumericSuffixToFileName,
   buildFraBulkArchiveName,
   buildFraPdfFileName,
 } from '@/lib/fra/download-filenames'
 import type { Database } from '@/types/db'
+import { isPermissionError } from '@/lib/permissions'
+import { requireKssSourceRead } from '@/lib/kss-source-access'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -42,14 +43,7 @@ function getUniqueFileName(fileName: string, usedNames: Map<string, number>): st
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { supabase } = await requireKssSourceRead()
 
     const body = ((await request.json().catch(() => ({}))) || {}) as BulkFraDownloadRequestBody
     const requestedStoreIds = Array.from(new Set(parseStoreIds(body.storeIds)))
@@ -135,6 +129,9 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (error) {
+    if (isPermissionError(error)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: error.status })
+    }
     console.error('Failed to build FRA download archive:', error)
     return NextResponse.json({ error: 'Failed to prepare FRA download archive.' }, { status: 500 })
   }
