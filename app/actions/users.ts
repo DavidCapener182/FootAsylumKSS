@@ -256,9 +256,25 @@ export async function inviteUserByEmail(
       }
     }
 
-    // Provision authorization from trusted server-side input. Invitations are
-    // deliberately non-active until an administrator approves or activates them.
-    const { error: profileError } = await adminClient
+    // The auth creation trigger can create a pending readonly profile first.
+    // Reuse it for readonly invitations instead of attempting a duplicate insert.
+    const { data: generatedProfile, error: lookupError } = await adminClient
+      .from('fa_profiles')
+      .select('id, role, account_status')
+      .eq('id', inviteData.user.id)
+      .maybeSingle()
+
+    if (lookupError) {
+      return { success: false, message: `Invitation was created, but its profile could not be checked: ${lookupError.message}` }
+    }
+
+    if (generatedProfile && (role !== 'readonly' || generatedProfile.role !== 'readonly' || generatedProfile.account_status !== 'pending')) {
+      return { success: false, message: 'Invitation was created with a pending profile. An administrator must approve the requested role before sign-in.' }
+    }
+
+    // Provision authorization from trusted server-side input when the trigger
+    // did not create a profile. Invitations remain non-active.
+    const { error: profileError } = generatedProfile ? { error: null } : await adminClient
       .from('fa_profiles')
       .insert({
         id: inviteData.user.id,
@@ -278,9 +294,10 @@ export async function inviteUserByEmail(
       }
     }
 
+    const invitationStatus = generatedProfile ? 'pending' : 'invited'
     try {
       await logActivity('user', inviteData.user.id, 'Invited user account', {
-        new: { role, account_status: 'invited' },
+        new: { role, account_status: invitationStatus },
       })
     } catch (auditError) {
       console.error('Invitation audit logging failed:', auditError)

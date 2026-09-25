@@ -8,11 +8,13 @@ const mockListUsers = vi.fn()
 const mockInviteUserByEmail = vi.fn()
 const mockUpdateUserById = vi.fn()
 const mockProfileInsert = vi.fn()
+const mockProfileMaybeSingle = vi.fn()
 const mockLogActivity = vi.fn()
 const mockMembershipEq = vi.fn()
 const mockMembershipLimit = vi.fn()
 const mockMembershipQuery = { eq: mockMembershipEq, limit: mockMembershipLimit }
-const mockAdminFrom = vi.fn(() => ({ insert: mockProfileInsert, select: () => mockMembershipQuery }))
+const mockProfileLookup = { eq: vi.fn(() => ({ maybeSingle: mockProfileMaybeSingle })) }
+const mockAdminFrom = vi.fn(() => ({ insert: mockProfileInsert, select: (columns: string) => columns === 'store_id' ? mockMembershipQuery : mockProfileLookup }))
 
 const mockAuthenticatedSupabase = { rpc: mockRpc }
 const mockAdminClient = {
@@ -53,6 +55,7 @@ describe('administrator account lifecycle', () => {
       error: null,
     })
     mockProfileInsert.mockResolvedValue({ error: null })
+    mockProfileMaybeSingle.mockResolvedValue({ data: null, error: null })
     mockMembershipEq.mockReturnValue(mockMembershipQuery)
     mockMembershipLimit.mockResolvedValue({ data: [], error: null })
     mockLogActivity.mockResolvedValue(undefined)
@@ -101,6 +104,15 @@ describe('administrator account lifecycle', () => {
     expect(result.success).toBe(false)
     expect(result.message).toContain('profile could not be provisioned')
     consoleError.mockRestore()
+  })
+
+  it('uses the pending readonly profile created by the auth trigger', async () => {
+    mockProfileMaybeSingle.mockResolvedValueOnce({ data: { id: 'invited-user-1', role: 'readonly', account_status: 'pending' }, error: null })
+    const { inviteUserByEmail } = await import('./users')
+    const result = await inviteUserByEmail('manager@example.com', 'readonly')
+    expect(result.success).toBe(true)
+    expect(mockProfileInsert).not.toHaveBeenCalled()
+    expect(mockLogActivity).toHaveBeenCalledWith('user', 'invited-user-1', 'Invited user account', { new: { role: 'readonly', account_status: 'pending' } })
   })
 
   it('rejects direct invitations into scoped client roles', async () => {
