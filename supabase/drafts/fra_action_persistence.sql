@@ -1,9 +1,9 @@
--- UNAPPLIED SQL DRAFT. Supabase CLI/config unavailable when authored.
--- Local PostgreSQL-compatible tests only; do not apply to a linked/live project.
+-- Additive FRA action schema. Locally tested against PGlite and checked against
+-- the linked project's existing table/column catalog before rollout.
 -- Historical source binding requires a freshly generated candidate with
 -- sourceItemJson. The existing 2026-09-25 inventory lacks this field and
--- intentionally fails closed. Production activation still needs a trusted
--- server-side candidate lookup and issued-PDF/evidence verification.
+-- intentionally fails closed. The stored-response review/import endpoint must
+-- remain disabled until trusted candidate lookup and issued-PDF verification.
 -- Initial KSS-only persistence. Client/manager reads and all direct writes are
 -- denied until the separately reviewed hierarchy/operational-leak rollout.
 BEGIN;
