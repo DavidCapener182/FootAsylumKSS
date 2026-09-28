@@ -56,8 +56,8 @@ describe('saved FRA display contract', () => {
   it('renders the stored PDF with a bundled worker instead of a native iframe', () => {
     expect(page).toContain('<SavedFraPdfViewer url={document.url} />')
     expect(page).not.toContain('<iframe title="FRA PDF for review"')
-    expect(viewer).toContain("new URL('../../node_modules/pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url)")
-    expect(viewer).toContain("new URL('../../node_modules/pdfjs-dist/build/pdf.min.mjs', import.meta.url)")
+    expect(viewer).toContain("const moduleUrl = '/pdfjs/pdf.min.mjs'")
+    expect(viewer).toContain("new URL('/pdfjs/pdf.worker.min.mjs', window.location.origin)")
     expect(viewer).toContain('import(/* webpackIgnore: true */ moduleUrl)')
     expect(viewer).toContain('pdfjs.getDocument({ url, isEvalSupported: false })')
     expect(viewer).not.toContain('generate-pdf')
