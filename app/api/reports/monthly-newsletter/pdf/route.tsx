@@ -6,12 +6,13 @@ import type {
   MonthlyNewsletterRequestBody,
   NewsletterAIPromptPack,
 } from '@/lib/reports/monthly-newsletter-types'
-import { MonthlyNewsletterPDF } from '@/lib/pdf/monthly-newsletter-document-v5'
+import { MonthlyNewsletterPDF } from '@/lib/pdf/monthly-newsletter-document-v6'
 import { reportPermissionErrorResponse, requireReportAccess } from '@/lib/reports/authorization'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
-const MONTHLY_NEWSLETTER_PDF_TEMPLATE_VERSION = 'v5'
+export const maxDuration = 60
+const MONTHLY_NEWSLETTER_PDF_TEMPLATE_VERSION = 'v6'
 
 function toFileSafeName(value: string): string {
   return value
@@ -94,7 +95,7 @@ export async function POST(request: NextRequest) {
     )
 
     const buffer = await renderToBuffer(pdfDocument)
-    const fileName = `monthly-newsletter-${newsletter.period.month}-${toFileSafeName(
+    const fileName = `half-year-report-${newsletter.period.month}-${toFileSafeName(
       report.areaLabel || 'area'
     ) || 'area'}-${MONTHLY_NEWSLETTER_PDF_TEMPLATE_VERSION}-${toTimestampToken(
       newsletter.generatedAt
