@@ -139,6 +139,17 @@ function formatPlannedRouteDate(plannedDate: string | null | undefined, pattern 
   return format(routeDate, pattern)
 }
 
+const routeManagerDisplayNames: Record<string, string> = {
+  'callum.keegan': 'Callum Keegan',
+  'callum.wright': 'Callum Wright',
+  'natalya.bonfield': 'Natalya Bonfield',
+}
+
+function getRouteManagerDisplayName(fullName: string | null): string {
+  const name = fullName?.trim()
+  return routeManagerDisplayNames[name?.toLowerCase() || ''] || name || 'Unknown'
+}
+
 export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
   const router = useRouter()
   const [stores, setStores] = useState(initialData.stores)
@@ -1083,11 +1094,13 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
                   <SelectValue placeholder="Select manager..." />
                 </SelectTrigger>
                 <SelectContent className="z-[9999]">
-                  {profiles.map((profile) => (
-                    <SelectItem key={profile.id} value={profile.id}>
-                      {profile.full_name || 'Unknown'}
-                    </SelectItem>
-                  ))}
+                  {profiles
+                    .filter((profile) => profile.full_name?.trim().toLowerCase() !== 'capener182')
+                    .map((profile) => (
+                      <SelectItem key={profile.id} value={profile.id}>
+                        {getRouteManagerDisplayName(profile.full_name)}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
               {!routeManager && routeValidationHint ? (
