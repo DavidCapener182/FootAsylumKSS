@@ -45,13 +45,16 @@ export default function ForgotPasswordPage() {
                 Check your email
               </CardTitle>
               <CardDescription className="text-sm text-slate-600 sm:text-base">
-                We&apos;ve sent a password reset link to {email}
+                If this account exists, password reset instructions were sent to {email}
               </CardDescription>
             </CardHeader>
             <CardContent className="px-5 pb-5 sm:px-6 sm:pb-6">
               <p className="text-sm text-slate-600 mb-4">
-                Click the link in the email to reset your password. The link will expire in 1 hour.
+                Follow the email instructions to reset your password. If it contains a six-digit code, enter it below.
               </p>
+              <Button asChild className="mb-3 w-full bg-[#0e1925] text-white hover:bg-[#1a2f3f]">
+                <Link href={`/login/code?mode=recovery&email=${encodeURIComponent(email)}`}>Enter reset code</Link>
+              </Button>
               <Button asChild className="w-full bg-[#0e1925] text-white hover:bg-[#1a2f3f]">
                 <Link href="/login">
                   Back to login
@@ -71,7 +74,7 @@ export default function ForgotPasswordPage() {
               Reset your password
             </CardTitle>
             <CardDescription className="mx-auto max-w-sm text-sm text-slate-600 sm:text-base">
-              Enter your email address and we&apos;ll send you a link to reset your password
+              Enter your email address to receive password reset instructions
             </CardDescription>
           </CardHeader>
           <CardContent className="px-5 pb-5 sm:px-6 sm:pb-6">
@@ -95,7 +98,7 @@ export default function ForgotPasswordPage() {
                 </div>
               )}
               <Button type="submit" className="w-full bg-[#0e1925] hover:bg-[#1a2f3f] text-white" disabled={loading}>
-                {loading ? 'Sending...' : 'Send reset link'}
+                {loading ? 'Sending...' : 'Send reset instructions'}
               </Button>
               <Link
                 href="/login"

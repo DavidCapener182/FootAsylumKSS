@@ -76,6 +76,7 @@ export async function middleware(request: NextRequest) {
   const isPasswordRecoveryRoute =
     request.nextUrl.pathname.startsWith('/login/forgot-password')
     || request.nextUrl.pathname.startsWith('/login/reset-password')
+    || request.nextUrl.pathname.startsWith('/login/code')
   const isEventDayKioskRoute =
     request.nextUrl.pathname.startsWith('/event-day/')
     || request.nextUrl.pathname.startsWith('/api/event-day/')

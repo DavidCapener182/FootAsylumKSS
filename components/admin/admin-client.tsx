@@ -22,12 +22,12 @@ import {
   activateAccount,
   deactivateAccount,
   getAllUsers,
-  inviteUserByEmail,
   reactivateAccount,
   suspendAccount,
   updateUserRole,
   type UserWithProfile,
 } from '@/app/actions/users'
+import { prepareManualLoginCode, type ManualLoginCodeResult } from '@/app/actions/manual-login-code'
 import { UserRole } from '@/lib/auth'
 import { formatAppDateTime } from '@/lib/utils'
 import { accountStatusLabel, type AccountStatus } from '@/lib/account-lifecycle'
@@ -58,6 +58,7 @@ export function AdminClient() {
   const [inviteRole, setInviteRole] = useState<UserRole>('readonly')
   const [inviting, setInviting] = useState(false)
   const [inviteSuccess, setInviteSuccess] = useState<string | null>(null)
+  const [preparedLogin, setPreparedLogin] = useState<Extract<ManualLoginCodeResult, { success: true }> | null>(null)
   const [changingStatusUser, setChangingStatusUser] = useState<string | null>(null)
   const [pendingAdminAction, setPendingAdminAction] = useState<PendingAdminAction | null>(null)
   const [accountAccessReason, setAccountAccessReason] = useState('')
@@ -121,13 +122,15 @@ export function AdminClient() {
     setInviting(true)
     setError(null)
     setInviteSuccess(null)
+    setPreparedLogin(null)
     try {
-      const result = await inviteUserByEmail(inviteEmail.trim(), inviteRole)
+      const result = await prepareManualLoginCode(inviteEmail.trim(), inviteRole)
       if (!result || typeof (result as any).success !== 'boolean') {
         throw new Error('Invite failed: unexpected response from server')
       }
       if (result.success) {
-        setInviteSuccess(result.message || 'User invited successfully')
+        setInviteSuccess(result.message)
+        setPreparedLogin(result)
         setInviteEmail('')
         setInviteRole('readonly')
         // Reload users to show the new invite
@@ -411,7 +414,7 @@ export function AdminClient() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <UserPlus className="h-5 w-5" />
-            Invite New User
+            Prepare login email
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -456,19 +459,31 @@ export function AdminClient() {
               {inviting ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Sending Invitation...
+                  Preparing code...
                 </>
               ) : (
                 <>
                   <Mail className="h-4 w-4 mr-2" />
-                  Send Invitation
+                  Create code and email text
                 </>
               )}
             </Button>
             <p className="text-sm text-muted-foreground">
-              The invitation provisions a non-active account. Activate it after access has been approved.
+              Nothing is emailed automatically. New accounts remain inactive until you approve their access. For an existing active account, this creates a fresh password setup code without changing its role.
             </p>
           </form>
+          {preparedLogin && (
+            <div className="mt-5 space-y-3 rounded-lg border border-indigo-200 bg-indigo-50 p-4">
+              <p className="text-sm font-semibold text-slate-900">Ready to copy — no email sent</p>
+              <p className="text-sm text-slate-700">To: {preparedLogin.email}</p>
+              <p className="text-sm text-slate-700">Subject: Your Footasylum login code</p>
+              <div className="rounded-md bg-white p-3 text-sm leading-6 text-slate-800 whitespace-pre-wrap">{`Hello,\n\nYour Footasylum account is ready. Open https://footasylum.kssnwltd.co.uk/login/code?mode=${preparedLogin.mode} and enter your work email and this one-time code:\n\n${preparedLogin.code}\n\nThen choose your password. If the code has expired, ask me for a fresh one.\n\nKind regards,\nDavid`}</div>
+              <Button type="button" variant="outline" onClick={() => navigator.clipboard.writeText(`To: ${preparedLogin.email}\nSubject: Your Footasylum login code\n\nHello,\n\nYour Footasylum account is ready. Open https://footasylum.kssnwltd.co.uk/login/code?mode=${preparedLogin.mode} and enter your work email and this one-time code:\n\n${preparedLogin.code}\n\nThen choose your password. If the code has expired, ask me for a fresh one.\n\nKind regards,\nDavid`)}>
+                Copy email text
+              </Button>
+              <p className="text-xs text-slate-600">The code is shown only on this screen. Copy it before leaving; generate a new one if it expires.</p>
+            </div>
+          )}
         </CardContent>
       </Card>
 

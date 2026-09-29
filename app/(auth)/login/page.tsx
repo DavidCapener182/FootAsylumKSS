@@ -180,6 +180,9 @@ function LoginContent() {
                 >
                   Forgot your password?
                 </Link>
+                <Link href="/login/code?mode=invite" className="mt-3 block text-sm font-medium text-[#0e1925] hover:underline">
+                  Have an invitation code?
+                </Link>
               </div>
             </form>
             <p className="mt-7 border-t border-slate-100 pt-5 text-center text-xs text-slate-500">
