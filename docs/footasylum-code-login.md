@@ -1,6 +1,6 @@
 # Footasylum code login setup
 
-The app accepts six-digit Supabase Auth `invite` and `recovery` codes at `/login/code`. The password login and existing reset-link route remain available during transition.
+The app accepts numeric Supabase Auth `invite` and `recovery` codes at `/login/code`. The password login and existing reset-link route remain available during transition.
 
 ## Manual KSS delivery
 

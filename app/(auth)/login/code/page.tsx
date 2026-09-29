@@ -25,8 +25,8 @@ function CodeContent() {
   async function verifyCode(event: React.FormEvent) {
     event.preventDefault()
     setError('')
-    if (!/^\d{6}$/.test(code)) {
-      setError('Enter the six-digit code from your email.')
+    if (!/^\d{6,10}$/.test(code)) {
+      setError('Enter the code from your email.')
       return
     }
     setBusy(true)
@@ -73,11 +73,11 @@ function CodeContent() {
     <AuthShell logoSize="compact" desktopLogoPosition="corner">
       <main className="w-full rounded-2xl bg-white p-6 shadow-2xl sm:p-8">
         <h1 className="text-2xl font-bold text-slate-900">{verified ? 'Set your password' : mode === 'invite' ? 'Accept your invitation' : 'Reset your password'}</h1>
-        <p className="mt-2 text-sm text-slate-600">{verified ? 'Choose a password for your Footasylum account.' : 'Enter the six-digit code sent to your work email.'}</p>
+        <p className="mt-2 text-sm text-slate-600">{verified ? 'Choose a password for your Footasylum account.' : 'Enter the code provided by your KSS administrator.'}</p>
         {!verified ? (
           <form onSubmit={verifyCode} className="mt-6 space-y-4">
             <div className="space-y-2"><Label htmlFor="code-email">Work email</Label><Input id="code-email" type="email" autoComplete="email" required value={email} onChange={e => setEmail(e.target.value)} /></div>
-            <div className="space-y-2"><Label htmlFor="login-code">Six-digit code</Label><Input id="login-code" type="text" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} required value={code} onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} /></div>
+            <div className="space-y-2"><Label htmlFor="login-code">Login code</Label><Input id="login-code" type="text" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6,10}" maxLength={10} required value={code} onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 10))} /></div>
             {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
             <Button type="submit" disabled={busy} className="w-full bg-[#0e1925] text-white">{busy ? 'Checking…' : 'Continue'}</Button>
           </form>
