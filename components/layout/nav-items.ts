@@ -37,6 +37,7 @@ export const navItems: NavItem[] = [
   ...(studioEnabled() ? [{ href: '/audit-studio', label: 'Audit Studio', icon: ClipboardList, section: 'Assurance' as const, adminOnly: true }] : []),
   { href: '/fire-risk-assessment', label: 'Fire Risk Assessments', icon: Flame, section: 'Assurance' },
   { href: '/fra-action-plans', label: 'FRA Action Plans', icon: CheckSquare, section: 'Assurance', allowedRoles: ['admin', 'ops', 'client_admin', 'area_manager'] },
+  { href: '/client-documents', label: 'H&S and FRA Documents', icon: FileText, section: 'Assurance', allowedRoles: ['client_admin'] },
   { href: '/audit-lab/templates', label: 'SafeHub', icon: ShieldCheck, section: 'Assurance', allowedRoles: ['admin', 'ops'] },
   { href: '/actions', label: 'Actions', icon: CheckSquare, section: 'Assurance', clientHidden: true },
   { href: '/incidents', label: 'Incidents', icon: AlertTriangle, section: 'Assurance', clientHidden: true },
@@ -58,6 +59,7 @@ const scopedClientDestinations = new Set(['/fra-action-plans', '/help', '/privac
 
 export function canSeeNavItem(item: NavItem, role?: UserRole | null): boolean {
   if (item.action) return role !== 'area_manager' && role !== 'client_admin'
+  if (role === 'client_admin' && item.href === '/client-documents') return true
   if (role === 'area_manager' || role === 'client_admin') return scopedClientDestinations.has(item.href)
   if (item.adminOnly && role !== 'admin') return false
   if (item.clientHidden && (role === 'client' || role === 'pending' || !role)) return false

@@ -8,8 +8,9 @@ export function isScopedClientRole(role: string): boolean {
   return role === 'client_admin' || role === 'area_manager'
 }
 
-export function isAllowedScopedClientPath(pathname: string): boolean {
-  return pathname === '/fra-action-plans'
+export function isAllowedScopedClientPath(pathname: string, role?: string): boolean {
+  return (role === 'client_admin' && pathname === '/client-documents')
+    || pathname === '/fra-action-plans'
     || pathname === '/help'
     || pathname === '/privacy'
     || pathname.startsWith('/login/')
@@ -18,6 +19,7 @@ export function isAllowedScopedClientPath(pathname: string): boolean {
 
 export function isAllowedScopedClientApi(role: string, pathname: string, method: string): boolean {
   if (!isScopedClientRole(role)) return false
+  if (role === 'client_admin' && method === 'GET' && pathname === '/api/client-documents/pdf') return true
   if (method === 'GET' && pathname === '/api/fra-actions/pdf') return true
   if (role !== 'area_manager') return false
   if (method === 'POST' && (pathname === '/api/fra-actions/command' || pathname === '/api/fra-actions/evidence')) return true

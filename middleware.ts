@@ -144,7 +144,7 @@ export async function middleware(request: NextRequest) {
       if (request.nextUrl.pathname === '/') {
         return NextResponse.redirect(new URL('/fra-action-plans', request.url))
       }
-      if (!isAllowedScopedClientPath(request.nextUrl.pathname)) {
+      if (!isAllowedScopedClientPath(request.nextUrl.pathname, profile.role)) {
         return NextResponse.redirect(new URL('/fra-action-plans', request.url))
       }
     }
