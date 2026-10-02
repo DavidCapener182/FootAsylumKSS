@@ -2944,7 +2944,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
             </p>
             <p className="mt-2">
               <span className="font-semibold">Note:</span> Any dangerous or flammable substances or liquids used or stored on the
-              premises.
+              premises must be assessed and stored safely under the local COSHH arrangements.
             </p>
             <p className="mt-4 font-semibold">Overall:</p>
             <p className="mt-2">
