@@ -167,6 +167,8 @@ interface FRAData {
   sleepingRisk: string
   internalFireDoors: string
   historyOfFires: string
+  travelDistancesEvidence?: string
+  fireAlarmCategoryEvidence?: string
   fireAlarmDescription: string
   fireAlarmPanelLocation: string
   fireAlarmPanelLocationComment: string | null
@@ -1617,7 +1619,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
             <li>If the access room is of &apos;low risk&apos; 25m</li>
           </ul>
           <p className="mt-4 font-medium text-slate-700">
-            Observed travel distances within the {data.premises} premises are consistent with the above guidance for a retail environment and do not exceed recommended maximums.
+            {data.travelDistancesEvidence || 'Travel distances should be measured and compared with the guidance above.'}
           </p>
         </div>
       </div>
@@ -1658,7 +1660,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
             L1–L5 fire alarm system coverage: detector and manual call point placement by category.
           </figcaption>
           <p className="text-sm mt-3 font-medium text-slate-700 text-center">
-            The installed fire alarm system at {data.premises} aligns with a Category L1 system providing life protection throughout the premises.
+            {data.fireAlarmCategoryEvidence || 'Confirm the installed alarm category and coverage from the system design and commissioning records.'}
           </p>
         </figure>
       </div>

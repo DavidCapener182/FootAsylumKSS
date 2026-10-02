@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mockUser = { id: 'user-1', email: 'test@example.com' }
+let reviewedEvidence: Record<string, unknown> = {}
 const mockParsed = {
   conductedDate: '18 February 2026',
   assessmentStartTime: '14:49 GMT',
@@ -16,7 +17,7 @@ function makeResponsesChain(selectArg: string) {
   if (selectArg.includes('question_id, response_json')) {
     return {
       eq: vi.fn().mockResolvedValue({
-        data: [{ question_id: 'q-1', response_json: { fra_pdf_text: 'stored pdf text' } }],
+        data: [{ question_id: 'q-1', response_json: { fra_pdf_text: 'stored pdf text', fra_extracted_data: reviewedEvidence } }],
         error: null,
       }),
     }
@@ -25,7 +26,7 @@ function makeResponsesChain(selectArg: string) {
   return {
     eq: vi.fn(() => ({
       order: vi.fn().mockResolvedValue({
-        data: [{ response_json: { fra_pdf_text: 'stored pdf text' }, created_at: '2026-02-18T00:00:00Z' }],
+        data: [{ response_json: { fra_pdf_text: 'stored pdf text', fra_extracted_data: reviewedEvidence }, created_at: '2026-02-18T00:00:00Z' }],
         error: null,
       }),
     })),
@@ -185,6 +186,7 @@ vi.mock('@/lib/fra/pdf-parser', async () => {
 
 describe('mapHSAuditToFRAData', () => {
   beforeEach(() => {
+    reviewedEvidence = {}
     vi.clearAllMocks()
     mockSupabase.auth.getUser.mockResolvedValue({ data: { user: mockUser }, error: null })
   })
@@ -202,4 +204,19 @@ describe('mapHSAuditToFRAData', () => {
     expect(data.maxStaffOnSite).toBe('22')
     expect(data.patTestingStatus).toBe('Satisfactory, last conducted 3 October 2025')
   })
+  it('retains reviewed training actions and an obstructed June exit route across the mapping', async () => {
+    reviewedEvidence = {
+      escapeRoutesEvidence: 'Consumables were recorded obstructing an exit route at the June visit.',
+      hasSprinklers: true,
+      alarmSystemDescription: 'Installed alarm; category unconfirmed.',
+      actionPlanItems: [{priority: 'Medium', recommendation: 'Complete outstanding refresher training.'}],
+    }
+    const { mapHSAuditToFRAData } = await import('./fra-reports')
+    const data = await mapHSAuditToFRAData('fra-123')
+    expect(data.fireFindings.escape_routes_obstructed).toBe(true)
+    expect(data.actionPlanItems).toEqual(expect.arrayContaining([expect.objectContaining({recommendation: 'Complete outstanding refresher training.'})]))
+    expect(data.hasSprinklers).toBe(true)
+    expect(data.fireAlarmDescription).toBe('Installed alarm; category unconfirmed.')
+  })
+
 })

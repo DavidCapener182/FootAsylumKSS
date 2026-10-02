@@ -1,5 +1,7 @@
 'use server'
 
+import { applyFRAEvidenceReview } from '@/lib/fra/evidence-review'
+
 import { createClient } from '@/lib/supabase/server'
 import { summarizeHSAuditForFRA } from '@/lib/ai/fra-summarize'
 import { getOpeningHoursFromSearch } from '@/lib/fra/opening-hours-search'
@@ -1413,9 +1415,9 @@ export async function mapHSAuditToFRAData(
     if (!value) return false
     const lower = value.toLowerCase()
     const hasNegatedNegativeSignal =
-      /\b(no|not|without)\b[\s\S]{0,12}\b(obstructed|blocked|restricted|compromised|impeded)\b/.test(lower)
-      || /\b(obstructed|blocked|restricted|compromised|impeded)\b[\s\S]{0,12}\b(?:was|were)?\s*(?:not|no longer)\b/.test(lower)
-    const hasNegativeSignal = /\b(obstructed|blocked|partially blocked|restricted|compromised?|impeded|not clear)\b/.test(lower)
+      /\b(no|not|without)\b[\s\S]{0,12}\b(obstruct(?:ed|ing)|blocked|restricted|compromised|impeded)\b/.test(lower)
+      || /\b(obstruct(?:ed|ing)|blocked|restricted|compromised|impeded)\b[\s\S]{0,12}\b(?:was|were)?\s*(?:not|no longer)\b/.test(lower)
+    const hasNegativeSignal = /\b(obstruct(?:ed|ing)|blocked|partially blocked|restricted|compromised?|impeded|not clear)\b/.test(lower)
     const hasExplicitPositiveSignal =
       /\b(unobstructed|clear and unobstructed|clear and fully accessible|fully accessible|remain clear|remained clear|kept clear|routes remained clear|exit routes remained clear|clear paths?|without obstruction)\b/.test(lower)
     return hasNegativeSignal && !hasExplicitPositiveSignal && !hasNegatedNegativeSignal
@@ -1575,8 +1577,8 @@ export async function mapHSAuditToFRAData(
   const combustibleNarrativeLower = combustibleNarrative.toLowerCase()
   const combustibleNarrativeRouteObstruction = hasEscapeRouteObstructionSignal(combustibleNarrative)
   const combustibleNarrativeExplicitRouteIssue =
-    /\b(escape routes?|fire exits?|final exits?|evacuation routes?)\b[\s\S]{0,45}\b(obstructed|blocked|restricted|compromised|impeded)\b/.test(combustibleNarrativeLower)
-    || /\b(obstructed|blocked|restricted|compromised|impeded)\b[\s\S]{0,45}\b(escape routes?|fire exits?|final exits?|evacuation routes?)\b/.test(combustibleNarrativeLower)
+    /\b(escape routes?|fire exits?|final exits?|evacuation routes?)\b[\s\S]{0,45}\b(obstruct(?:ed|ing)|blocked|restricted|compromised|impeded)\b/.test(combustibleNarrativeLower)
+    || /\b(obstruct(?:ed|ing)|blocked|restricted|compromised|impeded)\b[\s\S]{0,45}\b(escape routes?|fire exits?|final exits?|evacuation routes?)\b/.test(combustibleNarrativeLower)
   const combustibleNarrativeExplicitRouteClear =
     /\b(escape routes?|fire exits?|final exits?|evacuation routes?)\b[\s\S]{0,45}\b(clear|unobstructed|free from hazards?|without obstruction|fully accessible)\b/.test(combustibleNarrativeLower)
 
@@ -1832,11 +1834,11 @@ export async function mapHSAuditToFRAData(
   const escapeRoutesObstructed = (() => {
     const narrative = normalizeWhitespace(String(escapeRoutesNarrativeFromAudit ?? '')).toLowerCase()
     if (!narrative) return hasEscapeRouteConcern
-    const obstructionSignal = /\b(escape routes?|evacuation routes?|egress routes?)\b[\s\S]{0,45}\b(obstructed|blocked|restricted|compromised|impeded)\b/.test(narrative)
-      || /\b(obstructed|blocked|restricted|compromised|impeded)\b[\s\S]{0,45}\b(escape routes?|evacuation routes?|egress routes?)\b/.test(narrative)
+    const obstructionSignal = /\b(escape routes?|exit routes?|evacuation routes?|egress routes?)\b[\s\S]{0,45}\b(obstruct(?:ed|ing)|blocked|restricted|compromised|impeded)\b/.test(narrative)
+      || /\b(obstruct(?:ed|ing)|blocked|restricted|compromised|impeded)\b[\s\S]{0,45}\b(escape routes?|exit routes?|evacuation routes?|egress routes?)\b/.test(narrative)
     const explicitClearSignal =
       /\b(escape routes?|evacuation routes?)\b[\s\S]{0,45}\b(clear|unobstructed|fully accessible|remained clear|without obstruction)\b/.test(narrative)
-      || /\b(no|not|without)\b[\s\S]{0,12}\b(obstructed|blocked|restricted|compromised|impeded)\b/.test(narrative)
+      || /\b(no|not|without)\b[\s\S]{0,12}\b(obstruct(?:ed|ing)|blocked|restricted|compromised|impeded)\b/.test(narrative)
     if (obstructionSignal && !explicitClearSignal) return true
     if (explicitClearSignal && !obstructionSignal) return false
     return hasEscapeRouteConcern
@@ -1847,11 +1849,11 @@ export async function mapHSAuditToFRAData(
       `${fireExitRoutes?.value ?? ''} ${fireExitRoutes?.comment ?? ''} ${escapeRoutesNarrativeFromAudit ?? ''}`
     ).toLowerCase()
     if (!combined) return hasEscapeRouteConcern
-    const obstructionSignal = /\b(final exits?|fire exits?|exit doors?)\b[\s\S]{0,45}\b(obstructed|blocked|restricted|compromised|impeded)\b/.test(combined)
-      || /\b(obstructed|blocked|restricted|compromised|impeded)\b[\s\S]{0,45}\b(final exits?|fire exits?|exit doors?)\b/.test(combined)
+    const obstructionSignal = /\b(final exits?|fire exits?|exit doors?)\b[\s\S]{0,45}\b(obstruct(?:ed|ing)|blocked|restricted|compromised|impeded)\b/.test(combined)
+      || /\b(obstruct(?:ed|ing)|blocked|restricted|compromised|impeded)\b[\s\S]{0,45}\b(final exits?|fire exits?|exit doors?)\b/.test(combined)
     const explicitClearSignal =
       /\b(final exits?|fire exits?|exit doors?)\b[\s\S]{0,45}\b(clear|unobstructed|fully accessible|remained clear|without obstruction)\b/.test(combined)
-      || /\b(no|not|without)\b[\s\S]{0,12}\b(obstructed|blocked|restricted|compromised|impeded)\b/.test(combined)
+      || /\b(no|not|without)\b[\s\S]{0,12}\b(obstruct(?:ed|ing)|blocked|restricted|compromised|impeded)\b/.test(combined)
     if (obstructionSignal && !explicitClearSignal) return true
     if (explicitClearSignal && !obstructionSignal) return false
     return hasEscapeRouteConcern
@@ -2598,11 +2600,10 @@ Sprinkler heads are installed throughout the premises in accordance with the ori
       if (edited && Array.isArray(edited) && edited.length > 0) {
         const keepDoorOpenActions = minorFireDoorManagementIssue || fireFindings.fire_doors_held_open || fireFindings.fire_doors_blocked
         const doorOpenActionPattern = /\bfire doors?\b.*\b(held open|blocked|obstruct|propped open|closed|compartmentation|smoke control|door management)\b|\b(held open|blocked|obstruct|propped open|closed|door management)\b.*\bfire doors?\b/
-        const trainingActionPattern = /\b(training|toolbox refresher|100%\s*completion|completion rate)\b/
         const normalized = [...edited].filter((item: any) => {
           const recommendation = String(item?.recommendation || '').toLowerCase()
           if (!recommendation) return true
-          if (trainingActionPattern.test(recommendation)) return false
+          // Preserve reviewed training shortfalls in the action plan.
           if (keepDoorOpenActions) return true
           return !doorOpenActionPattern.test(recommendation)
         })
@@ -2805,5 +2806,5 @@ Sprinkler heads are installed throughout the premises in accordance with the ori
   }
   
   // Return the data with sources
-  return returnData
+  return applyFRAEvidenceReview(returnData, editedExtractedData, !!pdfText)
 }
