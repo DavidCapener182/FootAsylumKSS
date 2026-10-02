@@ -438,7 +438,7 @@ export default function FRAReportViewPage({
 
   if (publication || review) {
     const document = publication || review
-    return <div className="space-y-4 p-4">
+    return <div data-viewing-document={`${fraData?.store?.store_name || fraData?.premises || 'Fire Risk Assessment'} · ${publication ? 'Confirmed FRA PDF' : 'FRA PDF review'}`} className="space-y-4 p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div><Link href="/fire-risk-assessment">← Fire Risk Assessments</Link>
           <h1 className="text-xl font-bold">{publication ? 'Confirmed FRA' : 'Review the final PDF'}</h1>
@@ -473,7 +473,7 @@ export default function FRAReportViewPage({
   }
 
   return (
-    <div className="min-h-screen bg-white print:bg-white print:min-h-0">
+    <div data-viewing-document={fraData ? `${fraData.store?.store_name || fraData.premises || 'Fire Risk Assessment'} · FRA report` : undefined} className="min-h-screen bg-white print:bg-white print:min-h-0">
       <FraUploadAfterDownload open={uploadAfterDownload} onOpenChange={setUploadAfterDownload} storeId={fraData?.store?.id} />
       {generatingPdf && (
         <div className="fixed inset-0 z-30 flex items-center justify-center bg-slate-950/20 px-4 backdrop-blur-[2px] print:hidden">

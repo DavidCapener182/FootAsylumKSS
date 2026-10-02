@@ -13,6 +13,7 @@ import type { UserRole } from '@/lib/auth'
 import { getCmpPageTitle, isCmpSectionPath } from './cmp-chrome'
 import { getEmpPageTitle, isEmpSectionPath } from './emp-chrome'
 import { CommandPalette } from './command-palette'
+import { canViewUserActivity } from '@/lib/user-view-access'
 import {
   Dialog,
   DialogContent,
@@ -36,6 +37,16 @@ type OnlineUser = {
   name: string
   page: string | null
   lastSeen: string | null
+}
+
+type UserView = {
+  user_id: string
+  page_path: string | null
+  page_title: string | null
+  viewing_document: string | null
+  page_seen_at: string | null
+  document_title: string | null
+  document_opened_at: string | null
 }
 
 type ActivityDetails = {
@@ -331,6 +342,8 @@ export function HeaderClient({ signOut, currentUser }: HeaderClientProps) {
     { id: currentUser.id, name: currentUser.name, page: pathname || '/', lastSeen: null },
   ])
   const [latestActivityByUser, setLatestActivityByUser] = useState<Record<string, LatestActivity>>({})
+  const [viewsByUser, setViewsByUser] = useState<Record<string, UserView>>({})
+  const canSeeActivity = canViewUserActivity(currentUser)
   const [showTimeoutWarning, setShowTimeoutWarning] = useState(false)
   const [secondsRemaining, setSecondsRemaining] = useState(0)
   const headerRef = useRef<HTMLElement | null>(null)
@@ -341,6 +354,39 @@ export function HeaderClient({ signOut, currentUser }: HeaderClientProps) {
     if (currentUser.id && currentUser.id !== 'unknown-user') return currentUser.id
     return `fallback-${currentUser.name.trim().toLowerCase().replace(/\s+/g, '-') || 'user'}`
   }, [currentUser.id, currentUser.name])
+
+  useEffect(() => {
+    if (isKssPlanSection) return
+    let timer: ReturnType<typeof setTimeout>
+    let lastObservation = ''
+    const report = (force = false) => {
+      if (document.visibilityState !== 'visible') return
+      const heading = document.querySelector('main h1')?.textContent?.trim()
+        || document.querySelector('h1')?.textContent?.trim()
+      const context = Array.from(document.querySelectorAll<HTMLElement>('[data-viewing-document]'))
+        .find(element => element.getClientRects().length > 0)?.dataset.viewingDocument || null
+      const body = JSON.stringify({ path: window.location.pathname,
+        title: (heading || getMobilePageTitle(window.location.pathname)).slice(0, 300),
+        document: context?.slice(0, 300) || null })
+      if (!force && body === lastObservation) return
+      lastObservation = body
+      void fetch('/api/user-view-context', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body })
+        .then(response => { if (!response.ok) lastObservation = '' })
+        .catch(() => { lastObservation = '' })
+    }
+    const schedule = () => { clearTimeout(timer); timer = setTimeout(() => report(), 500) }
+    const observer = new MutationObserver(schedule)
+    observer.observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['data-viewing-document'] })
+    const refresh = () => report(true)
+    document.addEventListener('visibilitychange', refresh)
+    window.addEventListener('focus', refresh)
+    schedule()
+    const heartbeat = window.setInterval(refresh, 30000)
+    return () => {
+      clearTimeout(timer); window.clearInterval(heartbeat); observer.disconnect()
+      document.removeEventListener('visibilitychange', refresh); window.removeEventListener('focus', refresh)
+    }
+  }, [pathname, isKssPlanSection])
 
   const handleMenuClick = (e: React.MouseEvent) => {
     e.preventDefault()
@@ -524,7 +570,7 @@ export function HeaderClient({ signOut, currentUser }: HeaderClientProps) {
       return
     }
 
-    if (currentUser.role !== 'admin') return
+    if (!canSeeActivity) return
     if (onlineUsers.length === 0) return
 
     const fetchLatestActivity = async () => {
@@ -535,6 +581,13 @@ export function HeaderClient({ signOut, currentUser }: HeaderClientProps) {
       }
 
       try {
+        const params = new URLSearchParams()
+        userIds.forEach(id => params.append('userId', id))
+        const viewsResponse = await fetch(`/api/user-view-context?${params}`, { cache: 'no-store' })
+        if (viewsResponse.ok) {
+          const { views } = await viewsResponse.json()
+          setViewsByUser(Object.fromEntries((views as UserView[]).map(view => [view.user_id, view])))
+        }
         const response = await fetch('/api/admin/latest-activity', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -562,13 +615,12 @@ export function HeaderClient({ signOut, currentUser }: HeaderClientProps) {
     return () => {
       window.clearInterval(interval)
     }
-  }, [currentUser.role, onlineUsers, isKssPlanSection])
+  }, [canSeeActivity, onlineUsers, isKssPlanSection])
 
   const visibleUsers = onlineUsers.slice(0, 5)
   const mobileVisibleUsers = visibleUsers.slice(0, 2)
   const overflowCount = Math.max(onlineUsers.length - visibleUsers.length, 0)
   const mobileOverflowCount = Math.max(onlineUsers.length - mobileVisibleUsers.length, 0)
-  const isAdmin = currentUser.role === 'admin'
   const planPageTitle = isEmpSection ? getEmpPageTitle(pathname) : getCmpPageTitle(pathname)
   const planBrand = isEmpSection ? 'KSS Event Management' : 'KSS Crowd Management'
   const mobilePageTitle = isKssPlanSection ? planPageTitle : getMobilePageTitle(pathname || '/')
@@ -669,18 +721,23 @@ export function HeaderClient({ signOut, currentUser }: HeaderClientProps) {
                 key={user.id}
                 title={user.name}
                 className="group relative"
+                tabIndex={canSeeActivity ? 0 : undefined}
+                aria-label={canSeeActivity ? `${user.name}: view activity details` : user.name}
               >
                 <div className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-white/10 text-[11px] font-bold text-white backdrop-blur-sm md:h-9 md:w-9 md:text-xs">
                   {getInitials(user.name)}
                 </div>
                 <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border border-[#0e1925] bg-emerald-400" />
 
-                {isAdmin ? (
-                  <div className="pointer-events-none absolute right-0 top-full z-50 mt-2 hidden w-72 rounded-lg border border-slate-200 bg-white p-3 text-left text-xs text-slate-700 shadow-lg group-hover:block">
+                {canSeeActivity ? (
+                  <div className="pointer-events-none absolute right-0 top-full z-50 mt-2 hidden w-80 rounded-lg border border-slate-200 bg-white p-3 text-left text-xs text-slate-700 shadow-lg group-hover:block group-focus:block">
                     <p className="font-semibold text-slate-900">{user.name}</p>
                     <p className="mt-1 text-slate-600">
-                      <span className="font-semibold text-slate-800">Page:</span> {formatPagePath(user.page, latestActivityByUser[user.id])}
+                      <span className="font-semibold text-slate-800">Last page seen:</span> {viewsByUser[user.id]?.page_title || formatPagePath(user.page)}
                     </p>
+                    {viewsByUser[user.id]?.viewing_document ? <p className="mt-1 break-words text-slate-600"><span className="font-semibold text-slate-800">Document on page:</span> {viewsByUser[user.id].viewing_document}</p> : null}
+                    <p className="mt-1 break-words text-slate-600"><span className="font-semibold text-slate-800">Last document opened:</span> {viewsByUser[user.id]?.document_title || 'No document opening recorded yet'}</p>
+                    {viewsByUser[user.id]?.document_opened_at ? <p className="mt-1 text-slate-600"><span className="font-semibold text-slate-800">Opened:</span> {formatAppDateTime(viewsByUser[user.id].document_opened_at!)}</p> : null}
                     <p className="mt-1 text-slate-600">
                       <span className="font-semibold text-slate-800">Latest action:</span>{' '}
                       {formatLatestAction(latestActivityByUser[user.id])}
@@ -691,8 +748,9 @@ export function HeaderClient({ signOut, currentUser }: HeaderClientProps) {
                     </p>
                     <p className="mt-1 text-slate-600">
                       <span className="font-semibold text-slate-800">Seen:</span>{' '}
-                      {formatTime(user.lastSeen, latestActivityByUser[user.id]?.createdAt)}
+                      {formatTime(viewsByUser[user.id]?.page_seen_at || user.lastSeen)}
                     </p>
+                    <p className="mt-2 text-[10px] text-slate-500">Most recently active app tab. Separate PDF tabs may have been closed.</p>
                   </div>
                 ) : null}
               </div>

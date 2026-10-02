@@ -64,7 +64,7 @@ export function SavedFraPdfViewer({ url, label = "Saved FRA PDF", initialPage = 
     return () => { disposed = true; render?.cancel() }
   }, [pdf, page])
 
-  return <section aria-label={label} className="overflow-hidden rounded border bg-slate-100">
+  return <section data-viewing-document={pdf && !error && !loading ? `${label} · page ${page} of ${pdf.numPages}` : undefined} aria-label={label} className="overflow-hidden rounded border bg-slate-100">
     <div className="sticky top-0 z-10 flex flex-wrap items-center justify-center gap-2 border-b bg-white p-3">
       <button type="button" className="min-h-11 touch-manipulation rounded border px-3 py-1 disabled:opacity-40" disabled={!pdf || page <= 1 || loading} onClick={() => setPage(page - 1)}>Previous page</button>
       <label className="flex items-center gap-2">Page

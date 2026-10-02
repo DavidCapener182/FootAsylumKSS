@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils'
 
 export function DocumentPreview({ title, metadata, toolbar, children, className }: { title: string; metadata?: ReactNode; toolbar?: ReactNode; children: ReactNode; className?: string }) {
   return (
-    <section className={cn('overflow-hidden rounded-2xl border border-slate-200 bg-slate-100', className)} aria-label={`${title} preview`}>
+    <section data-viewing-document={title} className={cn('overflow-hidden rounded-2xl border border-slate-200 bg-slate-100', className)} aria-label={`${title} preview`}>
       <div className="flex min-h-[56px] flex-col gap-3 border-b border-slate-200 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-center gap-3">
           <FileText className="h-5 w-5 shrink-0 text-slate-500" aria-hidden="true" />

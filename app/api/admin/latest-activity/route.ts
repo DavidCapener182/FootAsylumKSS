@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { isPermissionError, requirePermission } from '@/lib/permissions'
+import { canViewUserActivity } from '@/lib/user-view-access'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,7 +13,10 @@ function isUuid(value: unknown): value is string {
 
 export async function POST(request: NextRequest) {
   try {
-    const { supabase } = await requirePermission('adminUsers')
+    const { supabase, userId, role } = await requirePermission('adminUsers')
+    if (!canViewUserActivity({ id: userId, role })) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
 
     const body = await request.json().catch(() => ({}))
     const userIds = Array.isArray(body?.userIds)

@@ -16,7 +16,7 @@ describe('latest admin activity authorization', () => {
     auth.getUser.mockReset()
     auth.profile.mockReset()
     auth.from.mockReset()
-    auth.getUser.mockResolvedValue({ data: { user: { id: 'user-1' } } })
+    auth.getUser.mockResolvedValue({ data: { user: { id: '091f7f25-9edb-4120-8d50-cfa4070f1352' } } })
     auth.profile.mockResolvedValue({ data: { role: 'admin', account_status: 'active' }, error: null })
     auth.from.mockImplementation((table: string) => {
       if (table !== 'fa_profiles') throw new Error(`Unexpected table ${table}`)
@@ -24,11 +24,18 @@ describe('latest admin activity authorization', () => {
     })
   })
 
-  it('allows an active KSS administrator', async () => {
+  it('allows David Capener as an active KSS administrator', async () => {
     const { POST } = await import('./route')
     const response = await POST(request())
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({ latestByUser: {} })
+  })
+
+  it('denies another active administrator', async () => {
+    auth.getUser.mockResolvedValue({ data: { user: { id: 'another-admin' } } })
+    const { POST } = await import('./route')
+    expect((await POST(request())).status).toBe(403)
+    expect(auth.from).toHaveBeenCalledTimes(1)
   })
 
   it.each([

@@ -113,6 +113,7 @@ export function PDFViewerModal({
             <div className="h-full overflow-auto p-4">{renderPdf(downloadUrl)}</div>
           ) : downloadUrl ? (
             <iframe
+              data-viewing-document={title}
               src={downloadUrl}
               className="w-full h-full border-0"
               title={title}
