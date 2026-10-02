@@ -532,3 +532,12 @@ body.fra-print-document .fra-extinguisher-photos .fra-photo-placeholder-empty {
 body.fra-print-document .fra-extinguisher-photos img.fra-report-photo {
   object-fit: contain !important;
 }
+
+/* Keep June evidence captions with their photographs instead of clipping them. */
+body.fra-print-document .fra-photo-grid .fra-photo-block {
+  height: auto !important;
+  min-height: 0 !important;
+  overflow: visible !important;
+  break-inside: avoid !important;
+  page-break-inside: avoid !important;
+}
