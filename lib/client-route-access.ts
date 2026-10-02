@@ -31,6 +31,8 @@ export function clientAdminDestination(pathname: string): string | null {
 
 export function isAllowedScopedClientApi(role: string, pathname: string, method: string): boolean {
   if (!isScopedClientRole(role)) return false
+  // Scoped clients may report their own view; reading activity remains David-only.
+  if (method === 'POST' && pathname === '/api/user-view-context') return true
   if (role === 'client_admin' && method === 'GET' && pathname === '/api/client-documents/pdf') return true
   if (method === 'GET' && pathname === '/api/fra-actions/pdf') return true
   if (role !== 'area_manager') return false

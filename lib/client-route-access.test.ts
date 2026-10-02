@@ -18,6 +18,12 @@ describe('scoped client route boundary', () => {
     }
   })
 
+  it.each(['client_admin', 'area_manager'])('allows %s to report its own view but never read others', role => {
+    expect(isAllowedScopedClientApi(role, '/api/user-view-context', 'POST')).toBe(true)
+    expect(isAllowedScopedClientApi(role, '/api/user-view-context', 'GET')).toBe(false)
+    expect(isAllowedScopedClientApi(role, '/api/admin/latest-activity', 'POST')).toBe(false)
+  })
+
   it('allows only scoped FRA APIs and methods for each client role', () => {
     expect(isAllowedScopedClientPath('/client-documents', 'client_admin')).toBe(true)
     expect(isAllowedScopedClientPath('/client-documents', 'area_manager')).toBe(false)
