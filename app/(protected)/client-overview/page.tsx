@@ -13,7 +13,7 @@ export default async function ClientOverviewPage() {
     { href: '/client-stores', label: 'Stores', detail: `${stores.length} stores` },
     { href: '/client-documents?kind=hs', label: 'H&S Audits', detail: `${hs} saved reports` },
     { href: '/client-documents?kind=fra', label: 'Fire Risk Assessments', detail: `${fra} saved reports` },
-    { href: '/client-calendar', label: 'Calendar', detail: 'Completed assessments' },
+    { href: '/client-calendar', label: 'Calendar', detail: 'Planned audits and completed assessments' },
     { href: '/fra-action-plans', label: 'FRA Action Plans', detail: 'Actions across your stores' },
   ]
 
