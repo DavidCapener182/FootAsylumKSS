@@ -18,6 +18,7 @@ import { isNewStoreFirstAudit } from '@/lib/audit/new-store-applicability'
 import { getAuditSharePointFolder } from '@/lib/audit-sharepoint'
 import { Upload, Eye, EyeOff, File, SlidersHorizontal, ChevronDown, ChevronUp, BellRing, Search, ExternalLink } from 'lucide-react'
 import { PDFViewerModal } from '@/components/shared/pdf-viewer-modal'
+import { SavedFraPdfViewer } from '@/components/fra/saved-fra-pdf-viewer'
 import { StatusBadge } from '@/components/shared/status-badge'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { StoreActionsModal } from './store-actions-modal'
@@ -1205,6 +1206,7 @@ export function AuditTable({
 
       {/* PDF Viewer Modal */}
       <PDFViewerModal
+        renderPdf={(url) => <SavedFraPdfViewer url={url} label="Saved H&S audit PDF" />}
         open={pdfViewerOpen}
         onOpenChange={setPdfViewerOpen}
         pdfUrl={null}
