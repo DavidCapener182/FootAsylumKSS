@@ -58,12 +58,12 @@ export function PDFViewerModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="!max-w-[80vw] !w-[80vw] md:!max-w-[80vw] md:!w-[80vw] !max-h-[90vh] !h-[90vh] md:!max-h-[90vh] md:!h-[90vh] p-0 flex flex-col">
-        <DialogHeader className="px-6 py-4 border-b flex-shrink-0">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
+      <DialogContent className="!inset-0 !h-[100dvh] !max-h-[100dvh] !w-screen !max-w-none !overflow-hidden !p-0 !gap-0 flex flex-col md:!inset-auto md:!left-[10vw] md:!top-[5vh] md:!h-[90vh] md:!max-h-[90vh] md:!w-[80vw] md:!max-w-[80vw]">
+        <DialogHeader className="border-b px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] pr-12 flex-shrink-0 md:px-6 md:py-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex min-w-0 items-center gap-2">
               <FileText className="h-5 w-5 text-blue-600" />
-              <DialogTitle className="text-lg font-semibold">{title}</DialogTitle>
+              <DialogTitle className="min-w-0 break-words text-left text-base font-semibold md:text-lg">{title}</DialogTitle>
             </div>
             <div className="flex items-center gap-2">
               {headerActions}
@@ -90,7 +90,7 @@ export function PDFViewerModal({
           </div>
         </DialogHeader>
         
-        <div className="flex-1 overflow-hidden bg-slate-100">
+        <div className="min-h-0 min-w-0 flex-1 overflow-auto bg-slate-100">
           {loading ? (
             <div className="flex items-center justify-center h-full">
               <div className="text-center">
@@ -110,7 +110,7 @@ export function PDFViewerModal({
               <a href={downloadUrl} target="_blank" rel="noopener noreferrer" className="underline">Open PDF</a>
             </div>
           ) : downloadUrl && renderPdf ? (
-            <div className="h-full overflow-auto p-4">{renderPdf(downloadUrl)}</div>
+            <div className="min-h-full p-2 md:p-4">{renderPdf(downloadUrl)}</div>
           ) : downloadUrl ? (
             <iframe
               data-viewing-document={title}
