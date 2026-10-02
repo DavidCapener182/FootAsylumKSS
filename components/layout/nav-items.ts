@@ -32,18 +32,22 @@ export type NavItem = {
 }
 
 export const navItems: NavItem[] = [
+  { href: '/client-overview', label: 'Today', icon: LayoutDashboard, section: 'Today', allowedRoles: ['client_admin'] },
   { href: '/dashboard', label: 'Today', icon: LayoutDashboard, section: 'Today' },
+  { href: '/client-documents?kind=hs', label: 'H&S Audits', icon: ClipboardList, section: 'Assurance', allowedRoles: ['client_admin'] },
   { href: '/audit-tracker', label: 'Audits', icon: ClipboardList, section: 'Assurance' },
   ...(studioEnabled() ? [{ href: '/audit-studio', label: 'Audit Studio', icon: ClipboardList, section: 'Assurance' as const, adminOnly: true }] : []),
   { href: '/fire-risk-assessment', label: 'Fire Risk Assessments', icon: Flame, section: 'Assurance' },
+  { href: '/client-documents?kind=fra', label: 'Fire Risk Assessments', icon: Flame, section: 'Assurance', allowedRoles: ['client_admin'] },
   { href: '/fra-action-plans', label: 'FRA Action Plans', icon: CheckSquare, section: 'Assurance', allowedRoles: ['admin', 'ops', 'client_admin', 'area_manager'] },
-  { href: '/client-documents', label: 'H&S and FRA Documents', icon: FileText, section: 'Assurance', allowedRoles: ['client_admin'] },
   { href: '/audit-lab/templates', label: 'SafeHub', icon: ShieldCheck, section: 'Assurance', allowedRoles: ['admin', 'ops'] },
   { href: '/actions', label: 'Actions', icon: CheckSquare, section: 'Assurance', clientHidden: true },
   { href: '/incidents', label: 'Incidents', icon: AlertTriangle, section: 'Assurance', clientHidden: true },
   { href: '/stores', label: 'Store Directory', icon: Store, section: 'Stores' },
+  { href: '/client-stores', label: 'Store Directory', icon: Store, section: 'Stores', allowedRoles: ['client_admin'] },
   { href: '/route-planning', label: 'Routes', icon: Route, section: 'Stores', clientHidden: true, allowedRoles: ['admin', 'ops'] },
   { href: '/calendar', label: 'Calendar', icon: Calendar, section: 'Stores' },
+  { href: '/client-calendar', label: 'Calendar', icon: Calendar, section: 'Stores', allowedRoles: ['client_admin'] },
   { href: '/activity', label: 'Activity', icon: Activity, section: 'Insights', clientHidden: true },
   { href: '/reports', label: 'Reports', icon: FileText, section: 'Insights', clientHidden: true },
   { href: '/admin/event-management-plans', label: 'Event Plans', icon: ClipboardList, section: 'Events', adminOnly: true },
@@ -56,10 +60,11 @@ export const navItems: NavItem[] = [
 ]
 
 const scopedClientDestinations = new Set(['/fra-action-plans', '/help', '/privacy'])
+const clientAdminDestinations = new Set(['/client-overview', '/client-documents?kind=hs', '/client-documents?kind=fra', '/client-stores', '/client-calendar'])
 
 export function canSeeNavItem(item: NavItem, role?: UserRole | null): boolean {
   if (item.action) return role !== 'area_manager' && role !== 'client_admin'
-  if (role === 'client_admin' && item.href === '/client-documents') return true
+  if (role === 'client_admin' && clientAdminDestinations.has(item.href)) return true
   if (role === 'area_manager' || role === 'client_admin') return scopedClientDestinations.has(item.href)
   if (item.adminOnly && role !== 'admin') return false
   if (item.clientHidden && (role === 'client' || role === 'pending' || !role)) return false

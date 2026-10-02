@@ -9,12 +9,24 @@ export function isScopedClientRole(role: string): boolean {
 }
 
 export function isAllowedScopedClientPath(pathname: string, role?: string): boolean {
-  return (role === 'client_admin' && pathname === '/client-documents')
+  return (role === 'client_admin' && ['/client-documents', '/client-calendar', '/client-stores', '/client-overview'].includes(pathname))
     || pathname === '/fra-action-plans'
     || pathname === '/help'
     || pathname === '/privacy'
     || pathname.startsWith('/login/')
     || pathname === '/login'
+}
+
+/** Keep bookmarked legacy client URLs working without serving operational pages. */
+export function clientAdminDestination(pathname: string): string | null {
+  const destinations: Record<string, string> = {
+    '/dashboard': '/client-overview',
+    '/audit-tracker': '/client-documents?kind=hs',
+    '/fire-risk-assessment': '/client-documents?kind=fra',
+    '/stores': '/client-stores',
+    '/calendar': '/client-calendar',
+  }
+  return destinations[pathname] || null
 }
 
 export function isAllowedScopedClientApi(role: string, pathname: string, method: string): boolean {

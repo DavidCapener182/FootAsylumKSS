@@ -1,4 +1,4 @@
-import { CheckSquare, ClipboardList, Flame, LayoutDashboard, Route, Store } from 'lucide-react'
+import { Calendar as CalendarIcon, CheckSquare, ClipboardList, Flame, LayoutDashboard, Route, Store } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { UserRole } from '@/lib/auth'
 import { canSeeNavItem, navItems } from './nav-items'
@@ -25,6 +25,13 @@ const opsMobileTabItems: MobileTabItem[] = [
 
 const scopedClientMobileTabItems: MobileTabItem[] = [
   { href: '/fra-action-plans', label: 'FRA Plans', icon: CheckSquare },
+]
+
+const clientAdminMobileTabItems: MobileTabItem[] = [
+  { href: '/client-overview', label: 'Today', icon: LayoutDashboard },
+  { href: '/client-documents?kind=hs', label: 'Audits', icon: ClipboardList },
+  { href: '/fra-action-plans', label: 'FRA Plans', icon: CheckSquare },
+  { href: '/client-calendar', label: 'Calendar', icon: CalendarIcon },
 ]
 
 const mobilePageTitles: Array<{ href: string; title: string }> = [
@@ -57,7 +64,8 @@ export function matchesMobilePath(pathname: string, href: string): boolean {
 }
 
 export function getMobileTabItems(userRole?: UserRole | null): MobileTabItem[] {
-  if (userRole === 'area_manager' || userRole === 'client_admin') return scopedClientMobileTabItems
+  if (userRole === 'area_manager') return scopedClientMobileTabItems
+  if (userRole === 'client_admin') return clientAdminMobileTabItems
   return userRole === 'admin' || userRole === 'ops' ? opsMobileTabItems : defaultMobileTabItems
 }
 

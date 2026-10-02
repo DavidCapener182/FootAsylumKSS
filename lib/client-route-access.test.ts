@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isAllowedScopedClientApi, isAllowedScopedClientPath, isScopedClientRole } from './client-route-access'
+import { clientAdminDestination, isAllowedScopedClientApi, isAllowedScopedClientPath, isScopedClientRole } from './client-route-access'
 
 describe('scoped client route boundary', () => {
   it('identifies only the new restricted roles', () => {
@@ -21,6 +21,14 @@ describe('scoped client route boundary', () => {
   it('allows only scoped FRA APIs and methods for each client role', () => {
     expect(isAllowedScopedClientPath('/client-documents', 'client_admin')).toBe(true)
     expect(isAllowedScopedClientPath('/client-documents', 'area_manager')).toBe(false)
+    for (const path of ['/client-overview', '/client-calendar', '/client-stores']) {
+      expect(isAllowedScopedClientPath(path, 'client_admin')).toBe(true)
+      expect(isAllowedScopedClientPath(path, 'area_manager')).toBe(false)
+    }
+    expect(clientAdminDestination('/calendar')).toBe('/client-calendar')
+    expect(clientAdminDestination('/audit-tracker')).toBe('/client-documents?kind=hs')
+    expect(clientAdminDestination('/fire-risk-assessment')).toBe('/client-documents?kind=fra')
+    expect(clientAdminDestination('/route-planning')).toBeNull()
     expect(isAllowedScopedClientApi('client_admin', '/api/client-documents/pdf', 'GET')).toBe(true)
     expect(isAllowedScopedClientApi('client_admin', '/api/client-documents/pdf', 'POST')).toBe(false)
     expect(isAllowedScopedClientApi('area_manager', '/api/client-documents/pdf', 'GET')).toBe(false)

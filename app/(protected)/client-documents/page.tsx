@@ -4,10 +4,10 @@ import { getClientDocuments, type ClientDocumentKind } from '@/lib/client-docume
 
 export const dynamic = 'force-dynamic'
 
-export default async function ClientDocumentsPage({ searchParams }: { searchParams?: { kind?: string } }) {
+export default async function ClientDocumentsPage({ searchParams }: { searchParams?: { kind?: string; store?: string } }) {
   const { profile } = await requireRole(['client_admin'])
   const kind: ClientDocumentKind = searchParams?.kind === 'fra' ? 'FRA' : 'H&S'
-  const documents = (await getClientDocuments(profile)).filter(document => document.kind === kind)
+  const documents = (await getClientDocuments(profile)).filter(document => document.kind === kind && (!searchParams?.store || document.storeId === searchParams.store))
   const stores = new Map<string, typeof documents>()
   for (const document of documents) {
     const rows = stores.get(document.storeId) || []

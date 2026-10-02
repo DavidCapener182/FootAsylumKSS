@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { getSupabasePublicConfig } from '@/lib/env'
 import { accountHasApplicationAccess, type AccountStatus } from '@/lib/account-lifecycle'
 import { getSafeAuthRedirect } from '@/lib/auth-redirect'
-import { isAllowedScopedClientApi, isAllowedScopedClientPath, isScopedClientRole } from '@/lib/client-route-access'
+import { clientAdminDestination, isAllowedScopedClientApi, isAllowedScopedClientPath, isScopedClientRole } from '@/lib/client-route-access'
 
 function getSafeRedirectPath(pathname: string, search: string) {
   return getSafeAuthRedirect(`${pathname}${search}`)
@@ -142,7 +142,11 @@ export async function middleware(request: NextRequest) {
       }
       if (isApiRoute) return response
       if (request.nextUrl.pathname === '/') {
-        return NextResponse.redirect(new URL('/fra-action-plans', request.url))
+        return NextResponse.redirect(new URL(profile.role === 'client_admin' ? '/client-overview' : '/fra-action-plans', request.url))
+      }
+      if (profile.role === 'client_admin') {
+        const destination = clientAdminDestination(request.nextUrl.pathname)
+        if (destination) return NextResponse.redirect(new URL(destination, request.url))
       }
       if (!isAllowedScopedClientPath(request.nextUrl.pathname, profile.role)) {
         return NextResponse.redirect(new URL('/fra-action-plans', request.url))
