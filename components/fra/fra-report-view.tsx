@@ -2279,14 +2279,14 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
             extinguishers. Company fire safety arrangements place emphasis on raising
             the alarm and evacuation, rather than firefighting.
           </p>
-          <div className="mt-6 space-y-4">
+          <div className="mt-6 space-y-4 fra-extinguisher-photos">
             <p className="font-semibold text-slate-700">Photos of fire extinguisher locations</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <PhotoPlaceholder placeholderId="fire-extinguisher-store" label={isBremontAssessment ? 'Showroom locations (e.g. sales floor, exits)' : 'Store locations (e.g. sales floor, exits)'} maxPhotos={3} aspect="portrait" />
+                <PhotoPlaceholder placeholderId="fire-extinguisher-store" label={isBremontAssessment ? 'Showroom locations (e.g. sales floor, exits)' : 'Store locations (e.g. sales floor, exits)'} maxPhotos={3} aspect="portrait" compact fit="contain" />
               </div>
               <div>
-                <PhotoPlaceholder placeholderId="fire-extinguisher-stockroom" label={isBremontAssessment ? 'Back-of-house/storage area(s)' : 'Stock room(s)'} maxPhotos={2} aspect="portrait" />
+                <PhotoPlaceholder placeholderId="fire-extinguisher-stockroom" label={isBremontAssessment ? 'Back-of-house/storage area(s)' : 'Stock room(s)'} maxPhotos={2} aspect="portrait" compact fit="contain" />
               </div>
             </div>
           </div>

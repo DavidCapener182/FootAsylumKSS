@@ -504,3 +504,29 @@ body.cmp-print-document .cmp-image-grid-panel .cmp-image-panel img {
 body.cmp-print-document .cmp-toc-columns {
   gap: 0 !important;
 }
+
+/* Extinguisher evidence stays in compact rows in both the editor and PDF. */
+.fra-extinguisher-photos .fra-photo-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+  width: 100% !important;
+}
+.fra-extinguisher-photos .fra-photo-block {
+  width: 100% !important;
+  max-width: none !important;
+}
+.fra-extinguisher-photos .fra-photo-image-frame {
+  height: 140px !important;
+  min-height: 140px !important;
+  max-height: 140px !important;
+  aspect-ratio: auto !important;
+}
+.fra-extinguisher-photos .fra-photo-placeholder-empty {
+  height: 140px !important;
+  min-height: 0 !important;
+  aspect-ratio: auto !important;
+}
+.fra-extinguisher-photos img.fra-report-photo {
+  object-fit: contain !important;
+}
