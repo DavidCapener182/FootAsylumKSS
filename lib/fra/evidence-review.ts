@@ -1,6 +1,6 @@
 /** Preserve reviewed audit evidence in every report render path. */
-export function applyFRAEvidenceReview<T extends Record<string, any>>(data: T, review: Record<string, any> | null, fromPdf: boolean): T & { travelDistancesEvidence: string; fireAlarmCategoryEvidence: string } {
-  const result = { ...data, travelDistancesEvidence: 'Travel distances were not measured in the supplied assessment evidence. Measure the escape routes and compare them with the guidance above.', fireAlarmCategoryEvidence: 'The installed alarm category is not established by the supplied assessment evidence. Confirm the category and coverage from the system design and commissioning records.' }
+export function applyFRAEvidenceReview<T extends Record<string, any>>(data: T, review: Record<string, any> | null, fromPdf: boolean): T & { travelDistancesEvidence: string; fireAlarmCategoryEvidence: string; auditEvidenceOnly: boolean } {
+  const result = { ...data, auditEvidenceOnly: fromPdf, travelDistancesEvidence: 'Travel distances were not measured in the supplied assessment evidence. Measure the escape routes and compare them with the guidance above.', fireAlarmCategoryEvidence: 'The installed alarm category is not established by the supplied assessment evidence. Confirm the category and coverage from the system design and commissioning records.' }
   const fields: Record<string, string> = {
     alarmSystemDescription: 'fireAlarmDescription', fireAlarmDescription: 'fireAlarmDescription',
     emergencyLightingDescription: 'emergencyLightingDescription', fireExtinguishersDescription: 'fireExtinguishersDescription',

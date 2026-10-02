@@ -167,6 +167,7 @@ interface FRAData {
   sleepingRisk: string
   internalFireDoors: string
   historyOfFires: string
+  auditEvidenceOnly?: boolean
   travelDistancesEvidence?: string
   fireAlarmCategoryEvidence?: string
   fireAlarmDescription: string
@@ -2152,8 +2153,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
         <h3 className="text-lg font-semibold mb-4">Fire manual call points</h3>
         <div className="space-y-4 text-sm leading-relaxed">
           <p>
-            Manual call points (break-glass units) are provided throughout the premises in accordance with BS 5839-1,
-            positioned on escape routes and at fire exits to allow occupants to raise the alarm in the event of a fire.
+            Manual call points (break-glass units) allow occupants to raise the alarm. Their positions, accessibility and coverage should be maintained in accordance with the system design and local fire safety arrangements.
           </p>
           {data.callPointAccessibility && (
             <p>
@@ -2790,7 +2790,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
             <p className="mt-2">
               {isPreOpeningAssessment
                 ? `The premises must have designated fire exit routes serving the intended ${isBremontAssessment ? 'showroom/sales area' : 'sales floor'} and back-of-house areas before opening. Escape routes, final exits, alarm call points, emergency lighting and exit signage should be verified as available, visible and unobstructed before customers are admitted.`
-                : isBremontAssessment
+                : data.escapeRoutesEvidence ? data.escapeRoutesEvidence : isBremontAssessment
                   ? 'The premises is provided with designated fire exit routes serving the showroom/sales area and back-of-house areas, which discharge to a place of relative safety via the building or landlord-managed evacuation routes where applicable. Escape routes and circulation routes were observed or should be verified as available and unobstructed at the time of assessment.'
                   : 'The premises is provided with designated fire exit routes serving the sales floor and back-of-house areas, which discharge to a place of relative safety via the shopping centre\'s managed evacuation routes. Escape routes and back-of-house circulation routes were observed to be available and in use at the time of assessment.'}
             </p>
@@ -2924,12 +2924,12 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
               )}
             </p>
             <p className="mt-2">
-              Emergency lighting (EEL), as previously detailed, was
+              {data.auditEvidenceOnly ? data.emergencyLightingDescription : <>Emergency lighting (EEL), as previously detailed, was
               {isPreOpeningAssessment
                 ? ' to be confirmed through final commissioning and handover evidence before opening, in line with Article 14(2)(e-h) of the FSO 2005.'
                 : fireFindings.emergency_lighting_tests_current === false
                   ? ' installed, however monthly emergency lighting test evidence was not current and requires corrective follow-up in line with Article 14(2)(e-h) of the FSO 2005.'
-                  : ' installed and found suitable and sufficient in accordance with Article 14(2)(e-h) of the FSO 2005.'}
+                  : ' installed and found suitable and sufficient in accordance with Article 14(2)(e-h) of the FSO 2005.'}</>}
               {' '}
               {consistencyNarratives.fireDoorsStatement}
               {' '}
@@ -2943,7 +2943,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
               away from sources of ignition.
             </p>
             <p className="mt-2">
-              <span className="font-semibold">Note:</span> There will be no dangerous or flammable substances or liquids used or stored on the
+              <span className="font-semibold">Note:</span> Any dangerous or flammable substances or liquids used or stored on the
               premises.
             </p>
             <p className="mt-4 font-semibold">Overall:</p>
