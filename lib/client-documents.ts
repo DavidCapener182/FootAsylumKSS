@@ -32,9 +32,9 @@ type HistoryRow = {
 }
 
 export async function getClientDocumentStores(profile: UserProfile) {
-  if (profile.role !== 'client_admin') return []
+  if (!['client_admin', 'area_manager'].includes(profile.role)) return []
   const scope = await getFraActionReadScope(profile)
-  if (scope.kind !== 'client_stores' || scope.role !== 'client_admin' || !scope.storeIds.length) return []
+  if (scope.kind !== 'client_stores' || scope.role !== profile.role || !scope.storeIds.length) return []
   const admin = createAdminSupabaseClient()
   const { data, error } = await admin.from('fa_stores')
     .select('id,store_code,store_name,compliance_audit_2_planned_date')

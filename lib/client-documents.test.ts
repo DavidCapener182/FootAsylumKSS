@@ -61,9 +61,14 @@ describe('client document scope', () => {
     expect(mocks.historyStoreEq).toHaveBeenCalledWith('store_id', storeId)
   })
 
-  it('refuses Area Manager access to the client document collection', async () => {
-    const { getClientDocuments } = await import('./client-documents')
-    expect(await getClientDocuments({ ...profile, role: 'area_manager' })).toEqual([])
-    expect(mocks.stores).not.toHaveBeenCalled()
+  it('allows Area Managers only their matching explicit store scope', async () => {
+    const { getClientDocuments, getClientDocumentPath } = await import('./client-documents')
+    const manager = { ...profile, role: 'area_manager' }
+    mocks.scope.mockResolvedValue({ kind: 'client_stores', role: 'area_manager', storeIds: [storeId] })
+    expect(await getClientDocuments(manager)).toMatchObject([{ storeId }])
+    expect(await getClientDocumentPath(manager, otherId, documentId)).toBeNull()
+    expect(mocks.historyLookup).not.toHaveBeenCalled()
+    mocks.scope.mockResolvedValue({ kind: 'denied', storeIds: [] })
+    expect(await getClientDocuments(manager)).toEqual([])
   })
 })

@@ -9,7 +9,7 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
-  const { profile } = await requireRole(['client_admin'])
+  const { profile } = await requireRole(['client_admin', 'area_manager'])
   const storeId = request.nextUrl.searchParams.get('storeId') || ''
   const documentId = request.nextUrl.searchParams.get('documentId') || ''
   const path = await getClientDocumentPath(profile, storeId, documentId)

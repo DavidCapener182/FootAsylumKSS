@@ -26,10 +26,10 @@ describe('scoped client route boundary', () => {
 
   it('allows only scoped FRA APIs and methods for each client role', () => {
     expect(isAllowedScopedClientPath('/client-documents', 'client_admin')).toBe(true)
-    expect(isAllowedScopedClientPath('/client-documents', 'area_manager')).toBe(false)
+    expect(isAllowedScopedClientPath('/client-documents', 'area_manager')).toBe(true)
     for (const path of ['/client-overview', '/client-calendar', '/client-stores']) {
       expect(isAllowedScopedClientPath(path, 'client_admin')).toBe(true)
-      expect(isAllowedScopedClientPath(path, 'area_manager')).toBe(false)
+      expect(isAllowedScopedClientPath(path, 'area_manager')).toBe(path === '/client-stores')
     }
     expect(clientAdminDestination('/calendar')).toBe('/client-calendar')
     expect(clientAdminDestination('/audit-tracker')).toBe('/client-documents?kind=hs')
@@ -37,7 +37,7 @@ describe('scoped client route boundary', () => {
     expect(clientAdminDestination('/route-planning')).toBeNull()
     expect(isAllowedScopedClientApi('client_admin', '/api/client-documents/pdf', 'GET')).toBe(true)
     expect(isAllowedScopedClientApi('client_admin', '/api/client-documents/pdf', 'POST')).toBe(false)
-    expect(isAllowedScopedClientApi('area_manager', '/api/client-documents/pdf', 'GET')).toBe(false)
+    expect(isAllowedScopedClientApi('area_manager', '/api/client-documents/pdf', 'GET')).toBe(true)
     expect(isAllowedScopedClientApi('client_admin', '/api/fra-actions/pdf', 'GET')).toBe(true)
     expect(isAllowedScopedClientApi('client_admin', '/api/fra-actions/command', 'POST')).toBe(false)
     expect(isAllowedScopedClientApi('client_admin', '/api/fra-actions/evidence', 'POST')).toBe(false)

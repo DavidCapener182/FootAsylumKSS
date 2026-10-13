@@ -5,7 +5,7 @@ import { getClientDocuments, getClientDocumentStores } from '@/lib/client-docume
 export const dynamic = 'force-dynamic'
 
 export default async function ClientStoresPage() {
-  const { profile } = await requireRole(['client_admin'])
+  const { profile } = await requireRole(['client_admin', 'area_manager'])
   const [stores, documents] = await Promise.all([getClientDocumentStores(profile), getClientDocuments(profile)])
   const countByStore = new Map<string, { hs: number; fra: number }>()
   for (const row of documents) {

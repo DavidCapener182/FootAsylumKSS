@@ -24,6 +24,9 @@ const opsMobileTabItems: MobileTabItem[] = [
 ]
 
 const scopedClientMobileTabItems: MobileTabItem[] = [
+  { href: '/client-stores', label: 'Stores', icon: Store },
+  { href: '/client-documents?kind=hs', label: 'Audits', icon: ClipboardList },
+  { href: '/client-documents?kind=fra', label: 'FRAs', icon: Flame },
   { href: '/fra-action-plans', label: 'FRA Plans', icon: CheckSquare },
 ]
 

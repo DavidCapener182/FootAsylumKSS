@@ -10,6 +10,7 @@ export function isScopedClientRole(role: string): boolean {
 
 export function isAllowedScopedClientPath(pathname: string, role?: string): boolean {
   return (role === 'client_admin' && ['/client-documents', '/client-calendar', '/client-stores', '/client-overview'].includes(pathname))
+    || (role === 'area_manager' && ['/client-documents', '/client-stores', '/client-actions'].includes(pathname))
     || pathname === '/fra-action-plans'
     || pathname === '/help'
     || pathname === '/privacy'
@@ -33,7 +34,7 @@ export function isAllowedScopedClientApi(role: string, pathname: string, method:
   if (!isScopedClientRole(role)) return false
   // Scoped clients may report their own view; reading activity remains David-only.
   if (method === 'POST' && pathname === '/api/user-view-context') return true
-  if (role === 'client_admin' && method === 'GET' && pathname === '/api/client-documents/pdf') return true
+  if (method === 'GET' && pathname === '/api/client-documents/pdf') return true
   if (method === 'GET' && pathname === '/api/fra-actions/pdf') return true
   if (role !== 'area_manager') return false
   if (method === 'POST' && (pathname === '/api/fra-actions/command' || pathname === '/api/fra-actions/evidence')) return true

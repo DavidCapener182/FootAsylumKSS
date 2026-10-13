@@ -60,10 +60,10 @@ describe('role-aware product navigation', () => {
     expect(canSeeNavItem(plans!, 'client_admin')).toBe(true)
 
     expect(navItems.filter((item) => canSeeNavItem(item, 'area_manager')).map((item) => item.href)).toEqual([
-      '/fra-action-plans', '/help', '/privacy',
+      '/client-documents?kind=hs', '/client-documents?kind=fra', '/fra-action-plans', '/client-actions', '/client-stores', '/help', '/privacy',
     ])
-    expect(getMobileTabItems('area_manager').map((item) => item.href)).toEqual(['/fra-action-plans'])
-    expect(getMobileMoreItems('area_manager').map((item) => item.href)).toEqual(['/help', '/privacy'])
+    expect(getMobileTabItems('area_manager').map((item) => item.href)).toEqual(['/client-stores', '/client-documents?kind=hs', '/client-documents?kind=fra', '/fra-action-plans'])
+    expect(getMobileMoreItems('area_manager').map((item) => item.href)).toEqual(['/client-actions', '/help', '/privacy'])
     expect(navItems.filter((item) => canSeeNavItem(item, 'client_admin')).map((item) => item.href)).toEqual([
       '/client-overview', '/client-documents?kind=hs', '/client-documents?kind=fra',
       '/fra-action-plans', '/client-stores', '/client-calendar', '/help', '/privacy',
