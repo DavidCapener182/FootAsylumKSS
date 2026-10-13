@@ -56,3 +56,11 @@ next-env.d.ts
 /docs/audit-studio/introduction-v1-source.json
 /output/audit-studio*/
 /output/audit-improvement*/
+
+# Generated client reports, one-off repair prompts and local tool caches
+/output/
+/.chart-data-*/
+/.bicester-*
+/pkcs11.txt
+__pycache__/
+*.pyc

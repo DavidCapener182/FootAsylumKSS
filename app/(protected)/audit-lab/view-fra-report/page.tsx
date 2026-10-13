@@ -2,6 +2,7 @@
 
 import { SavedFraPdfViewer } from '@/components/fra/saved-fra-pdf-viewer'
 import { FraUploadAfterDownload } from '@/components/fra/fra-upload-after-download'
+import { FraActionApproval } from '@/components/fra/fra-action-approval'
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -11,6 +12,8 @@ import { FRALoadingGlyph, FRAReportLoadingState } from '@/components/fra/fra-rep
 import { Button } from '@/components/ui/button'
 import { Loader2, Save, Printer, X, Download } from 'lucide-react'
 import { getFraReportFilename } from '@/lib/utils'
+
+const EMPTY_ACTION_RECOMMENDATIONS: Array<{ recommendation: string; priority: 'Low' | 'Medium' | 'High'; dueNote?: string }> = []
 
 const DAY_ORDER = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const
 const GENERIC_PLACEHOLDERS = [/^to\s+be\s+confirmed$/i, /^unknown$/i, /^n\/?a$/i, /^na$/i]
@@ -148,6 +151,10 @@ export default function FRAReportViewPage({
   const [generatingPdf, setGeneratingPdf] = useState(false)
   const [needsSetup, setNeedsSetup] = useState(false)
   const [saveDraftBeforeComplete, setSaveDraftBeforeComplete] = useState<(() => Promise<boolean>) | null>(null)
+  const [actionApproval, setActionApproval] = useState({ required: false, approved: false })
+  const handleActionApprovalState = useCallback((required: boolean, approved: boolean) => {
+    setActionApproval({ required, approved })
+  }, [])
   const handleRegisterSaveHandler = useCallback((handler: (() => Promise<boolean>) | null) => {
     setSaveDraftBeforeComplete(() => handler)
   }, [])
@@ -539,7 +546,7 @@ export default function FRAReportViewPage({
             variant="default"
             size="sm"
             onClick={handleSave}
-            disabled={saving || !fraData?.fraInstance}
+            disabled={saving || !fraData?.fraInstance || (actionApproval.required && !actionApproval.approved)}
             className="bg-indigo-600 hover:bg-indigo-500"
           >
             {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
@@ -577,11 +584,20 @@ export default function FRAReportViewPage({
           ) : error ? (
             <div className="p-6 text-sm text-red-600">{error}</div>
           ) : fraData ? (
-            <FRAReportView
-              data={fraData}
-              onDataUpdate={fetchData}
-              onRegisterSaveHandler={handleRegisterSaveHandler}
-            />
+            <>
+              {instanceId && fraData.store?.id ? <FraActionApproval
+                instanceId={instanceId}
+                storeId={fraData.store.id}
+                recommendations={fraData.actionPlanItems || EMPTY_ACTION_RECOMMENDATIONS}
+                onStateChange={handleActionApprovalState}
+                onApproved={fetchData}
+              /> : null}
+              <FRAReportView
+                data={fraData}
+                onDataUpdate={fetchData}
+                onRegisterSaveHandler={handleRegisterSaveHandler}
+              />
+            </>
           ) : (
             <div className="p-6 text-sm text-slate-600">No data available.</div>
           )}

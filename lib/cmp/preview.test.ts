@@ -208,4 +208,38 @@ describe('buildCmpPreviewModel', () => {
     expect(pageCount).toBeGreaterThan(2)
     expect(html).toContain('Search policy (continued)')
   })
+
+  it('labels the final DIM-ALICED factor as Dispersal', () => {
+    const dispersalField = CMP_MASTER_TEMPLATE_FIELDS.find((field) => field.key === 'dim_aliced_dynamics')
+    expect(dispersalField).toMatchObject({
+      label: 'DIM-ALICED: Dispersal',
+    })
+    expect(dispersalField?.defaultValueText).toContain('Dispersal analysis')
+
+    const model = buildCmpPreviewModel({
+      fieldValues: {
+        ...fieldValues,
+        dim_aliced_dynamics: {
+          key: 'dim_aliced_dynamics',
+          label: 'DIM-ALICED: Dispersal',
+          valueText: 'Dispersal must keep egress aligned to the agreed route split.',
+          source: 'manual',
+        },
+      },
+      selectedAnnexes: [],
+      includeKssProfileAppendix: false,
+    })
+
+    const siteDesign = model.sections.find((section) => section.key === 'site_design')
+    const dimAlicedTable = siteDesign?.blocks.find((block: any) => (
+      block.type === 'multi_table' && block.headers?.[0] === 'DIM-ALICED Factor'
+    )) as any
+
+    expect(dimAlicedTable?.rows).toEqual(expect.arrayContaining([
+      ['Dispersal', 'Dispersal must keep egress aligned to the agreed route split.'],
+    ]))
+    expect(dimAlicedTable?.rows).not.toEqual(expect.arrayContaining([
+      expect.arrayContaining(['Dynamics']),
+    ]))
+  })
 })
