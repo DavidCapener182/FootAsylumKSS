@@ -83,6 +83,7 @@ export function FraActionPlansClient({ sourceActions = exampleActions, fraHref, 
   const [audience, setAudience] = useState<'kss' | 'client_admin' | 'area_manager'>(readOnlyRole === 'area_manager' ? 'area_manager' : readOnlyRole === 'client_admin' ? 'client_admin' : 'kss')
   const [selectedArea, setSelectedArea] = useState(sourceActions[0].area)
   const [storeFilter, setStoreFilter] = useState('all')
+  const [overview, setOverview] = useState<'actions' | 'stores'>('actions')
   const [boardSearch, setBoardSearch] = useState('')
   const [verificationNote, setVerificationNote] = useState('')
   const [bookedDate, setBookedDate] = useState('')
@@ -147,6 +148,7 @@ export function FraActionPlansClient({ sourceActions = exampleActions, fraHref, 
 
   if (readOnlyRole === 'pdf_review' || liveMode) {
     const query = boardSearch.trim().toLowerCase()
+    const matchingActions = actions.filter(action => !query || `${action.store} ${action.code} ${action.title}`.toLowerCase().includes(query))
     const stores = [...new Map(actions.map(action => [action.storeId || action.code, {
       id: action.storeId || action.code,
       name: action.store,
@@ -170,10 +172,22 @@ export function FraActionPlansClient({ sourceActions = exampleActions, fraHref, 
         <p className="mt-2 text-sm text-slate-600">{sourceLabel}</p>
 
         {!openedStore ? <>
-          <label className="mt-6 block max-w-md text-sm font-semibold">Find a store
+          <div className="mt-6 flex gap-2" role="group" aria-label="FRA overview">
+            {(['actions', 'stores'] as const).map(option => <button key={option} type="button" aria-pressed={overview === option} onClick={() => setOverview(option)} className={`rounded-lg px-4 py-2 text-sm font-bold ${overview === option ? 'bg-slate-900 text-white' : 'border border-slate-300 bg-white text-slate-700'}`}>{option === 'actions' ? 'Individual actions' : 'By store'}</button>)}
+          </div>
+          <label className="mt-4 block max-w-md text-sm font-semibold">Find a store or action
             <input type="search" value={boardSearch} onChange={event => setBoardSearch(event.target.value)} placeholder="Store name, code or action" className="mt-2 block w-full rounded-xl border border-slate-300 bg-white px-4 py-3 font-normal" />
           </label>
-          <div className="mt-6 space-y-8">{managerGroups.map(group => <section key={group.key} aria-label={`${group.area} stores`}>
+          {overview === 'actions' ? <section className="mt-6" aria-label="Individual FRA actions">
+            <p className="mb-3 text-sm font-semibold">{matchingActions.length} individual FRA {matchingActions.length === 1 ? 'action' : 'actions'}</p>
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{matchingActions.map(action => <button key={action.id} type="button" onClick={() => { setStoreFilter(action.storeId || action.code); setSelectedId(action.id); setEvidence(null); setActionPdfOpen(false); setActionModalOpen(true) }} className="rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm hover:border-indigo-400 hover:shadow-md">
+              <span className="block text-xs font-bold text-indigo-700">{action.store} · {action.code}</span>
+              <span className="mt-3 block text-sm font-semibold leading-6">{action.title}</span>
+              <span className="mt-4 block text-xs font-semibold text-slate-600">{action.priority} priority · {stageLabel(action)}</span>
+              <span className="mt-2 block text-xs text-slate-500">{action.area} · Area Manager: {action.areaManager || 'Not confirmed'}</span>
+            </button>)}</div>
+            {matchingActions.length === 0 && <p className="py-8 text-sm text-slate-600">No FRA actions match your search.</p>}
+          </section> : <div className="mt-6 space-y-8">{managerGroups.map(group => <section key={group.key} aria-label={`${group.area} stores`}>
             <AreaActionSummary actions={group.actions} manager={group.manager} />
             <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">{group.stores.map(store => {
               const count = actions.filter(action => (action.storeId || action.code) === store.id).length
@@ -184,9 +198,9 @@ export function FraActionPlansClient({ sourceActions = exampleActions, fraHref, 
                 <span className="mt-2 block text-xs text-slate-500">Area Manager: {store.manager || 'Not confirmed'}</span>
               </button>
             })}</div>
-          </section>)}</div>
+          </section>)}</div>}
         </> : <>
-          <button type="button" onClick={() => { setActionModalOpen(false); setStoreFilter('all') }} className="mt-6 text-sm font-semibold text-indigo-700 hover:underline">← All stores</button>
+          <button type="button" onClick={() => { setActionModalOpen(false); setStoreFilter('all') }} className="mt-6 text-sm font-semibold text-indigo-700 hover:underline">{overview === 'actions' ? '← All actions' : '← All stores'}</button>
           <div className="mt-4 flex flex-wrap items-start justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <div><h2 className="text-2xl font-bold">{openedStore.name}</h2><p className="mt-1 text-sm text-slate-600">{openedStore.code} · {openedStore.area} · Area Manager: {openedStore.manager || 'Not confirmed'}</p><p className="mt-3 font-semibold">{storeActions.length} actions from the FRA</p></div>
             {(!liveMode || storeActions.some(action => action.fraAvailable)) && <button type="button" onClick={() => setPdfModalOpen(true)} className="rounded-xl border border-indigo-300 px-4 py-2 text-sm font-semibold text-indigo-800 hover:bg-indigo-50">Open current FRA PDF</button>}
