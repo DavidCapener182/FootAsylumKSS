@@ -13,7 +13,8 @@
     { "schema": "public", "table": "emp_event_control_log_entries", "sourceMigration": "20260820094619_add_operational_workspace_models.sql", "names": ["client_request_id"] },
     { "schema": "public", "table": "fa_saved_views", "sourceMigration": "20260820094619_add_operational_workspace_models.sql", "names": ["owner_user_id", "feature", "filters", "visible_columns", "density", "is_default"] },
     { "schema": "public", "table": "fa_report_versions", "sourceMigration": "20260820094619_add_operational_workspace_models.sql", "names": ["report_type", "status", "data_cutoff_at", "file_name", "generated_by_user_id", "completed_at"] },
-    { "schema": "public", "table": "kss_plan_versions", "sourceMigration": "20260820094619_add_operational_workspace_models.sql", "names": ["plan_type", "plan_id", "version_number", "status", "snapshot", "created_by_user_id"] }
+    { "schema": "public", "table": "kss_plan_versions", "sourceMigration": "20260820094619_add_operational_workspace_models.sql", "names": ["plan_type", "plan_id", "version_number", "status", "snapshot", "created_by_user_id"] },
+    { "schema": "public", "table": "fa_audit_revisits", "sourceMigration": "20261025173000_append_audit_revisits.sql", "names": ["id", "original_history_id", "revisit_date", "notes", "storage_path", "file_name", "file_sha256", "mime_type", "file_size", "created_by", "created_at"] }
   ],
   "functions": [
     { "schema": "public", "name": "fa_generate_incident_reference" },
@@ -23,13 +24,16 @@
     { "schema": "public", "name": "fa_admin_change_user_access" },
     { "schema": "public", "name": "emp_consume_event_day_kiosk_limit" },
     { "schema": "fa_private", "name": "get_user_role" },
-    { "schema": "public", "name": "kss_transition_plan" }
+    { "schema": "public", "name": "kss_transition_plan" },
+    { "schema": "public", "name": "fa_append_audit_revisit" },
+    { "schema": "public", "name": "fa_revisit_immutable" }
   ],
   "policies": [
     { "schema": "public", "table": "fa_activity_log", "name": "Users can view activity logs", "command": "SELECT" },
     { "schema": "storage", "table": "objects", "name": "Admin full access to attachments bucket", "command": "ALL" },
     { "schema": "storage", "table": "objects", "name": "Ops can upload attachments", "command": "INSERT" },
-    { "schema": "storage", "table": "objects", "name": "Readonly can view attachments", "command": "SELECT" }
+    { "schema": "storage", "table": "objects", "name": "Readonly can view attachments", "command": "SELECT" },
+    { "schema": "storage", "table": "objects", "name": "fa_revisit_server_only", "command": "ALL" }
   ],
   "forbiddenPolicies": [
     { "schema": "public", "table": "fa_activity_log", "name": "System can insert activity logs" }
@@ -44,14 +48,16 @@
     { "schema": "public", "table": "fa_report_versions" },
     { "schema": "public", "table": "kss_plan_versions" },
     { "schema": "public", "table": "kss_plan_review_comments" },
-    { "schema": "public", "table": "kss_plan_acknowledgements" }
+    { "schema": "public", "table": "kss_plan_acknowledgements" },
+    { "schema": "public", "table": "fa_audit_revisits" }
   ],
   "triggers": [
     { "schema": "public", "table": "fa_activity_log", "name": "fa_activity_log_append_only" },
     { "schema": "public", "table": "fa_profiles", "name": "fa_profiles_security_activity_log" },
-    { "schema": "public", "table": "fa_profiles", "name": "fa_profiles_guard_security_mutation" }
+    { "schema": "public", "table": "fa_profiles", "name": "fa_profiles_guard_security_mutation" },
+    { "schema": "public", "table": "fa_audit_revisits", "name": "fa_revisit_immutable" }
   ],
-  "buckets": ["fa-attachments", "cmp-documents", "emp-documents"],
+  "buckets": ["fa-attachments", "cmp-documents", "emp-documents", "fa-audit-revisit-evidence"],
   "forbiddenPrivileges": [
     { "role": "anon", "schema": "public", "table": "fa_activity_log", "privilege": "INSERT" },
     { "role": "authenticated", "schema": "public", "table": "fa_activity_log", "privilege": "INSERT" },
@@ -68,6 +74,16 @@
     { "role": "anon", "schema": "public", "table": "emp_event_kiosk_request_events", "privilege": "SELECT" },
     { "role": "authenticated", "schema": "public", "table": "emp_event_kiosk_request_events", "privilege": "SELECT" },
     { "role": "anon", "schema": "public", "table": "emp_event_kiosk_request_limits", "privilege": "SELECT" },
-    { "role": "authenticated", "schema": "public", "table": "emp_event_kiosk_request_limits", "privilege": "SELECT" }
+    { "role": "authenticated", "schema": "public", "table": "emp_event_kiosk_request_limits", "privilege": "SELECT" },
+    { "schema": "public", "table": "fa_audit_revisits", "role": "anon", "privilege": "SELECT" },
+    { "schema": "public", "table": "fa_audit_revisits", "role": "anon", "privilege": "INSERT" },
+    { "schema": "public", "table": "fa_audit_revisits", "role": "anon", "privilege": "UPDATE" },
+    { "schema": "public", "table": "fa_audit_revisits", "role": "anon", "privilege": "DELETE" },
+    { "schema": "public", "table": "fa_audit_revisits", "role": "authenticated", "privilege": "SELECT" },
+    { "schema": "public", "table": "fa_audit_revisits", "role": "authenticated", "privilege": "INSERT" },
+    { "schema": "public", "table": "fa_audit_revisits", "role": "authenticated", "privilege": "UPDATE" },
+    { "schema": "public", "table": "fa_audit_revisits", "role": "authenticated", "privilege": "DELETE" },
+    { "schema": "public", "table": "fa_audit_revisits", "role": "service_role", "privilege": "UPDATE" },
+    { "schema": "public", "table": "fa_audit_revisits", "role": "service_role", "privilege": "DELETE" }
   ]
 }

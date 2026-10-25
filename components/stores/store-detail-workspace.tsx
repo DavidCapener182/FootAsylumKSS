@@ -1,5 +1,6 @@
 'use client'
 
+import { AuditRevisits } from '@/components/stores/audit-revisits'
 import { WorkspaceMetrics } from '@/components/product/workspace-metrics'
 import Link from 'next/link'
 import { isHistoricalStoreAction } from '@/lib/actions/action-history'
@@ -744,6 +745,7 @@ export function StoreDetailWorkspace({ store, incidents, actions, userRole, crmD
 
       {activeTab === 'audit history' ? (
         <div className="grid grid-cols-1 gap-3 sm:gap-6 lg:grid-cols-2">
+          <AuditRevisits storeId={store.id} canUpload={canEdit} />
           <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-6">
             <h3 className="mb-3 text-base font-bold sm:mb-4 sm:text-lg">Audit Timeline</h3>
             <div className="space-y-3">
