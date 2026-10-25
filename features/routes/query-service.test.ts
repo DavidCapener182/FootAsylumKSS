@@ -48,3 +48,16 @@ it('retains the reporting area and existing route identity independently', () =>
     region: 'A3', reporting_area: 'AREA2', compliance_audit_2_planned_date: '2026-09-17', route_sequence: 2,
   })
 })
+
+describe('evidence-derived revisit queue completion', () => {
+  const failed = { ...baseStore, compliance_audit_2_date: '2026-09-17', compliance_audit_2_overall_pct: 73.2, compliance_audit_2_pdf_path: 'original.pdf' }
+  const evidence = { status: 'available' as const, originals: [{ id: 'original', auditNumber: 2, visitDate: '2026-09-17', percentage: 73.2, pdfPath: 'original.pdf', documentCount: 1, latestRevisitDate: '2026-10-22', latestEvidenceId: 'evidence' }] }
+  it('removes the completed current revisit only from the unplanned queue', () => {
+    expect(presentRoutePlanningData([failed], [], { [failed.id]: evidence }).stores).toHaveLength(0)
+    expect(presentRoutePlanningData([{ ...failed, compliance_audit_2_planned_date: '2026-11-10', route_sequence: 2 }], [], { [failed.id]: evidence }).stores[0]).toMatchObject({ compliance_audit_2_planned_date: '2026-11-10', route_sequence: 2, compliance_audit_2_overall_pct: 73.2 })
+  })
+  it('keeps a later failure and permission-loss fallback in the queue', () => {
+    expect(presentRoutePlanningData([{ ...failed, compliance_audit_2_date: '2026-10-24' }], [], { [failed.id]: evidence }).stores).toHaveLength(1)
+    expect(presentRoutePlanningData([failed], [], { [failed.id]: { status: 'unavailable', originals: [] } }).stores).toHaveLength(1)
+  })
+})

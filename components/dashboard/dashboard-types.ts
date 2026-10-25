@@ -8,6 +8,7 @@ export type RegionalCompliance = {
 }
 
 export type PriorityStore = {
+  revisitEvidenceHref?: string
   id: string
   name: string
   auditStatus: string

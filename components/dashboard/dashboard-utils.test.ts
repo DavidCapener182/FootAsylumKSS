@@ -64,3 +64,8 @@ describe('normalisePriorityStores', () => {
     ])
   })
 })
+
+it('marks only the revisit complete while preserving outstanding actions and evidence access', () => {
+  const stores = normalisePriorityStores(makeDashboardData([{ storeId: 'fictional', storeName: 'Fictional', latestAuditScore: 73.2, audit1Complete: true, audit2Complete: true, auditRevisitCompleted: true, auditRevisitRequired: false, auditRevisitEvidenceHref: '/api/audit-revisits?storeId=fictional&evidenceId=evidence', overdueActions: 15, drivers: ['Latest audit below pass threshold'] }]))
+  expect(stores[0]).toMatchObject({ auditStatus: 'Revisit Complete', openActions: 15, revisitEvidenceHref: '/api/audit-revisits?storeId=fictional&evidenceId=evidence' })
+})

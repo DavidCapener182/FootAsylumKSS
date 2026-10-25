@@ -52,6 +52,7 @@ import {
 } from 'lucide-react'
 
 interface StoreDetailWorkspaceProps {
+  initialTab?: string
   store: any
   incidents: any[]
   actions: any[]
@@ -109,9 +110,9 @@ function getActionPriorityTone(priority: string | null | undefined): string {
   return 'border-slate-200 bg-slate-100 text-slate-700'
 }
 
-export function StoreDetailWorkspace({ store, incidents, actions, userRole, crmData, canEdit }: StoreDetailWorkspaceProps) {
+export function StoreDetailWorkspace({ store, incidents, actions, userRole, crmData, canEdit, initialTab = 'overview' }: StoreDetailWorkspaceProps) {
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState('overview')
+  const [activeTab, setActiveTab] = useState(initialTab)
   const [storeActionsModalOpen, setStoreActionsModalOpen] = useState(false)
   const [actionsMessage, setActionsMessage] = useState<string | null>(null)
 

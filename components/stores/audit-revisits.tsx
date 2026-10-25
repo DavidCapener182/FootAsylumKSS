@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
+import { useRouter } from 'next/navigation'
 import { EvidenceUploader } from '@/components/product/evidence-uploader'
 import { Button } from '@/components/ui/button'
 
@@ -10,6 +11,7 @@ type History = { originals: Original[]; revisits: Revisit[] }
 const dateLabel = (date: string) => new Date(`${date}T12:00:00Z`).toLocaleDateString('en-GB', { timeZone: 'UTC', day: 'numeric', month: 'short', year: 'numeric' })
 
 export function AuditRevisits({ storeId, canUpload }: { storeId: string; canUpload: boolean }) {
+  const router = useRouter()
   const formId = useId()
   const [history, setHistory] = useState<History | null>(null)
   const [historyId, setHistoryId] = useState('')
@@ -51,6 +53,7 @@ export function AuditRevisits({ storeId, canUpload }: { storeId: string; canUplo
       setMessage(`Revisit evidence recorded. Original audit and findings remain unchanged.${result.cleanupWarning ? ` ${result.cleanupWarning}` : ''}`)
       setPending(false); requestId.current = null; setFile(null); setNotes(''); setVisitDate('')
       await load()
+      router.refresh()
     } catch (error) { setMessage(error instanceof Error ? error.message : 'Connection interrupted. Retry this same submission.') }
     finally { setBusy(false) }
   }

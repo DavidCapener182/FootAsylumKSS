@@ -1,3 +1,4 @@
+import { loadAuditRevisitFollowUps } from '@/lib/audit/revisit-follow-up-server'
 import { z } from 'zod'
 import { isNewStoreFirstAudit } from '@/lib/audit/new-store-applicability'
 import { isWarehouseAuditRow } from '@/components/audit/audit-table-helpers'
@@ -20,6 +21,10 @@ const storeSchema = z.object({
   compliance_audit_1_pdf_path: z.string().nullable(),
   compliance_audit_2_date: z.string().nullable(),
   compliance_audit_2_overall_pct: z.number().nullable(),
+  compliance_audit_2_pdf_path: z.string().nullable().optional(),
+  compliance_audit_3_date: z.string().nullable().optional(),
+  compliance_audit_3_overall_pct: z.number().nullable().optional(),
+  compliance_audit_3_pdf_path: z.string().nullable().optional(),
   compliance_audit_2_planned_date: z.string().nullable(),
   fire_risk_assessment_date: z.string().nullable(),
 })
@@ -70,8 +75,8 @@ export async function getDashboardData(currentUserId: string): Promise<Dashboard
     const [storesResult, incidentsResult, incidentActionsResult, storeActionsResult, activityResult, routesResult] = await Promise.all([
       supabase.from('fa_stores').select(`id, store_name, store_code, region, is_active,
         compliance_audit_1_date, compliance_audit_1_overall_pct, compliance_audit_1_pdf_path,
-        compliance_audit_2_date, compliance_audit_2_overall_pct,
-        compliance_audit_2_planned_date, fire_risk_assessment_date`).eq('is_active', true),
+        compliance_audit_2_date, compliance_audit_2_overall_pct, compliance_audit_2_pdf_path,
+        compliance_audit_3_date, compliance_audit_3_overall_pct, compliance_audit_3_pdf_path, compliance_audit_2_planned_date, fire_risk_assessment_date`).eq('is_active', true),
       supabase.from('fa_incidents').select('store_id, status, severity, occurred_at'),
       supabase.from('fa_actions').select('status, priority, due_date'),
       supabase.from('fa_current_store_actions').select('store_id, status, priority, due_date'),
@@ -79,7 +84,9 @@ export async function getDashboardData(currentUserId: string): Promise<Dashboard
       supabase.from('fa_stores').select('id, store_name, store_code, region, compliance_audit_2_planned_date, compliance_audit_2_assigned_manager_user_id').eq('is_active', true).not('compliance_audit_2_planned_date', 'is', null).gte('compliance_audit_2_planned_date', today).order('compliance_audit_2_planned_date').order('route_sequence', { nullsFirst: false }).order('store_name'),
     ])
 
-    const stores = z.array(storeSchema).parse(assertResult('dashboard stores', storesResult)).filter((store) => !shouldHideStore(store))
+    const baseStores = z.array(storeSchema).parse(assertResult('dashboard stores', storesResult)).filter((store) => !shouldHideStore(store))
+    const followUps = await loadAuditRevisitFollowUps(baseStores)
+    const stores = baseStores.map(store => ({ ...store, audit_revisit_follow_up: followUps[store.id] }))
     const storeIds = new Set(stores.map((store) => store.id))
     const incidents = z.array(incidentSchema).parse(assertResult('dashboard incidents', incidentsResult))
     const incidentActions = z.array(actionSchema).parse(assertResult('dashboard incident actions', incidentActionsResult))

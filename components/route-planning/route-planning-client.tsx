@@ -1,5 +1,6 @@
 'use client'
 
+import type { RevisitAuditStore } from '@/lib/audit/revisit-follow-up'
 import { WorkspaceMetrics } from '@/components/product/workspace-metrics'
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
@@ -52,7 +53,7 @@ import { needsAuditVisit, requiresAuditRevisit } from '@/lib/route-planning-stor
 // Dynamically import the map component to avoid SSR issues
 const MapComponent = dynamic(() => import('./map-component'), { ssr: false })
 
-interface Store {
+interface Store extends RevisitAuditStore {
   id: string
   store_code: string | null
   store_name: string

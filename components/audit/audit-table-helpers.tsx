@@ -1,8 +1,11 @@
+import type { AuditRevisitFollowUp } from '@/lib/audit/revisit-follow-up'
 import { normalizeReportingAreaCode } from '@/lib/areas'
 import { Badge } from '@/components/ui/badge'
 import { cn, formatAppDate, formatPercent } from '@/lib/utils'
 
 export interface AuditRow {
+  audit_revisit_follow_up?: AuditRevisitFollowUp
+  compliance_audit_3_pdf_path?: string | null
   id: string
   region: string | null
   reporting_area?: string | null

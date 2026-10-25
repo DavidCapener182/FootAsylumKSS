@@ -1,6 +1,8 @@
+import { completedAuditRevisit, revisitEvidenceHref, type RevisitAuditStore } from '@/lib/audit/revisit-follow-up'
+import { requiresAuditRevisit } from '@/lib/route-planning-store-eligibility'
 export type FRAStatus = 'up_to_date' | 'due' | 'overdue' | 'required'
 
-export interface ForecastStoreInput {
+export interface ForecastStoreInput extends RevisitAuditStore {
   id: string
   store_name: string
   store_code: string | null
@@ -14,6 +16,9 @@ export interface ForecastStoreInput {
 }
 
 export interface StoreRiskForecast {
+  auditRevisitCompleted?: boolean
+  auditRevisitRequired?: boolean
+  auditRevisitEvidenceHref?: string
   storeId: string
   storeName: string
   storeCode: string | null
@@ -199,6 +204,7 @@ export function computeComplianceForecast(
     const audit2Complete = Boolean(
       store.compliance_audit_2_date && typeof store.compliance_audit_2_overall_pct === 'number'
     )
+    const completedRevisit = completedAuditRevisit(store)
     const plannedDateObj = parseDate(store.compliance_audit_2_planned_date)
 
     let riskScore = 15
@@ -275,6 +281,9 @@ export function computeComplianceForecast(
       latestAuditScore,
       audit1Complete,
       audit2Complete,
+      auditRevisitCompleted: completedRevisit !== null,
+      auditRevisitRequired: requiresAuditRevisit(store),
+      auditRevisitEvidenceHref: completedRevisit ? revisitEvidenceHref(store.id, completedRevisit.latestEvidenceId) : undefined,
       plannedDate: store.compliance_audit_2_planned_date,
       drivers: drivers.slice(0, 4),
     } satisfies StoreRiskForecast

@@ -1,3 +1,4 @@
+import { loadAuditRevisitFollowUps } from '@/lib/audit/revisit-follow-up-server'
 import { requireRole } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { AuditRow } from '@/components/audit/audit-table'
@@ -9,7 +10,7 @@ async function getStoreAudits() {
   const { data, error } = await supabase
     .from('fa_stores')
     .select(
-      'id, store_code, store_name, region, reporting_area, city, is_active, compliance_audit_1_date, compliance_audit_1_overall_pct, action_plan_1_sent, compliance_audit_1_pdf_path, compliance_audit_2_date, compliance_audit_2_overall_pct, action_plan_2_sent, compliance_audit_2_pdf_path, compliance_audit_3_date, compliance_audit_3_overall_pct, action_plan_3_sent, area_average_pct, total_audits_to_date, fire_risk_assessment_date, fire_risk_assessment_pdf_path, fire_risk_assessment_notes, fire_risk_assessment_pct'
+      'id, store_code, store_name, region, reporting_area, city, is_active, compliance_audit_1_date, compliance_audit_1_overall_pct, action_plan_1_sent, compliance_audit_1_pdf_path, compliance_audit_2_date, compliance_audit_2_overall_pct, action_plan_2_sent, compliance_audit_2_pdf_path, compliance_audit_3_date, compliance_audit_3_overall_pct, compliance_audit_3_pdf_path, action_plan_3_sent, area_average_pct, total_audits_to_date, fire_risk_assessment_date, fire_risk_assessment_pdf_path, fire_risk_assessment_notes, fire_risk_assessment_pct'
     )
     .order('reporting_area', { ascending: true })
     .order('store_name', { ascending: true })
@@ -21,7 +22,9 @@ async function getStoreAudits() {
 
   // Known bad rows are corrected by migrations (for example migration 033),
   // so this presentation layer reflects the authoritative stored audit state.
-  return ((data || []) as AuditRow[]).filter((store) => !shouldHideStore(store))
+  const stores = ((data || []) as AuditRow[]).filter((store) => !shouldHideStore(store))
+  const followUps = await loadAuditRevisitFollowUps(stores)
+  return stores.map(store => ({ ...store, audit_revisit_follow_up: followUps[store.id] }))
 }
 
 export default async function AuditTrackerPage() {

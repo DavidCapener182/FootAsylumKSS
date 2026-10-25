@@ -25,3 +25,9 @@ If the migration is absent, the panel reports history unavailable and leaves the
 - `node scripts/test-audit-revisits-ui.mjs` — actual React component in isolated Chromium with synthetic API responses; verifies stable submission UUID after an uncertain response, no duplicate display, retained original audit details, read-only controls and mobile width. Uses the existing production CSS from `.next`, and writes labelled screenshots to `output/playwright/audit-revisits/`.
 
 Concurrent request retries are exercised in the mocked service test. The isolated PostgreSQL test verifies the real uniqueness constraints/RPC; its embedded runtime serializes database calls and does not claim a multi-session PostgreSQL concurrency test.
+
+## Tracker and revisit queue
+
+The Audit Tracker Follow-up column and mobile cards show evidence date, original audit identity, document count, and authorized evidence/history links. Each row is a document; counts do not claim distinct physical visits. The All evidence link opens Audit History directly.
+
+Valid evidence completes the current revisit visit requirement only when the original audit number, date, score and PDF pointer match the latest completed audit snapshot. Evidence for older audits or replaced PDFs cannot satisfy a newer failed audit. The unplanned Routes queue then omits that completed revisit. Existing planned routes/dates/assignments are retained, and routine second-audit obligations remain separate. Permission/query failure retains the revisit requirement. Dashboard visit labels show Revisit Complete while original scores, risk drivers, open findings/actions and signoff remain unchanged. Upload success revalidates tracker/routes/dashboard/store views. No additional migration is required.

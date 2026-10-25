@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { NextRequest } from 'next/server'
-const mocks = vi.hoisted(() => ({ permission: vi.fn(), admin: vi.fn(), access: vi.fn(), append: vi.fn() }))
+const mocks = vi.hoisted(() => ({ permission: vi.fn(), admin: vi.fn(), access: vi.fn(), append: vi.fn(), revalidate: vi.fn() }))
 vi.mock('@/lib/permissions', async importOriginal => ({ ...await importOriginal<typeof import('@/lib/permissions')>(), requirePermission: mocks.permission }))
+vi.mock('next/cache', () => ({ revalidatePath: mocks.revalidate }))
 vi.mock('@/lib/supabase/admin', () => ({ createAdminSupabaseClient: mocks.admin }))
 vi.mock('@/lib/audit/revisit-evidence', async importOriginal => ({ ...await importOriginal<typeof import('@/lib/audit/revisit-evidence')>(), assertStoreAccess: mocks.access, appendRevisit: mocks.append }))
 import { GET, POST } from './route'
@@ -47,4 +48,12 @@ describe('revisit route access boundary', () => {
     const response = await GET(request()); expect(response.status).toBe(503)
     expect(await response.text()).not.toContain('secret')
   })
+})
+
+it('invalidates tracker, route queue, dashboard and store history after a successful upload', async () => {
+  mocks.permission.mockResolvedValue({ supabase: {}, userId: store }); mocks.append.mockResolvedValue({ id: evidence })
+  const form = new FormData(); form.set('storeId', store)
+  const response = await POST(new NextRequest('https://example.test/api/audit-revisits', { method: 'POST', body: form }))
+  expect(response.status).toBe(200)
+  expect(mocks.revalidate.mock.calls.map(call => call[0])).toEqual(['/audit-tracker', '/route-planning', '/dashboard', `/stores/${store}`])
 })

@@ -126,3 +126,14 @@ describe('computeRevisitRiskForecast', () => {
     })
   })
 })
+
+it('does not reduce audit/action risk when a matching revisit is evidenced', async () => {
+  const { computeComplianceForecast } = await import('./compliance-forecast')
+  const store = { id: 'fictional', store_name: 'Fictional', store_code: 'TEST', region: 'A1', compliance_audit_1_date: '2026-01-22', compliance_audit_1_overall_pct: 83.67, compliance_audit_2_date: '2026-09-17', compliance_audit_2_overall_pct: 73.2, compliance_audit_2_pdf_path: 'original.pdf', fire_risk_assessment_date: '2026-09-01', compliance_audit_2_planned_date: null }
+  const options = { overdueActionsByStore: { fictional: 15 }, referenceDate: new Date('2026-10-25') }
+  const before = computeComplianceForecast([store], options).stores[0]
+  const after = computeComplianceForecast([{ ...store, audit_revisit_follow_up: { status: 'available', originals: [{ id: 'original', auditNumber: 2, visitDate: '2026-09-17', percentage: 73.2, pdfPath: 'original.pdf', documentCount: 1, latestRevisitDate: '2026-10-22', latestEvidenceId: 'evidence' }] } }], options).stores[0]
+  expect(after.auditRevisitCompleted).toBe(true); expect(after.auditRevisitRequired).toBe(false)
+  expect(after.latestAuditScore).toBe(73.2); expect(after.overdueActions).toBe(15)
+  expect(after.riskScore).toBe(before.riskScore); expect(after.drivers).toEqual(before.drivers)
+})

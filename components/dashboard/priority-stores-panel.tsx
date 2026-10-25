@@ -37,7 +37,7 @@ export function PriorityStoresPanel({ stores }: { stores: PriorityStore[] }) {
                         {store.name}
                       </Link>
                     </td>
-                    <td className="py-3 pr-3"><StatusBadge label={store.auditStatus} tone={getStatusTone(store.auditStatus)} /></td>
+                    <td className="py-3 pr-3"><StatusBadge label={store.auditStatus} tone={getStatusTone(store.auditStatus)} />{store.revisitEvidenceHref && <a className="mt-1 flex min-h-11 items-center text-xs text-blue-800 underline" href={store.revisitEvidenceHref}>View revisit evidence</a>}</td>
                     <td className="py-3 pr-3"><StatusBadge label={store.fraStatus} tone={getStatusTone(store.fraStatus)} /></td>
                     <td className="py-3 text-right">
                       <Link href={store.href || '/actions'} prefetch={false} className="font-semibold text-red-600 hover:text-red-700">
@@ -57,7 +57,7 @@ export function PriorityStoresPanel({ stores }: { stores: PriorityStore[] }) {
 
 function PriorityStoreCard({ store }: { store: PriorityStore }) {
   return (
-    <Link href={store.href || '/stores'} prefetch={false} className="block min-w-0 rounded-xl border border-slate-100 bg-slate-50 p-2.5 sm:rounded-2xl sm:p-4">
+    <div className="min-w-0"><Link href={store.href || '/stores'} prefetch={false} className="block min-w-0 rounded-xl border border-slate-100 bg-slate-50 p-2.5 sm:rounded-2xl sm:p-4">
       <div className="flex items-start justify-between gap-2">
         <p className="min-w-0 truncate text-xs font-semibold text-slate-900 sm:text-base">{store.name}</p>
         <span className="flex-shrink-0 text-xs font-bold text-red-600 sm:text-sm">{store.openActions}</span>
@@ -66,6 +66,6 @@ function PriorityStoreCard({ store }: { store: PriorityStore }) {
         <StatusBadge label={store.auditStatus} tone={getStatusTone(store.auditStatus)} className="max-w-full truncate px-1.5 text-[9px] sm:px-2 sm:text-[11px]" />
         <StatusBadge label={store.fraStatus} tone={getStatusTone(store.fraStatus)} className="max-w-full truncate px-1.5 text-[9px] sm:px-2 sm:text-[11px]" />
       </div>
-    </Link>
+    </Link>{store.revisitEvidenceHref && <a className="flex min-h-11 items-center px-2 text-xs text-blue-800 underline" href={store.revisitEvidenceHref}>View revisit evidence</a>}</div>
   )
 }

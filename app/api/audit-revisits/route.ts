@@ -1,3 +1,4 @@
+import { revalidatePath } from 'next/cache'
 import { NextRequest, NextResponse } from 'next/server'
 import { requirePermission, isPermissionError } from '@/lib/permissions'
 import { createAdminSupabaseClient } from '@/lib/supabase/admin'
@@ -58,6 +59,7 @@ export async function POST(request: NextRequest) {
       requestId: String(form.get('requestId') || ''), visitDate: String(form.get('visitDate') || ''),
       notes: String(form.get('notes') || ''), file: form.get('file') as File,
     })
+    for (const path of ['/audit-tracker', '/route-planning', '/dashboard', `/stores/${String(form.get('storeId') || '')}`]) revalidatePath(path)
     return NextResponse.json(result, { headers: { 'Cache-Control': 'private, no-store' } })
   } catch (error) { return failure(error) }
 }

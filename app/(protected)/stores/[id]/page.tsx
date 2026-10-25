@@ -229,8 +229,10 @@ async function getStoreCrmData(storeId: string) {
 
 export default async function StoreCrmPage({
   params,
+  searchParams,
 }: {
   params: { id: string }
+  searchParams?: { tab?: string }
 }) {
   const { profile } = await requireRole(['admin', 'ops', 'client', 'readonly'])
 
@@ -265,6 +267,7 @@ export default async function StoreCrmPage({
       userRole={profile.role}
       crmData={crmData}
       canEdit={canEdit}
+      initialTab={searchParams?.tab === 'audit-history' ? 'audit history' : 'overview'}
     />
   )
 }

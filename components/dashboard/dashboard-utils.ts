@@ -81,7 +81,8 @@ function getPriorityAuditStatus(store: Record<string, unknown>) {
   const latestAuditScore = typeof store.latestAuditScore === 'number' ? store.latestAuditScore : null
   const hasPlannedVisit = Boolean(store.plannedDate)
 
-  if (latestAuditScore !== null && latestAuditScore < 80) {
+  if (store.auditRevisitCompleted === true) return 'Revisit Complete'
+  if (store.auditRevisitRequired === true || (store.auditRevisitRequired !== false && latestAuditScore !== null && latestAuditScore < 80)) {
     return hasPlannedVisit ? 'Revisit Planned' : 'Revisit Required'
   }
 
@@ -100,6 +101,7 @@ export function normalisePriorityStores(data: DashboardData): PriorityStore[] {
           id: String(store.storeId || store.id || store.storeName),
           name: String(store.storeName || store.name || 'Unknown Store'),
           auditStatus: getPriorityAuditStatus(store),
+          revisitEvidenceHref: typeof store.auditRevisitEvidenceHref === 'string' ? store.auditRevisitEvidenceHref : undefined,
           fraStatus,
           openActions: safeNumber(store.overdueActions ?? store.actionCount ?? store.count),
           href: store.storeId ? `/stores/${store.storeId}` : '/stores',

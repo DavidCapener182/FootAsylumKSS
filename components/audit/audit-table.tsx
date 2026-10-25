@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState, useEffect, useCallback } from 'react'
+import { RevisitFollowUp, hasRevisitFollowUp } from './revisit-follow-up'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -1100,7 +1101,8 @@ export function AuditTable({
                           ))}
                         </div>
 
-                        <div className={cn("audit-mobile-actions", (upcomingActionFlag || (canManageAudits && nextAudit !== null)) && "mt-3 flex flex-wrap gap-2 border-t border-slate-200/80 pt-3")}>
+                        <div className={cn("audit-mobile-actions", (hasRevisitFollowUp(row.audit_revisit_follow_up) || upcomingActionFlag || (canManageAudits && nextAudit !== null)) && "mt-3 flex flex-wrap gap-2 border-t border-slate-200/80 pt-3")}>
+                          <div className="w-full"><RevisitFollowUp store={row} /></div>
                           {upcomingActionFlag ? (
                             <Button
                               size="sm"
@@ -1188,11 +1190,12 @@ export function AuditTable({
                       <TableCell>{renderAuditSummary(row, 2)}</TableCell>
                       <TableCell>
                         <div className="audit-follow-up">
+                          <RevisitFollowUp store={row} />
                           {flag ? <button type="button" className="audit-previous-actions" onClick={() => handleOpenStoreActionsModal(row)} title={flag.title}>
                             <BellRing className="h-3.5 w-3.5" />{flag.isDebugPreview ? 'Preview' : 'Previous actions'}<span>{flag.actionCount}</span>
                           </button> : null}
                           {canManageAudits && nextAudit !== null ? <Button type="button" size="sm" variant="outline" onClick={() => handleAddAudit(row)} className="audit-add-button">+ Add Audit {nextAudit}</Button> : null}
-                          {!flag && (!canManageAudits || nextAudit === null) ? <span className="audit-unrecorded">—</span> : null}
+                          {!hasRevisitFollowUp(row.audit_revisit_follow_up) && !flag && (!canManageAudits || nextAudit === null) ? <span className="audit-unrecorded">—</span> : null}
                         </div>
                       </TableCell>
                     </TableRow>

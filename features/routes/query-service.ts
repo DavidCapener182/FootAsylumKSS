@@ -1,3 +1,5 @@
+import { loadAuditRevisitFollowUps } from '@/lib/audit/revisit-follow-up-server'
+import type { AuditRevisitFollowUp } from '@/lib/audit/revisit-follow-up'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { applyStoreCoordinateOverride, shouldAlwaysIncludeStore, shouldHideStore } from '@/lib/store-normalization'
@@ -13,24 +15,26 @@ const routeStoreSchema = z.object({
   address_line_1: z.string().nullable(), city: z.string().nullable(), postcode: z.string().nullable(), region: z.string().nullable(), reporting_area: z.string().nullable(),
   latitude: z.number().nullable(), longitude: z.number().nullable(), compliance_audit_1_date: z.string().nullable(),
   compliance_audit_1_overall_pct: z.number().nullable(), compliance_audit_2_date: z.string().nullable(), compliance_audit_2_overall_pct: z.number().nullable(),
+  compliance_audit_1_pdf_path: z.string().nullable().optional(), compliance_audit_2_pdf_path: z.string().nullable().optional(),
+  compliance_audit_3_date: z.string().nullable().optional(), compliance_audit_3_overall_pct: z.number().nullable().optional(), compliance_audit_3_pdf_path: z.string().nullable().optional(),
   compliance_audit_2_planned_date: z.string().nullable(), compliance_audit_2_assigned_manager_user_id: z.string().nullable(),
   route_sequence: z.number().int().nullable(), assigned_manager: z.union([managerSchema, z.array(managerSchema)]),
 })
 
 const profileSchema = managerSchema.unwrap().extend({ role: z.enum(['admin', 'ops']) })
 export type RoutePlanningData = {
-  stores: Array<Omit<z.infer<typeof routeStoreSchema>, 'assigned_manager' | 'is_active'> & { assigned_manager: z.infer<typeof managerSchema> }>
+  stores: Array<Omit<z.infer<typeof routeStoreSchema>, 'assigned_manager' | 'is_active'> & { assigned_manager: z.infer<typeof managerSchema>; audit_revisit_follow_up?: AuditRevisitFollowUp }>
   profiles: Array<Omit<z.infer<typeof profileSchema>, 'role'>>
 }
 
-export function presentRoutePlanningData(storeRows: unknown[], profileRows: unknown[]): RoutePlanningData {
-  const stores = z.array(routeStoreSchema).parse(storeRows)
+export function presentRoutePlanningData(storeRows: unknown[], profileRows: unknown[], followUps: Record<string, AuditRevisitFollowUp> = {}): RoutePlanningData {
+  const stores = z.array(routeStoreSchema).parse(storeRows).map(store => ({ ...store, audit_revisit_follow_up: followUps[store.id] }))
   const profiles = z.array(profileSchema).parse(profileRows)
   const visibleStores = stores
     .map((store) => applyStoreCoordinateOverride(store))
     .filter((store) => {
       if (!store.is_active && !shouldAlwaysIncludeStore(store)) return false
-      if (shouldHideStore(store) || !needsAuditVisit(store)) return false
+      if (shouldHideStore(store) || (!needsAuditVisit(store) && !store.compliance_audit_2_planned_date)) return false
       return true
     })
     .map(({ is_active: _isActive, ...store }) => ({
@@ -45,8 +49,8 @@ export async function getRoutePlanningData(): Promise<RoutePlanningData> {
   const supabase = createClient()
   const [storesResult, profilesResult] = await Promise.all([
     supabase.from('fa_stores').select(`id, is_active, store_code, store_name, address_line_1, city, postcode, region, reporting_area,
-      latitude, longitude, compliance_audit_1_date, compliance_audit_1_overall_pct, compliance_audit_2_date, compliance_audit_2_overall_pct,
-      compliance_audit_2_planned_date, compliance_audit_2_assigned_manager_user_id, route_sequence,
+      latitude, longitude, compliance_audit_1_date, compliance_audit_1_overall_pct, compliance_audit_2_date, compliance_audit_2_overall_pct, compliance_audit_1_pdf_path, compliance_audit_2_pdf_path,
+      compliance_audit_3_date, compliance_audit_3_overall_pct, compliance_audit_3_pdf_path, compliance_audit_2_planned_date, compliance_audit_2_assigned_manager_user_id, route_sequence,
       assigned_manager:fa_profiles!fa_stores_compliance_audit_2_assigned_manager_user_id_fkey(id, full_name, home_address, home_latitude, home_longitude)`)
       .order('store_name', { ascending: true }),
     supabase.from('fa_profiles').select('id, full_name, home_address, home_latitude, home_longitude, role')
@@ -54,5 +58,6 @@ export async function getRoutePlanningData(): Promise<RoutePlanningData> {
   ])
   if (storesResult.error) throw new Error(`Unable to load route-planning stores: ${storesResult.error.message}`)
   if (profilesResult.error) throw new Error(`Unable to load route-planning managers: ${profilesResult.error.message}`)
-  return presentRoutePlanningData(storesResult.data || [], profilesResult.data || [])
+  const followUps = await loadAuditRevisitFollowUps(storesResult.data || [])
+  return presentRoutePlanningData(storesResult.data || [], profilesResult.data || [], followUps)
 }
