@@ -49,7 +49,7 @@ try {
  const desktop=page.locator('.audit-register-table');await desktop.getByText('Revisit complete',{exact:true}).waitFor()
  assert.equal(await desktop.getByText('Revisit complete',{exact:true}).count(),1)
  assert.equal(await desktop.locator('.audit-store-row').getByText('73.20%',{exact:true}).count(),3)
- const report=desktop.locator(`a[href*="evidenceId=${evidenceId}"]`).first();assert.ok((await report.getAttribute('href')).includes(`storeId=${storeId}`))
+ const report=desktop.locator(`button[data-evidence-url*="evidenceId=${evidenceId}"]`).first();assert.ok((await report.getAttribute('data-evidence-url')).includes(`storeId=${storeId}`))
  await page.screenshot({path:out+'/tracker-desktop.png',fullPage:true})
  await page.setViewportSize({width:390,height:844});await page.getByRole('button',{name:/Area 1.*3/}).click()
  await page.locator('.audit-mobile-card').filter({hasText:'Dundee'}).getByText('Revisit complete',{exact:true}).waitFor()
@@ -65,6 +65,6 @@ try {
  await page.screenshot({path:out+'/route-queue-desktop.png',fullPage:true})
  await page.goto(origin+`/stores/${storeId}?tab=audit-history#revisit-heading`)
  await page.getByRole('heading',{name:'Original audits & revisit evidence'}).waitFor()
- await page.getByRole('link',{name:'Download Fictional review.pdf'}).waitFor()
+ await page.getByRole('button',{name:'View Fictional review.pdf'}).waitFor()
  console.log('PASS: tracker desktop/mobile evidence indicator/count/link; later failures retained and completed current revisit absent from new-route selection; unrelated planned visit excluded from unplanned selection; history deep link opens evidence directly. Screenshots:',out)
 } finally {await browser.close();await new Promise(done=>server.close(done))}

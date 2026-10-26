@@ -1,5 +1,7 @@
 'use client'
 
+import { EvidencePreviewButton } from '@/components/shared/evidence-preview-button'
+
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import { EvidenceUploader } from '@/components/product/evidence-uploader'
@@ -71,7 +73,7 @@ export function AuditRevisits({ storeId, canUpload }: { storeId: string; canUplo
           <ul className="mt-3 space-y-3">{history.revisits.filter(row => row.original_history_id === original.id).map(row => <li key={row.id} className="border-l-2 border-blue-300 pl-3 text-sm">
             <p className="font-semibold">Revisit evidence · {dateLabel(row.revisit_date)}</p>
             {row.notes && <p className="whitespace-pre-wrap">{row.notes}</p>}
-            <a href={`/api/audit-revisits?storeId=${encodeURIComponent(storeId)}&evidenceId=${row.id}`} className="inline-flex min-h-11 items-center underline">Download {row.file_name}</a>
+            <EvidencePreviewButton href={`/api/audit-revisits?storeId=${encodeURIComponent(storeId)}&evidenceId=${row.id}`} filename={row.file_name} title={row.file_name} className="inline-flex min-h-11 items-center text-left underline">View {row.file_name}</EvidencePreviewButton>
             <p className="text-xs text-slate-500">Recorded {new Date(row.created_at).toLocaleString('en-GB')} · Evidence uploaded; no signoff</p>
           </li>)}</ul>
           {!history.revisits.some(row => row.original_history_id === original.id) && <p className="mt-2 text-sm text-slate-500">No revisit evidence recorded.</p>}

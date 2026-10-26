@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { revalidatePath } from 'next/cache'
 import { NextRequest, NextResponse } from 'next/server'
 import { requirePermission, isPermissionError } from '@/lib/permissions'
@@ -23,16 +24,23 @@ export async function GET(request: NextRequest) {
     if (evidenceId) {
       if (!uuid.test(evidenceId)) throw new RevisitError('Evidence unavailable', 404)
       const { data: evidence, error } = await admin.from('fa_audit_revisits')
-        .select('original_history_id,storage_path,file_name,mime_type').eq('id', evidenceId).maybeSingle()
+        .select('original_history_id,storage_path,file_name,mime_type,file_sha256,file_size').eq('id', evidenceId).maybeSingle()
       if (error || !evidence) throw new RevisitError('Evidence unavailable', 404)
       const original = await admin.from('fa_store_audit_history').select('id')
         .eq('id', evidence.original_history_id).eq('store_id', storeId).eq('kind', 'H&S').maybeSingle()
       if (original.error || !original.data) throw new RevisitError('Evidence unavailable', 404)
       const { data, error: downloadError } = await admin.storage.from(REVISIT_BUCKET).download(evidence.storage_path)
-      if (downloadError || !data) throw new RevisitError('Evidence unavailable', 404)
-      return new Response(data, { headers: {
+      if (downloadError || !data) throw new RevisitError('Evidence could not be retrieved. Please retry.', 503)
+      const bytes = new Uint8Array(await data.arrayBuffer())
+      const hash = createHash('sha256').update(bytes).digest('hex')
+      if (bytes.byteLength !== evidence.file_size || hash !== evidence.file_sha256) throw new RevisitError('Evidence verification failed. Please retry.', 503)
+      const name = evidence.file_name.replace(/[\x00-\x1f\x7f]/g, '').slice(0, 200) || 'revisit-evidence'
+      const asciiName = name.replace(/[^\x20-\x7e]|["\\;]/g, '_')
+      const encodedName = encodeURIComponent(name).replace(/['()*]/g, value => '%' + value.charCodeAt(0).toString(16).toUpperCase())
+      return new Response(bytes, { headers: {
         'Content-Type': evidence.mime_type, 'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'private, no-store',
-        'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(evidence.file_name)}`,
+        'Content-Disposition': `attachment; filename="${asciiName}"; filename*=UTF-8''${encodedName}`,
+        'Content-Length': String(bytes.byteLength), 'X-Content-SHA256': hash,
       } })
     }
     const history = await admin.from('fa_store_audit_history').select('id,audit_number,visit_date,percentage')

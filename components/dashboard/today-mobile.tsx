@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import { EvidencePreviewButton } from '@/components/shared/evidence-preview-button'
 import Link from 'next/link'
 import { format } from 'date-fns'
 import { AlertTriangle, ArrowRight, ArrowUpRight, Camera, ClipboardCheck, Flame, MapPin, Navigation } from 'lucide-react'
@@ -35,7 +36,7 @@ export function TodayMobile({ data, profileName }: { data: DashboardData; profil
       <nav className="field-shortcuts" aria-label="Quick actions">{shortcuts.map(({href,icon:Icon,label}) => <Link key={href} href={href}><span><Icon size={20} aria-hidden="true" /></span>{label}</Link>)}</nav>
       <section className="field-overview" aria-label="Store snapshot"><div><strong>{safeNumber(data.auditStats?.firstAuditsComplete)}<small>/{safeNumber(data.auditStats?.firstAuditsRequired, safeNumber(data.auditStats?.totalStores))}</small></strong><span>Required first audits</span></div><div><strong>{safeNumber(data.fraStats?.inDateCoveragePercentage)}<small>%</small></strong><span>FRA in date</span></div><div><strong>{safeNumber(data.complianceTracking?.awaitingSecondAuditCount)}</strong><span>Second audits due</span></div></section>
       <section className="field-work" aria-labelledby="my-work-heading"><div className="field-section-title"><h2 id="my-work-heading">Keep things moving.</h2><Link href="/actions">All actions <ArrowUpRight size={14} /></Link></div><div className="field-work-grid"><Link href="/actions?status=overdue"><span>Overdue actions</span><strong>{safeNumber(data.combinedActionStats?.totalOverdue ?? data.overdueActions)}</strong><ArrowUpRight size={16} aria-hidden="true" /></Link><Link href="/incidents?status=open"><span>Open incidents</span><strong>{safeNumber(data.openIncidents)}</strong><ArrowUpRight size={16} aria-hidden="true" /></Link></div></section>
-      {stores.length > 0 && <section className="field-stores" aria-labelledby="risk-heading"><div className="field-section-title"><h2 id="risk-heading">Stores to focus on.</h2><Link href="/stores">Directory <ArrowUpRight size={14} /></Link></div>{stores.map((store,index) => <Link className="field-store-row" key={store.id} href={store.revisitEvidenceHref || store.href || '/stores'}><span className="field-store-index">0{index + 1}</span><span><strong>{store.name}</strong><small>{store.auditStatus} · {store.openActions} actions</small><small>{store.fraStatus}</small></span><ArrowUpRight size={18} aria-hidden="true" /></Link>)}</section>}
+      {stores.length > 0 && <section className="field-stores" aria-labelledby="risk-heading"><div className="field-section-title"><h2 id="risk-heading">Stores to focus on.</h2><Link href="/stores">Directory <ArrowUpRight size={14} /></Link></div>{stores.map((store,index) => { const content = <><span className="field-store-index">0{index + 1}</span><span><strong>{store.name}</strong><small>{store.auditStatus} · {store.openActions} actions</small><small>{store.fraStatus}</small></span><ArrowUpRight size={18} aria-hidden="true" /></>; return store.revisitEvidenceHref ? <EvidencePreviewButton key={store.id} className="field-store-row w-full text-left" href={store.revisitEvidenceHref} title={'Revisit evidence · ' + store.name}>{content}</EvidencePreviewButton> : <Link className="field-store-row" key={store.id} href={store.href || '/stores'}>{content}</Link>})}</section>}
     </div>
   )
 }

@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { NextRequest } from 'next/server'
 const mocks = vi.hoisted(() => ({ permission: vi.fn(), admin: vi.fn(), access: vi.fn(), append: vi.fn(), revalidate: vi.fn() }))
@@ -56,4 +57,41 @@ it('invalidates tracker, route queue, dashboard and store history after a succes
   const response = await POST(new NextRequest('https://example.test/api/audit-revisits', { method: 'POST', body: form }))
   expect(response.status).toBe(200)
   expect(mocks.revalidate.mock.calls.map(call => call[0])).toEqual(['/audit-tracker', '/route-planning', '/dashboard', `/stores/${store}`])
+})
+
+
+describe('verified private download bytes', () => {
+  const bytes = new TextEncoder().encode('%PDF-1.7 synthetic evidence')
+  const hash = createHash('sha256').update(bytes).digest('hex')
+  function prepare(overrides: Record<string, unknown> = {}, downloadError: unknown = null) {
+    const record = { original_history_id: evidence, storage_path: 'private/unique.pdf', file_name: 'Review — October.pdf', mime_type: 'application/pdf', file_size: bytes.length, file_sha256: hash, ...overrides }
+    const query: any = { select: vi.fn(() => query), eq: vi.fn(() => query), maybeSingle: vi.fn() }
+    query.maybeSingle.mockResolvedValueOnce({ data: record }).mockResolvedValueOnce({ data: { id: evidence } })
+    const download = vi.fn().mockResolvedValue({ data: new Blob([bytes]), error: downloadError })
+    mocks.admin.mockReturnValue({ from: () => query, storage: { from: () => ({ download }) } })
+    return download
+  }
+  it('returns the exact verified bytes with private headers and safe portable filename', async () => {
+    prepare()
+    const response = await GET(request(`&evidenceId=${evidence}`))
+    expect(response.status).toBe(200)
+    expect(new Uint8Array(await response.arrayBuffer())).toEqual(bytes)
+    expect(response.headers.get('cache-control')).toBe('private, no-store')
+    expect(response.headers.get('x-content-sha256')).toBe(hash)
+    expect(response.headers.get('content-length')).toBe(String(bytes.length))
+    expect(response.headers.get('content-disposition')).toContain('filename="Review _ October.pdf"')
+    expect(response.headers.get('content-disposition')).toContain('filename*=UTF-8')
+  })
+  it.each([{ file_sha256: '0'.repeat(64) }, { file_size: 1 }])('refuses corrupt or mismatched stored evidence %j', async overrides => {
+    prepare(overrides)
+    const response = await GET(request(`&evidenceId=${evidence}`))
+    expect(response.status).toBe(503)
+    expect(response.headers.get('content-disposition')).toBeNull()
+  })
+  it('returns a retryable error without leaking storage details', async () => {
+    prepare({}, { message: 'private internal failure' })
+    const response = await GET(request(`&evidenceId=${evidence}`))
+    expect(response.status).toBe(503)
+    expect(await response.text()).not.toContain('internal')
+  })
 })

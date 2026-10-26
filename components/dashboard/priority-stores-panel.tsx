@@ -1,3 +1,4 @@
+import { EvidencePreviewButton } from '@/components/shared/evidence-preview-button'
 import Link from 'next/link'
 import { Store } from 'lucide-react'
 
@@ -37,7 +38,7 @@ export function PriorityStoresPanel({ stores }: { stores: PriorityStore[] }) {
                         {store.name}
                       </Link>
                     </td>
-                    <td className="py-3 pr-3"><StatusBadge label={store.auditStatus} tone={getStatusTone(store.auditStatus)} />{store.revisitEvidenceHref && <a className="mt-1 flex min-h-11 items-center text-xs text-blue-800 underline" href={store.revisitEvidenceHref}>View revisit evidence</a>}</td>
+                    <td className="py-3 pr-3"><StatusBadge label={store.auditStatus} tone={getStatusTone(store.auditStatus)} />{store.revisitEvidenceHref && <EvidencePreviewButton className="mt-1 flex min-h-11 items-center text-left text-xs text-blue-800 underline" href={store.revisitEvidenceHref} title={`Revisit evidence · ${store.name}`}>View revisit evidence</EvidencePreviewButton>}</td>
                     <td className="py-3 pr-3"><StatusBadge label={store.fraStatus} tone={getStatusTone(store.fraStatus)} /></td>
                     <td className="py-3 text-right">
                       <Link href={store.href || '/actions'} prefetch={false} className="font-semibold text-red-600 hover:text-red-700">
@@ -66,6 +67,6 @@ function PriorityStoreCard({ store }: { store: PriorityStore }) {
         <StatusBadge label={store.auditStatus} tone={getStatusTone(store.auditStatus)} className="max-w-full truncate px-1.5 text-[9px] sm:px-2 sm:text-[11px]" />
         <StatusBadge label={store.fraStatus} tone={getStatusTone(store.fraStatus)} className="max-w-full truncate px-1.5 text-[9px] sm:px-2 sm:text-[11px]" />
       </div>
-    </Link>{store.revisitEvidenceHref && <a className="flex min-h-11 items-center px-2 text-xs text-blue-800 underline" href={store.revisitEvidenceHref}>View revisit evidence</a>}</div>
+    </Link>{store.revisitEvidenceHref && <EvidencePreviewButton className="flex min-h-11 items-center px-2 text-left text-xs text-blue-800 underline" href={store.revisitEvidenceHref} title={`Revisit evidence · ${store.name}`}>View revisit evidence</EvidencePreviewButton>}</div>
   )
 }
