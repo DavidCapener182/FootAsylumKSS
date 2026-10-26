@@ -156,8 +156,8 @@ export function fraRiskRatingBadge(value: string | null | undefined) {
 }
 
 /**
- * Check if a store needs an FRA (only after at least one completed H&S audit)
+ * Only active stores with at least one completed H&S audit need an FRA.
  */
 export function storeNeedsFRA(row: FRARow): boolean {
-  return Boolean(row.compliance_audit_1_date || row.compliance_audit_2_date)
+  return row.is_active && Boolean(row.compliance_audit_1_date || row.compliance_audit_2_date)
 }
