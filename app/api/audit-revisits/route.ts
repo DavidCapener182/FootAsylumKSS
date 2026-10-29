@@ -8,7 +8,7 @@ import { appendRevisit, assertStoreAccess, REVISIT_BUCKET, RevisitError, uuid } 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
-const fields = 'id,original_history_id,revisit_date,notes,file_name,file_sha256,file_size,created_at,created_by'
+const fields = 'id,original_history_id,revisit_date,notes,file_name,file_sha256,file_size,created_at,created_by,replaces_id'
 function failure(error: unknown) {
   if (isPermissionError(error) || error instanceof RevisitError) return NextResponse.json({ error: error.message }, { status: error.status })
   return NextResponse.json({ error: 'Revisit evidence unavailable. Check the history before retrying.' }, { status: 503 })
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
     const result = await appendRevisit({ supabase, admin: createAdminSupabaseClient(), actorId: userId,
       storeId: String(form.get('storeId') || ''), historyId: String(form.get('historyId') || ''),
       requestId: String(form.get('requestId') || ''), visitDate: String(form.get('visitDate') || ''),
-      notes: String(form.get('notes') || ''), file: form.get('file') as File,
+      replacesId: String(form.get('replacesId') || ''), notes: String(form.get('notes') || ''), file: form.get('file') as File,
     })
     for (const path of ['/audit-tracker', '/route-planning', '/dashboard', `/stores/${String(form.get('storeId') || '')}`]) revalidatePath(path)
     return NextResponse.json(result, { headers: { 'Cache-Control': 'private, no-store' } })

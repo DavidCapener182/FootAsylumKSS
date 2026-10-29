@@ -20,11 +20,11 @@ export async function assertStoreAccess(supabase: SupabaseClient, storeId: strin
   if (error || !data) throw new RevisitError('Store unavailable', 404)
 }
 
-export async function appendRevisit({ supabase, admin, actorId, storeId, historyId, requestId, visitDate, notes, file }: {
+export async function appendRevisit({ supabase, admin, actorId, storeId, historyId, requestId, visitDate, notes, file, replacesId = '' }: {
   supabase: SupabaseClient; admin: SupabaseClient; actorId: string; storeId: string;
-  historyId: string; requestId: string; visitDate: string; notes: string; file: File;
+  historyId: string; requestId: string; visitDate: string; notes: string; file: File; replacesId?: string;
 }) {
-  if (!uuid.test(historyId) || !uuid.test(requestId) || !/^\d{4}-\d{2}-\d{2}$/.test(visitDate)
+  if ((replacesId && !uuid.test(replacesId)) || !uuid.test(historyId) || !uuid.test(requestId) || !/^\d{4}-\d{2}-\d{2}$/.test(visitDate)
     || Number.isNaN(Date.parse(visitDate)) || new Date(visitDate).toISOString().slice(0, 10) !== visitDate
     || notes.length > 2000 || !(file instanceof File) || !types[file.type]
     || file.size < 1 || file.size > MAX_REVISIT_BYTES) {
@@ -35,6 +35,12 @@ export async function appendRevisit({ supabase, admin, actorId, storeId, history
     .select('id,visit_date').eq('id', historyId).eq('store_id', storeId).eq('kind', 'H&S').maybeSingle()
   if (error || !original) throw new RevisitError('Original audit unavailable', 404)
   if (visitDate < original.visit_date) throw new RevisitError('Revisit date must be on or after the original audit')
+  if (replacesId) {
+    const target = await admin.from('fa_audit_revisits').select('id,revisit_date')
+      .eq('id', replacesId).eq('original_history_id', historyId).maybeSingle()
+    if (target.error || !target.data) throw new RevisitError('Revisit evidence unavailable', 404)
+    if (target.data.revisit_date !== visitDate) throw new RevisitError('A replacement must keep the original revisit date')
+  }
   const bytes = Buffer.from(await file.arrayBuffer())
   const extension = types[file.type]
   const valid = extension === 'pdf' ? bytes.subarray(0, 5).toString() === '%PDF-'
@@ -63,7 +69,8 @@ export async function appendRevisit({ supabase, admin, actorId, storeId, history
     throw new RevisitError(`Evidence verification failed. ${warning || 'Retry this submission.'}`, 503)
   }
   // SQL is the atomic commit boundary. No store, audit, action or publication updates occur.
-  const result = await admin.rpc('fa_append_audit_revisit', {
+  const result = await admin.rpc(replacesId ? 'fa_replace_audit_revisit' : 'fa_append_audit_revisit', {
+    ...(replacesId ? { p_replaces: replacesId } : {}),
     p_id: requestId, p_actor: actorId, p_history: historyId, p_date: visitDate,
     p_notes: notes.trim(), p_path: path, p_sha256: hash, p_type: file.type,
     p_size: bytes.length, p_name: file.name.replace(/[\r\n\x00-\x1f]/g, '').slice(0, 200),
@@ -73,7 +80,7 @@ export async function appendRevisit({ supabase, admin, actorId, storeId, history
     // A network/unknown result may already have committed: retain the object and retry idempotently.
     const definitive = /^(22|23|P0001)/.test(result.error.code || '')
     const warning = definitive ? await cleanup() : 'Submission outcome is uncertain; keep the same submission and retry.'
-    throw new RevisitError(`Unable to record revisit. ${warning || 'Refresh and check the original audit and submission details.'}`, definitive ? 409 : 503)
+    throw new RevisitError(`Unable to record revisit. ${warning || (replacesId ? 'Reload history and select the current version before trying again.' : 'Refresh and check the original audit and submission details.')}`, definitive ? 409 : 503)
   }
   const row = Array.isArray(result.data) ? result.data[0] : result.data
   if (!row?.id || !row?.storage_path) throw new RevisitError('Submission outcome is uncertain; retry the same submission', 503)

@@ -13,6 +13,7 @@ function fixture() {
     return query
   }
   const storeQuery = makeQuery(store), historyQuery = makeQuery(original)
+  const revisitQuery = makeQuery({ id: requestId, revisit_date: '2026-10-22' })
   const file = new File(['%PDF-1.4 fictional revisit evidence'], 'fictional.pdf', { type: 'application/pdf' })
   const objects = new Map<string, Buffer>()
   const bucket = {
@@ -25,12 +26,12 @@ function fixture() {
   const rpc = vi.fn(async (_name, args) => {
     const duplicate = [...rows.values()].find(row => row.id === args.p_id || (row.original_history_id === args.p_history && row.revisit_date === args.p_date && row.file_sha256 === args.p_sha256))
     if (duplicate) return { data: duplicate, error: null }
-    const row = { id: args.p_id, storage_path: args.p_path, original_history_id: args.p_history, revisit_date: args.p_date, file_sha256: args.p_sha256 }
+    const row = { id: args.p_id, replaces_id: args.p_replaces || null, storage_path: args.p_path, original_history_id: args.p_history, revisit_date: args.p_date, file_sha256: args.p_sha256 }
     rows.set(row.id, row); return { data: row, error: null }
   })
   const supabase = { from: vi.fn(() => storeQuery) } as unknown as SupabaseClient
-  const admin = { from: vi.fn(() => historyQuery), rpc, storage: { from: vi.fn(() => bucket) } } as unknown as SupabaseClient
-  return { store, original, bucket, objects, rpc, rows, storeQuery, historyQuery, admin, supabase,
+  const admin = { from: vi.fn((table: string) => table === 'fa_audit_revisits' ? revisitQuery : historyQuery), rpc, storage: { from: vi.fn(() => bucket) } } as unknown as SupabaseClient
+  return { store, original, bucket, objects, rpc, rows, storeQuery, historyQuery, revisitQuery, admin, supabase,
     input: { supabase, admin, actorId: storeId, storeId, historyId, requestId, visitDate: '2026-10-22', notes: 'Synthetic follow-up, findings remain open', file } }
 }
 
@@ -108,5 +109,44 @@ describe('append-only revisit evidence', () => {
     const f = fixture(); f.bucket.upload.mockResolvedValue({ error: { message: 'quota' } } as any)
     await expect(appendRevisit(f.input)).rejects.toThrow('upload failed')
     expect(f.rpc).not.toHaveBeenCalled()
+  })
+})
+
+
+describe('replacement upload boundary', () => {
+  it('uses the replacement RPC and retains the previous immutable row and object bytes', async () => {
+    const f = fixture()
+    await appendRevisit(f.input)
+    const previous = structuredClone([...f.rows.values()][0])
+    const previousBytes = Buffer.from(f.objects.get(previous.storage_path)!)
+    const newId = '44444444-4444-4444-8444-444444444444'
+    await appendRevisit({ ...f.input, requestId: newId, replacesId: requestId,
+      file: new File(['%PDF-1.4 corrected fictional evidence'], 'corrected.pdf', { type: 'application/pdf' }) })
+    expect(f.rpc).toHaveBeenLastCalledWith('fa_replace_audit_revisit', expect.objectContaining({ p_replaces: requestId, p_id: newId, p_history: historyId, p_date: '2026-10-22' }))
+    expect(f.revisitQuery.eq).toHaveBeenCalledWith('original_history_id', historyId)
+    expect(f.rows.get(requestId)).toEqual(previous)
+    expect(f.objects.get(previous.storage_path)).toEqual(previousBytes)
+    expect(f.objects.size).toBe(2)
+    expect(f.bucket.remove).not.toHaveBeenCalled()
+  })
+  it.each(['missing', 'wrong-date', 'bad-id'])('rejects an invalid replacement target before uploading: %s', async scenario => {
+    const f = fixture()
+    if (scenario === 'missing') f.revisitQuery.maybeSingle.mockResolvedValue({ data: null, error: null })
+    if (scenario === 'wrong-date') f.revisitQuery.maybeSingle.mockResolvedValue({ data: { revisit_date: '2026-10-23' }, error: null })
+    await expect(appendRevisit({ ...f.input, replacesId: scenario === 'bad-id' ? 'bad' : requestId })).rejects.toBeInstanceOf(Error)
+    expect(f.bucket.upload).not.toHaveBeenCalled()
+  })
+  it('removes only the owned attempt object after a stale replacement is definitively rejected', async () => {
+    const f = fixture()
+    f.rpc.mockResolvedValue({ data: null, error: { code: 'P0001' } } as any)
+    await expect(appendRevisit({ ...f.input, replacesId: requestId })).rejects.toMatchObject({ status: 409 })
+    expect(f.bucket.remove).toHaveBeenCalledOnce()
+    expect(f.objects.size).toBe(0)
+  })
+  it('retains attempt bytes after an uncertain replacement result for safe retry', async () => {
+    const f = fixture()
+    f.rpc.mockRejectedValue(new Error('Connection lost after commit'))
+    await expect(appendRevisit({ ...f.input, replacesId: requestId })).rejects.toThrow('Connection lost')
+    expect(f.bucket.remove).not.toHaveBeenCalled()
   })
 })

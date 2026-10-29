@@ -1,10 +1,11 @@
 import 'server-only'
+import { currentRevisitEvidence } from './revisit-versions'
 import { requirePermission } from '@/lib/permissions'
 import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import type { AuditRevisitFollowUp, AuditRevisitOriginal } from './revisit-follow-up'
 
 type OriginalRow = { id: string; store_id: string; audit_number: number | null; visit_date: string; percentage: number | null; pdf_path: string | null }
-type EvidenceRow = { id: string; original_history_id: string; revisit_date: string; file_sha256: string; file_size: number; storage_path: string; mime_type: string; created_at: string }
+type EvidenceRow = { replaces_id?: string | null; id: string; original_history_id: string; revisit_date: string; file_sha256: string; file_size: number; storage_path: string; mime_type: string; created_at: string }
 const mimeTypes = new Set(['application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'])
 
 export function summariseRevisitEvidence(storeIds: string[], originals: OriginalRow[], evidence: EvidenceRow[], today = new Date().toISOString().slice(0, 10)): Record<string, AuditRevisitFollowUp> {
@@ -12,7 +13,7 @@ export function summariseRevisitEvidence(storeIds: string[], originals: Original
   const originalById = new Map(originals.filter(row => result[row.store_id]).map(row => [row.id, row]))
   const groups = new Map<string, EvidenceRow[]>()
   const seen = new Set<string>()
-  for (const row of evidence) {
+  for (const row of currentRevisitEvidence(evidence)) {
     const original = originalById.get(row.original_history_id)
     if (!original || seen.has(row.id) || !/^[0-9a-f]{64}$/.test(row.file_sha256)
       || row.file_size < 1 || row.file_size > 4194304 || !mimeTypes.has(row.mime_type)
@@ -51,7 +52,7 @@ export async function loadAuditRevisitFollowUps(stores: Array<{ id: string }>): 
     const originals = (history.data || []) as OriginalRow[]
     let evidence: EvidenceRow[] = []
     if (originals.length) {
-      const response = await admin.from('fa_audit_revisits').select('id,original_history_id,revisit_date,file_sha256,file_size,storage_path,mime_type,created_at')
+      const response = await admin.from('fa_audit_revisits').select('id,original_history_id,revisit_date,file_sha256,file_size,storage_path,mime_type,created_at,replaces_id')
         .in('original_history_id', originals.map(row => row.id))
       if (response.error) return unavailable()
       evidence = response.data || []
