@@ -95,3 +95,13 @@ describe('verified private download bytes', () => {
     expect(await response.text()).not.toContain('internal')
   })
 })
+
+
+it('passes the exact selected replacement through the existing authorized upload boundary', async () => {
+  mocks.permission.mockResolvedValue({ supabase: {}, userId: store }); mocks.append.mockResolvedValue({ id: evidence })
+  const form = new FormData(); form.set('storeId', store); form.set('replacesId', evidence)
+  const response = await POST(new NextRequest('https://example.test/api/audit-revisits', { method: 'POST', body: form }))
+  expect(response.status).toBe(200)
+  expect(mocks.permission).toHaveBeenCalledWith('manageAudits')
+  expect(mocks.append).toHaveBeenCalledWith(expect.objectContaining({ storeId: store, replacesId: evidence }))
+})

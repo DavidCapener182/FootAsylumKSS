@@ -62,3 +62,14 @@ it('retains a later unscored audit obligation instead of applying older completi
   const store = { ...failedStore, compliance_audit_3_date: '2026-10-24', compliance_audit_3_overall_pct: null, compliance_audit_3_pdf_path: null }
   expect(completedAuditRevisit(store)).toBeNull(); expect(needsAuditVisit(store)).toBe(true)
 })
+
+
+it('counts current reports only and selects the corrected version across follow-up consumers', () => {
+  const original = { id: 'original', store_id: 'store', audit_number: 2, visit_date: '2026-08-12', percentage: 79.17, pdf_path: 'original.pdf' }
+  const first = { id: 'first', original_history_id: original.id, revisit_date: '2026-10-29', file_sha256: 'a'.repeat(64), file_size: 100, storage_path: 'original/first.pdf', mime_type: 'application/pdf', created_at: '2026-10-29T13:11:30Z' }
+  const second = { ...first, id: 'second', replaces_id: first.id, file_sha256: 'b'.repeat(64), created_at: '2026-10-29T14:00:00Z' }
+  const before = structuredClone(original)
+  const summary = summariseRevisitEvidence(['store'], [original], [first, second], '2026-10-29').store
+  expect(summary.originals[0]).toMatchObject({ documentCount: 1, latestEvidenceId: 'second', latestRevisitDate: first.revisit_date, percentage: 79.17 })
+  expect(original).toEqual(before)
+})
