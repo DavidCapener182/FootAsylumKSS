@@ -3,7 +3,7 @@
 import { ReactNode, useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { FileText, Download, X, Loader2 } from 'lucide-react'
+import { FileText, Download, Loader2 } from 'lucide-react'
 import { isSharePointFraPdf } from '@/lib/fra/sharepoint-pdf'
 
 interface PDFViewerModalProps {
@@ -29,30 +29,29 @@ export function PDFViewerModal({
   const [error, setError] = useState<string | null>(null)
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null)
 
+  const [attempt, setAttempt] = useState(0)
+
   useEffect(() => {
-    if (open && !pdfUrl) {
-      // Fetch the download URL when modal opens
-      setLoading(true)
-      setError(null)
-      getDownloadUrl()
-        .then(url => {
-          setDownloadUrl(url)
-          setLoading(false)
-        })
-        .catch(err => {
-          console.error('Error fetching PDF URL:', err)
-          setError('Failed to load PDF')
-          setLoading(false)
-        })
-    } else if (open && pdfUrl) {
-      setDownloadUrl(pdfUrl)
+    let active = true
+    setDownloadUrl(null)
+    setError(null)
+    setLoading(true)
+    if (!open) return () => { active = false }
+    void (pdfUrl ? Promise.resolve(pdfUrl) : getDownloadUrl()).then(url => {
+      if (!active) return
+      setDownloadUrl(url)
       setLoading(false)
-    }
-  }, [open, pdfUrl, getDownloadUrl])
+    }).catch(() => {
+      if (!active) return
+      setError('Failed to load PDF')
+      setLoading(false)
+    })
+    return () => { active = false }
+  }, [open, pdfUrl, getDownloadUrl, attempt])
 
   const handleDownload = () => {
     if (downloadUrl) {
-      window.open(downloadUrl, '_blank')
+      window.open(downloadUrl, '_blank', 'noopener,noreferrer')
     }
   }
 
@@ -72,20 +71,13 @@ export function PDFViewerModal({
                   variant="outline"
                   size="sm"
                   onClick={handleDownload}
-                  className="flex items-center gap-2"
+                  className="flex min-h-11 items-center gap-2"
                 >
                   <Download className="h-4 w-4" />
                   Download
                 </Button>
               )}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => onOpenChange(false)}
-                className="h-8 w-8 p-0"
-              >
-                <X className="h-4 w-4" />
-              </Button>
+
             </div>
           </div>
         </DialogHeader>
@@ -102,7 +94,8 @@ export function PDFViewerModal({
             <div className="flex items-center justify-center h-full">
               <div className="text-center">
                 <FileText className="h-12 w-12 text-slate-400 mx-auto mb-4" />
-                <p className="text-sm text-red-600">{error}</p>
+                <p role="alert" className="text-sm text-red-600">{error}</p>
+                <Button variant="outline" className="mt-3 min-h-11" onClick={() => setAttempt(value => value + 1)}>Retry PDF link</Button>
               </div>
             </div>
           ) : isSharePointFraPdf(downloadUrl) ? (
@@ -122,7 +115,8 @@ export function PDFViewerModal({
             <div className="flex items-center justify-center h-full">
               <div className="text-center">
                 <FileText className="h-12 w-12 text-slate-400 mx-auto mb-4" />
-                <p className="text-sm text-slate-600">No PDF available</p>
+                <p className="text-sm text-slate-600">No saved PDF available</p>
+                <Button variant="outline" className="mt-3 min-h-11" onClick={() => setAttempt(value => value + 1)}>Retry PDF link</Button>
               </div>
             </div>
           )}

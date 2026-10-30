@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -118,15 +118,15 @@ export function FRACompletedTable({
     setPdfViewerOpen(true)
   }
 
-  const handleGetPDFUrl = async () => {
+  const handleGetPDFUrl = useCallback(async () => {
     if (!selectedPdfRow?.fire_risk_assessment_pdf_path) return null
     try {
       return await getFRAPDFDownloadUrl(selectedPdfRow.fire_risk_assessment_pdf_path, undefined, selectedPdfRow.id)
     } catch (error) {
       console.error('Error fetching PDF URL:', error)
-      return null
+      throw error
     }
-  }
+  }, [selectedPdfRow])
 
   const handleDeletePDF = async (row: FRARow) => {
     if (!confirm('Are you sure you want to delete the Fire Risk Assessment PDF? This will also clear the FRA date and all related data.')) {
@@ -276,76 +276,30 @@ export function FRACompletedTable({
 
         {/* Scrollable Body */}
         <div className="h-[70vh] overflow-y-auto relative">
-          {/* Mobile (fit-to-screen columns only) */}
-          <div className="xl:hidden">
-            <div className="sticky top-0 z-10 bg-white border-b">
-              <Table className="w-full border-separate border-spacing-0">
-                <TableHeader>
-                  <TableRow className="hover:bg-transparent">
-                    <TableHead className="bg-white">Area</TableHead>
-                    <TableHead className="bg-white">Store Name</TableHead>
-                    <TableHead className="bg-white">FRA Date</TableHead>
-                    <TableHead className="bg-white">Risk</TableHead>
-                    <TableHead className="bg-white">Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-              </Table>
-            </div>
-            <Table className="w-full border-separate border-spacing-0">
-              <TableBody>
-                {grouped.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground py-10">
-                      No completed FRA data found matching your filters.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  grouped.map(([groupKey, areaRows]) => {
-                    return (
-                      <>
-                        <TableRow key={`mob-hdr-${groupKey}`} className="bg-slate-100/80 hover:bg-slate-100/80">
-                          <TableCell colSpan={5} className="py-2 px-4 bg-slate-50 border-b border-t">
-                            <span className="font-bold text-slate-700">
-                              {getInternalAreaDisplayName(groupKey, { fallback: groupKey })}
-                            </span>
-                          </TableCell>
-                        </TableRow>
-
-                        {areaRows.map((row) => {
-                          const days = getDaysUntilDue(row.fire_risk_assessment_date)
-                          const status = getFRAStatus(row.fire_risk_assessment_date, true)
-
-                          return (
-                            <TableRow
-                              key={`mob-${row.id}`}
-                              className="group hover:bg-slate-50 transition-colors"
-                            >
-                              <TableCell className="text-xs text-muted-foreground border-b bg-white group-hover:bg-slate-50">
-                                {getInternalAreaDisplayName(row.region, { fallback: '—' })}
-                              </TableCell>
-                              <TableCell className="font-semibold text-sm border-b bg-white group-hover:bg-slate-50">
-                                {row.store_name}
-                              </TableCell>
-                              <TableCell className="border-b bg-white group-hover:bg-slate-50">
-                                <span className="text-sm text-muted-foreground">
-                                  {formatDate(row.fire_risk_assessment_date)}
-                                </span>
-                              </TableCell>
-                              <TableCell className="border-b bg-white group-hover:bg-slate-50">
-                                {fraRiskRatingBadge(row.fire_risk_assessment_rating)}
-                              </TableCell>
-                              <TableCell className="border-b bg-white group-hover:bg-slate-50">
-                                {statusBadge(status, days)}
-                              </TableCell>
-                            </TableRow>
-                          )
-                        })}
-                      </>
-                    )
-                  })
-                )}
-              </TableBody>
-            </Table>
+          {/* Mobile and tablet: keep the saved-report control on screen. */}
+          <div className="space-y-3 p-3 xl:hidden">
+            {grouped.length === 0 ? <p className="py-10 text-center text-muted-foreground">No completed FRA data found matching your filters.</p> : grouped.map(([groupKey, areaRows]) => (
+              <section key={groupKey} aria-label={getInternalAreaDisplayName(groupKey, { fallback: groupKey })}>
+                <h3 className="mb-2 font-bold text-slate-700">{getInternalAreaDisplayName(groupKey, { fallback: groupKey })}</h3>
+                <ul className="space-y-3">
+                  {areaRows.map(row => <li key={row.id} className="min-w-0 rounded-lg border bg-white p-3">
+                    <h4 className="break-words font-semibold">{row.store_name}</h4>
+                    <dl className="mt-2 grid grid-cols-2 gap-2 text-sm">
+                      <div><dt className="text-muted-foreground">FRA date</dt><dd>{formatDate(row.fire_risk_assessment_date)}</dd></div>
+                      <div><dt className="text-muted-foreground">Risk</dt><dd>{fraRiskRatingBadge(row.fire_risk_assessment_rating)}</dd></div>
+                      <div className="col-span-2"><dt className="text-muted-foreground">Status</dt><dd>{statusBadge(getFRAStatus(row.fire_risk_assessment_date, true), getDaysUntilDue(row.fire_risk_assessment_date))}</dd></div>
+                    </dl>
+                    {row.fire_risk_assessment_pdf_path ? (
+                      <Button type="button" variant="outline" className="mt-3 min-h-11 w-full" aria-label={`Open PDF for ${row.store_name}`} onClick={() => handleViewPDF(row)}>
+                        <File className="mr-2 h-4 w-4" aria-hidden="true" />Open PDF
+                      </Button>
+                    ) : <p className="mt-3 text-sm text-muted-foreground">No saved PDF{row.fire_risk_assessment_instance_id ? (
+                      <> · <button type="button" className="min-h-11 underline" onClick={() => handleViewPDF(row)}>View assessment</button></>
+                    ) : null}</p>}
+                  </li>)}
+                </ul>
+              </section>
+            ))}
           </div>
 
           {/* Desktop */}
@@ -437,24 +391,14 @@ export function FRACompletedTable({
                                     onClick={() => handleViewPDF(row)}
                                     className="h-7 px-2 text-xs"
                                     title={row.fire_risk_assessment_pdf_path ? 'Open saved PDF' : 'View FRA'}
+                                    aria-label={`${row.fire_risk_assessment_pdf_path ? 'Open PDF' : 'View assessment'} for ${row.store_name}`}
                                   >
                                     <Flame className="h-3.5 w-3.5 text-orange-600" />
                                     <span className="ml-1">Open</span>
                                   </Button>
-                                ) : row.fire_risk_assessment_pdf_path ? (
-                                  <div className="flex items-center gap-1">
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      onClick={() => handleViewPDF(row)}
-                                      className="h-7 px-2 text-xs"
-                                      title="View PDF"
-                                    >
-                                      <File className="h-4 w-4 text-blue-600" />
-                                    </Button>
-                                  </div>
                                 ) : (
                                   <div className="relative">
+                                    <p className="text-xs text-muted-foreground">No saved PDF</p>
                                     <input
                                       type="file"
                                       id={`pdf-upload-completed-fra-${row.id}`}
