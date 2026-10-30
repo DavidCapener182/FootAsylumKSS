@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { FRACompletedTable } from './fra-completed-table'
 import type { FRARow } from './fra-table-helpers'
 vi.mock('@/app/actions/fra-pdfs', () => ({ getFRAPDFDownloadUrl: vi.fn(), deleteFRAPDF: vi.fn() }))
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => { vi.unstubAllGlobals() })
 describe('completed FRA document controls', () => {
   it('exposes the saved PDF on mobile and desktop without treating an in-date assessment as a saved file', () => {
     vi.stubGlobal('React', React)
