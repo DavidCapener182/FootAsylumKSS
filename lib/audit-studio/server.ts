@@ -74,6 +74,9 @@ export async function bundle(id: string): Promise<AuditBundle> {
     .maybeSingle();
   checked(data, error);
   if (!data) throw new StudioError("Test audit not found.", 404);
+  const archived = await client.from("fa_audit_studio_archive").select("audit_id").eq("audit_id", id).maybeSingle();
+  checked(archived.data, archived.error);
+  if (archived.data) throw new StudioError("This audit has been cancelled or archived.", 410);
   const [t, e] = await Promise.all([
     client
       .from("fa_audit_studio_templates")
@@ -528,4 +531,18 @@ export async function reviseAudit(
   });
   checked(null, error);
   return bundle(input.id);
+}
+
+export async function cancelAudit(id: string, value: unknown, user: { id: string }) {
+  uuid.parse(id);
+  const input = z.object({ revision: z.number().int().nonnegative() }).strict().parse(value);
+  const { error } = await db().rpc("fa_cancel_studio_audit", {
+    p_audit: id, p_revision: input.revision, p_user: user.id,
+  });
+  if (error?.message.includes("REVISION_CONFLICT"))
+    throw new StudioError("This audit changed on another device. Refresh before cancelling it.", 409);
+  if (error?.message.includes("Only unfinished"))
+    throw new StudioError("Only unfinished drafts can be cancelled. Completed reports are retained.", 409);
+  checked(null, error);
+  return { cancelled: true };
 }

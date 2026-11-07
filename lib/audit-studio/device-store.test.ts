@@ -71,3 +71,16 @@ describe("Device evidence persistence", () => {
     expect(restored?.syncedGeneration).toBe(0);
   });
 });
+
+import { removeDraft } from './device-store';
+it('cancelling removes only the chosen account draft and its evidence', async () => {
+  const a = draft('cancel-A'), b = draft('cancel-B');
+  const file = (userId: string): LocalEvidence => ({id:'same-photo',auditId:'audit',userId,file:new Blob(['keep']),name:'photo',type:'image/jpeg',synced:false});
+  await saveWithFiles(a,[file(a.userId)]);
+  await saveWithFiles(b,[file(b.userId)]);
+  await removeDraft(a.userId,'audit');
+  expect(await getDraft(a.userId,'audit')).toBeUndefined();
+  expect(await getFiles(a.userId,'audit')).toEqual([]);
+  expect(await getDraft(b.userId,'audit')).toBeDefined();
+  expect(await getFiles(b.userId,'audit')).toHaveLength(1);
+});

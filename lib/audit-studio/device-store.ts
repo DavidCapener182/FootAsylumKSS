@@ -151,3 +151,17 @@ export async function prepareOffline() {
   });
   await navigator.storage?.persist?.();
 }
+
+/** Remove only this account's device copy after server cancellation succeeds. */
+export function removeDraft(userId: string, auditId: string) {
+  return transaction<void>(["drafts", "files"], "readwrite", (tx) => {
+    tx.objectStore("drafts").delete(draftKey(userId, auditId));
+    const cursor = tx.objectStore("files").openCursor();
+    cursor.onsuccess = () => {
+      const item = cursor.result;
+      if (!item) return;
+      if (item.value.userId === userId && item.value.auditId === auditId) item.delete();
+      item.continue();
+    };
+  });
+}

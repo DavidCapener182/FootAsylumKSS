@@ -48,7 +48,8 @@ import { getReportingAreaDisplayName, MULTI_AREA_REGION } from '@/lib/areas'
 import { getRouteStoreArea, getRouteAreaLabel } from '@/lib/route-reporting-areas'
 import { cn, getDisplayStoreCode } from '@/lib/utils'
 import { canCreateRoute as isRouteCreationReady, getRouteCreationBlocker } from '@/lib/route-creation-eligibility'
-import { needsAuditVisit, requiresAuditRevisit } from '@/lib/route-planning-store-eligibility'
+import { auditPairLabel } from '@/lib/audit/cycles'
+import { canPlanAuditInYear, hasOutstandingBooking, requiresAuditRevisit } from '@/lib/route-planning-store-eligibility'
 
 // Dynamically import the map component to avoid SSR issues
 const MapComponent = dynamic(() => import('./map-component'), { ssr: false })
@@ -207,6 +208,12 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
     setRouteSelectedStores(new Set(trimmed))
   }, [routeStopLimit, routeSelectedStores])
 
+  useEffect(() => {
+    const year = Number(new URLSearchParams(window.location.search).get('year'))
+    const currentYear = new Date().getFullYear()
+    if (year === currentYear + 1) setRouteDate(`${year}-01-01`)
+  }, [])
+
   // Get selected manager's home location
   const managerHome = useMemo(() => {
     if (!selectedManager) return null
@@ -239,8 +246,16 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
 
   // Existing bookings remain in Planned Routes, including overdue visits.
   const storesAvailableForPlanning = useMemo<Store[]>(() => {
-    return stores.filter(s => !s.compliance_audit_2_planned_date && needsAuditVisit(s))
-  }, [stores])
+    return stores.filter(s => !hasOutstandingBooking(s) && canPlanAuditInYear(s, Number(routeDate.slice(0, 4))))
+  }, [stores, routeDate])
+
+  useEffect(() => {
+    const available = new Set(storesAvailableForPlanning.map(store => store.id))
+    setRouteSelectedStores(previous => {
+      const next = new Set([...previous].filter(id => available.has(id)))
+      return next.size === previous.size ? previous : next
+    })
+  }, [storesAvailableForPlanning])
 
   // Stores with valid coordinates are used for map display and route optimization.
   const storesWithLocations = useMemo<StoreWithCoords[]>(() => {
@@ -294,7 +309,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
 
   // Get stores with planned dates, grouped by manager + planned date.
   const plannedRoutes = useMemo(() => {
-    const storesWithPlannedDates = stores.filter(s => s.compliance_audit_2_planned_date)
+    const storesWithPlannedDates = stores.filter(s => hasOutstandingBooking(s))
     
     // Group by planned date + manager to support mixed-area routes in one plan.
     const grouped = storesWithPlannedDates.reduce((acc, store) => {
@@ -443,7 +458,7 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
 
   // Initialize routeStoreOrder from database route_sequence on mount
   useEffect(() => {
-    const storesWithPlannedDates = stores.filter(s => s.compliance_audit_2_planned_date)
+    const storesWithPlannedDates = stores.filter(s => hasOutstandingBooking(s))
     
     if (storesWithPlannedDates.length === 0) {
       setRouteStoreOrder({})
@@ -805,7 +820,8 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
             storeIdsArray.map(async (storeId) => {
               // First update the manager assignment
               const { updateComplianceAudit2Tracking } = await import('@/app/actions/stores')
-              await updateComplianceAudit2Tracking(storeId, routeManager, routeDate)
+              const result = await updateComplianceAudit2Tracking(storeId, routeManager, routeDate)
+              if (result.error) throw new Error(result.error)
             })
           )
           
@@ -898,9 +914,10 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
     try {
       const { updateComplianceAudit2Tracking } = await import('@/app/actions/stores')
       await Promise.all(
-        group.stores.map((store) =>
-          updateComplianceAudit2Tracking(store.id, group.managerId, newDate)
-        )
+        group.stores.map(async (store) => {
+          const result = await updateComplianceAudit2Tracking(store.id, group.managerId, newDate)
+          if (result.error) throw new Error(result.error)
+        })
       )
       router.refresh()
     } catch (error) {
@@ -1118,9 +1135,10 @@ export function RoutePlanningClient({ initialData }: RoutePlanningClientProps) {
                 value={routeDate}
                 onChange={(e) => setRouteDate(e.target.value)}
                 min={new Date().toISOString().split('T')[0]}
-                max={`${new Date().getFullYear()}-12-31`}
+                max={`${new Date().getFullYear() + 1}-12-31`}
                 className="rounded-xl border-slate-200 bg-slate-50 font-bold text-blue-600"
               />
+              <p className="text-xs text-slate-600">{auditPairLabel(Number(routeDate.slice(0, 4)) || new Date().getFullYear())}. Choose a date next year to book stores with their second audit complete.</p>
             </div>
             <div className="space-y-2">
               <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-slate-500">

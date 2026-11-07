@@ -12,6 +12,7 @@ export interface AuditRow {
   store_code: string | null
   store_name: string
   is_active: boolean
+  compliance_audit_2_planned_date?: string | null
   compliance_audit_1_date: string | null
   compliance_audit_1_overall_pct: number | null
   action_plan_1_sent: boolean | null

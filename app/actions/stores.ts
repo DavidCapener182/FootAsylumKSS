@@ -2,6 +2,8 @@
 
 import { revalidatePath } from 'next/cache'
 import { requirePermission } from '@/lib/permissions'
+import { loadAuditRevisitFollowUps } from '@/lib/audit/revisit-follow-up-server'
+import { canPlanAuditInYear } from '@/lib/route-planning-store-eligibility'
 
 export type AuditNumber = 1 | 2
 
@@ -124,6 +126,18 @@ export async function updateComplianceAudit2Tracking(
 ) {
   const { supabase } = await requirePermission('manageAudits')
 
+  if (plannedDate) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(plannedDate) || Number.isNaN(Date.parse(plannedDate)) || new Date(plannedDate).toISOString().slice(0, 10) !== plannedDate)
+      return { error: 'Choose a valid visit date.' }
+    const { data: store, error: readError } = await supabase.from('fa_stores')
+      .select('id,compliance_audit_1_date,compliance_audit_1_overall_pct,compliance_audit_1_pdf_path,compliance_audit_2_date,compliance_audit_2_overall_pct,compliance_audit_2_pdf_path,compliance_audit_3_date,compliance_audit_3_overall_pct,compliance_audit_3_pdf_path')
+      .eq('id', storeId).single()
+    if (readError || !store) return { error: 'Unable to check this store before booking.' }
+    const followUps = await loadAuditRevisitFollowUps([store])
+    if (!canPlanAuditInYear({ ...store, audit_revisit_follow_up: followUps[store.id] }, Number(plannedDate.slice(0, 4))))
+      return { error: 'The next year can be booked once the current second audit is complete.' }
+  }
+
   const { error } = await supabase
     .from('fa_stores')
     .update({
@@ -138,6 +152,8 @@ export async function updateComplianceAudit2Tracking(
   }
 
   revalidatePath('/dashboard')
+  revalidatePath('/route-planning')
+  revalidatePath('/calendar')
   return { success: true }
 }
 

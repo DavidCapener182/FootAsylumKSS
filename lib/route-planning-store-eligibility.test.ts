@@ -26,3 +26,26 @@ describe('route planning store eligibility', () => {
     expect(requiresAuditRevisit(store)).toBe(true)
   })
 })
+
+import { canPlanAuditInYear, hasOutstandingBooking } from './route-planning-store-eligibility'
+describe('planning the following pair', () => {
+  const complete = { ...firstAudit, compliance_audit_2_date: '2026-10-01', compliance_audit_2_overall_pct: 90 }
+  it('unlocks 2027 after Audit 2 while retaining completed scores', () => {
+    expect(canPlanAuditInYear(complete, 2027, 2026)).toBe(true)
+    expect(canPlanAuditInYear(complete, 2026, 2026)).toBe(false)
+    expect(complete.compliance_audit_2_overall_pct).toBe(90)
+  })
+  it('does not book next year before the second result is recorded', () => {
+    expect(canPlanAuditInYear({...complete,compliance_audit_2_overall_pct:null},2027,2026)).toBe(false)
+  })
+  it('works at rollover and for subsequent years', () => {
+    expect(canPlanAuditInYear(complete,2027,2027)).toBe(true)
+    expect(canPlanAuditInYear({...complete,compliance_audit_2_date:'2027-10-01'},2028,2027)).toBe(true)
+    expect(canPlanAuditInYear(complete,2028,2026)).toBe(false)
+  })
+  it('consumes completed passing bookings but protects future and failed revisit bookings', () => {
+    expect(hasOutstandingBooking({...complete,compliance_audit_2_planned_date:'2026-10-01'})).toBe(false)
+    expect(hasOutstandingBooking({...complete,compliance_audit_2_planned_date:'2027-01-10'})).toBe(true)
+    expect(hasOutstandingBooking({...complete,compliance_audit_2_overall_pct:70,compliance_audit_2_planned_date:'2026-10-01'})).toBe(true)
+  })
+})

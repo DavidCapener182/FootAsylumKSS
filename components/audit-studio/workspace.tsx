@@ -1,5 +1,6 @@
 "use client";
 import "./mobile-workspace.css";
+import { auditLabel } from "@/lib/audit/cycles";
 import { auditReportFilename } from "@/lib/audit-studio/report-filename";
 import { clientId } from "@/lib/audit-studio/client-id";
 import { PreviousActions } from "./previous-actions";
@@ -32,6 +33,7 @@ import {
   getDraft,
   getFiles,
   listDrafts,
+  removeDraft,
   prepareOffline,
   saveDraft,
   saveWithFiles,
@@ -224,7 +226,7 @@ export function AuditStudioWorkspace({ initial, offline = false }: Props) {
           if (bootstrap) setAuditor(bootstrap.user.name);
           setDeviceDrafts(drafts);
           const id = new URLSearchParams(window.location.search).get("audit");
-          if (id) {
+          if (id && !bootstrap?.archivedAuditIds?.includes(id)) {
             let d = drafts.find((d) => d.bundle.audit.id === id);
             if (bootstrap && (!d || d.generation === d.syncedGeneration)) {
               const latest = await api<AuditBundle>(`audits/${id}`);
@@ -316,6 +318,18 @@ export function AuditStudioWorkspace({ initial, offline = false }: Props) {
     } finally {
       setBusy(false);
     }
+  };
+  const cancel = async (id: string, revision: number, storeName: string) => {
+    if (!window.confirm(`Cancel the unfinished audit for ${storeName}? It will be removed from Drafts. Saved evidence is retained in the archive; unsynced changes on this device will be discarded.`)) return;
+    setBusy(true);
+    setError("");
+    try {
+      await api(`audits/${id}/cancel`, "POST", { revision });
+      setData(current => current ? { ...current, archivedAuditIds: [...(current.archivedAuditIds || []), id] } : current);
+      await removeDraft(userId.current, id);
+      await refresh();
+    } catch (e) { setError(textError(e)); }
+    finally { setBusy(false); }
   };
   const start = async () => {
     setBusy(true);
@@ -542,9 +556,9 @@ export function AuditStudioWorkspace({ initial, offline = false }: Props) {
                   a.document,
                 );
               return (
+                <div key={a.id} className={`${panel} flex flex-wrap items-center gap-4`}>
                 <button
-                  key={a.id}
-                  className={`${panel} flex w-full items-center justify-between gap-4 text-left hover:border-emerald-700`}
+                  className="flex min-w-0 flex-1 items-center justify-between gap-4 text-left hover:text-emerald-700"
                   onClick={() => open(a.id)}
                   disabled={busy}
                 >
@@ -577,6 +591,14 @@ export function AuditStudioWorkspace({ initial, offline = false }: Props) {
                     <ChevronRight size={18} />
                   </div>
                 </button>
+                {a.status === "draft" && (
+                  <button className="rounded-xl border border-red-200 px-4 py-3 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50"
+                    disabled={busy || offline || !data}
+                    onClick={() => cancel(a.id, a.revision, a.document.site.storeName)}>
+                    Cancel audit
+                  </button>
+                )}
+                </div>
               );
             })}
           </div>
@@ -1220,7 +1242,7 @@ function AuditEditor({
             <div className="flex flex-wrap gap-3">
               <button type="button" className={primary} onClick={() => setReportOpen(true)}><Download size={16} />View / download PDF</button>
               {doc.purpose === "store" && !b.publication && <button className={primary} disabled={!online || busy} onClick={publishToStore}>Save as current audit for {doc.site.storeName}</button>}
-              {b.publication && <p className="self-center text-sm font-semibold text-emerald-800">Saved to store · {b.publication.audit_year} / Audit {b.publication.audit_number}</p>}
+              {b.publication && <p className="self-center text-sm font-semibold text-emerald-800">Saved to store · {b.publication.audit_year} / {auditLabel(b.publication.audit_year, b.publication.audit_number)}</p>}
               <button
                 className={button}
                 disabled={!online || busy}
@@ -1288,7 +1310,7 @@ function AuditEditor({
           {!!b.history?.length && <details className="my-4 rounded-xl border border-slate-200 bg-white p-4">
             <summary className="cursor-pointer text-sm font-semibold">Previous store reports</summary>
             <ul className="mt-3 space-y-3 text-xs">{b.history.map(h=><li key={h.id}>
-              {h.kind} · {h.audit_year}{h.audit_number ? ` / Audit ${h.audit_number}` : ""}<br/>
+              {h.kind} · {h.audit_year}{h.audit_number ? ` / ${auditLabel(h.audit_year, h.audit_number)}` : ""}<br/>
               {h.visit_date}{h.percentage !== null ? ` · ${Number(h.percentage).toFixed(2)}%` : ""}
               {h.pdf_path ? <a className="ml-2 underline" href={`/api/audit-studio/audits/${b.audit.id}/history/${h.id}`} target="_blank" rel="noreferrer">Open PDF</a> : <span className="block text-slate-500">File held in existing archive</span>}
             </li>)}</ul>

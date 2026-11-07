@@ -8,6 +8,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { ZodError } from "zod";
 import {
+  cancelAudit,
   studioAdmin,
   StudioError,
   bootstrap,
@@ -83,6 +84,7 @@ async function dispatch(
     } else if (resource === "audits") {
       if (!id && req.method === "POST")
         result = await createAudit(await body(), user);
+      else if (id && operation === "cancel" && req.method === "POST") result = await cancelAudit(id, await body(), user);
       else if(id && operation === "previous-actions" && req.method === "GET") result = await previousStoreActions(id);
       else if(id && operation === "history" && evidenceId && req.method === "GET") {
         const b = await bundle(id);

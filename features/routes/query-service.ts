@@ -3,7 +3,6 @@ import type { AuditRevisitFollowUp } from '@/lib/audit/revisit-follow-up'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { applyStoreCoordinateOverride, shouldAlwaysIncludeStore, shouldHideStore } from '@/lib/store-normalization'
-import { needsAuditVisit } from '@/lib/route-planning-store-eligibility'
 
 const managerSchema = z.object({
   id: z.string().uuid(), full_name: z.string().nullable(), home_address: z.string().nullable(),
@@ -34,7 +33,7 @@ export function presentRoutePlanningData(storeRows: unknown[], profileRows: unkn
     .map((store) => applyStoreCoordinateOverride(store))
     .filter((store) => {
       if (!store.is_active && !shouldAlwaysIncludeStore(store)) return false
-      if (shouldHideStore(store) || (!needsAuditVisit(store) && !store.compliance_audit_2_planned_date)) return false
+      if (shouldHideStore(store)) return false
       return true
     })
     .map(({ is_active: _isActive, ...store }) => ({
