@@ -1,5 +1,7 @@
 'use client'
 
+import type { ReactNode } from 'react'
+
 import { useMemo, useState, useEffect } from 'react'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Input } from '@/components/ui/input'
@@ -22,11 +24,14 @@ function getLatestDate(row: AuditRow): string | null {
 }
 
 export function AuditLeagueTable({ 
+  yearFilter,
   rows, 
   userRole,
   areaFilter: externalAreaFilter, 
   onAreaFilterChange 
 }: { 
+  yearFilter?: ReactNode
+  auditYear?: number
   rows: AuditRow[]
   userRole: UserRole
   areaFilter?: string
@@ -141,6 +146,7 @@ export function AuditLeagueTable({
               className="min-h-[44px] bg-white pl-9"
             />
           </div>
+          {yearFilter}
           <Select value={area} onValueChange={setArea}>
             <SelectTrigger className="w-full sm:w-44 bg-white min-h-[44px]">
               <SelectValue placeholder="Area" />

@@ -4,6 +4,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { AuditTable } from './audit-table'
 import { AuditStatsCards } from './audit-stats-cards'
 import { AuditRow, getCompletedAuditCount, getLatestAuditComparison } from './audit-table-helpers'
+import { auditRowsForYear } from '@/lib/audit/year-view'
 import { isNewStoreFirstAudit } from '@/lib/audit/new-store-applicability'
 
 vi.stubGlobal('React', React)
@@ -46,4 +47,16 @@ describe('new-store first audit applicability', () => {
     expect(isNewStoreFirstAudit({...row, compliance_audit_1_date: '2026-01-01'})).toBe(false)
     expect(isNewStoreFirstAudit({...row, compliance_audit_1_pdf_path: 'audit1.pdf'})).toBe(false)
   })
+})
+
+it('keeps original table controls and uses the selected year numbering', () => {
+  const rows = auditRowsForYear(stores, [], 2027, 2026)
+  const html = renderToStaticMarkup(<AuditTable rows={rows} userRole="admin" auditYear={2027} yearFilter={<select aria-label="Audit year"><option>2027</option></select>} />)
+  expect(html).toContain('Audit year')
+  expect(html).toContain('Search store name or code')
+  expect(html).toContain('Hide Completed')
+  expect(html).toContain('Audit 3')
+  expect(html).toContain('Audit 4')
+  expect(html).not.toContain('Update audit score')
+  expect(html).not.toContain('93.26%')
 })

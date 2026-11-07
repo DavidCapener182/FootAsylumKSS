@@ -22,3 +22,26 @@ describe('tracker follow-up evidence', () => {
     expect(html).toContain('Revisit history unavailable'); expect(html).not.toContain('evidenceId='); expect(html).not.toContain('Revisit complete')
   })
 })
+
+describe('missing revisit report prompt', () => {
+  const missing = { ...store, audit_revisit_follow_up: { status: 'available' as const, originals: [] } }
+  it('offers a separate upload for a failed audit without evidence', () => {
+    const html = renderToStaticMarkup(<RevisitFollowUp store={missing} onUpload={() => {}} />)
+    expect(html).toContain('Revisit report required')
+    expect(html).toContain('Upload revisit report')
+  })
+  it('does not ask again for a completed Dundee-style revisit', () => {
+    expect(renderToStaticMarkup(<RevisitFollowUp store={store} onUpload={() => {}} />)).not.toContain('Upload revisit report')
+  })
+  it('does not require a revisit at exactly 80% or for an unscored visit', () => {
+    for (const score of [80, 90, null]) expect(renderToStaticMarkup(<RevisitFollowUp store={{ ...missing, compliance_audit_2_overall_pct: score }} onUpload={() => {}} />)).not.toContain('Upload revisit report')
+  })
+  it('keeps the requirement visible but hides upload controls for viewers', () => {
+    const html = renderToStaticMarkup(<RevisitFollowUp store={missing} />)
+    expect(html).toContain('Revisit report required')
+    expect(html).not.toContain('Upload revisit report')
+  })
+  it('still asks when evidence belongs to an earlier failed audit', () => {
+    expect(renderToStaticMarkup(<RevisitFollowUp store={{ ...store, compliance_audit_2_date: '2026-10-24' }} onUpload={() => {}} />)).toContain('Upload revisit report')
+  })
+})

@@ -1,6 +1,11 @@
 'use client'
 
+import type { ReactNode } from 'react'
+import { auditLabel as formatCycleAuditLabel } from '@/lib/audit/cycles'
+
 import { useMemo, useState, useEffect, useCallback } from 'react'
+import { AuditRevisits } from '@/components/stores/audit-revisits'
+import { latestAuditForRevisit, needsRevisitReport } from '@/lib/audit/revisit-follow-up'
 import { RevisitFollowUp, hasRevisitFollowUp } from './revisit-follow-up'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Input } from '@/components/ui/input'
@@ -126,16 +131,21 @@ function getAreaAccordionId(groupKey: string, index: number): string {
 }
 
 export function AuditTable({ 
+  yearFilter,
+  auditYear,
   rows, 
   userRole, 
   areaFilter: externalAreaFilter, 
   onAreaFilterChange 
 }: { 
+  yearFilter?: ReactNode
+  auditYear?: number
   rows: AuditRow[]
   userRole: UserRole
   areaFilter?: string
   onAreaFilterChange?: (area: string) => void
 }) {
+  const [revisitRow, setRevisitRow] = useState<AuditRow | null>(null)
   const [search, setSearch] = useState('')
   const [internalArea, setInternalArea] = useState<string>('all')
   const area = externalAreaFilter !== undefined ? externalAreaFilter : internalArea
@@ -171,6 +181,13 @@ export function AuditTable({
   const [storeActionCounts, setStoreActionCounts] = useState<Record<string, number>>({})
   const [expandedMobileAreas, setExpandedMobileAreas] = useState<Set<string>>(() => new Set())
   const canManageAudits = can(userRole, 'manageAudits')
+  const canEditRow = (row: AuditRow) => canManageAudits && !row.audit_read_only
+  const auditName = (round: number) => auditYear ? formatCycleAuditLabel(auditYear, round) : `Audit ${round}`
+  const lifecycleLabel = (label: string) => label.replace(/Audit ([12])/g, (_, number) => auditName(Number(number)))
+  useEffect(() => {
+    setAddAuditDialogOpen(false); setPdfUploadDialogOpen(false); setUpdateDialogOpen(false);
+    setRevisitRow(null); setDeletePdfDialog(null); setPdfViewerOpen(false); setSelectedPdfRow(null);
+  }, [auditYear])
 
   useEffect(() => {
     if (!tableMessage) return
@@ -374,6 +391,7 @@ export function AuditTable({
   }
 
   const handleAddAudit = (row: AuditRow) => {
+    if (!canEditRow(row)) return
     const auditNum = getNextAuditNumber(row)
     if (!auditNum) {
       setTableMessage({ type: 'error', text: `${row.store_name} already has Audit 1 and Audit 2 completed.` })
@@ -415,7 +433,7 @@ export function AuditTable({
   }
 
   const handleSaveAudit = async () => {
-    if (!addAuditState) return
+    if (!addAuditState || !localRows.some(row => row.id === addAuditState.storeId && canEditRow(row))) return
     if (!canManageAudits) {
       setTableMessage({ type: 'error', text: 'You do not have permission to manage audits.' })
       return
@@ -547,6 +565,7 @@ export function AuditTable({
   }, [selectedPdfRow])
 
   const handleOpenPDFUpload = (row: AuditRow, auditNumber?: 1 | 2) => {
+    if (!canEditRow(row)) return
     if (!canManageAudits) {
       setTableMessage({ type: 'error', text: 'You do not have permission to upload audit PDFs.' })
       return
@@ -585,7 +604,7 @@ export function AuditTable({
       setTableMessage({ type: 'error', text: 'You do not have permission to upload audit PDFs.' })
       return
     }
-    if (!pdfUploadRow || !pdfUploadFile || !selectedAuditForUpload) {
+    if (!pdfUploadRow || !canEditRow(pdfUploadRow) || !pdfUploadFile || !selectedAuditForUpload) {
       setTableMessage({ type: 'error', text: 'Please select an audit and PDF file.' })
       return
     }
@@ -647,6 +666,7 @@ export function AuditTable({
   }
 
   const handleDeletePDF = (row: AuditRow, auditNumber: 1 | 2) => {
+    if (!canEditRow(row)) return
     if (!canManageAudits) {
       setTableMessage({ type: 'error', text: 'You do not have permission to delete audit PDFs.' })
       return
@@ -655,7 +675,7 @@ export function AuditTable({
   }
 
   const handleConfirmDeletePDF = async () => {
-    if (!deletePdfDialog) return
+    if (!deletePdfDialog || !canEditRow(deletePdfDialog.row)) return
     if (!canManageAudits) {
       setTableMessage({ type: 'error', text: 'You do not have permission to delete audit PDFs.' })
       return
@@ -687,7 +707,7 @@ export function AuditTable({
       setDeletePdfDialog(null)
       setTableMessage({
         type: 'success',
-        text: `Audit ${auditNumber} PDF deleted for ${row.store_name}.`,
+        text: `${auditName(auditNumber)} PDF deleted for ${row.store_name}.`,
       })
     } catch (error) {
       console.error('Error deleting PDF:', error)
@@ -699,6 +719,7 @@ export function AuditTable({
   }
 
   const handleOpenUpdateScore = (row: AuditRow, auditNumber: 1 | 2) => {
+    if (!canEditRow(row)) return
     if (!canManageAudits) {
       setTableMessage({ type: 'error', text: 'You do not have permission to update audit scores.' })
       return
@@ -720,7 +741,7 @@ export function AuditTable({
   }
 
   const handleUpdateScore = async () => {
-    if (!updateScoreState) return
+    if (!updateScoreState || !localRows.some(row => row.id === updateScoreState.storeId && canEditRow(row))) return
     if (!canManageAudits) {
       setUpdateScoreError('You do not have permission to update audit scores.')
       return
@@ -788,6 +809,7 @@ export function AuditTable({
   }
 
   const renderAuditSummary = (row: AuditRow, auditNumber: 1 | 2) => {
+    const canEdit = canEditRow(row)
     if (auditNumber === 1 && isNewStoreFirstAudit(row)) {
       return <div className="audit-record">
         <span className="text-sm font-medium text-slate-700">New store</span>
@@ -806,17 +828,17 @@ export function AuditTable({
       <div className="audit-record">
         <div className="audit-record-top">
           {score !== null ? (
-            canManageAudits ? (
+            canEdit ? (
               <button type="button" className={`audit-score audit-score-${scoreTone}`}
                 onClick={() => handleOpenUpdateScore(row, auditNumber)}
-                title="Update audit score" aria-label={`Update Audit ${auditNumber} score for ${row.store_name}: ${formatPercent(score)}`}>
+                title="Update audit score" aria-label={`Update ${auditName(auditNumber)} score for ${row.store_name}: ${formatPercent(score)}`}>
                 {formatPercent(score)}
               </button>
             ) : <span className={`audit-score audit-score-${scoreTone}`}>{formatPercent(score)}</span>
           ) : <span className="audit-unrecorded">{complete ? 'Completed' : date ? 'Awaiting score' : 'Not recorded'}</span>}
           {pdf ? (
             <button type="button" className="audit-document" onClick={() => handleViewPDF(row, auditNumber)}
-              title={`View Audit ${auditNumber} PDF`} aria-label={`View Audit ${auditNumber} PDF for ${row.store_name}`}>
+              title={`View ${auditName(auditNumber)} PDF`} aria-label={`View ${auditName(auditNumber)} PDF for ${row.store_name}`}>
               <File className="h-3.5 w-3.5" /><span>PDF</span>
             </button>
           ) : complete && archiveFolder ? (
@@ -829,15 +851,15 @@ export function AuditTable({
             <span className="audit-document" title="A SharePoint folder has not been verified for this store">
               <File className="h-3.5 w-3.5" /><span>Unavailable</span>
             </span>
-          ) : canManageAudits && complete ? (
+          ) : canEdit && complete ? (
             <button type="button" className="audit-document" onClick={() => handleOpenPDFUpload(row, auditNumber)}
-              title={`Upload Audit ${auditNumber} PDF`} aria-label={`Upload Audit ${auditNumber} PDF for ${row.store_name}`}>
+              title={`Upload ${auditName(auditNumber)} PDF`} aria-label={`Upload ${auditName(auditNumber)} PDF for ${row.store_name}`}>
               <Upload className="h-3.5 w-3.5" /><span>PDF</span>
             </button>
           ) : null}
-          {!pdf && complete && archiveFolder && canManageAudits && !(auditNumber === 1 && row.compliance_audit_2_pdf_path) && (
+          {!pdf && complete && archiveFolder && canEdit && !(auditNumber === 1 && row.compliance_audit_2_pdf_path) && (
             <button type="button" className="audit-document" onClick={() => handleOpenPDFUpload(row, auditNumber)}
-              title={`Upload Audit ${auditNumber} PDF`} aria-label={`Upload Audit ${auditNumber} PDF for ${row.store_name}`}>
+              title={`Upload ${auditName(auditNumber)} PDF`} aria-label={`Upload ${auditName(auditNumber)} PDF for ${row.store_name}`}>
               <Upload className="h-3.5 w-3.5" /><span>Upload</span>
             </button>
           )}
@@ -888,6 +910,7 @@ export function AuditTable({
                 onChange={(e) => setSearch(e.target.value)}
                 className="bg-white min-h-[var(--touch-target-min)]"
               />
+              {yearFilter}
               <Select value={area} onValueChange={setArea}>
                 <SelectTrigger className="w-full bg-white min-h-[var(--touch-target-min)]">
                   <SelectValue placeholder="Area" />
@@ -938,8 +961,8 @@ export function AuditTable({
 
       {/* Desktop Controls */}
       <div className="audit-filter-bar hidden xl:flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <div className="relative w-full sm:w-72">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+          <div className="relative w-full sm:w-72 sm:shrink-0">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <Input
               placeholder="Search store name or code..."
@@ -948,6 +971,7 @@ export function AuditTable({
               className="min-h-[var(--touch-target-min)] bg-white pl-9"
             />
           </div>
+          {yearFilter}
           <Select value={area} onValueChange={setArea}>
             <SelectTrigger className="w-full sm:w-44 bg-white min-h-[var(--touch-target-min)]">
               <SelectValue placeholder="Area" />
@@ -1088,21 +1112,21 @@ export function AuditTable({
                             </div>
                           </div>
                           <div className="shrink-0">
-                            <StatusBadge type="audit" status={auditLifecycle.status} label={auditLifecycle.label} />
+                            <StatusBadge type="audit" status={auditLifecycle.status} label={lifecycleLabel(auditLifecycle.label)} />
                           </div>
                         </div>
 
                         <div className="audit-mobile-records mt-3 grid grid-cols-2 gap-3">
                           {([1, 2] as const).map((number) => (
                             <div key={number} className="min-w-0">
-                              <div className="audit-record-label">Audit {number}</div>
+                              <div className="audit-record-label">{auditName(number)}</div>
                               {renderAuditSummary(row, number)}
                             </div>
                           ))}
                         </div>
 
-                        <div className={cn("audit-mobile-actions", (hasRevisitFollowUp(row.audit_revisit_follow_up) || upcomingActionFlag || (canManageAudits && nextAudit !== null)) && "mt-3 flex flex-wrap gap-2 border-t border-slate-200/80 pt-3")}>
-                          <div className="w-full"><RevisitFollowUp store={row} /></div>
+                        <div className={cn("audit-mobile-actions", (needsRevisitReport(row) || hasRevisitFollowUp(row.audit_revisit_follow_up) || upcomingActionFlag || (canEditRow(row) && nextAudit !== null)) && "mt-3 flex flex-wrap gap-2 border-t border-slate-200/80 pt-3")}>
+                          <div className="w-full"><RevisitFollowUp store={row} onUpload={canManageAudits ? () => setRevisitRow(row) : undefined} /></div>
                           {upcomingActionFlag ? (
                             <Button
                               size="sm"
@@ -1123,7 +1147,7 @@ export function AuditTable({
                             </Button>
                           ) : null}
 
-                          {canManageAudits && nextAudit !== null ? (
+                          {canEditRow(row) && nextAudit !== null ? (
                             <Button
                               type="button"
                               size="sm"
@@ -1154,8 +1178,8 @@ export function AuditTable({
             <TableRow>
               <TableHead scope="col">Store</TableHead>
               <TableHead scope="col">Status</TableHead>
-              <TableHead scope="col">Audit 1</TableHead>
-              <TableHead scope="col">Audit 2</TableHead>
+              <TableHead scope="col">{auditName(1)}</TableHead>
+              <TableHead scope="col">{auditName(2)}</TableHead>
               <TableHead scope="col">Follow-up</TableHead>
             </TableRow>
           </TableHeader>
@@ -1185,17 +1209,17 @@ export function AuditTable({
                         <button type="button" className="audit-store-name" onClick={() => handleOpenStoreActionsModal(row)} title="Open store actions">{row.store_name}</button>
                         <div className="audit-store-meta"><span>{getDisplayStoreCode(row.store_code) || '—'}</span><span>{count} audit{count === 1 ? '' : 's'}</span></div>
                       </TableCell>
-                      <TableCell><StatusBadge type="audit" status={lifecycle.status} label={lifecycle.label} /></TableCell>
+                      <TableCell><StatusBadge type="audit" status={lifecycle.status} label={lifecycleLabel(lifecycle.label)} /></TableCell>
                       <TableCell>{renderAuditSummary(row, 1)}</TableCell>
                       <TableCell>{renderAuditSummary(row, 2)}</TableCell>
                       <TableCell>
                         <div className="audit-follow-up">
-                          <RevisitFollowUp store={row} />
+                          <RevisitFollowUp store={row} onUpload={canManageAudits ? () => setRevisitRow(row) : undefined} />
                           {flag ? <button type="button" className="audit-previous-actions" onClick={() => handleOpenStoreActionsModal(row)} title={flag.title}>
                             <BellRing className="h-3.5 w-3.5" />{flag.isDebugPreview ? 'Preview' : 'Previous actions'}<span>{flag.actionCount}</span>
                           </button> : null}
-                          {canManageAudits && nextAudit !== null ? <Button type="button" size="sm" variant="outline" onClick={() => handleAddAudit(row)} className="audit-add-button">+ Add Audit {nextAudit}</Button> : null}
-                          {!hasRevisitFollowUp(row.audit_revisit_follow_up) && !flag && (!canManageAudits || nextAudit === null) ? <span className="audit-unrecorded">—</span> : null}
+                          {canEditRow(row) && nextAudit !== null ? <Button type="button" size="sm" variant="outline" onClick={() => handleAddAudit(row)} className="audit-add-button">+ Add {auditName(nextAudit)}</Button> : null}
+                          {!needsRevisitReport(row) && !hasRevisitFollowUp(row.audit_revisit_follow_up) && !flag && (!canEditRow(row) || nextAudit === null) ? <span className="audit-unrecorded">—</span> : null}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -1207,15 +1231,25 @@ export function AuditTable({
         </Table>
       </div>
 
+      <Dialog open={!!revisitRow} onOpenChange={open => { if (!open) setRevisitRow(null) }}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Upload revisit report · {revisitRow?.store_name}</DialogTitle>
+            <DialogDescription>Add the follow-up report to the original audit.</DialogDescription>
+          </DialogHeader>
+          {revisitRow && <AuditRevisits key={revisitRow.id} storeId={revisitRow.id} canUpload={canManageAudits} initialAudit={latestAuditForRevisit(revisitRow)} />}
+        </DialogContent>
+      </Dialog>
+
       {/* PDF Viewer Modal */}
       <PDFViewerModal
         renderPdf={(url) => <SavedFraPdfViewer url={url} label="Saved H&S audit PDF" />}
         open={pdfViewerOpen}
         onOpenChange={setPdfViewerOpen}
         pdfUrl={null}
-        title={selectedPdfRow ? `Audit ${selectedPdfRow.auditNumber} - ${selectedPdfRow.row.store_name}` : 'Audit PDF'}
+        title={selectedPdfRow ? `${auditName(selectedPdfRow.auditNumber)} - ${selectedPdfRow.row.store_name}` : 'Audit PDF'}
         getDownloadUrl={handleGetPDFUrl}
-        headerActions={selectedPdfRow && canManageAudits ? (
+        headerActions={selectedPdfRow && canEditRow(selectedPdfRow.row) ? (
           <Button
             variant="destructive"
             size="sm"
@@ -1241,7 +1275,7 @@ export function AuditTable({
           <DialogHeader>
             <DialogTitle>Add Audit</DialogTitle>
             <DialogDescription>
-              {addAuditState ? `Audit ${addAuditState.auditNumber} - ${addAuditState.storeName}` : ''}
+              {addAuditState ? `${auditName(addAuditState.auditNumber)} - ${addAuditState.storeName}` : ''}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">

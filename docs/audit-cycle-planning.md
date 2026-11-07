@@ -23,3 +23,7 @@ Apply `20261107203844_audit_studio_cancel_drafts.sql` before releasing the appli
 Focused numbering, booking eligibility, route presenter, device isolation, cancellation and rendered-view tests pass, together with TypeScript checking. Database checks cover invalid actors, stale revisions, completed/finalizing states, repeat cancellation, blocked revival and execution grants.
 
 The wider Studio suite has an existing failure: the private Word reference document lacks the current emergency-lighting evidence wording. This was reproduced on the unchanged HEAD checkout with the same local Word document.
+
+The original tracker now includes an Audit year selector alongside search, area, Hide Completed and Reset. By Area, League Table, Most Improved and summary figures use the selected year's snapshots. 2027 displays Audits 3/4, 2028 displays 5/6; older reports remain accessible. Historical/future views cannot edit current store slots. Existing route planning provides next-year booking.
+
+Stores whose latest selected-year audit is below 80% and has no matching completed revisit display “Revisit report required” in Follow-up. Audit managers can open the existing append-only revisit uploader directly from the table or mobile card. It preselects the original when date, round and score uniquely match; ambiguous history requires explicit selection. Read-only users see the requirement without upload controls. Matching completed evidence continues to display like Dundee. Original audit PDFs, scores and actions are unchanged by revisit uploads.

@@ -1,6 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+import { auditRowsForYear } from '@/lib/audit/year-view'
+import { auditPairLabel } from '@/lib/audit/cycles'
+import { cycleRecords, type CycleRecord } from '@/lib/audit/cycle-records'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AuditTable, AuditRow } from './audit-table'
 import { AuditLeagueTable } from './audit-league-table'
@@ -10,13 +13,23 @@ import { ClipboardCheck, Download, Map, TrendingUp, Trophy } from 'lucide-react'
 import { UserRole } from '@/lib/auth'
 
 interface AuditTrackerClientProps {
+  history?: CycleRecord[]
   stores: AuditRow[]
   userRole: UserRole
 }
 
-export function AuditTrackerClient({ stores, userRole }: AuditTrackerClientProps) {
+export function AuditTrackerClient({ stores, userRole, history = [] }: AuditTrackerClientProps) {
   const [activeView, setActiveView] = useState<'by-area' | 'league' | 'improved'>('by-area')
   const [areaFilter, setAreaFilter] = useState<string>('all')
+  const currentYear = new Date().getFullYear()
+  const [year, setYear] = useState(currentYear)
+  const years = useMemo(() => [...new Set([currentYear, currentYear + 1, ...cycleRecords(stores, history).map(record => record.audit_year)])].sort((a, b) => b - a), [stores, history, currentYear])
+  const visibleStores = useMemo(() => auditRowsForYear(stores, history, year, currentYear), [stores, history, year, currentYear])
+  const yearFilter = <select aria-label="Audit year" value={year} onChange={event => setYear(Number(event.target.value))}
+    className="min-h-[var(--touch-target-min)] w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm sm:w-56 sm:shrink-0">
+    {years.map(value => <option key={value} value={value}>{auditPairLabel(value)}</option>)}
+  </select>
+
 
   return (
     <div className="max-w-full space-y-4 overflow-x-hidden md:space-y-6 md:px-6 md:py-5 lg:px-8">
@@ -45,7 +58,7 @@ export function AuditTrackerClient({ stores, userRole }: AuditTrackerClientProps
           </div>
 
           <div className="min-w-0">
-            <AuditStatsCards stores={stores} selectedArea={areaFilter} />
+            <AuditStatsCards stores={visibleStores} selectedArea={areaFilter} />
           </div>
         </div>
       </div>
@@ -88,12 +101,12 @@ export function AuditTrackerClient({ stores, userRole }: AuditTrackerClientProps
 
           <div className="min-w-0 p-3 sm:p-4 md:p-6">
             <TabsContent value="by-area" className="mt-0">
-              <AuditTable rows={stores} userRole={userRole} areaFilter={areaFilter} onAreaFilterChange={setAreaFilter} />
+              <AuditTable rows={visibleStores} yearFilter={yearFilter} auditYear={year} userRole={userRole} areaFilter={areaFilter} onAreaFilterChange={setAreaFilter} />
             </TabsContent>
 
             <TabsContent value="league" className="mt-0">
               <AuditLeagueTable
-                rows={stores}
+                rows={visibleStores} yearFilter={yearFilter} auditYear={year}
                 userRole={userRole}
                 areaFilter={areaFilter}
                 onAreaFilterChange={setAreaFilter}
@@ -102,7 +115,7 @@ export function AuditTrackerClient({ stores, userRole }: AuditTrackerClientProps
 
             <TabsContent value="improved" className="mt-0">
               <AuditImprovementTable
-                rows={stores}
+                rows={visibleStores} yearFilter={yearFilter} auditYear={year}
                 userRole={userRole}
                 areaFilter={areaFilter}
                 onAreaFilterChange={setAreaFilter}

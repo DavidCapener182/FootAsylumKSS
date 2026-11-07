@@ -44,3 +44,10 @@ export function revisitEvidenceHref(storeId: string, evidenceId: string) {
 export function revisitHistoryHref(storeId: string) {
   return `/stores/${encodeURIComponent(storeId)}?tab=audit-history#revisit-heading`
 }
+
+/** A missing or unavailable evidence history must not silently clear a failed visit. */
+export function needsRevisitReport(store: RevisitAuditStore): boolean {
+  const latest = latestAuditForRevisit(store)
+  return !!latest && typeof latest.score === 'number' && Number.isFinite(latest.score)
+    && latest.score < 80 && !completedAuditRevisit(store)
+}

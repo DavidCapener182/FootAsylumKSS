@@ -1,18 +1,24 @@
 import { EvidencePreviewButton } from '@/components/shared/evidence-preview-button'
-import { completedAuditRevisit, revisitEvidenceHref, revisitHistoryHref, type AuditRevisitFollowUp, type RevisitAuditStore } from '@/lib/audit/revisit-follow-up'
+import { needsRevisitReport, completedAuditRevisit, revisitEvidenceHref, revisitHistoryHref, type AuditRevisitFollowUp, type RevisitAuditStore } from '@/lib/audit/revisit-follow-up'
 const date = (value: string) => new Date(`${value}T12:00:00Z`).toLocaleDateString('en-GB', { timeZone: 'UTC', day: 'numeric', month: 'short', year: 'numeric' })
 
 export function hasRevisitFollowUp(summary?: AuditRevisitFollowUp) {
   return summary?.status === 'unavailable' || !!summary?.originals.length
 }
 
-export function RevisitFollowUp({ store }: { store: RevisitAuditStore & { id: string; store_name?: string } }) {
+export function RevisitFollowUp({ store, onUpload }: { store: RevisitAuditStore & { id: string; store_name?: string }; onUpload?: () => void }) {
   const summary = store.audit_revisit_follow_up
-  if (!summary) return null
-  if (summary.status === 'unavailable') return <div className="space-y-1 text-xs text-slate-600"><p>Revisit history unavailable</p><a className="inline-flex min-h-11 items-center underline" href={revisitHistoryHref(store.id)}>Check evidence history</a></div>
-  if (!summary.originals.length) return null
+  const needsReport = needsRevisitReport(store)
+  const prompt = needsReport ? <div className="space-y-1 text-xs">
+    <p className="font-semibold text-amber-800">Revisit report required · below 80%</p>
+    {onUpload && <button type="button" onClick={onUpload} className="inline-flex min-h-11 items-center rounded-lg border border-amber-300 bg-amber-50 px-3 font-semibold text-amber-900">Upload revisit report</button>}
+  </div> : null
+  if (!summary) return prompt
+  if (summary.status === 'unavailable') return <div className="space-y-1 text-xs text-slate-600">{prompt}<p>Revisit history unavailable</p><a className="inline-flex min-h-11 items-center underline" href={revisitHistoryHref(store.id)}>Check evidence history</a></div>
+  if (!summary.originals.length) return prompt
   const completed = completedAuditRevisit(store)
   return <div className="min-w-0 space-y-3 text-xs" aria-label={`Revisit evidence for ${store.store_name || 'store'}`}>
+    {prompt}
     {summary.originals.map(original => <div key={original.id} className="min-w-0 border-l-2 border-blue-300 pl-2">
       <p className="font-semibold text-blue-800">Revisited {date(original.latestRevisitDate)}</p>
       <p className="mt-1 text-slate-600">Original Audit {original.auditNumber ?? '—'} · {date(original.visitDate)}</p>

@@ -1,5 +1,6 @@
 'use client'
 
+import type { latestAuditForRevisit } from '@/lib/audit/revisit-follow-up'
 import { currentRevisitEvidence, previousRevisitVersions } from '@/lib/audit/revisit-versions'
 import { EvidencePreviewButton } from '@/components/shared/evidence-preview-button'
 
@@ -13,7 +14,7 @@ type Revisit = { replaces_id?: string | null; id: string; original_history_id: s
 type History = { originals: Original[]; revisits: Revisit[] }
 const dateLabel = (date: string) => new Date(`${date}T12:00:00Z`).toLocaleDateString('en-GB', { timeZone: 'UTC', day: 'numeric', month: 'short', year: 'numeric' })
 
-export function AuditRevisits({ storeId, canUpload }: { storeId: string; canUpload: boolean }) {
+export function AuditRevisits({ storeId, canUpload, initialAudit }: { storeId: string; canUpload: boolean; initialAudit?: ReturnType<typeof latestAuditForRevisit> }) {
   const router = useRouter()
   const formId = useId()
   const [history, setHistory] = useState<History | null>(null)
@@ -40,6 +41,10 @@ export function AuditRevisits({ storeId, canUpload }: { storeId: string; canUplo
       const data = await response.json()
       if (!response.ok) throw new Error(data.error || 'History unavailable')
       setHistory(data); setLoadError('')
+      if (initialAudit && !historyId) {
+        const matches = (data.originals as Original[]).filter(original => original.audit_number === initialAudit.number && original.visit_date === initialAudit.date && original.percentage === initialAudit.score)
+        if (matches.length === 1) setHistoryId(matches[0].id)
+      }
     } catch (error) { setLoadError(error instanceof Error ? error.message : 'History unavailable') }
   }
   useEffect(() => { void load() }, [storeId]) // eslint-disable-line react-hooks/exhaustive-deps

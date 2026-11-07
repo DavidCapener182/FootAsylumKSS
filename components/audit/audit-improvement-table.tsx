@@ -1,5 +1,8 @@
 'use client'
 
+import type { ReactNode } from 'react'
+import { auditLabel as formatCycleAuditLabel } from '@/lib/audit/cycles'
+
 import { useMemo, useState } from 'react'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Input } from '@/components/ui/input'
@@ -25,8 +28,8 @@ interface RankedImprovementRow extends AuditRow {
   comparison: AuditComparison
 }
 
-function formatAuditLabel(auditNumber: number): string {
-  return `Audit ${auditNumber}`
+function formatAuditLabel(auditNumber: number, year?: number): string {
+  return year ? formatCycleAuditLabel(year, auditNumber) : `Audit ${auditNumber}`
 }
 
 function getMovementLabel(change: number): string {
@@ -48,11 +51,15 @@ function MovementIcon({ change, className }: { change: number; className?: strin
 }
 
 export function AuditImprovementTable({
+  yearFilter,
+  auditYear,
   rows,
   userRole,
   areaFilter: externalAreaFilter,
   onAreaFilterChange,
 }: {
+  yearFilter?: ReactNode
+  auditYear?: number
   rows: AuditRow[]
   userRole: UserRole
   areaFilter?: string
@@ -138,6 +145,7 @@ export function AuditImprovementTable({
               className="min-h-[44px] bg-white pl-9"
             />
           </div>
+          {yearFilter}
           <Select value={area} onValueChange={setArea}>
             <SelectTrigger className="min-h-[44px] w-full bg-white sm:w-44">
               <SelectValue placeholder="Area" />
@@ -231,13 +239,13 @@ export function AuditImprovementTable({
                 <div className="mt-3 grid grid-cols-2 gap-2 border-t border-slate-200/80 pt-3 text-xs">
                   <div>
                     <p className="font-semibold uppercase tracking-wide text-slate-400">
-                      {formatAuditLabel(row.comparison.previous.auditNumber)}
+                      {formatAuditLabel(row.comparison.previous.auditNumber, auditYear)}
                     </p>
                     <div className="mt-1">{pctBadge(row.comparison.previous.pct)}</div>
                   </div>
                   <div className="text-right">
                     <p className="font-semibold uppercase tracking-wide text-slate-400">
-                      {formatAuditLabel(row.comparison.latest.auditNumber)}
+                      {formatAuditLabel(row.comparison.latest.auditNumber, auditYear)}
                     </p>
                     <div className="mt-1">{pctBadge(row.comparison.latest.pct)}</div>
                   </div>
@@ -341,7 +349,7 @@ export function AuditImprovementTable({
                       <TableCell className="border-b bg-white group-hover:bg-slate-50">
                         <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold', movementTone)}>
                           <MovementIcon change={change} className="h-3 w-3" />
-                          {formatAuditLabel(row.comparison.latest.auditNumber)} vs {formatAuditLabel(row.comparison.previous.auditNumber)}
+                          {formatAuditLabel(row.comparison.latest.auditNumber, auditYear)} vs {formatAuditLabel(row.comparison.previous.auditNumber, auditYear)}
                         </span>
                       </TableCell>
                       <TableCell className="border-b bg-white text-right group-hover:bg-slate-50">

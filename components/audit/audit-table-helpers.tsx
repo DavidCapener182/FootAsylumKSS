@@ -4,6 +4,8 @@ import { Badge } from '@/components/ui/badge'
 import { cn, formatAppDate, formatPercent } from '@/lib/utils'
 
 export interface AuditRow {
+  audit_view_year?: number
+  audit_read_only?: boolean
   audit_revisit_follow_up?: AuditRevisitFollowUp
   compliance_audit_3_pdf_path?: string | null
   id: string

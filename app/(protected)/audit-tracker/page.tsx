@@ -1,4 +1,6 @@
 import { loadAuditRevisitFollowUps } from '@/lib/audit/revisit-follow-up-server'
+import { createAdminSupabaseClient } from '@/lib/supabase/admin'
+import type { CycleRecord } from '@/lib/audit/cycle-records'
 import { requireRole } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { AuditRow } from '@/components/audit/audit-table'
@@ -10,7 +12,7 @@ async function getStoreAudits() {
   const { data, error } = await supabase
     .from('fa_stores')
     .select(
-      'id, store_code, store_name, region, reporting_area, city, is_active, compliance_audit_1_date, compliance_audit_1_overall_pct, action_plan_1_sent, compliance_audit_1_pdf_path, compliance_audit_2_date, compliance_audit_2_overall_pct, action_plan_2_sent, compliance_audit_2_pdf_path, compliance_audit_3_date, compliance_audit_3_overall_pct, compliance_audit_3_pdf_path, action_plan_3_sent, area_average_pct, total_audits_to_date, fire_risk_assessment_date, fire_risk_assessment_pdf_path, fire_risk_assessment_notes, fire_risk_assessment_pct'
+      'id, store_code, store_name, region, reporting_area, city, is_active, compliance_audit_2_planned_date, compliance_audit_1_date, compliance_audit_1_overall_pct, action_plan_1_sent, compliance_audit_1_pdf_path, compliance_audit_2_date, compliance_audit_2_overall_pct, action_plan_2_sent, compliance_audit_2_pdf_path, compliance_audit_3_date, compliance_audit_3_overall_pct, compliance_audit_3_pdf_path, action_plan_3_sent, area_average_pct, total_audits_to_date, fire_risk_assessment_date, fire_risk_assessment_pdf_path, fire_risk_assessment_notes, fire_risk_assessment_pct'
     )
     .order('reporting_area', { ascending: true })
     .order('store_name', { ascending: true })
@@ -30,8 +32,21 @@ async function getStoreAudits() {
 export default async function AuditTrackerPage() {
   const { profile } = await requireRole(['admin', 'ops', 'client', 'readonly'])
   const stores = await getStoreAudits()
+  const history: CycleRecord[] = []
+  if (stores.length) {
+    const client = createAdminSupabaseClient()
+    for (let offset = 0; ; offset += 1000) {
+      const { data, error } = await client.from('fa_store_audit_history')
+        .select('id,store_id,audit_year,audit_number,visit_date,percentage,pdf_path,captured_at')
+        .eq('kind', 'H&S').in('store_id', stores.map(store => store.id))
+        .order('captured_at').order('id').range(offset, offset + 999)
+      if (error) throw new Error('Audit history could not be loaded.')
+      history.push(...(data || []) as CycleRecord[])
+      if (!data || data.length < 1000) break
+    }
+  }
 
   return (
-    <AuditTrackerClient stores={stores as AuditRow[]} userRole={profile.role} />
+    <AuditTrackerClient stores={stores as AuditRow[]} userRole={profile.role} history={history} />
   )
 }
