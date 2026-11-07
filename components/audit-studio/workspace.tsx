@@ -415,7 +415,7 @@ export function AuditStudioWorkspace({ initial, offline = false }: Props) {
       <div className="my-5 flex flex-wrap items-center gap-3">
         <Badge>Audit Studio</Badge>
         <p className="text-sm text-slate-600">
-          Save your work as you go. Complete the report, then save it to the store when ready.
+          Save your work as you go. Completing a store audit automatically adds its score and report to the Audit Tracker.
         </p>
         {offline && (
           <span className="flex items-center gap-2 text-sm">
@@ -1036,7 +1036,8 @@ function AuditEditor({
       });
       setReview(true);
       setReportOpen(true);
-      setStatus("Audit completed — PDF ready");
+      setStatus(result.publication ? `Saved to store · ${auditLabel(result.publication.audit_year, result.publication.audit_number)}` : "Audit completed — PDF ready");
+      if (result.publicationError) setError(result.publicationError);
     } catch (e) {
       setError(textError(e));
       setStatus("Needs attention");
@@ -1097,7 +1098,7 @@ function AuditEditor({
   return (
     <div className={`audit-studio-editor min-h-full bg-[#f5f6f1] pb-24 pt-[108px] text-[#17291f] md:pb-0 md:pt-0`}>
       {buildingReport && <div role="dialog" aria-modal="true" aria-labelledby="building-audit-title" className="fixed inset-0 z-[100] flex items-center justify-center bg-white/95 p-6"><div className="max-w-sm text-center"><Loader2 aria-hidden="true" className="mx-auto mb-6 h-12 w-12 text-emerald-800 motion-safe:animate-spin"/><h2 id="building-audit-title" className="text-2xl font-bold">Building your audit</h2><p role="status" className="mt-3 text-slate-600">Saving your answers and preparing the PDF with your signatures and evidence. It will open here when ready.</p><p className="mt-4 text-sm text-slate-500">Reports with lots of photos can take a few minutes.</p></div></div>}
-      {b.audit.status === "completed" && <EvidenceViewer open={reportOpen} onOpenChange={setReportOpen} url={`/api/audit-studio/audits/${b.audit.id}/report`} label={`${doc.site.storeName} · ${doc.site.visitDate}`} title="Audit completed — PDF ready" actions={<>{error && <p role="alert" className="text-sm text-red-700">{error}</p>}{doc.purpose === "store" ? b.publication ? <p className="text-sm text-emerald-800">Attached to {doc.site.storeName}</p> : <button className={`${button} w-full`} disabled={busy || !online} onClick={publishToStore}>{busy ? "Attaching…" : `Attach to ${doc.site.storeName}`}</button> : <p className="text-center text-xs text-slate-500">Practice report · kept outside the live store tracker</p>}</>} downloadName={auditReportFilename(doc.site)} />}
+      {b.audit.status === "completed" && <EvidenceViewer open={reportOpen} onOpenChange={setReportOpen} url={`/api/audit-studio/audits/${b.audit.id}/report`} label={`${doc.site.storeName} · ${doc.site.visitDate}`} title="Audit completed — PDF ready" actions={<>{error && <p role="alert" className="text-sm text-red-700">{error}</p>}{doc.purpose === "store" ? b.publication ? <p className="text-sm text-emerald-800">Saved to {doc.site.storeName} · {auditLabel(b.publication.audit_year, b.publication.audit_number)}</p> : <button className={`${button} w-full`} disabled={busy || !online} onClick={publishToStore}>{busy ? "Attaching…" : `Retry saving to ${doc.site.storeName}`}</button> : <p className="text-center text-xs text-slate-500">Practice report · kept outside the live store tracker</p>}</>} downloadName={auditReportFilename(doc.site)} />}
       <header className="border-b border-slate-200 bg-white px-3 py-2 md:px-7 md:py-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">

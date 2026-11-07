@@ -140,6 +140,7 @@ export type AuditRecord = {
   report_error: string | null;
 };
 export type AuditBundle = {
+  publicationError?: string;
   audit: AuditRecord;
   template: StudioTemplate;
   evidence: Evidence[];

@@ -1,3 +1,4 @@
+import { completeAndPublishAudit } from '@/lib/audit-studio/complete-and-publish';
 import { auditReportFilename } from "@/lib/audit-studio/report-filename";
 import {createAdminSupabaseClient} from "@/lib/supabase/admin";
 import {previousStoreActions, publishToStore} from "@/lib/audit-studio/store-records";
@@ -17,7 +18,6 @@ import {
   saveAudit,
   reserveEvidence,
   confirmEvidence,
-  completeAudit,
   reviseAudit,
   readStored,
 } from "@/lib/audit-studio/server";
@@ -140,7 +140,7 @@ async function dispatch(
           },
         });
       } else if (id && operation === "complete" && req.method === "POST")
-        result = await completeAudit(id, await body());
+        result = await completeAndPublishAudit(id, await body(), user);
       else if (id && operation === "revise" && req.method === "POST")
         result = await reviseAudit(id, await body(), user);
       else if (id && operation === "report" && req.method === "GET") {

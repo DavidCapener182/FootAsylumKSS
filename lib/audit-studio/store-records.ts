@@ -57,6 +57,6 @@ export async function publishToStore(id: string, value: unknown, user: {id:strin
   const allowed=['A newer store audit already exists','Three visits already recorded this year; create a linked revision for a correction','Revise the latest published report'];
   throw new StudioError(allowed.find(m=>error.message.includes(m))||'The store record was not updated. Retry or contact an administrator.',409);
  }
- for(const p of ['/audit-tracker','/dashboard','/actions',`/stores/${storeId}`]) revalidatePath(p);
+ for(const p of ['/audit-studio','/audit-tracker','/route-planning','/dashboard','/actions',`/stores/${storeId}`]) revalidatePath(p);
  return bundle(id);
 }
