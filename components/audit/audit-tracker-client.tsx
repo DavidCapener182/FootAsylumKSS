@@ -1,9 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { AuditCyclePanel } from './audit-cycle-panel'
-import type { CycleRecord } from '@/lib/audit/cycle-records'
-import { can } from '@/lib/role-capabilities'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AuditTable, AuditRow } from './audit-table'
 import { AuditLeagueTable } from './audit-league-table'
@@ -13,12 +10,11 @@ import { ClipboardCheck, Download, Map, TrendingUp, Trophy } from 'lucide-react'
 import { UserRole } from '@/lib/auth'
 
 interface AuditTrackerClientProps {
-  history?: CycleRecord[]
   stores: AuditRow[]
   userRole: UserRole
 }
 
-export function AuditTrackerClient({ stores, userRole, history = [] }: AuditTrackerClientProps) {
+export function AuditTrackerClient({ stores, userRole }: AuditTrackerClientProps) {
   const [activeView, setActiveView] = useState<'by-area' | 'league' | 'improved'>('by-area')
   const [areaFilter, setAreaFilter] = useState<string>('all')
 
@@ -54,9 +50,6 @@ export function AuditTrackerClient({ stores, userRole, history = [] }: AuditTrac
         </div>
       </div>
 
-      <AuditCyclePanel stores={stores} history={history} canManage={can(userRole, 'manageAudits')} />
-      <details>
-      <summary className="cursor-pointer py-3 text-sm font-semibold">Current store records, rankings and score editing</summary>
       <div className="max-w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm md:rounded-3xl">
         <Tabs value={activeView} onValueChange={(value) => setActiveView(value as 'by-area' | 'league' | 'improved')} className="w-full">
           <div className="border-b border-slate-100 p-4 md:p-6">
@@ -118,7 +111,6 @@ export function AuditTrackerClient({ stores, userRole, history = [] }: AuditTrac
           </div>
         </Tabs>
         </div>
-      </details>
     </div>
   )
 }

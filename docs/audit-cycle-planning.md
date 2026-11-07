@@ -1,6 +1,6 @@
 # Continuous audit cycles
 
-The Audit Tracker now opens with a year-selectable pair. The numbering baseline is 2026:
+The Audit Tracker retains its original layout, area filters, rankings and score editing. The separate cycle-panel prototype is not mounted, following user feedback. Next-year booking remains available through Routes. The numbering baseline is 2026:
 
 - 2026: Audits 1 and 2.
 - 2027: Audits 3 and 4.
@@ -8,7 +8,7 @@ The Audit Tracker now opens with a year-selectable pair. The numbering baseline 
 
 Canonical records retain their existing `(store, audit_year, audit_number)` identity, where the number is the round within the year. `lib/audit/cycles.ts` derives the continuous display number. Existing third visits are shown as revisits, so they do not collide with the next year's first scheduled number. Studio revisions retain the original round through the existing publication function.
 
-Earlier years remain available through the year selector and collapsed store history. Current store scores, rankings and editing remain under a collapsed section. The cycle view includes upcoming booked dates and links to route planning for the selected year.
+Earlier reports remain in store audit history. The original Audit Tracker controls remain visible as before. Continuous year-pair labels are retained in Studio and route-planning guidance.
 
 Route planning now loads completed stores and evaluates availability against the selected visit year. Next year's pair opens after the current second visit has a date and a score. Dates extend to the end of next year, advancing automatically each January. Existing unresolved bookings are kept; a passing completed second visit consumes its previous booking. Failed visits retain their booking until explicitly reviewed or rescheduled. Booking does not reset scores, PDFs or actions. Publishing the first Studio report of a later year uses the existing transactional publication function to snapshot the old slots into history before resetting the current slots.
 
