@@ -6,6 +6,7 @@ export type Permission =
   | 'manageFRA'
   | 'manageIncidents'
   | 'manageStoreCRM'
+  | 'manageStores'
   | 'manageRoutePlanning'
   | 'uploadEvidence'
   | 'viewEvidence'
@@ -18,6 +19,7 @@ export const PERMISSION_ROLES: Record<Permission, ReadonlySet<UserRole>> = {
   manageFRA: new Set(['admin', 'ops']),
   manageIncidents: new Set(['admin', 'ops']),
   manageStoreCRM: new Set(['admin', 'ops']),
+  manageStores: new Set(['admin']),
   manageRoutePlanning: new Set(['admin', 'ops']),
   uploadEvidence: new Set(['admin', 'ops']),
   viewEvidence: new Set(['admin', 'ops', 'readonly', 'client']),

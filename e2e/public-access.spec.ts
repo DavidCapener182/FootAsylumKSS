@@ -36,6 +36,13 @@ test.describe('public access boundaries', () => {
     await expect(page.getByRole('heading', { name: 'Sign in to your account' })).toBeVisible()
   })
 
+  test('store creation requires authentication', async ({ page }) => {
+    await page.goto('/stores/new')
+    await expect(page).toHaveURL(/\/login(?:\?|$)/)
+    expect(new URL(page.url()).searchParams.get('redirectTo')).toBe('/stores/new')
+    await expect(page.getByRole('button', { name: 'Create store', exact: true })).toHaveCount(0)
+  })
+
   test('account setup cannot be opened without an authenticated session', async ({ page }) => {
     await page.goto('/login/account-setup')
 

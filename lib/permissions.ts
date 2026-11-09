@@ -30,6 +30,7 @@ const PERMISSION_MESSAGES: Record<Permission, string> = {
   manageFRA: 'You do not have permission to manage fire risk assessments',
   manageIncidents: 'You do not have permission to manage incident records',
   manageStoreCRM: 'You do not have permission to update store CRM data',
+  manageStores: 'Only administrators can create stores',
   manageRoutePlanning: 'You do not have permission to manage route planning',
   uploadEvidence: 'You do not have permission to upload or remove evidence',
   viewEvidence: 'You do not have permission to view this evidence',
