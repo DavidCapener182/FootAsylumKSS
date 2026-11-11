@@ -130,7 +130,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'File size must be less than 25MB' }, { status: 400 })
       }
 
-      file = await optimizeStorageImage(file)
+      if (placeholderId !== 'appendix-site-plans') file = await optimizeStorageImage(file)
       detectedType = resolveUploadMimeType(file)
       const fileExt = file.name.split('.').pop()
       const timestamp = Date.now()

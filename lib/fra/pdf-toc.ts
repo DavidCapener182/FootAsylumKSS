@@ -36,6 +36,12 @@ export function resolvePreOpeningToc(pages: FraPdfTextPage[], labels: string[]):
 }
 
 export async function readPreOpeningPdfToc(pdf: Uint8Array, labels: string[]): Promise<Record<string, number>> {
+  // PDF.js initializes DOMMatrix even for text-only parsing on serverless Node.
+  // Install the existing lightweight polyfill before loading the parser module.
+  if (typeof globalThis.DOMMatrix === 'undefined') {
+    const { default: DOMMatrix } = await import('@thednp/dommatrix')
+    globalThis.DOMMatrix = DOMMatrix as unknown as typeof globalThis.DOMMatrix
+  }
   const { PDFParse } = await import('pdf-parse')
   const parser = new PDFParse({ data: new Uint8Array(pdf) })
   try {

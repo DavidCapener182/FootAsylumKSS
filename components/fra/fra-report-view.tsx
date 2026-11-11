@@ -451,6 +451,9 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
   const displayRiskRating = computeFRARiskRating(fireFindings)
   const manualRiskRatingOverride = normalizeFRAManualRiskRatingOverride(data.manualRiskRatingOverride)
   const hasAssessorRiskJudgement = isPreOpeningAssessment && manualRiskRatingOverride !== null
+  const displayRiskRationale = isPreOpeningAssessment
+    ? manualRiskRatingOverride ? [manualRiskRatingOverride.reason] : ['The automatic indication is based on recorded findings. Missing information does not establish that fire safety measures are satisfactory; assessor judgement and pre-opening verification are required.']
+    : data.riskRatingRationale
   const effectiveFloorCount = parseFloorCount(customData.numberOfFloors || data.numberOfFloors)
   const effectiveRiskLikelihood: FRARiskLikelihood = manualRiskRatingOverride?.likelihood ?? displayRiskRating.likelihood
   const effectiveRiskConsequence: FRARiskConsequence = manualRiskRatingOverride?.consequence ?? displayRiskRating.consequence
@@ -737,7 +740,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
     try {
       const optimizedFiles: File[] = []
       for (const file of fileArray) {
-        optimizedFiles.push(await optimizeImageForUpload(file))
+        optimizedFiles.push(isPreOpeningAssessment && placeholderId === 'appendix-site-plans' ? file : await optimizeImageForUpload(file))
       }
 
       const formData = new FormData()
@@ -862,6 +865,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
     const dragDepthRef = useRef(0)
     const [isDragActive, setIsDragActive] = useState(false)
     const isPortrait = aspect === 'portrait'
+    const isPlanSheet = isPreOpeningAssessment && placeholderId === 'appendix-site-plans'
 
     const triggerFileInput = (mode: UploadMode = 'append') => {
       if (isUploading) return
@@ -934,7 +938,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
       : fullHeight
         ? 'w-full print:w-auto'
         : 'w-[220px] print:w-auto'
-    const photoCardWidthClass = photos.length === 1
+    const photoCardWidthClass = isPlanSheet ? 'w-full' : photos.length === 1
       ? showHeaderFooter
         ? fullHeight
           ? 'w-full max-w-[118mm] print:max-w-[118mm]'
@@ -949,7 +953,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
             ? 'w-full max-w-[220px]'
             : 'w-full max-w-lg'
       : multiPhotoCardWidthClass
-    const imageWrapperClass = fullHeight && photos.length === 1
+    const imageWrapperClass = isPlanSheet ? 'w-full h-[190mm] overflow-hidden rounded border border-slate-300 bg-slate-50' : fullHeight && photos.length === 1
       ? 'w-full h-[420px] overflow-hidden rounded border border-slate-300 bg-slate-50'
       : isPortrait
         ? `aspect-[3/4] w-full overflow-hidden rounded bg-slate-50 ${compact ? 'max-w-[220px]' : ''}`
@@ -965,7 +969,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
         ? `border-2 border-dashed border-slate-300 rounded p-4 aspect-[3/4] w-full flex flex-col items-center justify-center text-slate-400 text-sm fra-photo-block ${compact ? 'max-w-[220px]' : ''}`
         : 'border-2 border-dashed border-slate-300 rounded p-4 h-48 flex flex-col items-center justify-center text-slate-400 text-sm fra-photo-block'
     const pdfFrameHeight = showHeaderFooter
-      ? fullHeight && photos.length === 1
+      ? isPlanSheet ? '190mm' : fullHeight && photos.length === 1
         ? '72mm'
         : isPortrait
           ? compact ? '46mm' : '58mm'
@@ -1016,7 +1020,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
         {photos.length > 0 ? (
           <div className={photos.length === 1 ? 'flex justify-center' : stacked ? 'flex flex-col items-center gap-2' : `flex flex-wrap justify-center gap-2 ${isGrid ? 'fra-photo-grid' : ''}`}>
             {photos.map((photo: PlaceholderPhoto, idx: number) => (
-              <div key={idx} className={`relative fra-photo-block ${photoCardWidthClass}`}>
+              <div key={idx} className={`relative fra-photo-block ${photoCardWidthClass}${isPlanSheet ? ' fra-plan-sheet' : ''}`} style={isPlanSheet ? { breakBefore: 'page', breakInside: 'avoid', pageBreakInside: 'avoid' } : undefined}>
                 <div className={`relative fra-photo-image-frame ${imageWrapperClass}`} style={pdfImageFrameStyle}>
                 <img 
                   data-fra-source-path={photo.file_path}
@@ -2359,20 +2363,12 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
           )}
           {/* Store Location Map - constrained for print so it fits on one page */}
           <div className="mt-4 fra-map-print">
-            {isPreOpeningAssessment ? (
-              <>
-                <PhotoPlaceholder placeholderId="frs-site-map" label="Fire and Rescue Service site location plan" maxPhotos={1} fit="contain" />
-                {!placeholderPhotos['frs-site-map']?.length && data.store?.latitude && data.store?.longitude ? <StoreMap storeName={data.premises} address={data.address} latitude={data.store.latitude} longitude={data.store.longitude} /> : null}
-                <p className="text-xs text-slate-600 mt-2">Site plan supplied for location reference; does not establish appliance access or approved routes.</p>
-              </>
-            ) : (
             <StoreMap
               storeName={data.premises}
               address={data.address}
               latitude={data.store?.latitude || null}
               longitude={data.store?.longitude || null}
             />
-            )}
           </div>
           <div className="mt-4 p-4 border border-slate-300 rounded-lg bg-slate-50 text-sm fra-access-summary">
             <h3 className="font-semibold mb-2 text-slate-800">Fire & Rescue Access Summary</h3>
@@ -3106,9 +3102,9 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
           <div className="fra-risk-summary-section">
             <h3 className="font-semibold mb-2">7.1.3 Summary of Risk Rating</h3>
             <p className="mb-2 whitespace-pre-line">{displayRiskSummary}</p>
-            {data.riskRatingRationale && data.riskRatingRationale.length > 0 && (
+            {displayRiskRationale && displayRiskRationale.length > 0 && (
               <ul className="list-disc list-inside text-slate-700 space-y-1 mb-2">
-                {data.riskRatingRationale.map((reason, idx) => (
+                {displayRiskRationale.map((reason, idx) => (
                   <li key={`risk-rationale-${idx}`}>{reason}</li>
                 ))}
               </ul>
@@ -3137,7 +3133,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
           .
         </p>
         <p className="text-sm mb-4">
-          {isPreOpeningAssessment ? 'The following pre-opening requirements and priorities are proposed for assessor review, not approved findings. Residual risk after verification:' : 'It is considered that the following recommendations should be implemented to reduce fire risk to the target level:'}{' '}
+          {isPreOpeningAssessment ? 'Recommended pre-opening actions and priorities. Residual risk after verification:' : 'It is considered that the following recommendations should be implemented to reduce fire risk to the target level:'}{' '}
           <span className={`inline-block px-3 py-1.5 font-bold text-base rounded border align-middle ${getOverallRiskBadgeClass('Tolerable')}`}>
             {isPreOpeningAssessment ? 'To be assessed' : 'Tolerable'}
           </span>
@@ -3219,6 +3215,12 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
               Add up to 6 additional site photos below. Photos from H&S audit may also be displayed here when available.
             </p>
             <PhotoPlaceholder placeholderId="additional-site-pictures" label="Additional site picture" maxPhotos={6} />
+            {isPreOpeningAssessment && (
+              <div className="mt-4">
+                <PhotoPlaceholder placeholderId="appendix-site-plans" label="Site location and proposed layout plans" maxPhotos={2} fit="contain" aspect="portrait" stacked />
+                <p className="text-xs text-slate-600 mt-2">Plans supplied for reference. Proposed layouts do not confirm the completed fit-out, appliance access or approved routes. See each plan’s source and status in its caption.</p>
+              </div>
+            )}
           </div>
 
           {/* Signature block – pushed to bottom of last page */}

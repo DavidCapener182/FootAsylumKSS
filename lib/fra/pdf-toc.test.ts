@@ -19,6 +19,9 @@ describe('pre-opening physical PDF contents', () => {
     ], [label])[label]).toBe(25)
   })
   it('reads real PDF page numbers and preserves the bytes returned to the client', async () => {
+    // Match the serverless runtime: no browser matrix global is available.
+    const originalMatrix = globalThis.DOMMatrix
+    delete (globalThis as any).DOMMatrix
     const { PDFDocument } = await import('pdf-lib')
     const doc = await PDFDocument.create()
     doc.addPage().drawText('Fire Plan 2') // TOC entry, not the destination
@@ -28,6 +31,28 @@ describe('pre-opening physical PDF contents', () => {
     const before = Buffer.from(bytes)
     expect(await readPreOpeningPdfToc(bytes, ['Fire Plan'])).toEqual({ 'Fire Plan': 7 })
     expect(Buffer.from(bytes)).toEqual(before)
+    expect(typeof globalThis.DOMMatrix).toBe('function')
+    if (originalMatrix) globalThis.DOMMatrix = originalMatrix
+  })
+  it('cold-starts without browser globals or optional native canvas', async () => {
+    const { execFileSync } = await import('node:child_process')
+    const script = `
+      const fs=require('fs'),ts=require('typescript'),Module=require('module'),path=require('path');
+      (async()=>{
+        const {PDFDocument}=require('pdf-lib'); const pdf=await PDFDocument.create();
+        pdf.addPage().drawText('Fire Plan'); const bytes=await pdf.save();
+        delete globalThis.DOMMatrix;
+        const original=Module._load;
+        Module._load=function(name,...rest){ if(String(name).includes('@napi-rs/canvas')) throw Error('Native canvas unavailable'); return original.call(this,name,...rest); };
+        const filename=path.resolve('lib/fra/pdf-toc.cjs'); const mod=new Module(filename,module);
+        mod.filename=filename; mod.paths=Module._nodeModulePaths(path.dirname(filename));
+        mod._compile(ts.transpileModule(fs.readFileSync('lib/fra/pdf-toc.ts','utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS,esModuleInterop:true}}).outputText,filename);
+        const result=await mod.exports.readPreOpeningPdfToc(bytes,['Fire Plan']);
+        if(result['Fire Plan']!==1 || typeof globalThis.DOMMatrix!=='function') throw Error('Cold parser failed');
+        console.log('cold-parser-ok');
+      })().catch(error=>{console.error(error);process.exit(1)});
+    `
+    expect(execFileSync(process.execPath, ['-e', script], { encoding: 'utf8' })).toContain('cold-parser-ok')
   })
   it('fails rather than publishing missing, ambiguous or unknown targets', () => {
     expect(() => resolvePreOpeningToc([], ['Fire Plan'])).toThrow('0 matching pages')

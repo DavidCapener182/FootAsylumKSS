@@ -58,7 +58,7 @@ export function applyPreOpeningEvidence<T extends Record<string, any>>(data: T, 
   }
   const rows = (data.actionPlanItems || []).filter((row: any) => !/^Continue routine checks and testing/.test(row.recommendation)).map((row: any) => ({ ...row }))
   for (const [key, recommendation] of prerequisites) {
-    if (!rows.some((row: any) => row.sourceActionId === actionId(`preopening-${key}`) || row.recommendation === recommendation)) rows.push({ sourceActionId: actionId(`preopening-${key}`), recommendation, priority: 'High', dueNote: 'Proposed pre-opening requirement; priority requires assessor confirmation; completion not verified' })
+    if (!rows.some((row: any) => row.sourceActionId === actionId(`preopening-${key}`) || row.recommendation === recommendation)) rows.push({ sourceActionId: actionId(`preopening-${key}`), recommendation, priority: 'High', dueNote: 'Before public opening; completion not recorded' })
   }
   // Deterministic content-derived identities keep tracking attached when unrelated rows are inserted/reordered.
   for (const row of rows) {

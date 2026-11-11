@@ -541,3 +541,24 @@ body.fra-print-document .fra-hazards-table .fra-photo-image-frame {
 body.fra-print-document .fra-hazards-table .fra-photo-block img {
   object-fit: contain !important;
 }
+
+/* Supplied pre-opening plan sheets: preserve the full page and its caption. */
+body.fra-print-document [data-fra-pre-opening="true"] .fra-plan-sheet {
+  width: 100% !important;
+  max-width: 100% !important;
+  height: auto !important;
+  min-height: 0 !important;
+  overflow: visible !important;
+  break-before: page !important;
+  break-inside: avoid !important;
+  page-break-inside: avoid !important;
+}
+body.fra-print-document [data-fra-pre-opening="true"] .fra-plan-sheet .fra-photo-image-frame {
+  width: 100% !important;
+  height: 190mm !important;
+  min-height: 190mm !important;
+  max-height: 190mm !important;
+}
+body.fra-print-document [data-fra-pre-opening="true"] .fra-plan-sheet img.fra-report-photo {
+  object-fit: contain !important;
+}

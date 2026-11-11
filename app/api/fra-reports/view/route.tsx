@@ -100,7 +100,7 @@ async function loadPlaceholderPhotos(
           if (signedError) console.warn('FRA photo signed URL failed:', signedError.message)
 
           const signedUrl = signed?.signedUrl ?? ''
-          const pdfDataUrl = forPdf && signedUrl ? await compactImageForPdf(signedUrl) : null
+          const pdfDataUrl = forPdf && signedUrl && placeholderId !== 'appendix-site-plans' ? await compactImageForPdf(signedUrl) : null
 
           return {
             file_path: filePath,
