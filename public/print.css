@@ -578,3 +578,14 @@ body.fra-print-document [data-fra-pre-opening="true"] .fra-complete-fire-posters
 body.fra-print-document [data-fra-pre-opening="true"] .fra-photo-block img.fra-report-photo {
   object-fit: contain !important;
 }
+
+/* Keep the emergency-switch image inside its existing 90mm evidence frame. */
+body.fra-print-document [data-fra-pre-opening="true"] .fra-emergency-switch-photo {
+  height: auto !important;
+  overflow: visible !important;
+}
+body.fra-print-document [data-fra-pre-opening="true"] .fra-emergency-switch-photo .fra-photo-image-frame {
+  height: 90mm !important;
+  min-height: 90mm !important;
+  max-height: 90mm !important;
+}

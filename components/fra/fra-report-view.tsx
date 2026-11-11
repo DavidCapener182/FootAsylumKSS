@@ -1033,7 +1033,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
         {photos.length > 0 ? (
           <div className={photos.length === 1 ? 'flex justify-center' : stacked ? 'flex flex-col items-center gap-2' : `flex flex-wrap justify-center gap-2 ${isGrid ? 'fra-photo-grid' : ''}`}>
             {photos.map((photo: PlaceholderPhoto, idx: number) => (
-              <div key={idx} className={`relative fra-photo-block ${photoCardWidthClass}${isPlanSheet ? ' fra-plan-sheet' : ''}`} style={isPlanSheet ? { breakBefore: 'page', breakInside: 'avoid', pageBreakInside: 'avoid' } : undefined}>
+              <div key={idx} className={`relative fra-photo-block ${photoCardWidthClass}${isPlanSheet ? ' fra-plan-sheet' : ''}${isPreOpeningAssessment && placeholderId === 'emergency-lighting-switch' ? ' fra-emergency-switch-photo' : ''}`} style={isPlanSheet ? { breakBefore: 'page', breakInside: 'avoid', pageBreakInside: 'avoid' } : undefined}>
                 <div className={`relative fra-photo-image-frame ${imageWrapperClass}`} style={pdfImageFrameStyle}>
                 <img 
                   data-fra-source-path={photo.file_path}
@@ -2762,7 +2762,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
             <h3 className="font-semibold mb-2">Procedures for liaising with the Fire and Rescue Service</h3>
             <p>
               On arrival of the Fire and Rescue Service, {managementLabel} will liaise with the attending officers,
-              providing relevant information regarding the premises, fire alarm activation and any known hazards.
+              providing relevant information regarding the premises, fire alarm activation and any known hazards.{isPreOpeningAssessment ? ' ' : null}
               {managementLabelTitle} will assist as required until the incident is formally handed over.
             </p>
           </div>
