@@ -450,12 +450,13 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
   }
   const displayRiskRating = computeFRARiskRating(fireFindings)
   const manualRiskRatingOverride = normalizeFRAManualRiskRatingOverride(data.manualRiskRatingOverride)
+  const hasAssessorRiskJudgement = isPreOpeningAssessment && manualRiskRatingOverride !== null
   const effectiveFloorCount = parseFloorCount(customData.numberOfFloors || data.numberOfFloors)
   const effectiveRiskLikelihood: FRARiskLikelihood = manualRiskRatingOverride?.likelihood ?? displayRiskRating.likelihood
   const effectiveRiskConsequence: FRARiskConsequence = manualRiskRatingOverride?.consequence ?? displayRiskRating.consequence
   const matrixDerivedOverallRisk = FRA_RISK_MATRIX[effectiveRiskLikelihood][effectiveRiskConsequence]
   const effectiveOverallRisk = matrixDerivedOverallRisk
-  const displayRiskSummary = isPreOpeningAssessment ? `Provisional ${effectiveOverallRisk.toLowerCase()} risk indication based on recorded findings. ${manualRiskRatingOverride ? 'Assessor-selected likelihood and consequence are recorded.' : 'The likelihood and consequence are generated automatically and await assessor judgement.'} Missing evidence is not evidence of satisfactory controls. Confirm the final layout, commissioning, handover and management arrangements, close relevant actions and reassess before public opening. This rating does not authorise opening.` : buildFRARiskSummary(fireFindings, {
+  const displayRiskSummary = isPreOpeningAssessment ? `${hasAssessorRiskJudgement ? `The assessor’s assessed risk rating is ${effectiveOverallRisk.toLowerCase()}. Assessor rationale: ${manualRiskRatingOverride!.reason}` : `Provisional ${effectiveOverallRisk.toLowerCase()} risk indication based on recorded findings. The likelihood and consequence are generated automatically and await assessor judgement.`} Missing evidence is not evidence of satisfactory controls. Confirm the final layout, commissioning, handover and management arrangements, close relevant actions and reassess before public opening. This rating does not authorise opening.` : buildFRARiskSummary(fireFindings, {
     ...displayRiskRating,
     likelihood: effectiveRiskLikelihood,
     consequence: effectiveRiskConsequence,
@@ -482,7 +483,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
     || fireFindings.fire_doors_held_open
     || fireFindings.fire_doors_blocked
   const effectiveOverallRiskLower = effectiveOverallRisk.toLowerCase()
-  const overallRiskNarrative = isPreOpeningAssessment ? 'as a provisional indication only, subject to assessor judgement and verification of final pre-opening controls. It is not approval to open.' : effectiveOverallRiskLower === 'tolerable' || effectiveOverallRiskLower === 'low'
+  const overallRiskNarrative = isPreOpeningAssessment ? (hasAssessorRiskJudgement ? 'as assessed by the assessor using the recorded likelihood, consequence and rationale. Verification of final pre-opening controls remains separate; this rating is not approval to open.' : 'as a provisional indication only, subject to assessor judgement and verification of final pre-opening controls. It is not approval to open.') : effectiveOverallRiskLower === 'tolerable' || effectiveOverallRiskLower === 'low'
     ? 'indicating that existing controls are generally adequate; ongoing monitoring and routine management are required.'
     : effectiveOverallRiskLower === 'moderate'
       ? 'indicating that improvement actions are required to strengthen day-to-day fire safety controls and maintain compliance.'
@@ -2358,12 +2359,20 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
           )}
           {/* Store Location Map - constrained for print so it fits on one page */}
           <div className="mt-4 fra-map-print">
+            {isPreOpeningAssessment ? (
+              <>
+                <PhotoPlaceholder placeholderId="frs-site-map" label="Fire and Rescue Service site location plan" maxPhotos={1} fit="contain" />
+                {!placeholderPhotos['frs-site-map']?.length && data.store?.latitude && data.store?.longitude ? <StoreMap storeName={data.premises} address={data.address} latitude={data.store.latitude} longitude={data.store.longitude} /> : null}
+                <p className="text-xs text-slate-600 mt-2">Site plan supplied for location reference; does not establish appliance access or approved routes.</p>
+              </>
+            ) : (
             <StoreMap
               storeName={data.premises}
               address={data.address}
               latitude={data.store?.latitude || null}
               longitude={data.store?.longitude || null}
             />
+            )}
           </div>
           <div className="mt-4 p-4 border border-slate-300 rounded-lg bg-slate-50 text-sm fra-access-summary">
             <h3 className="font-semibold mb-2 text-slate-800">Fire & Rescue Access Summary</h3>
@@ -2532,7 +2541,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
           <div>
             <h3 className="font-semibold mb-1">Evaluate the risk of a fire occurring</h3>
             <p>
-              {isPreOpeningAssessment ? 'The likelihood shown in the risk matrix is provisional. The assessor must evaluate ignition sources, fire load, contractor activities and verified precautions for the final pre-opening condition.' : <>Considering the nature of the premises, the activities undertaken, the fire load associated with retail stock, and the fire
+              {isPreOpeningAssessment ? (hasAssessorRiskJudgement ? 'The likelihood shown in the risk matrix is the assessor’s recorded judgement, supported by the rationale in the risk summary. Verify ignition sources, fire load, contractor activities and precautions for the final pre-opening condition.' : 'The likelihood shown in the risk matrix is provisional. The assessor must evaluate ignition sources, fire load, contractor activities and verified precautions for the final pre-opening condition.') : <>Considering the nature of the premises, the activities undertaken, the fire load associated with retail stock, and the fire
               protection measures in place, the likelihood is assessed as {effectiveRiskLikelihood.toLowerCase()}.
               {effectiveRiskLikelihood === 'High'
                 ? ' This rating is driven by observed deficiencies in management controls that materially increase the probability of fire spread and escalation if an ignition occurs.'
@@ -2545,7 +2554,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
           <div>
             <h3 className="font-semibold mb-1">Evaluate the risk to people from a fire starting in the premises</h3>
             <p>
-              {isPreOpeningAssessment ? 'People at risk include staff, contractors and, after opening, customers. The consequence and overall risk shown are provisional pending verification of escape routes, compartmentation, occupancy and evacuation arrangements.' : <>In the event of a fire, there is a potential risk to staff and members of the public. The potential consequence is assessed as{' '}
+              {isPreOpeningAssessment ? (hasAssessorRiskJudgement ? 'People at risk include staff, contractors and, after opening, customers. The consequence and overall risk shown are the assessor’s recorded judgement. Verification of escape routes, compartmentation, occupancy and evacuation arrangements remains required before opening.' : 'People at risk include staff, contractors and, after opening, customers. The consequence and overall risk shown are provisional pending verification of escape routes, compartmentation, occupancy and evacuation arrangements.') : <>In the event of a fire, there is a potential risk to staff and members of the public. The potential consequence is assessed as{' '}
               {effectiveRiskConsequence.toLowerCase()}, taking account of escape route management, compartmentation performance and evacuation controls observed
               at the time of assessment. The resulting overall risk level is {effectiveOverallRisk.toLowerCase()}.</>}
             </p>
@@ -3003,7 +3012,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
 
         <h3 className="text-lg font-semibold mb-2">Overall Fire Risk Rating</h3>
         <p className="text-sm leading-relaxed mb-4">
-          {isPreOpeningAssessment ? 'The matrix below shows a provisional risk indication from recorded findings. It requires assessor judgement and verification of the completed premises and management arrangements before opening; it is not a commissioning certificate or approval to open.' : <>The overall fire risk rating has been determined by assessing the likelihood of fire occurring against the potential severity of consequences, taking into account existing fire precautions and management arrangements.</>}
+          {isPreOpeningAssessment ? (hasAssessorRiskJudgement ? 'The matrix below shows the assessor’s assessed rating using the recorded likelihood, consequence and rationale. Verification of the completed premises and management arrangements remains required before opening; the rating is not a commissioning certificate or approval to open.' : 'The matrix below shows a provisional risk indication from recorded findings. It requires assessor judgement and verification of the completed premises and management arrangements before opening; it is not a commissioning certificate or approval to open.') : <>The overall fire risk rating has been determined by assessing the likelihood of fire occurring against the potential severity of consequences, taking into account existing fire precautions and management arrangements.</>}
         </p>
         <figure className="fra-figure mb-4">
           <div className="overflow-x-auto">
@@ -3040,7 +3049,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
                         >
                           <div>{overall}</div>
                           {selected && (
-                            <div className="text-[10px] mt-1 uppercase tracking-wide opacity-90">{isPreOpeningAssessment ? 'Provisional indication' : 'Current assessment'}</div>
+                            <div className="text-[10px] mt-1 uppercase tracking-wide opacity-90">{isPreOpeningAssessment ? (hasAssessorRiskJudgement ? 'Assessor assessment' : 'Provisional indication') : 'Current assessment'}</div>
                           )}
                         </td>
                       )
@@ -3061,7 +3070,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
           </p>
         </figure>
         <p className="text-sm leading-relaxed mb-6">
-          {isPreOpeningAssessment ? 'The provisional risk indication from recorded findings is' : 'Based on the findings of this assessment, the overall fire risk level for the premises is assessed as'}{' '}
+          {isPreOpeningAssessment ? (hasAssessorRiskJudgement ? 'The assessor’s assessed fire risk level is' : 'The provisional risk indication from recorded findings is') : 'Based on the findings of this assessment, the overall fire risk level for the premises is assessed as'}{' '}
           <span className={`inline-block px-2 py-0.5 font-bold text-sm rounded border align-middle ${getOverallRiskBadgeClass(effectiveOverallRisk)}`}>{effectiveOverallRisk}</span>,{' '}
           {overallRiskNarrative}
         </p>
@@ -3069,7 +3078,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
         <div className="space-y-6 text-sm">
           <div>
             <h3 className="font-semibold mb-2">7.1.1 Likelihood of Fire</h3>
-            <p className="mb-2">{isPreOpeningAssessment ? 'Provisional likelihood based on recorded findings, subject to assessor judgement and confirmation of the final pre-opening precautions:' : <>Taking into account the fire prevention measures observed at the time of this risk assessment, it is considered that the hazard from fire (likelihood of fire) at these premises is:</>}</p>
+            <p className="mb-2">{isPreOpeningAssessment ? (hasAssessorRiskJudgement ? 'Assessor’s assessed likelihood, with final pre-opening precautions still requiring confirmation:' : 'Provisional likelihood based on recorded findings, subject to assessor judgement and confirmation of the final pre-opening precautions:') : <>Taking into account the fire prevention measures observed at the time of this risk assessment, it is considered that the hazard from fire (likelihood of fire) at these premises is:</>}</p>
             <p className="mt-2 mb-2">
               <span className={`inline-block px-3 py-1.5 font-bold text-base rounded border ${getLikelihoodBadgeClass(effectiveRiskLikelihood)}`}>
                 {effectiveRiskLikelihood}
@@ -3121,7 +3130,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
         </div>
         <h2 className="text-xl font-semibold mb-4">8. Action Plan</h2>
         <p className="text-sm mb-4">
-          {isPreOpeningAssessment ? 'Provisional risk indication:' : 'Current assessed risk level:'}{' '}
+          {isPreOpeningAssessment ? (hasAssessorRiskJudgement ? 'Assessor’s assessed risk level:' : 'Provisional risk indication:') : 'Current assessed risk level:'}{' '}
           <span className={`inline-block px-3 py-1.5 font-bold text-base rounded border align-middle ${getOverallRiskBadgeClass(effectiveOverallRisk)}`}>
             {effectiveOverallRisk}
           </span>

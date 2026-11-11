@@ -9,6 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { FRA_TEMPLATE_VARIANTS } from '@/lib/fra/template-profiles'
+import { buildEditedDataFromExtracted, isPreOpeningReviewData, prepareReviewedFraData } from '@/lib/fra/review-data'
+import { FRA_RISK_LIKELIHOOD_ORDER, FRA_RISK_CONSEQUENCE_ORDER, FRA_RISK_MATRIX, normalizeFRAManualRiskRatingOverride } from '@/lib/fra/risk-rating'
 
 const REVIEW_DRAFT_STORAGE_PREFIX = 'fra-review-draft-v4'
 
@@ -24,42 +26,6 @@ function getBaseSignature(data: any): string {
   }
 }
 
-function buildEditedDataFromExtracted(data: any) {
-  return {
-    fra_template_variant: data.fra_template_variant || '',
-    assessmentContext: data.assessmentContext || '',
-    storeManager: data.storeManager || '',
-    firePanelLocation: data.firePanelLocation || '',
-    firePanelFaults: data.firePanelFaults || '',
-    emergencyLightingSwitch: data.emergencyLightingSwitch || '',
-    numberOfFloors: data.numberOfFloors || '',
-    operatingHours: data.operatingHours || '',
-    conductedDate: data.conductedDate || '',
-    assessmentStartTime: data.assessmentStartTime || '',
-    squareFootage: data.squareFootage || '',
-    escapeRoutesEvidence: data.escapeRoutesEvidence || '',
-    combustibleStorageEscapeCompromise: data.combustibleStorageEscapeCompromise || '',
-    fireSafetyTrainingNarrative: data.fireSafetyTrainingNarrative || '',
-    fireDoorsCondition: data.fireDoorsCondition || '',
-    weeklyFireTests: data.weeklyFireTests || '',
-    emergencyLightingMonthlyTest: data.emergencyLightingMonthlyTest || '',
-    fireExtinguisherService: data.fireExtinguisherService || '',
-    managementReviewStatement: data.managementReviewStatement || '',
-    // High priority fields
-    numberOfFireExits: data.numberOfFireExits || '',
-    totalStaffEmployed: data.totalStaffEmployed || '',
-    maxStaffOnSite: data.maxStaffOnSite || '',
-    youngPersonsCount: data.youngPersonsCount || '',
-    fireDrillDate: data.fireDrillDate || '',
-    patTestingStatus: data.patTestingStatus || '',
-    fixedWireTestDate: data.fixedWireTestDate || '',
-    // Medium priority fields
-    exitSignageCondition: data.exitSignageCondition || '',
-    compartmentationStatus: data.compartmentationStatus || '',
-    extinguisherServiceDate: data.extinguisherServiceDate || '',
-    callPointAccessibility: data.callPointAccessibility || '',
-  }
-}
 
 export default function ReviewFRADataPage({
   searchParams,
@@ -203,12 +169,13 @@ export default function ReviewFRADataPage({
       setCreatingReport(true)
       setSaveError(null)
 
+      const reviewedData = prepareReviewedFraData(editedData, isPreOpeningReviewData(extractedData))
       const response = await fetch('/api/fra-reports/save-extracted-data', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           instanceId,
-          extractedData: editedData,
+          extractedData: reviewedData,
         }),
       })
 
@@ -293,10 +260,8 @@ export default function ReviewFRADataPage({
     )
   }
 
-  const isPreOpeningFRA =
-    extractedData?.hasPreOpeningData
-    || extractedData?.fra_template_variant === FRA_TEMPLATE_VARIANTS.NEW_STORE_PRE_OPENING
-    || extractedData?.assessmentContext === 'pre_opening'
+  const isPreOpeningFRA = isPreOpeningReviewData(extractedData)
+  const reviewedRisk = normalizeFRAManualRiskRatingOverride(editedData.manualRiskRatingOverride)
   const isBremontFRA =
     extractedData?.hasBremontData
     || extractedData?.fra_template_variant === FRA_TEMPLATE_VARIANTS.BREMONT_WATCHES
@@ -708,6 +673,34 @@ export default function ReviewFRADataPage({
                 />
               </div>
             </div>
+
+            {isPreOpeningFRA && (
+              <div className="mt-8 pt-6 border-t space-y-4">
+                <h3 className="font-semibold text-slate-900">Assessor risk rating</h3>
+                <p className="text-sm text-slate-600">Select the assessor’s likelihood and consequence and record the rationale. The overall rating is calculated from the existing matrix. Saving this judgement does not sign the assessment or approve opening.</p>
+                <div>
+                  <label htmlFor="fra-risk-likelihood" className="block text-sm font-medium mb-2">Likelihood of fire</label>
+                  <select id="fra-risk-likelihood" value={editedData.manualRiskRatingOverride?.likelihood || ''} onChange={(e) => setEditedData((prev: any) => ({ ...prev, manualRiskRatingOverride: { ...prev.manualRiskRatingOverride, likelihood: e.target.value } }))} className="w-full border border-slate-300 rounded px-3 py-2 text-sm">
+                    <option value="">Not selected</option>
+                    {FRA_RISK_LIKELIHOOD_ORDER.map(value => <option key={value} value={value}>{value}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="fra-risk-consequence" className="block text-sm font-medium mb-2">Potential consequences of fire</label>
+                  <select id="fra-risk-consequence" value={editedData.manualRiskRatingOverride?.consequence || ''} onChange={(e) => setEditedData((prev: any) => ({ ...prev, manualRiskRatingOverride: { ...prev.manualRiskRatingOverride, consequence: e.target.value } }))} className="w-full border border-slate-300 rounded px-3 py-2 text-sm">
+                    <option value="">Not selected</option>
+                    {FRA_RISK_CONSEQUENCE_ORDER.map(value => <option key={value} value={value}>{value}</option>)}
+                  </select>
+                  <p className="mt-1 text-sm text-slate-600">Extreme Harm includes significant potential for serious injury or death.</p>
+                </div>
+                <div>
+                  <label htmlFor="fra-risk-reason" className="block text-sm font-medium mb-2">Assessor rationale</label>
+                  <Textarea id="fra-risk-reason" value={editedData.manualRiskRatingOverride?.reason || ''} onChange={(e) => setEditedData((prev: any) => ({ ...prev, manualRiskRatingOverride: { ...prev.manualRiskRatingOverride, reason: e.target.value } }))} className="min-h-[120px]" placeholder="Record the assessor’s reasoning for the selected likelihood and consequence" />
+                </div>
+                <p className="text-sm font-medium">Overall rating: {reviewedRisk ? FRA_RISK_MATRIX[reviewedRisk.likelihood][reviewedRisk.consequence] : 'Complete all three fields to calculate the assessor rating'}</p>
+                <Button type="button" variant="outline" onClick={() => setEditedData((prev: any) => ({ ...prev, manualRiskRatingOverride: null }))}>Clear assessor rating</Button>
+              </div>
+            )}
 
             {saveError && (
               <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800">

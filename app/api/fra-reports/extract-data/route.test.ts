@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { NextRequest, NextResponse } from 'next/server'
 
+let storedMetadata: Record<string, unknown> = {}
 const mockUser = { id: 'user-1', email: 'test@example.com' }
 const mockParsed = {
   conductedDate: '18 February 2026',
@@ -19,12 +20,12 @@ const mockSupabase = {
         select: vi.fn(() => ({
           eq: vi.fn(() => ({
             order: vi.fn().mockResolvedValue({
-              data: [{ response_json: { fra_pdf_text: 'stored pdf text' }, created_at: '2026-02-18T00:00:00Z' }],
+              data: [{ response_json: { fra_pdf_text: 'stored pdf text', ...storedMetadata }, created_at: '2026-02-18T00:00:00Z' }],
               error: null,
             }),
             then: (resolve: (value: { data: Array<{ response_json: { fra_pdf_text: string } }>; error: null }) => void) =>
               resolve({
-                data: [{ response_json: { fra_pdf_text: 'stored pdf text' } }],
+                data: [{ response_json: { fra_pdf_text: 'stored pdf text', ...storedMetadata } }],
                 error: null,
               }),
           })),
@@ -78,8 +79,18 @@ vi.mock('@/lib/fra/pdf-parser', () => ({
 
 describe('FRA extract-data route', () => {
   beforeEach(() => {
+    storedMetadata = {}
     vi.clearAllMocks()
     mockSupabase.auth.getUser.mockResolvedValue({ data: { user: mockUser }, error: null })
+  })
+
+  it('returns saved pre-opening assessor judgement for UI reload', async () => {
+    const override = { likelihood: 'Low', consequence: 'Extreme Harm', reason: 'Controls maintained; fatal consequences possible.' }
+    storedMetadata = { fra_template_variant: 'new_store_pre_opening', fra_extracted_data: { assessmentContext: 'pre_opening', manualRiskRatingOverride: override } }
+    const { GET } = await import('./route')
+    const response = await GET(new NextRequest('http://localhost/api/fra-reports/extract-data?instanceId=fra-123'))
+    expect(response.status).toBe(200)
+    expect((await response.json()).manualRiskRatingOverride).toEqual(override)
   })
 
   it('returns the shared parser output for the stored FRA PDF text', async () => {

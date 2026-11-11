@@ -1,3 +1,4 @@
+import { normalizeFRAManualRiskRatingOverride } from '@/lib/fra/risk-rating'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { fraAuthorDenialResponse } from '@/lib/fra/api-author-guard'
@@ -181,6 +182,7 @@ export async function GET(request: NextRequest) {
     }
 
     const extractedData = {
+      ...((storedFraData.variant === FRA_TEMPLATE_VARIANTS.NEW_STORE_PRE_OPENING || (storedExtractedData.assessmentContext === 'pre_opening' && storedFraData.variant !== FRA_TEMPLATE_VARIANTS.BREMONT_WATCHES)) ? { manualRiskRatingOverride: normalizeFRAManualRiskRatingOverride(storedExtractedData.manualRiskRatingOverride) } : {}),
       fra_template_variant: storedFraData.variant,
       assessmentContext: storedExtractedData.assessmentContext || storedFraData.customData.assessmentContext || null,
       storeManager: pickValue('storeManager', pdfExtractedData.storeManager),

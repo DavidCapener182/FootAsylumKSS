@@ -1,3 +1,5 @@
+import { normalizeFRAManualRiskRatingOverride } from '@/lib/fra/risk-rating'
+import { FRA_TEMPLATE_VARIANTS } from '@/lib/fra/template-profiles'
 import { NextRequest, NextResponse } from 'next/server'
 import { requirePermission } from '@/lib/permissions'
 
@@ -14,6 +16,14 @@ export async function POST(request: NextRequest) {
 
     if (!instanceId || !extractedData) {
       return NextResponse.json({ error: 'instanceId and extractedData are required' }, { status: 400 })
+    }
+
+    const isPreOpening = extractedData.fra_template_variant === FRA_TEMPLATE_VARIANTS.NEW_STORE_PRE_OPENING
+      || (extractedData.assessmentContext === 'pre_opening' && extractedData.fra_template_variant !== FRA_TEMPLATE_VARIANTS.BREMONT_WATCHES)
+    if (isPreOpening && extractedData.manualRiskRatingOverride !== undefined && extractedData.manualRiskRatingOverride !== null) {
+      const override = normalizeFRAManualRiskRatingOverride(extractedData.manualRiskRatingOverride)
+      if (!override) return NextResponse.json({ error: 'Choose likelihood and consequence and enter the assessor rationale, or clear all three fields.' }, { status: 400 })
+      extractedData.manualRiskRatingOverride = override
     }
 
     // Get the FRA instance and find a response row to store fra_extracted_data

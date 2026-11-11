@@ -634,7 +634,7 @@ function buildSectionRiskRating(ctx: BuildContext): (Paragraph | Table)[] {
     H2('Risk Rating'),
     ...labelValue('Likelihood', data.riskRatingLikelihood ?? '—'),
     ...labelValue('Consequences', data.riskRatingConsequences ?? '—'),
-    ...labelValue('Summary', data.assessmentContext === 'pre_opening' ? `Provisional calculation; assessor judgement and opening approval not recorded. ${data.summaryOfRiskRating ?? ''}` : data.summaryOfRiskRating ?? '—'),
+    ...labelValue('Summary', data.assessmentContext === 'pre_opening' ? (data.manualRiskRatingOverride ? `Assessor's assessed risk rating: ${data.actionPlanLevel}. Likelihood: ${data.riskRatingLikelihood}; consequences: ${data.riskRatingConsequences}. Reason: ${data.manualRiskRatingOverride.reason} This risk judgement is separate from approval to open.` : `Provisional calculation; assessor judgement and opening approval not recorded. ${data.summaryOfRiskRating ?? ''}`) : data.summaryOfRiskRating ?? '—'),
   ]
 }
 
