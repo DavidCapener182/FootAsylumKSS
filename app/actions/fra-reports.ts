@@ -1,5 +1,7 @@
 'use server'
 
+import { applyPreOpeningEvidence, preOpeningLocation } from '@/lib/fra/pre-opening'
+
 import { applyFRAEvidenceReview } from '@/lib/fra/evidence-review'
 
 import { createClient } from '@/lib/supabase/server'
@@ -1616,7 +1618,7 @@ export async function mapHSAuditToFRAData(
   const floorsInfo = premisesDescription?.value || premisesDescription?.comment || generalSiteInfo?.value || generalSiteInfo?.comment || '1'
 
   // Fire Alarm System - extract location and panel status - prioritize edited data, then PDF, then database
-  const reviewedFirePanelLocation = sanitizeExtractedValue(editedExtractedData?.firePanelLocation, { asLocation: true })
+  const reviewedFirePanelLocation = fraTemplateVariant === FRA_TEMPLATE_VARIANTS.NEW_STORE_PRE_OPENING ? preOpeningLocation(editedExtractedData?.firePanelLocation) : sanitizeExtractedValue(editedExtractedData?.firePanelLocation, { asLocation: true })
   const pdfFirePanelLocation = sanitizeExtractedValue(pdfExtractedData.firePanelLocation, { asLocation: true })
   const firePanelLocationAnswer =
     findAnswer('Location of Fire Panel')
@@ -1686,7 +1688,7 @@ export async function mapHSAuditToFRAData(
     && !/\b(no faults?|fault[\s-]*free|free of faults|normal)\b/i.test(panelFaultsText)
 
   // Emergency Lighting - extract test switch location - prioritize edited data, then PDF, then database
-  const reviewedEmergencySwitchLocation = sanitizeExtractedValue(editedExtractedData?.emergencyLightingSwitch, { asLocation: true })
+  const reviewedEmergencySwitchLocation = fraTemplateVariant === FRA_TEMPLATE_VARIANTS.NEW_STORE_PRE_OPENING ? preOpeningLocation(editedExtractedData?.emergencyLightingSwitch) : sanitizeExtractedValue(editedExtractedData?.emergencyLightingSwitch, { asLocation: true })
   const pdfEmergencySwitchLocation = sanitizeExtractedValue(pdfExtractedData.emergencyLightingSwitch, { asLocation: true })
   const emergencyLightingSwitchAnswer =
     findAnswer('Location of Emergency Lighting Test Switch')
@@ -2491,7 +2493,7 @@ Sprinkler heads are installed throughout the premises in accordance with the ori
       || null,
 
     // COSHH reference for Sources of fuel (brief; detail in H&S only)
-    sourcesOfFuelCoshhNote: isBremontAssessment
+    sourcesOfFuelCoshhNote: isPreOpeningAssessment ? 'Confirm the cleaning-product inventory, safety data, storage and fire precautions before opening.' : isBremontAssessment
       ? 'Cleaning materials should be held in small quantities, stored securely and managed under COSHH arrangements where applicable.'
       : 'Cleaning materials are low-risk and non-flammable. COSHH is managed under a separate assessment.',
 
@@ -2522,9 +2524,9 @@ Sprinkler heads are installed throughout the premises in accordance with the ori
       const escapeSentence = escapeRoutesNarrativeFromAudit
         || ((fireFindings.escape_routes_obstructed || fireFindings.fire_exits_obstructed)
           ? obstructedRoutesEvidenceText
-          : 'Escape routes were clearly identifiable and generally maintained free from obstruction.')
+          : isPreOpeningAssessment ? 'Final escape-route condition and travel distances require confirmation after fit-out.' : 'Escape routes were clearly identifiable and generally maintained free from obstruction.')
       const detectionFinding = isPreOpeningAssessment
-        ? 'The premises is in pre-opening fit-out. Fire detection and alarm systems, emergency lighting, manual call points, fire-fighting equipment and escape-route arrangements were visible or in progress, but final commissioning, handover evidence and fault-free confirmation must be completed before public trading commences.'
+        ? 'This is a pre-opening assessment. Final commissioning, handover evidence, system condition and escape-route arrangements require verification before public trading commences; observations do not establish system performance.'
         : 'The premises is provided with appropriate fire detection and alarm systems, emergency lighting, fire-fighting equipment and clearly defined escape routes. These systems were observed to be in place and operational, supporting safe evacuation in the event of a fire.'
       const fireDoorsFinding = (fireFindings.fire_doors_held_open || fireFindings.fire_doors_blocked)
         ? `Fire doors were observed held open and/or obstructed, which can compromise compartmentation performance during an emergency. ${escapeSentence}`
@@ -2532,7 +2534,7 @@ Sprinkler heads are installed throughout the premises in accordance with the ori
         ? `Fire door integrity issues were identified (including intumescent-strip and/or maintenance defects) and require corrective action to maintain effective compartmentation. ${escapeSentence}`
         : hasCompartmentationDefect
         ? `${formatCompartmentationFinding()} ${escapeSentence}`
-        : 'Fire doors and compartmentation arrangements were observed to be in satisfactory condition, with doors not wedged open and fitted with intact intumescent protection. ' + escapeSentence
+        : isPreOpeningAssessment ? 'Fire-door and compartmentation performance has not been verified from the supplied evidence. ' + escapeSentence : 'Fire doors and compartmentation arrangements were observed to be in satisfactory condition, with doors not wedged open and fitted with intact intumescent protection. ' + escapeSentence
       const managementFinding = (() => {
         const findings: string[] = []
         if (fireFindings.fire_alarm_tests_current === false) findings.push('weekly fire alarm testing was not evidenced as current')
@@ -2563,7 +2565,7 @@ Sprinkler heads are installed throughout the premises in accordance with the ori
       hasCompartmentationDefect ? compartmentationActionRecommendation : null,
       hasPanelFaultCondition ? 'Fire alarm panel fault condition identified: arrange immediate inspection/repair by a competent fire alarm engineer, record remedial works, and confirm system reset to normal operation.' : null,
       fireFindings.escape_routes_obstructed || fireFindings.fire_exits_obstructed ? obstructedRoutesActionText : maintainRoutesActionText,
-      fireFindings.combustibles_in_escape_routes ? 'Remove combustible materials from escape routes immediately and reinforce stock control/housekeeping checks to prevent recurrence.' : (fireFindings.combustibles_poorly_stored || fireFindings.housekeeping_poor_back_of_house ? 'Improve housekeeping and storage controls in back-of-house areas to prevent combustible build-up and maintain safe access.' : 'Maintain existing housekeeping and combustible storage standards; no excessive fire loading was observed in escape routes at the time of inspection.'),
+      fireFindings.combustibles_in_escape_routes ? 'Remove combustible materials from escape routes immediately and reinforce stock control/housekeeping checks to prevent recurrence.' : (fireFindings.combustibles_poorly_stored || fireFindings.housekeeping_poor_back_of_house ? 'Improve housekeeping and storage controls in back-of-house areas to prevent combustible build-up and maintain safe access.' : isPreOpeningAssessment ? 'Verify housekeeping, combustible storage and final fire loading after fit-out and before opening.' : 'Maintain existing housekeeping and combustible storage standards; no excessive fire loading was observed in escape routes at the time of inspection.'),
       tillLightingDefectObservation ? 'Defective lighting reported around till areas should be repaired and tracked to maintain adequate illumination for safe circulation and effective evacuation management.' : null,
       fireFindings.fire_doors_held_open || fireFindings.fire_doors_blocked
         ? 'Stop fire doors from being held open or blocked; enforce local checks to maintain effective compartmentation at all times.'
@@ -2776,7 +2778,7 @@ Sprinkler heads are installed throughout the premises in accordance with the ori
         (typeof c === 'string' && c.toLowerCase().includes('no'))
       if (auditSaysYes) return true
       if (auditSaysNo) return false
-      return true
+      return isPreOpeningAssessment ? null : true
     })(),
   }
 
@@ -2806,5 +2808,5 @@ Sprinkler heads are installed throughout the premises in accordance with the ori
   }
   
   // Return the data with sources
-  return applyFRAEvidenceReview(returnData, editedExtractedData, !!pdfText)
+  return applyPreOpeningEvidence(applyFRAEvidenceReview(returnData, editedExtractedData, !!pdfText), customData, editedExtractedData)
 }

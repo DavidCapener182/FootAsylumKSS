@@ -5,10 +5,11 @@ import { useEffect, useState } from 'react'
 type Row = { sourceActionId: string; kind: '' | 'remedial' | 'routine'; recommendation: string; priority: 'Low' | 'Medium' | 'High'; dueNote?: string }
 type Approved = { fingerprint: string; pdfRows: Row[]; trackingRows: Row[] }
 
-export function FraActionApproval({ instanceId, storeId, recommendations, onStateChange, onApproved }: {
+export function FraActionApproval({ instanceId, storeId, recommendations, preOpening = false, onStateChange, onApproved }: {
+  preOpening?: boolean
   instanceId: string
   storeId: string
-  recommendations: Array<{ recommendation: string; priority: 'Low' | 'Medium' | 'High'; dueNote?: string }>
+  recommendations: Array<{ sourceActionId?: string; recommendation: string; priority: 'Low' | 'Medium' | 'High'; dueNote?: string }>
   onStateChange: (required: boolean, approved: boolean) => void
   onApproved: () => void
 }) {
@@ -34,14 +35,14 @@ export function FraActionApproval({ instanceId, storeId, recommendations, onStat
           if (saved) {
             try { setRows(JSON.parse(saved) as Row[]) } catch { /* regenerate below */ }
           } else {
-            setRows(recommendations.map(item => ({ ...item, sourceActionId: crypto.randomUUID(), kind: '' })))
+            setRows(recommendations.map(item => ({ ...item, sourceActionId: preOpening && item.sourceActionId && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(item.sourceActionId) ? item.sourceActionId : crypto.randomUUID(), kind: '' })))
           }
         }
       })
       .catch(error => { if (!cancelled) setError(error instanceof Error ? error.message : 'Unable to load action approval') })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, [instanceId, storeId, recommendations, onStateChange])
+  }, [instanceId, storeId, recommendations, preOpening, onStateChange])
 
   useEffect(() => {
     if (required && !approved && rows.length) window.localStorage.setItem(`fra:action-draft:${instanceId}`, JSON.stringify(rows))

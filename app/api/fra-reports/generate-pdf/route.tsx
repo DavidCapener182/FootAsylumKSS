@@ -4,6 +4,7 @@ import { fraAuthorDenialResponse } from '@/lib/fra/api-author-guard'
 import { getFraReportFilename } from '@/lib/utils'
 import { launchPuppeteerBrowser } from '@/lib/pdf/puppeteer-browser'
 import type { Browser } from 'puppeteer'
+import { readPreOpeningPdfToc } from '@/lib/fra/pdf-toc'
 import { approvedActionPlanForInstance } from '@/lib/fra/publication'
 import { assertPrintedFraActionRows } from '@/lib/fra/approved-action-plan'
 
@@ -223,18 +224,50 @@ export async function GET(request: NextRequest) {
     const approvedActions = await approvedActionPlanForInstance(instanceId)
     if (approvedActions) {
       const printedRows = await page.evaluate(() => Array.from(document.querySelectorAll<HTMLTableRowElement>('.fra-action-plan-table tbody tr[data-fra-action-id]'))
-        .map(row => ({ sourceActionId: row.dataset.fraActionId || '', priority: row.cells[0]?.textContent?.trim() || '',
-          action: row.cells[1]?.textContent?.trim() || '' })))
+        .map(row => {
+          const actionCell = row.cells[1]?.cloneNode(true) as HTMLElement | undefined
+          actionCell?.querySelectorAll('[data-fra-action-tracking]').forEach(node => node.remove())
+          return { sourceActionId: row.dataset.fraActionId || '', priority: row.cells[0]?.textContent?.trim() || '',
+            action: actionCell?.textContent?.trim() || '' }
+        }))
       assertPrintedFraActionRows(approvedActions, actionFingerprint, printedRows)
     }
 
     // Use per-page headers in HTML only; do not enable Puppeteer headerTemplate or we get two headers on page 1.
-    const pdfBuffer = await page.pdf({
+    const pdfOptions = {
       printBackground: true,
       preferCSSPageSize: true,
       margin: { top: '0', right: '0', bottom: '0', left: '0' },
       displayHeaderFooter: false,
+    }
+    let pdfBuffer = await page.pdf(pdfOptions)
+    const preOpeningTocLabels = await page.evaluate(() => {
+      if (!document.querySelector('[data-fra-pre-opening="true"]')) return null
+      return Array.from(document.querySelectorAll('.fra-toc-item')).map(row => row.firstElementChild?.textContent?.trim() || '')
     })
+    if (preOpeningTocLabels) {
+      if (!preOpeningTocLabels.length) throw new Error('Pre-opening PDF has no contents entries to verify')
+      let stable = false
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const actualPages = await readPreOpeningPdfToc(pdfBuffer, preOpeningTocLabels)
+        const changed = await page.evaluate((numbers: Record<string, number>) => {
+          let changed = false
+          for (const row of Array.from(document.querySelectorAll('.fra-toc-item'))) {
+            const label = row.firstElementChild?.textContent?.trim() || ''
+            const cell = row.lastElementChild
+            const number = String(numbers[label])
+            if (!cell || !numbers[label]) throw new Error('Missing pre-opening contents target')
+            if (cell.textContent !== number) { cell.textContent = number; changed = true }
+          }
+          return changed
+        }, actualPages)
+        if (!changed) { stable = true; break }
+        pdfBuffer = await page.pdf(pdfOptions)
+      }
+      // The returned PDF must have been checked after its final render, because even
+      // a two-digit TOC number can change wrapping and therefore pagination.
+      if (!stable) throw new Error('Pre-opening PDF contents pagination did not stabilize')
+    }
 
     await browser.close()
     browser = null

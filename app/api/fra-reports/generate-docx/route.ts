@@ -126,7 +126,7 @@ const DOCX_CATEGORY_L_HEIGHT = 300
 function buildSectionCover(ctx: BuildContext): (Paragraph | Table)[] {
   const { data } = ctx
   const out: (Paragraph | Table)[] = []
-  out.push(H1('Fire Risk Assessment - Review'))
+  out.push(H1(data.assessmentContext === 'pre_opening' ? 'Pre-Opening Fire Risk Assessment' : 'Fire Risk Assessment - Review'))
   out.push(para('Page 1'))
   out.push(new Paragraph({ spacing: { after: 400 } }))
   out.push(H2(data.premises || 'Premises'))
@@ -203,12 +203,12 @@ function buildSectionPhotosToc(ctx: BuildContext): (Paragraph | Table)[] {
   return out
 }
 
-function buildSectionPurpose(): (Paragraph | Table)[] {
+function buildSectionPurpose({ data }: BuildContext): (Paragraph | Table)[] {
   return [
     H2('Purpose of This Assessment'),
-    para('The purpose of this Fire Risk Assessment is to provide a suitable and sufficient assessment of the risk to life from fire within the above premises and to confirm that appropriate fire safety measures are in place to comply with current fire safety legislation.'),
+    para(data.assessmentContext === 'pre_opening' ? 'This pre-opening assessment records available evidence and identifies precautions and verification required before public opening. It does not certify commissioning, handover or readiness to open.' : 'The purpose of this Fire Risk Assessment is to provide a suitable and sufficient assessment of the risk to life from fire within the above premises and to confirm that appropriate fire safety measures are in place to comply with current fire safety legislation.'),
     para('This assessment relates solely to life safety and does not address business continuity or property protection.'),
-    para('This document represents a live, operational Fire Risk Assessment and supersedes the pre-opening assumptions contained within the previous assessment.'),
+    para(data.assessmentContext === 'pre_opening' ? 'Reassess after final fit-out, commissioning and handover, before public opening.' : 'This document represents a live, operational Fire Risk Assessment and supersedes the pre-opening assumptions contained within the previous assessment.'),
   ]
 }
 
@@ -454,7 +454,7 @@ function buildSectionFireAlarm(ctx: BuildContext): (Paragraph | Table)[] {
   if (d.fireAlarmPanelFaults) out.push(...labelValue('Is panel free of faults', d.fireAlarmPanelFaults))
   if (d.callPointAccessibility) out.push(...labelValue('Call point accessibility', d.callPointAccessibility))
   if (d.fireAlarmMaintenance) out.push(para(d.fireAlarmMaintenance))
-  out.push(para('(NB: This assessment is based on visual inspection and review of available records. No physical testing of the fire alarm or emergency lighting systems was undertaken as part of this Fire Risk Assessment.)'))
+  out.push(para(data.assessmentContext === 'pre_opening' ? 'Testing and commissioning have not been verified from the supplied evidence.' : '(NB: This assessment is based on visual inspection and review of available records. No physical testing of the fire alarm or emergency lighting systems was undertaken as part of this Fire Risk Assessment.)'))
   return out
 }
 
@@ -469,7 +469,7 @@ function buildSectionEmergencyLighting(ctx: BuildContext): (Paragraph | Table)[]
   out.push(para(data.emergencyLightingDescription || '—'))
   if (d.emergencyLightingMaintenance) out.push(para(d.emergencyLightingMaintenance))
   if (d.emergencyLightingTestSwitchLocation) out.push(...labelValue('Location of Emergency Lighting Test Switch', d.emergencyLightingTestSwitchLocation))
-  out.push(para('(NB: This assessment is based on visual inspection and review of available records only. No physical testing of the emergency lighting system was undertaken as part of this assessment.)'))
+  out.push(para(data.assessmentContext === 'pre_opening' ? 'Emergency lighting testing and commissioning have not been verified from the supplied evidence.' : '(NB: This assessment is based on visual inspection and review of available records only. No physical testing of the emergency lighting system was undertaken as part of this assessment.)'))
   return out
 }
 
@@ -484,7 +484,7 @@ function buildSectionFireExtinguishers(ctx: BuildContext): (Paragraph | Table)[]
   out.push(para(data.fireExtinguishersDescription || '—'))
   if (d.fireExtinguisherService) out.push(para(d.fireExtinguisherService))
   if (d.extinguisherServiceDate) out.push(...labelValue('Last service date', d.extinguisherServiceDate))
-  out.push(para('Staff receive fire safety awareness training as part of their induction and refresher training, which includes instruction on the purpose of fire extinguishers. Company fire safety arrangements place emphasis on raising the alarm and evacuation, rather than firefighting.'))
+  out.push(para(data.assessmentContext === 'pre_opening' ? data.fireSafetyTrainingNarrative : 'Staff receive fire safety awareness training as part of their induction and refresher training, which includes instruction on the purpose of fire extinguishers. Company fire safety arrangements place emphasis on raising the alarm and evacuation, rather than firefighting.'))
   return out
 }
 
@@ -502,11 +502,11 @@ function buildSectionFireRescueAccess(ctx: BuildContext): (Paragraph | Table)[] 
   const d = data as FRAData & { accessDescription?: string }
   const out: (Paragraph | Table)[] = []
   out.push(H2('Brief description of access for Fire and Rescue Services:'))
-  out.push(para(d.accessDescription || 'Entry to the site can be gained via the main front entrance doors and via the rear service entry/loading bay. There is suitable access for Fire and Rescue Services from the surrounding road network.'))
-  out.push(...labelValue('Fire lift', 'N/A'))
-  out.push(...labelValue('Dry / wet riser', 'N/A'))
-  out.push(...labelValue('Fire hydrant', 'N/A'))
-  out.push(...labelValue('Open water', 'N/A'))
+  out.push(para(d.accessDescription || (data.assessmentContext === 'pre_opening' ? 'Fire and Rescue Service access and site facilities require confirmation with centre management.' : 'Entry to the site can be gained via the main front entrance doors and via the rear service entry/loading bay. There is suitable access for Fire and Rescue Services from the surrounding road network.')))
+  out.push(...labelValue('Fire lift', data.assessmentContext === 'pre_opening' ? 'Not confirmed' : 'N/A'))
+  out.push(...labelValue('Dry / wet riser', data.assessmentContext === 'pre_opening' ? 'Not confirmed' : 'N/A'))
+  out.push(...labelValue('Fire hydrant', data.assessmentContext === 'pre_opening' ? 'Not confirmed' : 'N/A'))
+  out.push(...labelValue('Open water', data.assessmentContext === 'pre_opening' ? 'Not confirmed' : 'N/A'))
   return out
 }
 
@@ -537,7 +537,7 @@ function buildSectionStage1Stage2(ctx: BuildContext): (Paragraph | Table)[] {
   if (d.maxStaffOnSite) staffParts.push(`Maximum on site at any time: ${d.maxStaffOnSite}`)
   if (d.youngPersonsCount && d.youngPersonsCount !== '0') staffParts.push(`Young persons: ${d.youngPersonsCount}`)
   if (staffParts.length > 0) out.push(para(`Staffing levels: ${staffParts.join(' • ')}`))
-  out.push(para('There are no sleeping occupants within the premises.'))
+  out.push(para(data.assessmentContext === 'pre_opening' ? data.sleepingRisk : 'There are no sleeping occupants within the premises.'))
   return out
 }
 
@@ -572,9 +572,9 @@ function buildSectionFirePlan(ctx: BuildContext): (Paragraph | Table)[] {
   const out: (Paragraph | Table)[] = []
   out.push(H2('Fire Plan'))
   out.push(para('Roles and identity of employees with specific responsibilities in the event of a fire', { bold: true }))
-  out.push(para('Store management are designated as Fire Wardens and have overall responsibility for coordinating the emergency response within the premises. Supervisory staff may act as Fire Marshals. All staff are responsible for following fire safety instructions and evacuating immediately on hearing the fire alarm. No person is permitted to re-enter the premises until authorised to do so by the Fire and Rescue Service.'))
+  out.push(para(data.assessmentContext === 'pre_opening' ? 'Confirm nominated fire wardens, marshals, staffing and emergency responsibilities before opening; appointments are not verified by this assessment.' : 'Store management are designated as Fire Wardens and have overall responsibility for coordinating the emergency response within the premises. Supervisory staff may act as Fire Marshals. All staff are responsible for following fire safety instructions and evacuating immediately on hearing the fire alarm. No person is permitted to re-enter the premises until authorised to do so by the Fire and Rescue Service.'))
   out.push(para('Arrangements for the safe evacuation of people identified at risk', { bold: true }))
-  out.push(para('All persons within the premises will be instructed to evacuate immediately via the nearest available fire exit upon activation of the fire alarm. Escape routes are clearly identified and lead to a place of relative safety.'))
+  out.push(para(data.assessmentContext === 'pre_opening' ? 'Confirm and brief the evacuation plan, assistance arrangements, final escape routes and assembly point before opening.' : 'All persons within the premises will be instructed to evacuate immediately via the nearest available fire exit upon activation of the fire alarm. Escape routes are clearly identified and lead to a place of relative safety.'))
   out.push(para('How the Fire and Rescue Service will be contacted', { bold: true }))
   out.push(para('The Fire and Rescue Service will be contacted via the emergency services by dialling 999 or 112.'))
   out.push(para('Procedures for liaising with the Fire and Rescue Service', { bold: true }))
@@ -595,8 +595,8 @@ function buildSectionFirePlan(ctx: BuildContext): (Paragraph | Table)[] {
     }),
     new TableRow({
       children: [
-        makeCell(data.assessmentDate || ''),
-        makeCell(data.assessorName || ''),
+        makeCell(data.assessmentContext === 'pre_opening' ? data.assessmentReviewDate || '' : data.assessmentDate || ''),
+        makeCell(data.assessmentContext === 'pre_opening' ? 'Not recorded' : data.assessorName || ''),
         makeCell(''),
       ],
     }),
@@ -634,7 +634,7 @@ function buildSectionRiskRating(ctx: BuildContext): (Paragraph | Table)[] {
     H2('Risk Rating'),
     ...labelValue('Likelihood', data.riskRatingLikelihood ?? '—'),
     ...labelValue('Consequences', data.riskRatingConsequences ?? '—'),
-    ...labelValue('Summary', data.summaryOfRiskRating ?? '—'),
+    ...labelValue('Summary', data.assessmentContext === 'pre_opening' ? `Provisional calculation; assessor judgement and opening approval not recorded. ${data.summaryOfRiskRating ?? ''}` : data.summaryOfRiskRating ?? '—'),
   ]
 }
 

@@ -588,6 +588,7 @@ export default function FRAReportViewPage({
               {instanceId && fraData.store?.id ? <FraActionApproval
                 instanceId={instanceId}
                 storeId={fraData.store.id}
+                preOpening={fraData.assessmentContext === 'pre_opening' && fraData.fraTemplateVariant !== 'bremont_watches'}
                 recommendations={fraData.actionPlanItems || EMPTY_ACTION_RECOMMENDATIONS}
                 onStateChange={handleActionApprovalState}
                 onApproved={fetchData}

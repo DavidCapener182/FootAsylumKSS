@@ -1,3 +1,4 @@
+import { validatePreOpeningMetadata } from '@/lib/fra/pre-opening'
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
@@ -35,6 +36,15 @@ export async function POST(request: NextRequest) {
     // Verify it's an FRA template
     if ((instance.fa_audit_templates as any)?.category !== 'fire_risk_assessment') {
       return NextResponse.json({ error: 'This endpoint is only for FRA audits' }, { status: 400 })
+    }
+
+    if (customData.preOpeningEvidence !== undefined || customData.preOpeningActionTracking !== undefined) {
+      try {
+        const validated = validatePreOpeningMetadata(customData)
+        if (customData.preOpeningEvidence !== undefined) customData.preOpeningEvidence = validated.preOpeningEvidence
+        if (customData.preOpeningActionTracking !== undefined) customData.preOpeningActionTracking = validated.preOpeningActionTracking
+      }
+      catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : 'Invalid pre-opening data' }, { status: 400 }) }
     }
 
     // Store custom data by finding or creating a special metadata response
