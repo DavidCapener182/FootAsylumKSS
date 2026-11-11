@@ -219,6 +219,9 @@ interface FRAData {
   riskRatingLikelihood?: 'Low' | 'Normal' | 'High'
   riskRatingConsequences?: 'Slight Harm' | 'Moderate Harm' | 'Extreme Harm'
   summaryOfRiskRating?: string
+  siteMapLatitude?: string
+  siteMapLongitude?: string
+  siteMapSource?: string
   preOpeningEvidence?: Record<string, string>
   preOpeningActionTracking?: Record<string, { owner?: string; targetDate?: string; closureEvidence?: string }>
   actionPlanLevel?: string
@@ -401,8 +404,15 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
     intumescentStripsPresent: data.intumescentStripsPresent ?? (isPreOpeningAssessment ? null : true),
     assessmentContext: data.assessmentContext ?? null,
     fra_template_variant: currentFraTemplateVariant,
-    ...(isPreOpeningAssessment ? { preOpeningEvidence: data.preOpeningEvidence || {}, preOpeningActionTracking: data.preOpeningActionTracking || {} } : {}),
+    ...(isPreOpeningAssessment ? { siteMapLatitude: data.siteMapLatitude || '', siteMapLongitude: data.siteMapLongitude || '', siteMapSource: data.siteMapSource || '', preOpeningEvidence: data.preOpeningEvidence || {}, preOpeningActionTracking: data.preOpeningActionTracking || {} } : {}),
   })
+  const mapLatitudeInput = customData.siteMapLatitude?.trim() || ''
+  const mapLongitudeInput = customData.siteMapLongitude?.trim() || ''
+  const hasReportMapCoordinates = isPreOpeningAssessment && mapLatitudeInput !== '' && mapLongitudeInput !== ''
+    && Number.isFinite(Number(mapLatitudeInput)) && Number.isFinite(Number(mapLongitudeInput))
+    && Math.abs(Number(mapLatitudeInput)) <= 90 && Math.abs(Number(mapLongitudeInput)) <= 180
+  const mapLatitude = hasReportMapCoordinates ? Number(mapLatitudeInput) : data.store?.latitude || null
+  const mapLongitude = hasReportMapCoordinates ? Number(mapLongitudeInput) : data.store?.longitude || null
   const [uploadingPhotos, setUploadingPhotos] = useState<Record<string, boolean>>({})
   const [deletingPhotoPath, setDeletingPhotoPath] = useState<string | null>(null)
   const [placeholderPhotos, setPlaceholderPhotos] = useState<Record<string, PlaceholderPhoto[]>>({})
@@ -457,9 +467,12 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
   const effectiveFloorCount = parseFloorCount(customData.numberOfFloors || data.numberOfFloors)
   const effectiveRiskLikelihood: FRARiskLikelihood = manualRiskRatingOverride?.likelihood ?? displayRiskRating.likelihood
   const effectiveRiskConsequence: FRARiskConsequence = manualRiskRatingOverride?.consequence ?? displayRiskRating.consequence
+  const consequenceLabel = (value: FRARiskConsequence) => isPreOpeningAssessment
+    ? ({ 'Slight Harm': 'Low', 'Moderate Harm': 'Medium', 'Extreme Harm': 'High' } as const)[value]
+    : value
   const matrixDerivedOverallRisk = FRA_RISK_MATRIX[effectiveRiskLikelihood][effectiveRiskConsequence]
   const effectiveOverallRisk = matrixDerivedOverallRisk
-  const displayRiskSummary = isPreOpeningAssessment ? `${hasAssessorRiskJudgement ? `The assessor’s assessed risk rating is ${effectiveOverallRisk.toLowerCase()}. Assessor rationale: ${manualRiskRatingOverride!.reason}` : `Provisional ${effectiveOverallRisk.toLowerCase()} risk indication based on recorded findings. The likelihood and consequence are generated automatically and await assessor judgement.`} Missing evidence is not evidence of satisfactory controls. Confirm the final layout, commissioning, handover and management arrangements, close relevant actions and reassess before public opening. This rating does not authorise opening.` : buildFRARiskSummary(fireFindings, {
+  const displayRiskSummary = isPreOpeningAssessment ? `${hasAssessorRiskJudgement ? `Assessed risk level: ${effectiveOverallRisk.toLowerCase()}. Likelihood: ${effectiveRiskLikelihood.toLowerCase()}; potential consequences of fire: ${consequenceLabel(effectiveRiskConsequence).toLowerCase()}.` : `Provisional ${effectiveOverallRisk.toLowerCase()} risk indication based on recorded findings. The likelihood and consequence are generated automatically and await assessor judgement.`} Missing evidence is not evidence of satisfactory controls. Confirm the final layout, commissioning, handover and management arrangements, close relevant actions and reassess before public opening. This rating does not authorise opening.` : buildFRARiskSummary(fireFindings, {
     ...displayRiskRating,
     likelihood: effectiveRiskLikelihood,
     consequence: effectiveRiskConsequence,
@@ -471,7 +484,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
   )
   const consistencyNarratives = isPreOpeningAssessment ? {
     ...baselineConsistencyNarratives,
-    fireDoorsStatement: `Recorded fire-door information: ${data.internalFireDoors || 'Not recorded'}. Confirm door integrity, seals, self-closing, latching and compartmentation before opening.`,
+    fireDoorsStatement: `Fire-door condition: ${String(data.internalFireDoors || 'Not recorded').trim().replace(/[.!?]+$/, '')}. Confirm door integrity, seals, self-closing, latching and compartmentation before opening.`,
     escapeRoutesStatement: 'Verify all escape routes, travel distances and exit arrangements against the final layout and intended occupancy before opening.',
     evacuationStatement: 'Agree and test the site-specific evacuation arrangements before opening, including assistance for people at increased risk and coordination with the landlord.',
     trainingStatement: 'Training completion and drill evidence must be recorded before opening; missing records do not establish completion.',
@@ -486,7 +499,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
     || fireFindings.fire_doors_held_open
     || fireFindings.fire_doors_blocked
   const effectiveOverallRiskLower = effectiveOverallRisk.toLowerCase()
-  const overallRiskNarrative = isPreOpeningAssessment ? (hasAssessorRiskJudgement ? 'as assessed by the assessor using the recorded likelihood, consequence and rationale. Verification of final pre-opening controls remains separate; this rating is not approval to open.' : 'as a provisional indication only, subject to assessor judgement and verification of final pre-opening controls. It is not approval to open.') : effectiveOverallRiskLower === 'tolerable' || effectiveOverallRiskLower === 'low'
+  const overallRiskNarrative = isPreOpeningAssessment ? (hasAssessorRiskJudgement ? 'as determined from the likelihood, consequence and assessment rationale. Verification of final pre-opening controls remains separate; this rating is not approval to open.' : 'as a provisional indication only, subject to assessor judgement and verification of final pre-opening controls. It is not approval to open.') : effectiveOverallRiskLower === 'tolerable' || effectiveOverallRiskLower === 'low'
     ? 'indicating that existing controls are generally adequate; ongoing monitoring and routine management are required.'
     : effectiveOverallRiskLower === 'moderate'
       ? 'indicating that improvement actions are required to strengthen day-to-day fire safety controls and maintain compliance.'
@@ -596,9 +609,9 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
       intumescentStripsPresent: data.intumescentStripsPresent ?? (isPreOpeningAssessment ? null : true),
       assessmentContext: data.assessmentContext ?? null,
       fra_template_variant: currentFraTemplateVariant,
-    ...(isPreOpeningAssessment ? { preOpeningEvidence: data.preOpeningEvidence || {}, preOpeningActionTracking: data.preOpeningActionTracking || {} } : {}),
+    ...(isPreOpeningAssessment ? { siteMapLatitude: data.siteMapLatitude || '', siteMapLongitude: data.siteMapLongitude || '', siteMapSource: data.siteMapSource || '', preOpeningEvidence: data.preOpeningEvidence || {}, preOpeningActionTracking: data.preOpeningActionTracking || {} } : {}),
     })
-  }, [data.floorArea, data.occupancy, data.operatingHours, data.buildDate, data.propertyType, data.numberOfFloors, data.numberOfFireExits, data.adjacentOccupancies, data.sleepingRisk, data.totalStaffEmployed, data.maxStaffOnSite, data.youngPersonsCount, data.description, data.intumescentStripsPresent, data.assessmentContext, currentFraTemplateVariant, isPreOpeningAssessment, data.preOpeningEvidence, data.preOpeningActionTracking])
+  }, [data.floorArea, data.occupancy, data.operatingHours, data.buildDate, data.propertyType, data.numberOfFloors, data.numberOfFireExits, data.adjacentOccupancies, data.sleepingRisk, data.totalStaffEmployed, data.maxStaffOnSite, data.youngPersonsCount, data.description, data.intumescentStripsPresent, data.assessmentContext, currentFraTemplateVariant, isPreOpeningAssessment, data.preOpeningEvidence, data.preOpeningActionTracking, data.siteMapLatitude, data.siteMapLongitude, data.siteMapSource])
 
   useEffect(() => {
     customDataRef.current = customData
@@ -1391,7 +1404,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
           {printHeaderContent}
         </div>
         <h2 className="text-xl font-semibold mb-4">Photo of Site / Building / Premises</h2>
-        <p className="text-sm text-slate-600 mb-4">Add screenshots or photos of the site, building and premises (e.g. from pages 3–6 of the reference FRA).</p>
+        {(!isPreOpeningAssessment || !showHeaderFooter) && <p className={isPreOpeningAssessment ? "text-sm text-slate-600 mb-4 print:hidden" : "text-sm text-slate-600 mb-4"}>Add screenshots or photos of the site, building and premises (e.g. from pages 3–6 of the reference FRA).</p>}
         <PhotoPlaceholder
           placeholderId="site-premises-photos"
           label="Site / Building / Premises (Photo 1–6)"
@@ -2022,7 +2035,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
                     intumescentStripsPresent: data.intumescentStripsPresent ?? (isPreOpeningAssessment ? null : true),
                     assessmentContext: data.assessmentContext ?? null,
                     fra_template_variant: currentFraTemplateVariant,
-    ...(isPreOpeningAssessment ? { preOpeningEvidence: data.preOpeningEvidence || {}, preOpeningActionTracking: data.preOpeningActionTracking || {} } : {}),
+    ...(isPreOpeningAssessment ? { siteMapLatitude: data.siteMapLatitude || '', siteMapLongitude: data.siteMapLongitude || '', siteMapSource: data.siteMapSource || '', preOpeningEvidence: data.preOpeningEvidence || {}, preOpeningActionTracking: data.preOpeningActionTracking || {} } : {}),
                   })
                 }}
                 disabled={saving}
@@ -2128,7 +2141,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
             <p>{data.fireAlarmMaintenance}</p>
             <DebugBadge source={data._sources?.fireAlarmMaintenance} fieldName="Fire Alarm Maintenance" />
             <p className="mt-2 italic">
-              {isPreOpeningAssessment ? '(System testing and commissioning have not been verified from the supplied evidence. Visual observations and reported operation are not commissioning certification.)' : <>(NB: This assessment is based on visual inspection and review of available records. No physical testing
+              {isPreOpeningAssessment ? '(System status is recorded above. Retain the relevant commissioning and test documentation with the site fire-safety records.)' : <>(NB: This assessment is based on visual inspection and review of available records. No physical testing
               of the fire alarm or emergency lighting systems was undertaken as part of this Fire Risk Assessment.)</>}
             </p>
           </div>
@@ -2160,7 +2173,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
             <PhotoPlaceholder placeholderId="emergency-lighting-switch" label="Emergency lighting test switch photo" maxPhotos={1} fit="contain" />
           </div>
           <p className="mt-2 italic">
-            {isPreOpeningAssessment ? '(Emergency-lighting testing and commissioning have not been verified from the supplied evidence. Confirm the test results and commissioning records before opening.)' : <>(NB: This assessment is based on visual inspection and review of available records only. No physical
+            {isPreOpeningAssessment ? '(Emergency-lighting status is recorded above. Retain the relevant commissioning and test documentation with the site fire-safety records.)' : <>(NB: This assessment is based on visual inspection and review of available records only. No physical
             testing of the emergency lighting system was undertaken as part of this assessment.)</>}
           </p>
         </div>
@@ -2252,7 +2265,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
         <div className="space-y-8 text-sm leading-relaxed">
           <div>
             <p className="font-semibold text-slate-700 mb-2">Fixed wire installation</p>
-            <p>{isPreOpeningAssessment ? 'Fixed-wire inspection, testing and commissioning must be evidenced before opening. Any recorded date below is not confirmation of a satisfactory result.' : <>Fixed wire installation has been inspected and tested.</>}</p>
+            <p>{isPreOpeningAssessment ? 'Fixed-wire inspection and testing information is detailed below. Retain the applicable electrical installation certificates and test results with the site records.' : <>Fixed wire installation has been inspected and tested.</>}</p>
             {data.fixedWireTestDate && (
               <p className="mt-1">
                 <span className="font-medium">Date inspected/tested:</span> {data.fixedWireTestDate}
@@ -2265,7 +2278,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
           </div>
           <div>
             <p className="font-semibold text-slate-700 mb-2">PAT testing</p>
-            <p>{isPreOpeningAssessment ? 'Confirm the inspection and testing arrangements appropriate to the portable appliances before opening. Recorded status and available evidence are shown below.' : <>Portable appliance testing has been carried out.</>}</p>
+            <p>{isPreOpeningAssessment ? 'Portable-appliance inspection and testing information is detailed below. Confirm that the arrangements are appropriate for the appliances in use before opening.' : <>Portable appliance testing has been carried out.</>}</p>
             {data.patTestingStatus && (
               <p className="mt-1">
                 <span className="font-medium">Status / date:</span> {data.patTestingStatus}
@@ -2361,15 +2374,32 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
               <DebugBadge source="DEFAULT" fieldName="Access Description" />
             </>
           )}
+          {isPreOpeningAssessment && editing && (
+            <div className={`space-y-2 ${printOnlyUiClass}`}>
+              <p className="font-semibold">Outlet centre map reference</p>
+              {(['siteMapLatitude', 'siteMapLongitude', 'siteMapSource'] as const).map((key) => {
+                const label = { siteMapLatitude: 'Site map latitude', siteMapLongitude: 'Site map longitude', siteMapSource: 'Site map source' }[key]
+                return <div key={key}><label htmlFor={key} className="font-medium">{label}</label><input id={key} type={key === 'siteMapSource' ? 'text' : 'number'} step={key === 'siteMapSource' ? undefined : 'any'} value={customData[key] || ''} onChange={(e) => setCustomData({ ...customData, [key]: e.target.value })} className="w-full border border-slate-300 rounded px-2 py-1 text-sm" /></div>
+              })}
+              <p className="text-sm text-slate-600">Use a verified centre location and record its source. These fields apply only to this report and do not identify the exact unit or appliance access.</p>
+            </div>
+          )}
           {/* Store Location Map - constrained for print so it fits on one page */}
           <div className="mt-4 fra-map-print">
+            {isPreOpeningAssessment && (!mapLatitude || !mapLongitude) ? (
+              (placeholderPhotos['appendix-site-plans']?.length || data.placeholderPhotos?.['appendix-site-plans']?.length) ? <p className="text-sm text-slate-600">Site location plan: see appendix.</p> : null
+            ) : (
             <StoreMap
               storeName={data.premises}
               address={data.address}
-              latitude={data.store?.latitude || null}
-              longitude={data.store?.longitude || null}
+              latitude={mapLatitude}
+              longitude={mapLongitude}
             />
+            )}
           </div>
+          {isPreOpeningAssessment && mapLatitude && mapLongitude && customData.siteMapSource?.trim() ? (
+            <p className="text-xs text-slate-600 mt-2">Outlet centre location. Source: {customData.siteMapSource}. This reference does not identify the exact unit, appliance access or approved routes.</p>
+          ) : null}
           <div className="mt-4 p-4 border border-slate-300 rounded-lg bg-slate-50 text-sm fra-access-summary">
             <h3 className="font-semibold mb-2 text-slate-800">Fire & Rescue Access Summary</h3>
             {isPreOpeningAssessment ? (
@@ -2514,7 +2544,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
             <strong>Staffing levels:</strong> {data.totalStaffEmployed && `Total staff employed: ${data.totalStaffEmployed}`}{data.maxStaffOnSite && ` • Maximum on site at any time: ${data.maxStaffOnSite}`}{data.youngPersonsCount && data.youngPersonsCount !== '0' && ` • Young persons: ${data.youngPersonsCount}`}
           </p>
         )}
-        <p className="text-sm mt-2">{isPreOpeningAssessment ? 'Sleeping occupancy: see the recorded sleeping-risk information above; confirm the intended use and any adjoining sleeping accommodation before opening.' : <>There are no sleeping occupants within the premises.</>}</p>
+        <p className="text-sm mt-2">{isPreOpeningAssessment ? 'Sleeping risk is detailed in the property information. Confirm any changes to the intended use or adjoining sleeping accommodation before opening.' : <>There are no sleeping occupants within the premises.</>}</p>
       </div>
 
       {/* Stage 3 – Evaluate, remove, reduce and protect */}
@@ -2525,7 +2555,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
         <h2 className="text-xl font-semibold mb-2">Stage 3 – Evaluate, remove, reduce and protect from risk</h2>
         
         {/* Fire Safety Measures – static fire action posters (no upload) */}
-        <div className="mt-4 fra-photo-block">
+        <div className={isPreOpeningAssessment ? "mt-4 fra-photo-block fra-complete-fire-posters" : "mt-4 fra-photo-block"}>
           <img
             src="/fire-safety-measures-posters.png"
             alt="Fire Action and Fire Alarm Call Point posters – fire safety measures"
@@ -2537,7 +2567,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
           <div>
             <h3 className="font-semibold mb-1">Evaluate the risk of a fire occurring</h3>
             <p>
-              {isPreOpeningAssessment ? (hasAssessorRiskJudgement ? 'The likelihood shown in the risk matrix is the assessor’s recorded judgement, supported by the rationale in the risk summary. Verify ignition sources, fire load, contractor activities and precautions for the final pre-opening condition.' : 'The likelihood shown in the risk matrix is provisional. The assessor must evaluate ignition sources, fire load, contractor activities and verified precautions for the final pre-opening condition.') : <>Considering the nature of the premises, the activities undertaken, the fire load associated with retail stock, and the fire
+              {isPreOpeningAssessment ? (hasAssessorRiskJudgement ? 'The assessed likelihood is shown in the risk matrix and explained in the risk summary. Verify ignition sources, fire load, contractor activities and precautions for the final pre-opening condition.' : 'The likelihood shown in the risk matrix is provisional. Ignition sources, fire load, contractor activities and precautions require assessment for the final pre-opening condition.') : <>Considering the nature of the premises, the activities undertaken, the fire load associated with retail stock, and the fire
               protection measures in place, the likelihood is assessed as {effectiveRiskLikelihood.toLowerCase()}.
               {effectiveRiskLikelihood === 'High'
                 ? ' This rating is driven by observed deficiencies in management controls that materially increase the probability of fire spread and escalation if an ignition occurs.'
@@ -2550,7 +2580,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
           <div>
             <h3 className="font-semibold mb-1">Evaluate the risk to people from a fire starting in the premises</h3>
             <p>
-              {isPreOpeningAssessment ? (hasAssessorRiskJudgement ? 'People at risk include staff, contractors and, after opening, customers. The consequence and overall risk shown are the assessor’s recorded judgement. Verification of escape routes, compartmentation, occupancy and evacuation arrangements remains required before opening.' : 'People at risk include staff, contractors and, after opening, customers. The consequence and overall risk shown are provisional pending verification of escape routes, compartmentation, occupancy and evacuation arrangements.') : <>In the event of a fire, there is a potential risk to staff and members of the public. The potential consequence is assessed as{' '}
+              {isPreOpeningAssessment ? (hasAssessorRiskJudgement ? 'People at risk include staff, contractors and, after opening, customers. The assessed consequence and overall risk are shown in the risk matrix. Verification of escape routes, compartmentation, occupancy and evacuation arrangements remains required before opening.' : 'People at risk include staff, contractors and, after opening, customers. The consequence and overall risk shown are provisional pending verification of escape routes, compartmentation, occupancy and evacuation arrangements.') : <>In the event of a fire, there is a potential risk to staff and members of the public. The potential consequence is assessed as{' '}
               {effectiveRiskConsequence.toLowerCase()}, taking account of escape route management, compartmentation performance and evacuation controls observed
               at the time of assessment. The resulting overall risk level is {effectiveOverallRisk.toLowerCase()}.</>}
             </p>
@@ -2589,15 +2619,15 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
             <p className="mt-1">
               {isPreOpeningAssessment ? 'Confirm the fire-resisting construction, compartmentation, penetrations and fire doors against the final fire strategy and completion evidence.' : <>The building is provided with fire-resisting construction, including compartmentation and internal fire doors,
               designed to restrict the spread of fire and smoke and to provide sufficient time for occupants to evacuate safely.</>}
-              {consistencyNarratives.fireDoorsStatement}
+              {isPreOpeningAssessment ? ' ' : null}{consistencyNarratives.fireDoorsStatement}
               {data.compartmentationStatus && (
                 <span className="block mt-1">
-                  <span className="font-medium">Compartmentation / ceiling tiles:</span> {data.compartmentationStatus}.
+                  <span className="font-medium">Compartmentation / ceiling tiles:</span> {isPreOpeningAssessment ? String(data.compartmentationStatus).trim().replace(/[.!?]+$/, '') : data.compartmentationStatus}.
                 </span>
               )}
             </p>
             <p className="mt-1">
-              {isPreOpeningAssessment ? 'The recorded alarm and emergency-lighting observations do not confirm design coverage or commissioning. Obtain and review system design, commissioning, test and handover records before opening.' : <>Automatic fire detection and alarm systems are installed throughout the premises to provide early warning of fire
+              {isPreOpeningAssessment ? 'Alarm and emergency-lighting status is detailed in the systems sections. Retain the system design, commissioning, test and handover records with the site fire-safety documentation.' : <>Automatic fire detection and alarm systems are installed throughout the premises to provide early warning of fire
               and to initiate evacuation. Emergency lighting is provided to illuminate escape routes and exits in the event of a
               failure of the normal lighting supply.</>}
             </p>
@@ -2757,7 +2787,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
             <h3 className="font-semibold mb-4">Assessment review</h3>
             {isPreOpeningAssessment && (
               <div className="space-y-4 text-sm leading-relaxed">
-                <p>A final recheck is required before public opening. Record evidence references, who verified each item and the date. An entry is not itself approval to open.</p>
+                <p>A final recheck is required before public opening, covering the completed layout, fire precautions and management arrangements. Retain supporting records and the dates and results of the checks.</p>
                 {Object.entries({ commissioning: 'System commissioning and test records', handover: 'Fit-out completion and handover', landlordResponsibilities: 'Landlord / tenant fire safety responsibilities', staffingTraining: 'Staffing, training and evacuation arrangements', finalLayoutRecheck: 'Final-layout pre-opening recheck' }).map(([key, label]) => (
                   <div key={key}>
                     <span className="font-semibold">{label}:</span>
@@ -2776,11 +2806,11 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
               </thead>
               <tbody>
                 <tr>
-                  <td className="border border-slate-300 p-2">{data.assessmentDate || ''}</td>
-                  <td className="border border-slate-300 p-2">{data.assessorName}</td>
+                  <td className="border border-slate-300 p-2">{isPreOpeningAssessment ? (data.assessmentReviewDate || 'Before public opening') : data.assessmentDate || ''}</td>
+                  <td className="border border-slate-300 p-2">{isPreOpeningAssessment ? '' : data.assessorName}</td>
                   <td className="border border-slate-300 p-2"></td>
                 </tr>
-                {data.assessmentReviewDate && (
+                {!isPreOpeningAssessment && data.assessmentReviewDate && (
                   <tr>
                     <td className="border border-slate-300 p-2">
                       {data.assessmentReviewDate}
@@ -2913,7 +2943,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
           </div>
 
           <div>
-            <h3 className="font-semibold mb-2">Proposed Recommended Controls</h3>
+            <h3 className="font-semibold mb-2">{isPreOpeningAssessment ? 'Recommended Controls' : 'Proposed Recommended Controls'}</h3>
             <p>
               To maintain and further improve fire safety standards within the premises, the following control
               measures are recommended:
@@ -2960,7 +2990,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
                 : 'Signage throughout was installed and clearly visible and exit route doors opened in the direction of travel and were secured by means of appropriate "push bar to open" door devices were fitted and could be opened easily. Fire doors are subject to routine management checks to ensure standards are maintained and any issues identified dynamically.'}
               {data.exitSignageCondition && (
                 <span className="ml-1">
-                  <span className="font-medium">Exit signage condition:</span> {data.exitSignageCondition}.
+                  <span className="font-medium">Exit signage condition:</span> {isPreOpeningAssessment ? String(data.exitSignageCondition).trim().replace(/[.!?]+$/, '') : data.exitSignageCondition}.
                 </span>
               )}
             </p>
@@ -3008,7 +3038,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
 
         <h3 className="text-lg font-semibold mb-2">Overall Fire Risk Rating</h3>
         <p className="text-sm leading-relaxed mb-4">
-          {isPreOpeningAssessment ? (hasAssessorRiskJudgement ? 'The matrix below shows the assessor’s assessed rating using the recorded likelihood, consequence and rationale. Verification of the completed premises and management arrangements remains required before opening; the rating is not a commissioning certificate or approval to open.' : 'The matrix below shows a provisional risk indication from recorded findings. It requires assessor judgement and verification of the completed premises and management arrangements before opening; it is not a commissioning certificate or approval to open.') : <>The overall fire risk rating has been determined by assessing the likelihood of fire occurring against the potential severity of consequences, taking into account existing fire precautions and management arrangements.</>}
+          {isPreOpeningAssessment ? (hasAssessorRiskJudgement ? 'The matrix below shows the assessed risk level, based on the likelihood, consequence and assessment rationale. Verification of the completed premises and management arrangements remains required before opening; the rating is not a commissioning certificate or approval to open.' : 'The matrix below shows a provisional risk indication from recorded findings. It requires assessor judgement and verification of the completed premises and management arrangements before opening; it is not a commissioning certificate or approval to open.') : <>The overall fire risk rating has been determined by assessing the likelihood of fire occurring against the potential severity of consequences, taking into account existing fire precautions and management arrangements.</>}
         </p>
         <figure className="fra-figure mb-4">
           <div className="overflow-x-auto">
@@ -3023,7 +3053,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
                       key={consequence}
                       className="border border-slate-300 bg-slate-100 px-3 py-2 text-center font-bold"
                     >
-                      {consequence}
+                      {consequenceLabel(consequence)}
                     </th>
                   ))}
                 </tr>
@@ -3045,7 +3075,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
                         >
                           <div>{overall}</div>
                           {selected && (
-                            <div className="text-[10px] mt-1 uppercase tracking-wide opacity-90">{isPreOpeningAssessment ? (hasAssessorRiskJudgement ? 'Assessor assessment' : 'Provisional indication') : 'Current assessment'}</div>
+                            <div className="text-[10px] mt-1 uppercase tracking-wide opacity-90">{isPreOpeningAssessment ? (hasAssessorRiskJudgement ? 'Assessed risk level' : 'Provisional indication') : 'Current assessment'}</div>
                           )}
                         </td>
                       )
@@ -3066,7 +3096,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
           </p>
         </figure>
         <p className="text-sm leading-relaxed mb-6">
-          {isPreOpeningAssessment ? (hasAssessorRiskJudgement ? 'The assessor’s assessed fire risk level is' : 'The provisional risk indication from recorded findings is') : 'Based on the findings of this assessment, the overall fire risk level for the premises is assessed as'}{' '}
+          {isPreOpeningAssessment ? (hasAssessorRiskJudgement ? 'The assessed fire risk level is' : 'The provisional risk indication from recorded findings is') : 'Based on the findings of this assessment, the overall fire risk level for the premises is assessed as'}{' '}
           <span className={`inline-block px-2 py-0.5 font-bold text-sm rounded border align-middle ${getOverallRiskBadgeClass(effectiveOverallRisk)}`}>{effectiveOverallRisk}</span>,{' '}
           {overallRiskNarrative}
         </p>
@@ -3074,7 +3104,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
         <div className="space-y-6 text-sm">
           <div>
             <h3 className="font-semibold mb-2">7.1.1 Likelihood of Fire</h3>
-            <p className="mb-2">{isPreOpeningAssessment ? (hasAssessorRiskJudgement ? 'Assessor’s assessed likelihood, with final pre-opening precautions still requiring confirmation:' : 'Provisional likelihood based on recorded findings, subject to assessor judgement and confirmation of the final pre-opening precautions:') : <>Taking into account the fire prevention measures observed at the time of this risk assessment, it is considered that the hazard from fire (likelihood of fire) at these premises is:</>}</p>
+            <p className="mb-2">{isPreOpeningAssessment ? (hasAssessorRiskJudgement ? 'Assessed likelihood, subject to verification of the final pre-opening precautions:' : 'Provisional likelihood based on recorded findings, subject to assessor judgement and confirmation of the final pre-opening precautions:') : <>Taking into account the fire prevention measures observed at the time of this risk assessment, it is considered that the hazard from fire (likelihood of fire) at these premises is:</>}</p>
             <p className="mt-2 mb-2">
               <span className={`inline-block px-3 py-1.5 font-bold text-base rounded border ${getLikelihoodBadgeClass(effectiveRiskLikelihood)}`}>
                 {effectiveRiskLikelihood}
@@ -3088,15 +3118,16 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
           </div>
           <div>
             <h3 className="font-semibold mb-2">7.1.2 Potential Consequences of Fire</h3>
+            {isPreOpeningAssessment && <p className="mb-2">This level describes the potential harm if a fire occurs, not the current condition of the building. High means a fire could cause serious injury or death.</p>}
             <p className="mt-2 mb-2">
               <span className={`inline-block px-3 py-1.5 font-bold text-base rounded border ${getConsequencesBadgeClass(effectiveRiskConsequence)}`}>
-                {effectiveRiskConsequence}
+                {consequenceLabel(effectiveRiskConsequence)}
               </span>
             </p>
             <ul className="list-disc list-inside mt-2 text-slate-600 space-y-1">
-              <li><strong>Slight Harm:</strong> Outbreak of fire unlikely to result in serious injury or death.</li>
-              <li><strong>Moderate Harm:</strong> Outbreak of fire could foreseeably result in injury but unlikely to involve multiple fatalities.</li>
-              <li><strong>Extreme Harm:</strong> Significant potential for serious injury or death of one or more occupants.</li>
+              <li><strong>{isPreOpeningAssessment ? 'Low' : 'Slight Harm'}:</strong> Outbreak of fire unlikely to result in serious injury or death.</li>
+              <li><strong>{isPreOpeningAssessment ? 'Medium' : 'Moderate Harm'}:</strong> Outbreak of fire could foreseeably result in injury but unlikely to involve multiple fatalities.</li>
+              <li><strong>{isPreOpeningAssessment ? 'High' : 'Extreme Harm'}:</strong> Significant potential for serious injury or death of one or more occupants.</li>
             </ul>
           </div>
           <div className="fra-risk-summary-section">
@@ -3126,20 +3157,20 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
         </div>
         <h2 className="text-xl font-semibold mb-4">8. Action Plan</h2>
         <p className="text-sm mb-4">
-          {isPreOpeningAssessment ? (hasAssessorRiskJudgement ? 'Assessor’s assessed risk level:' : 'Provisional risk indication:') : 'Current assessed risk level:'}{' '}
+          {isPreOpeningAssessment ? (hasAssessorRiskJudgement ? 'Assessed risk level:' : 'Provisional risk indication:') : 'Current assessed risk level:'}{' '}
           <span className={`inline-block px-3 py-1.5 font-bold text-base rounded border align-middle ${getOverallRiskBadgeClass(effectiveOverallRisk)}`}>
             {effectiveOverallRisk}
           </span>
-          .
+          {isPreOpeningAssessment ? '' : '.'}
         </p>
         <p className="text-sm mb-4">
           {isPreOpeningAssessment ? 'Recommended pre-opening actions and priorities. Residual risk after verification:' : 'It is considered that the following recommendations should be implemented to reduce fire risk to the target level:'}{' '}
           <span className={`inline-block px-3 py-1.5 font-bold text-base rounded border align-middle ${getOverallRiskBadgeClass('Tolerable')}`}>
             {isPreOpeningAssessment ? 'To be assessed' : 'Tolerable'}
           </span>
-          .
+          {isPreOpeningAssessment ? '' : '.'}
         </p>
-        <p className="text-sm mb-4">{isPreOpeningAssessment ? 'The assessor must determine the residual risk after verifying action closure and the final pre-opening condition. Completing an action list alone does not authorise opening.' : <>The target risk level is contingent upon completion and ongoing maintenance of the actions listed below.</>}</p>
+        <p className="text-sm mb-4">{isPreOpeningAssessment ? 'Residual risk must be reassessed after action closure and verification of the final pre-opening condition. Completing an action list alone does not authorise opening.' : <>The target risk level is contingent upon completion and ongoing maintenance of the actions listed below.</>}</p>
         <p className="text-sm font-semibold mb-2">The priority given for each recommendation should be acted upon as follows:</p>
         <ul className="list-disc list-inside text-sm text-slate-700 mb-6 space-y-1">
           <li><strong>Low:</strong> Remedy when next refurbishing or next reviewing management policy.</li>
@@ -3181,7 +3212,7 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
         ) : (
           <>
             <p className="text-sm text-slate-700 mb-4">
-              {isPreOpeningAssessment ? 'No action items are recorded here. This does not confirm readiness to open; the assessor must verify findings, commissioning evidence and final pre-opening checks.' : 'No significant deficiencies requiring formal action were identified at the time of assessment. Existing fire safety arrangements are considered suitable and sufficient, subject to ongoing management and routine review.'}
+              {isPreOpeningAssessment ? 'No action items are listed. Findings, commissioning records and final pre-opening checks still require verification before opening.' : 'No significant deficiencies requiring formal action were identified at the time of assessment. Existing fire safety arrangements are considered suitable and sufficient, subject to ongoing management and routine review.'}
             </p>
             {!data._fraActionFingerprint ? <div className="fra-keep overflow-x-auto">
               <table className="fra-print-table w-full border border-slate-300 text-sm fra-action-plan-table">
@@ -3211,9 +3242,9 @@ export function FRAReportView({ data, onDataUpdate, onRegisterSaveHandler, showP
               {printHeaderContent}
             </div>
             <h2 className="text-xl font-semibold mb-4">Additional Site Pictures</h2>
-            <p className="text-sm text-slate-600 italic mb-4">
+            {(!isPreOpeningAssessment || !showHeaderFooter) && <p className={isPreOpeningAssessment ? "text-sm text-slate-600 italic mb-4 print:hidden" : "text-sm text-slate-600 italic mb-4"}>
               Add up to 6 additional site photos below. Photos from H&S audit may also be displayed here when available.
-            </p>
+            </p>}
             <PhotoPlaceholder placeholderId="additional-site-pictures" label="Additional site picture" maxPhotos={6} />
             {isPreOpeningAssessment && (
               <div className="mt-4">

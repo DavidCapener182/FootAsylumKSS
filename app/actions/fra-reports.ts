@@ -2534,7 +2534,7 @@ Sprinkler heads are installed throughout the premises in accordance with the ori
         ? `Fire door integrity issues were identified (including intumescent-strip and/or maintenance defects) and require corrective action to maintain effective compartmentation. ${escapeSentence}`
         : hasCompartmentationDefect
         ? `${formatCompartmentationFinding()} ${escapeSentence}`
-        : isPreOpeningAssessment ? 'Fire-door and compartmentation performance has not been verified from the supplied evidence. ' + escapeSentence : 'Fire doors and compartmentation arrangements were observed to be in satisfactory condition, with doors not wedged open and fitted with intact intumescent protection. ' + escapeSentence
+        : isPreOpeningAssessment ? 'Fire-door and compartmentation performance requires verification. ' + escapeSentence : 'Fire doors and compartmentation arrangements were observed to be in satisfactory condition, with doors not wedged open and fitted with intact intumescent protection. ' + escapeSentence
       const managementFinding = (() => {
         const findings: string[] = []
         if (fireFindings.fire_alarm_tests_current === false) findings.push('weekly fire alarm testing was not evidenced as current')
@@ -2575,7 +2575,7 @@ Sprinkler heads are installed throughout the premises in accordance with the ori
       fireFindings.fire_alarm_tests_current === false || fireFindings.emergency_lighting_tests_current === false || fireFindings.extinguishers_serviced_current === false
         ? 'Bring routine testing and servicing records up to date for fire alarm systems, emergency lighting and fire-fighting equipment in accordance with statutory requirements and British Standards.'
         : isPreOpeningAssessment
-          ? 'Complete pre-opening commissioning and handover verification for fire alarm systems, emergency lighting and fire-fighting equipment, then implement routine testing and inspection from opening.'
+          ? 'Check commissioning and handover records for fire alarm systems, emergency lighting and fire-fighting equipment against the recorded system status. Obtain outstanding documents and implement routine testing and inspection from opening.'
           : 'Continue routine testing, inspection and servicing of fire alarm systems, emergency lighting and fire-fighting equipment in accordance with statutory requirements and British Standards.',
       isPreOpeningAssessment
         ? 'Complete staff fire safety induction, local fire plan briefing and first fire drill scheduling before opening to the public.'

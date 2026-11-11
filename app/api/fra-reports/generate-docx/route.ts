@@ -454,7 +454,7 @@ function buildSectionFireAlarm(ctx: BuildContext): (Paragraph | Table)[] {
   if (d.fireAlarmPanelFaults) out.push(...labelValue('Is panel free of faults', d.fireAlarmPanelFaults))
   if (d.callPointAccessibility) out.push(...labelValue('Call point accessibility', d.callPointAccessibility))
   if (d.fireAlarmMaintenance) out.push(para(d.fireAlarmMaintenance))
-  out.push(para(data.assessmentContext === 'pre_opening' ? 'Testing and commissioning have not been verified from the supplied evidence.' : '(NB: This assessment is based on visual inspection and review of available records. No physical testing of the fire alarm or emergency lighting systems was undertaken as part of this Fire Risk Assessment.)'))
+  out.push(para(data.assessmentContext === 'pre_opening' ? 'Retain the relevant commissioning and test documentation with the site fire-safety records.' : '(NB: This assessment is based on visual inspection and review of available records. No physical testing of the fire alarm or emergency lighting systems was undertaken as part of this Fire Risk Assessment.)'))
   return out
 }
 
@@ -469,7 +469,7 @@ function buildSectionEmergencyLighting(ctx: BuildContext): (Paragraph | Table)[]
   out.push(para(data.emergencyLightingDescription || '—'))
   if (d.emergencyLightingMaintenance) out.push(para(d.emergencyLightingMaintenance))
   if (d.emergencyLightingTestSwitchLocation) out.push(...labelValue('Location of Emergency Lighting Test Switch', d.emergencyLightingTestSwitchLocation))
-  out.push(para(data.assessmentContext === 'pre_opening' ? 'Emergency lighting testing and commissioning have not been verified from the supplied evidence.' : '(NB: This assessment is based on visual inspection and review of available records only. No physical testing of the emergency lighting system was undertaken as part of this assessment.)'))
+  out.push(para(data.assessmentContext === 'pre_opening' ? 'Retain emergency-lighting commissioning and test documentation with the site fire-safety records.' : '(NB: This assessment is based on visual inspection and review of available records only. No physical testing of the emergency lighting system was undertaken as part of this assessment.)'))
   return out
 }
 
@@ -634,7 +634,7 @@ function buildSectionRiskRating(ctx: BuildContext): (Paragraph | Table)[] {
     H2('Risk Rating'),
     ...labelValue('Likelihood', data.riskRatingLikelihood ?? '—'),
     ...labelValue('Consequences', data.riskRatingConsequences ?? '—'),
-    ...labelValue('Summary', data.assessmentContext === 'pre_opening' ? (data.manualRiskRatingOverride ? `Assessor's assessed risk rating: ${data.actionPlanLevel}. Likelihood: ${data.riskRatingLikelihood}; consequences: ${data.riskRatingConsequences}. Reason: ${data.manualRiskRatingOverride.reason} This risk judgement is separate from approval to open.` : `Provisional calculation; assessor judgement and opening approval not recorded. ${data.summaryOfRiskRating ?? ''}`) : data.summaryOfRiskRating ?? '—'),
+    ...labelValue('Summary', data.assessmentContext === 'pre_opening' ? (data.manualRiskRatingOverride ? `Assessed risk rating: ${data.actionPlanLevel}. Likelihood: ${data.riskRatingLikelihood}; consequences: ${data.riskRatingConsequences}. Reason: ${data.manualRiskRatingOverride.reason} This risk judgement is separate from approval to open.` : `Provisional risk indication; a completed risk judgement is not recorded. Opening readiness must be confirmed separately. ${data.summaryOfRiskRating ?? ''}`) : data.summaryOfRiskRating ?? '—'),
   ]
 }
 

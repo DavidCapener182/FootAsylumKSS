@@ -9,6 +9,12 @@ describe('reviewed PDF evidence', () => {
     expect(result.historyOfFires).toContain('No fire-incident history is provided')
     expect(result.travelDistancesEvidence).toContain('not measured')
   })
+  it('uses direct professional defaults for pre-opening measurement and design gaps', () => {
+    const result = applyFRAEvidenceReview({ assessmentContext: 'pre_opening' }, null, false)
+    expect(result.travelDistancesEvidence).toBe('Measured travel distances are not recorded. Measure the completed escape routes before opening.')
+    expect(result.fireAlarmCategoryEvidence).toContain('system design and commissioning records')
+    expect(result.fireAlarmCategoryEvidence).not.toContain('supplied assessment evidence')
+  })
   it('preserves the June observations, service dates and sprinkler presence', () => {
     const result = applyFRAEvidenceReview({ hasSprinklers: false, fireAlarmDescription: 'default', fireAlarmMaintenance: 'six monthly', internalFireDoors: 'default' }, { hasSprinklers: true, alarmSystemDescription: 'Alarm present; category unconfirmed', weeklyFireTests: 'Yes answer cites 20 January 2026', fireDoorsCondition: 'Doors replaced by June and close properly' }, true)
     expect(result.hasSprinklers).toBe(true)

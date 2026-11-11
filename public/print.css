@@ -562,3 +562,19 @@ body.fra-print-document [data-fra-pre-opening="true"] .fra-plan-sheet .fra-photo
 body.fra-print-document [data-fra-pre-opening="true"] .fra-plan-sheet img.fra-report-photo {
   object-fit: contain !important;
 }
+
+/* Keep the complete existing fire-action graphic in pre-opening reports. */
+body.fra-print-document [data-fra-pre-opening="true"] .fra-complete-fire-posters {
+  min-height: 0 !important;
+  height: auto !important;
+  overflow: visible !important;
+}
+body.fra-print-document [data-fra-pre-opening="true"] .fra-complete-fire-posters img {
+  height: auto !important;
+  object-fit: contain !important;
+}
+
+/* Show complete evidence photographs within the existing pre-opening frames. */
+body.fra-print-document [data-fra-pre-opening="true"] .fra-photo-block img.fra-report-photo {
+  object-fit: contain !important;
+}

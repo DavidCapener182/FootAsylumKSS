@@ -38,11 +38,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'This endpoint is only for FRA audits' }, { status: 400 })
     }
 
-    if (customData.preOpeningEvidence !== undefined || customData.preOpeningActionTracking !== undefined) {
+    if (customData.preOpeningEvidence !== undefined || customData.preOpeningActionTracking !== undefined || customData.siteMapLatitude !== undefined || customData.siteMapLongitude !== undefined || customData.siteMapSource !== undefined) {
       try {
         const validated = validatePreOpeningMetadata(customData)
         if (customData.preOpeningEvidence !== undefined) customData.preOpeningEvidence = validated.preOpeningEvidence
         if (customData.preOpeningActionTracking !== undefined) customData.preOpeningActionTracking = validated.preOpeningActionTracking
+        for (const key of ['siteMapLatitude', 'siteMapLongitude', 'siteMapSource'] as const) {
+          if (customData[key] !== undefined) customData[key] = validated[key]
+        }
       }
       catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : 'Invalid pre-opening data' }, { status: 400 }) }
     }

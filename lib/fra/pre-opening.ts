@@ -29,7 +29,13 @@ export function validatePreOpeningMetadata(data: Record<string, any>) {
       tracking[id] = { owner: row.owner === undefined ? '' : text(row.owner, 300), targetDate, closureEvidence: row.closureEvidence === undefined ? '' : text(row.closureEvidence, 5000) }
     }
   }
-  return { preOpeningEvidence: evidence, preOpeningActionTracking: tracking }
+  const latitude = data.siteMapLatitude == null ? '' : text(String(data.siteMapLatitude), 30)
+  const longitude = data.siteMapLongitude == null ? '' : text(String(data.siteMapLongitude), 30)
+  if (latitude || longitude) {
+    if (!latitude || !longitude || !Number.isFinite(Number(latitude)) || !Number.isFinite(Number(longitude)) || Math.abs(Number(latitude)) > 90 || Math.abs(Number(longitude)) > 180) throw new Error('Enter valid latitude and longitude together')
+  }
+  const source = data.siteMapSource == null ? '' : text(data.siteMapSource, 2000)
+  return { preOpeningEvidence: evidence, preOpeningActionTracking: tracking, siteMapLatitude: latitude, siteMapLongitude: longitude, siteMapSource: source }
 }
 
 /** Reviewed location text is not an extraction fragment: retain it without the legacy 90-character heuristic. */
@@ -38,12 +44,14 @@ export function preOpeningLocation(value: unknown): string | null {
 }
 
 const prerequisites = [
-  ['commissioning', 'Verify fire alarm category, coverage, cause-and-effect, faults and commissioning records; verify emergency lighting coverage and commissioning test results before opening.'],
-  ['extinguishers', 'Confirm the final extinguisher provision, suitability, mounting, signage, accessibility and service or commissioning evidence before opening.'],
-  ['handover', 'Obtain the fire strategy, as-built information, fire-door and compartmentation records, electrical installation certification and applicable equipment inspection records; record outstanding handover items.'],
-  ['landlord', 'Confirm landlord and tenant responsibilities, shared escape routes, alarm interfaces, sprinkler arrangements and emergency-service access with centre management.'],
-  ['staffing', 'Confirm opening staffing, named fire safety responsibilities, evacuation arrangements, assistance needs and completed staff instruction and training; establish the testing and drill programme.'],
-  ['recheck', 'Complete a pre-opening recheck after fit-out: remove contractor materials and temporary coverings, verify final layout, escape routes, doors, signage and fire load; record closure evidence and obtain the responsible person’s opening decision.'],
+  ['commissioning', 'Obtain the fire alarm commissioning certificate, electrical installation records and emergency-lighting test and commissioning records. Close any outstanding system defects before opening and retain the documents on site.'],
+  ['extinguishers', 'Complete extinguisher mounting or stands and signage, and clear access to every extinguisher. Check the final provision against the fire risks and retain service or commissioning records.'],
+  ['handover', 'Complete remaining fit-out works, partitions, fire-stopping and ceiling joints affecting fire separation. Obtain the final fire strategy, as-built information and handover documents, and close outstanding fire-safety items.'],
+  ['landlord', 'Record landlord and tenant fire-safety responsibilities, alarm interfaces, shared escape arrangements and emergency-service access. Brief the opening management team on the agreed arrangements.'],
+  ['staffing', 'Complete opening-team fire-safety induction and the local emergency briefing. Assign evacuation roles and assistance arrangements, and start the required testing and inspection programme before public opening.'],
+  ['recheck', 'Remove remaining contractor materials and temporary coverings. Walk the completed escape routes, check final exits and fire-door closing and release arrangements, and record a final pre-opening check with closure evidence.'],
+  ['routine-audit', 'At the first scheduled H&S audit, review ongoing logbook completion, refresher-training and drill records, housekeeping, stock storage and maintenance records. Initial fire-safety readiness, induction and required opening tests must be completed before public opening.'],
+
 ] as const
 
 /** Applied only to the pre-opening profile; no inference of approval, commissioning or completed checks. */
@@ -52,13 +60,14 @@ export function applyPreOpeningEvidence<T extends Record<string, any>>(data: T, 
   if (data.assessmentContext !== 'pre_opening' && data.fraTemplateVariant !== FRA_TEMPLATE_VARIANTS.NEW_STORE_PRE_OPENING) return data
   const supplied = (key: string, fallback: string) => preOpeningLocation(custom?.[key]) || preOpeningLocation(review?.[key]) || fallback
   const metadata = validatePreOpeningMetadata(custom || {})
+  const commissioningInformation = preOpeningLocation(metadata.preOpeningEvidence.commissioning)
   const actionId = (key: string) => {
     const hex = createHash('sha256').update(`${data.fraInstance?.id || ''}:${key}`).digest('hex')
     return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-5${hex.slice(13, 16)}-a${hex.slice(17, 20)}-${hex.slice(20, 32)}`
   }
   const rows = (data.actionPlanItems || []).filter((row: any) => !/^Continue routine checks and testing/.test(row.recommendation)).map((row: any) => ({ ...row }))
   for (const [key, recommendation] of prerequisites) {
-    if (!rows.some((row: any) => row.sourceActionId === actionId(`preopening-${key}`) || row.recommendation === recommendation)) rows.push({ sourceActionId: actionId(`preopening-${key}`), recommendation, priority: 'High', dueNote: 'Before public opening; completion not recorded' })
+    if (!rows.some((row: any) => row.sourceActionId === actionId(`preopening-${key}`) || row.recommendation === recommendation)) rows.push({ sourceActionId: actionId(`preopening-${key}`), recommendation, priority: key === 'routine-audit' ? 'Low' : 'High', dueNote: key === 'routine-audit' ? 'First scheduled H&S audit' : 'Before public opening; completion not recorded' })
   }
   // Deterministic content-derived identities keep tracking attached when unrelated rows are inserted/reordered.
   for (const row of rows) {
@@ -67,15 +76,16 @@ export function applyPreOpeningEvidence<T extends Record<string, any>>(data: T, 
     }
   }
   return { ...data, ...metadata,
+    ...(metadata.siteMapLatitude && metadata.siteMapLongitude ? { store: { ...data.store, latitude: Number(metadata.siteMapLatitude), longitude: Number(metadata.siteMapLongitude) } } : {}),
     assessmentReviewDate: 'Before public opening, after final fit-out and commissioning; then on material change',
-    accessDescription: supplied('accessDescription', 'Fire and Rescue Service access, appliance routes, site facilities and landlord arrangements require confirmation; unobstructed access has not been verified from the supplied evidence.'),
+    accessDescription: supplied('accessDescription', 'Fire and Rescue Service access, appliance routes, site facilities and landlord arrangements require confirmation; access restrictions and appliance routes have not been confirmed.'),
     sleepingRisk: supplied('sleepingRisk', 'Sleeping occupancy and any adjoining sleeping risks have not been confirmed.'),
-    historyOfFires: supplied('historyOfFires', 'Fire-incident history has not been confirmed in the supplied evidence.'),
+    historyOfFires: supplied('historyOfFires', 'Fire-incident history has not been confirmed.'),
     internalFireDoors: supplied('fireDoorsCondition', 'Fire-door condition, seals, self-closing operation and fire resistance require verification against the recorded observations and installation information.'),
-    fireAlarmDescription: supplied('fireAlarmDescription', supplied('alarmSystemDescription', 'Fire alarm provision, system category, coverage and commissioning status must be confirmed from the final design, installation records and site checks. No alarm category or completed commissioning is assumed.')),
-    emergencyLightingDescription: supplied('emergencyLightingDescription', 'Emergency escape lighting coverage and performance must be verified against final layout, commissioning results and handover records.'),
+    fireAlarmDescription: supplied('fireAlarmDescription', supplied('alarmSystemDescription', commissioningInformation || 'Confirm the fire alarm system category, coverage and commissioning documentation against the installation records. System condition and commissioning information are recorded below.')),
+    emergencyLightingDescription: supplied('emergencyLightingDescription', 'Check emergency escape lighting coverage and performance against the final layout, test results and handover records. System information is recorded below.'),
     fireExtinguishersDescription: supplied('fireExtinguishersDescription', 'Final extinguisher provision, suitability, mounting, signage, accessibility and commissioning or servicing evidence require verification before opening.'),
-    sprinklerDescription: supplied('sprinklerDescription', data.hasSprinklers ? 'Sprinkler presence is recorded. Design, coverage, condition, landlord responsibilities and commissioning or handover evidence require verification.' : 'Sprinkler provision and any landlord system interfaces require confirmation; absence is not inferred from missing evidence.'),
+    sprinklerDescription: supplied('sprinklerDescription', data.hasSprinklers ? 'A sprinkler system is recorded. Design, coverage, condition, landlord responsibilities and commissioning or handover evidence require verification.' : 'Sprinkler provision and any landlord system interfaces require confirmation; system provision has not been confirmed.'),
     sprinklerClearance: supplied('sprinklerClearance', 'Final stock and fit-out clearances require verification.'),
     fireExtinguisherService: supplied('fireExtinguisherService', 'Extinguisher servicing or commissioning evidence has not been confirmed.'),
     fireAlarmMaintenance: supplied('weeklyFireTests', 'Commissioning records and the ongoing test and maintenance arrangements require verification before opening.'),

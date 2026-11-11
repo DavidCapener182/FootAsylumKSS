@@ -18,10 +18,18 @@ describe('pre-opening profile isolation and evidence', () => {
     expect(result.sleepingRisk).toContain('not been confirmed')
     expect(result.assessmentReviewDate).toContain('Before public opening')
     expect(result).not.toHaveProperty('signature')
-    expect(result.accessDescription).toContain('not been verified')
+    expect(result.accessDescription).toContain('not been confirmed')
     expect(result.sprinklerDescription).not.toContain('in accordance')
-    expect(result.actionPlanItems).toHaveLength(7)
+    expect(result.actionPlanItems).toHaveLength(8)
     expect(result.actionPlanItems.some((row: any) => /^Continue routine/.test(row.recommendation))).toBe(false)
+  })
+  it('uses saved commissioning status without turning outstanding documents into an uncommissioned system', () => {
+    const commissioning = 'Fire alarm commissioned; no faults at inspection. Commissioning documents and category confirmation outstanding.'
+    const result: any = applyPreOpeningEvidence({ ...base, assessmentContext: 'pre_opening' }, { preOpeningEvidence: { commissioning } }, null)
+    expect(result.fireAlarmDescription).toBe(commissioning)
+    expect(result.fireAlarmDescription).not.toContain('No alarm category or completed commissioning is assumed')
+    const waiting: any = applyPreOpeningEvidence({ ...base, assessmentContext: 'pre_opening' }, { preOpeningEvidence: { commissioning: 'Commissioning is still pending.' } }, null)
+    expect(waiting.fireAlarmDescription).toBe('Commissioning is still pending.')
   })
   it('preserves owner/date/closure evidence and stable action identity across reorder', () => {
     const input = { ...base, assessmentContext: 'pre_opening' }
@@ -31,6 +39,20 @@ describe('pre-opening profile isolation and evidence', () => {
     const next: any = applyPreOpeningEvidence({ ...input, actionPlanItems: [...input.actionPlanItems].reverse() }, { preOpeningActionTracking: tracking }, null)
     expect(next.actionPlanItems.find((row: any) => row.recommendation === 'Remove door wedge').sourceActionId).toBe(sourceActionId)
     expect(next.preOpeningActionTracking).toEqual(tracking)
+  })
+  it('uses report-only map coordinates without changing store identity or stored directory coordinates', () => {
+    const store = { id: 'example-store', latitude: null, longitude: null }
+    const result: any = applyPreOpeningEvidence({ ...base, assessmentContext: 'pre_opening', store }, { siteMapLatitude: '51.5', siteMapLongitude: '-1.8', siteMapSource: 'Verified public map' }, null)
+    expect(result.store).toEqual({ id: 'example-store', latitude: 51.5, longitude: -1.8 })
+    expect(store.latitude).toBeNull()
+    expect(result.siteMapSource).toBe('Verified public map')
+    expect(() => validatePreOpeningMetadata({ siteMapLatitude: '91', siteMapLongitude: '-1.8' })).toThrow()
+  })
+  it('keeps opening requirements separate from routine follow-up', () => {
+    const result: any = applyPreOpeningEvidence({ ...base, assessmentContext: 'pre_opening' }, null, null)
+    const routine = result.actionPlanItems.find((row: any) => row.priority === 'Low')
+    expect(routine.dueNote).toBe('First scheduled H&S audit')
+    expect(routine.recommendation).toContain('must be completed before public opening')
   })
   it('preserves full reviewed location including more than 90 characters', () => {
     const location = 'Within the rear stockroom adjacent to the electrical intake cupboard, behind the staff welfare corridor and opposite the final exit.'
